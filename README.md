@@ -1,0 +1,2 @@
+# cnf-gotests
+
