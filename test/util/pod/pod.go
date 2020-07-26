@@ -14,36 +14,43 @@ import (
 	"k8s.io/client-go/tools/remotecommand"
 	"k8s.io/utils/pointer"
 
-	testclient "github.com/openshift/sriov-network-operator/test/util/client"
-	"github.com/openshift/sriov-network-operator/test/util/images"
-	"github.com/openshift/sriov-network-operator/test/util/namespaces"
+	testclient "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
 )
 
 const hostnameLabel = "kubernetes.io/hostname"
 
-func getDefinition() *corev1.Pod {
+func getDefinition(namespace string, image string) *corev1.Pod {
 	podObject := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "testpod-",
-			Namespace:    namespaces.Test},
+			Namespace:    namespace},
 		Spec: corev1.PodSpec{
 			TerminationGracePeriodSeconds: pointer.Int64Ptr(0),
 			Containers: []corev1.Container{{Name: "test",
-				Image:   images.Test(),
+				Image:   image,
 				Command: []string{"/bin/bash", "-c", "sleep INF"}}}}}
 
 	return podObject
 }
 
-func DefineWithNetworks(networks []string) *corev1.Pod {
-	podObject := getDefinition()
+func DefineWithNetworks(networks []string, namespace string, image string) *corev1.Pod {
+	podObject := getDefinition(namespace, image)
 	podObject.Annotations = map[string]string{"k8s.v1.cni.cncf.io/networks": strings.Join(networks, ",")}
 
 	return podObject
 }
 
-func DefineWithHostNetwork(nodeName string) *corev1.Pod {
-	podObject := getDefinition()
+func DefineWithNodeNetworks(nodeName string, networks []string, namespace string, image string) *corev1.Pod {
+	podObject := getDefinition(namespace, image)
+	podObject.Annotations = map[string]string{"k8s.v1.cni.cncf.io/networks": strings.Join(networks, ",")}
+	podObject.Spec.NodeSelector = map[string]string{
+		"kubernetes.io/hostname": nodeName,
+	}
+	return podObject
+}
+
+func DefineWithHostNetwork(nodeName string, namespace string, image string) *corev1.Pod {
+	podObject := getDefinition(namespace, image)
 	podObject.Spec.HostNetwork = true
 	podObject.Spec.NodeSelector = map[string]string{
 		"kubernetes.io/hostname": nodeName,

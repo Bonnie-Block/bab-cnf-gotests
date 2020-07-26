@@ -6,9 +6,10 @@ import (
 	"os"
 
 	sriovv1 "github.com/openshift/sriov-network-operator/pkg/apis/sriovnetwork/v1"
-	"github.com/openshift/sriov-network-operator/test/util/client"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
 )
 
 // NodesSelector represent the label selector used to filter impacted nodes.

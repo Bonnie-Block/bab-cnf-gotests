@@ -15,7 +15,7 @@ import (
 	"k8s.io/utils/pointer"
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 
-	testclient "github.com/openshift/sriov-network-operator/test/util/client"
+	testclient "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
 )
 
 // Test is the namespace to be use for testing

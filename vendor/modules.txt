@@ -126,12 +126,6 @@ github.com/openshift/sriov-network-operator/pkg/apis/sriovnetwork/v1
 github.com/openshift/sriov-network-operator/pkg/client/clientset/versioned/scheme
 github.com/openshift/sriov-network-operator/pkg/client/clientset/versioned/typed/sriovnetwork/v1
 github.com/openshift/sriov-network-operator/pkg/render
-github.com/openshift/sriov-network-operator/test/util/client
-github.com/openshift/sriov-network-operator/test/util/images
-github.com/openshift/sriov-network-operator/test/util/k8sreporter
-github.com/openshift/sriov-network-operator/test/util/namespaces
-github.com/openshift/sriov-network-operator/test/util/nodes
-github.com/openshift/sriov-network-operator/test/util/pod
 # github.com/pkg/errors v0.9.1
 github.com/pkg/errors
 # github.com/spf13/pflag v1.0.5
