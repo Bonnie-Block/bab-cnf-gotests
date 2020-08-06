@@ -1,6 +1,9 @@
 # Export GO111MODULE=on to enable project to be built from within GOPATH/src
 export GO111MODULE=on
 
+.PHONY: client-bin \
+		client-pod
+
 govet:
 	@echo "Running go vet"
 	# Disabling GO111MODULE just for go vet execution
@@ -23,3 +26,11 @@ test-all:
 
 test-features:
 	FEATURES="$(FEATURES)" ./hack/run-tests.sh features 
+
+client-bin:
+	@echo "Making client cmd binary"
+	hack/build-clientcmd-bin.sh
+
+client-pod:
+	@echo "Making client pod"
+	docker build --no-cache -f cnf-gotests/Dockerfile -t cnf-gotests-client .
