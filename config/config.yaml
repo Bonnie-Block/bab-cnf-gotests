@@ -1,0 +1,8 @@
+# General configurations
+general:
+  report: reports/
+  cnf_worker_label: "node-role.kubernetes.io/worker-cnf"
+  failed_tests_logs: "failed_tests_logs.txt"
+network:
+  client_container_image: docker-registry.upshift.redhat.com/cnf-gotests/cnf-gotests-client:0.1
+  

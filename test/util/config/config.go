@@ -1,0 +1,110 @@
+package config
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
+
+	"github.com/kelseyhightower/envconfig"
+	"gopkg.in/yaml.v2"
+
+	testclient "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
+)
+
+const (
+	// ConfigPath path to config file
+	ConfigPath = "config/config.yaml"
+)
+
+// Config type keeps general configuration
+type Config struct {
+	General struct {
+		ReportDirAbsPath              string `yaml:"report" envconfig:"REPORT_DIR_NAME"`
+		CnfNodeLabel                  string `yaml:"cnf_worker_label"`
+		DumpFailedTestsReportLocation string `envconfig:"REPORTER_ERROR_OUTPUT"`
+	} `yaml:"general"`
+	Network struct {
+		ClientContainerImage string `yaml:"client_container_image" envconfig:"NETWORK_CLIENT_CONTAINER_IMAGE"`
+	} `yaml:"network"`
+}
+
+// NewConfig returs instance Config type
+func NewConfig() (*Config, error) {
+	var c Config
+	_, filename, _, _ := runtime.Caller(0)
+	baseDir := filepath.Dir(filepath.Dir(filepath.Join(filepath.Dir(filename), "..")))
+	confFile := filepath.Join(baseDir, ConfigPath)
+	err := readFile(&c, confFile)
+	if err != nil {
+		return nil, err
+	}
+	c.General.ReportDirAbsPath = filepath.Join(baseDir, c.General.ReportDirAbsPath)
+	err = readEnv(&c)
+	if err != nil {
+		return nil, err
+	}
+	return &c, nil
+}
+
+func readFile(c *Config, cfgfile string) error {
+	f, err := os.Open(cfgfile)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	decoder := yaml.NewDecoder(f)
+	err = decoder.Decode(&c)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func readEnv(c *Config) error {
+	err := envconfig.Process("", c)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// GetReportPath returns full path to the report file
+func (c *Config) GetReportPath(file string) string {
+	reportFileName := strings.TrimSuffix(filepath.Base(file), filepath.Ext(filepath.Base(file)))
+	return fmt.Sprintf("%s.xml", filepath.Join(c.General.ReportDirAbsPath, reportFileName))
+}
+
+// GetDumpFailedTestReportLocation returns destination file for failed tests logs
+func (c *Config) GetDumpFailedTestReportLocation(file string) *os.File {
+	if c.General.DumpFailedTestsReportLocation == "stdout" {
+		return os.Stdout
+	} else if c.General.DumpFailedTestsReportLocation == "true" {
+
+		if _, err := os.Stat(c.General.ReportDirAbsPath); os.IsNotExist(err) {
+			os.Mkdir(c.General.ReportDirAbsPath, 0744)
+		}
+
+		dumpFileName := strings.TrimSuffix(filepath.Base(file), filepath.Ext(filepath.Base(file)))
+		f, err := os.OpenFile(
+			filepath.Join(c.General.ReportDirAbsPath, fmt.Sprintf("failed_%s.log", dumpFileName)), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+
+		if err != nil {
+			return nil
+		}
+		return f
+	} else {
+		return nil
+	}
+}
+
+// DefineClients sets client and return it's instance
+func DefineClients() (*testclient.ClientSet, error) {
+	clients := testclient.New("")
+	if clients == nil {
+		return nil, fmt.Errorf("client is not set please check KUBECONFIG env variable")
+	}
+	return clients, nil
+}
