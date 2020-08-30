@@ -138,7 +138,6 @@ var _ = Describe("CNF SRIOV", func() {
 	},
 
 		Entry(describe(""), parameters.MTUCustom, parameters.ConnectivityDiffNode, parameters.CommunicationProtocolUnicastICMP),
-		Entry(describe(""), 20000, parameters.ConnectivityDiffNode, parameters.CommunicationProtocolUnicastICMP),
 		Entry(describe(""), parameters.MTUCustom, parameters.ConnectivitySameNodeSamePF, parameters.CommunicationProtocolUnicastICMP),
 		Entry(describe(""), parameters.MTUStandart, parameters.ConnectivityDiffNode, parameters.CommunicationProtocolUnicastICMP),
 		Entry(describe(""), parameters.MTUStandart, parameters.ConnectivitySameNodeSamePF, parameters.CommunicationProtocolUnicastICMP),
@@ -148,7 +147,7 @@ var _ = Describe("CNF SRIOV", func() {
 })
 
 func defineTestCommandParameters(negative bool, protocol string, mtu int, connectivity string, serverIP string) []string {
-	testCommand := []string{"clientcmd"}
+	testCommand := []string{"testcmd"}
 	var protocolOption string
 	if protocol == parameters.CommunicationProtocolUnicastICMP {
 		protocolOption = "icmp"

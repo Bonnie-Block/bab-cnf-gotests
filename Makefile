@@ -27,10 +27,10 @@ test-all:
 test-features:
 	FEATURES="$(FEATURES)" ./hack/run-tests.sh features 
 
-client-bin:
-	@echo "Making client cmd binary"
-	hack/build-clientcmd-bin.sh
+test-bin:
+	@echo "Making test cmd binary"
+	hack/build-testcmd-bin.sh
 
-client-pod:
-	@echo "Making client pod"
+test-pod:
+	@echo "Making test pod"
 	docker build --no-cache -f cnf-gotests/Dockerfile -t cnf-gotests-client .

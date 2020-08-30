@@ -14,4 +14,4 @@ export GOFLAGS="${GOFLAGS:-"-mod=vendor"}"
 export PATH=$PATH:$GOPATH/bin
 
 mkdir -p cnf-gotests/bin
-go build -o ./cnf-gotests/bin/clientcmd cnf-gotests/clientcmd/main.go
+go build -o ./cnf-gotests/bin/testcmd cnf-gotests/testcmd/main.go
