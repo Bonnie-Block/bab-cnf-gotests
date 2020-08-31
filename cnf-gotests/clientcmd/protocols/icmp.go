@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"os/exec"
 	"strings"
 )
 
@@ -38,13 +37,7 @@ func (test *ICMPTest) defineCommand() string {
 
 // RunTest runs the test
 func (test *ICMPTest) RunTest() {
-	command := test.defineCommand()
-	cmd := exec.Command("/bin/sh", "-c", command)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	log.Println(cmd.String())
-	log.Print(command)
-	err := cmd.Run()
+	_, err := test.common.RunCommand(test.defineCommand())
 	if test.common.Negative {
 		if err != nil {
 			log.Print("ICMP test failed as expected")
