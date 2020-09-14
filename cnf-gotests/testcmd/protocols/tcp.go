@@ -27,9 +27,9 @@ type TCPTest struct {
 func NewTCPTest(mtu int, protocolVersion int, serverIP string, serverPort int, negative bool) *TCPTest {
 	var frameSize int
 	if mtu <= 1450 {
-		frameSize = 1468
+		frameSize = 1464
 	} else if mtu <= 1500 {
-		frameSize = 1518
+		frameSize = 1512
 	} else {
 		frameSize = 9000
 	}
@@ -54,19 +54,20 @@ func (test *TCPTest) runCommandAndCompareOutput(command string, output string) e
 func (test *TCPTest) testUnicastTCP() error {
 	var expectedOutputConnection string
 	var expectedOutputTraffic string
+	var err error
 	if test.Negative {
-		expectedOutputConnection = fmt.Sprintf("%s: %d", nmapConnectionSuccessOutputPattern, 0)
 		expectedOutputTraffic = fmt.Sprintf("%s: %d", nmapTrafficFailedOutputPattern, packagesNumberTCP)
 	} else {
 		expectedOutputConnection = fmt.Sprintf("%s: %d", nmapConnectionSuccessOutputPattern, packagesNumberTCP)
 		expectedOutputTraffic = fmt.Sprintf("%s: %d", nmapTrafficSuccessOutputPattern, packagesNumberTCP)
 	}
 	testCommand := append(test.defineUnicastBaseCommand(), fmt.Sprintf("-p %d", test.ServerPort), test.ServerIP)
-	err := test.runCommandAndCompareOutput(strings.Join(append(testCommand, "--tcp-connect"), " "), expectedOutputConnection)
-	if err != nil {
-		return err
+	if !test.Negative {
+		err = test.runCommandAndCompareOutput(strings.Join(append(testCommand, "--tcp-connect"), " "), expectedOutputConnection)
+		if err != nil {
+			return err
+		}
 	}
-
 	err = test.runCommandAndCompareOutput(
 		strings.Join(append(testCommand, fmt.Sprintf("--mtu %d", test.FrameSize), fmt.Sprintf("--data-length %d", test.MTU), "--tcp"), " "),
 		expectedOutputTraffic)
