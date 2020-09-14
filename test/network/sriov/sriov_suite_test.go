@@ -47,6 +47,7 @@ var _ = BeforeSuite(func() {
 	clients, err := config.DefineClients()
 	Expect(err).ToNot(HaveOccurred())
 	sriovInfos, err := cluster.DiscoverSriov(clients, parameters.OperatorNamespace)
+	Expect(err).ToNot(HaveOccurred())
 	err = helper.CompareNodeSriovInterfaces(sriovInfos)
 	Expect(err).ToNot(HaveOccurred())
 	namespaces.Clean(parameters.OperatorNamespace, parameters.OperatorTestNamespace, clients, false)

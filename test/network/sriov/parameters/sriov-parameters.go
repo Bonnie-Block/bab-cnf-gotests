@@ -12,25 +12,25 @@ const (
 	ConnectivityDiffNode              = "2 pods on different node"
 	ConnectivitySameNodeDiffPF        = "2 pods on the same node 2 different PF"
 	ConnectivitySameNodeSamePF        = "2 pods on same node same PF"
-	ConnectivityPodExtPodInt          = "pod to external/External to pod"
 	CommunicationProtocolUnicastICMP  = "unicast-icmp"
 	CommunicationProtocolUnicastTCP   = "unicast-tcp"
 	CommunicationProtocolUnicastUDP   = "unicast-udp"
 	CommunicationProtocolMulticastUDP = "multicast-udp"
 	CommunicationProtocolBroadcastUDP = "broadcast-udp"
-	CommunicationProtocolSctpUDP      = "unicast-sctp"
+	CommunicationProtocolUnicastSCTP  = "unicast-sctp"
 	OperatorTestNamespace             = "sriov-operator-tests"
 	OperatorNamespace                 = "openshift-sriov-network-operator"
+	SriovErrorProtocolMessage         = "Unsupported test parameter"
 )
 
 var (
 	mtuParameters          = []int{MTUCustom, MTUJumbo, MTUStandart}
 	connectivityParameters = []string{
-		ConnectivityDiffNode, ConnectivitySameNodeDiffPF, ConnectivitySameNodeSamePF, ConnectivityPodExtPodInt}
+		ConnectivityDiffNode, ConnectivitySameNodeDiffPF, ConnectivitySameNodeSamePF}
 
 	protocolParameters = []string{CommunicationProtocolUnicastICMP, CommunicationProtocolUnicastTCP,
 		CommunicationProtocolUnicastUDP, CommunicationProtocolMulticastUDP,
-		CommunicationProtocolBroadcastUDP, CommunicationProtocolSctpUDP}
+		CommunicationProtocolBroadcastUDP, CommunicationProtocolUnicastSCTP}
 )
 
 // ConnectivityTestParameters contains test parameters for connectivity

@@ -11,9 +11,9 @@ import (
 	sriovv1 "github.com/openshift/sriov-network-operator/pkg/apis/sriovnetwork/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	pods "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 	testclient "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
+	pods "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 )
 
 // EnabledNodes provides info on sriov enabled nodes of the cluster.
@@ -149,7 +149,6 @@ func CheckReadyGeneration(clients *testclient.ClientSet, operatorNamespace strin
 	if err != nil {
 		return false, err
 	}
-
 	var podObj *corev1.Pod
 	for _, pod := range podList.Items {
 		if pod.Spec.NodeName == state.Name {
@@ -157,7 +156,6 @@ func CheckReadyGeneration(clients *testclient.ClientSet, operatorNamespace strin
 			break
 		}
 	}
-
 	if podObj == nil {
 		return false, nil
 	}

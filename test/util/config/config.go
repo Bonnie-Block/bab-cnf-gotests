@@ -26,7 +26,7 @@ type Config struct {
 		DumpFailedTestsReportLocation string `envconfig:"REPORTER_ERROR_OUTPUT"`
 	} `yaml:"general"`
 	Network struct {
-		ClientContainerImage string `yaml:"client_container_image" envconfig:"NETWORK_CLIENT_CONTAINER_IMAGE"`
+		TestContainerImage string `yaml:"test_container_image" envconfig:"NETWORK_TEST_CONTAINER_IMAGE"`
 	} `yaml:"network"`
 }
 

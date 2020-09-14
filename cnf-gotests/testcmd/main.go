@@ -92,13 +92,14 @@ func main() {
 		os.Exit(1)
 	}
 
+	err = validateMtu(*mtu)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
+
 	if *serverMode {
 		err = validatePort(*serverPort)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "error: %v\n", err)
-			os.Exit(1)
-		}
-		err = validateMtu(*mtu)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error: %v\n", err)
 			os.Exit(1)
@@ -121,12 +122,6 @@ func main() {
 				servers.RunSCTP(*dstAddress, *serverPort, *mtu, *interfaceName)
 			}
 		}
-	}
-
-	err = validateMtu(*mtu)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
-		os.Exit(1)
 	}
 
 	err = validateIP(*dstAddress, *multicast)

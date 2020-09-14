@@ -1,6 +1,7 @@
 package helper
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -16,12 +17,12 @@ import (
 	testclient "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
 )
 
+// WaitForSRIOVStable waits until sriov stable
 func WaitForSRIOVStable(clients *testclient.ClientSet, operatorNamespace string, waitingTime time.Duration) {
 	// This used to be to check for sriov not to be stable first,
 	// then stable. The issue is that if no configuration is applied, then
 	// the status won't never go to not stable and the test will fail.
 	// TODO: find a better way to handle this scenario
-	time.Sleep(5 * time.Second)
 	Eventually(func() bool {
 		res, err := cluster.SriovStable(operatorNamespace, clients)
 		Expect(err).ToNot(HaveOccurred())
@@ -33,6 +34,25 @@ func WaitForSRIOVStable(clients *testclient.ClientSet, operatorNamespace string,
 		Expect(err).ToNot(HaveOccurred())
 		return isClusterReady
 	}, waitingTime, 1*time.Second).Should(BeTrue())
+}
+
+// ValidateSriovVFsAvailableOnNodes validates that VFs are avaliable on Nodes
+func ValidateSriovVFsAvailableOnNodes(clients *testclient.ClientSet, nodes []string, NetworkPolicies []*sriovv1.SriovNetworkNodePolicy, VfNumber int) {
+	for _, node := range nodes {
+		validateSriovVFsNodeAllocatedResources(clients, node, NetworkPolicies, VfNumber)
+	}
+}
+
+func validateSriovVFsNodeAllocatedResources(clients *testclient.ClientSet, node string, SriovNetworkPolicies []*sriovv1.SriovNetworkNodePolicy, VfNumber int) {
+	for _, networkPolicy := range SriovNetworkPolicies {
+		Eventually(func() int64 {
+			testedNode, err := clients.Nodes().Get(context.Background(), node, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			resNum, _ := testedNode.Status.Allocatable[corev1.ResourceName("openshift.io/"+networkPolicy.Spec.ResourceName)]
+			allocatable, _ := resNum.AsInt64()
+			return allocatable
+		}, 10*time.Minute, time.Second).Should(Equal(int64(VfNumber)))
+	}
 }
 
 // DefineSriovNetwork builds SriovNetwork resource
@@ -82,7 +102,6 @@ func DefineSriovPolicy(name string, sriovInt *sriovv1.InterfaceExt, pfRange stri
 
 // CompareNodeSriovInterfaces validates if nodes have the same interface spec
 func CompareNodeSriovInterfaces(sriovInfos *cluster.EnabledNodes) error {
-
 	baseInterfaces, err := sriovInfos.FindSriovDevices(sriovInfos.Nodes[0])
 	if err != nil {
 		return fmt.Errorf("can not get sriov device")
