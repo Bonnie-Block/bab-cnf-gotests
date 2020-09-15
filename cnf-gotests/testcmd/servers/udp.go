@@ -47,7 +47,7 @@ func runGenericUDPServer(mode string, serverPort int, serverIP string, udpDatagr
 		os.Exit(1)
 	}
 	if len(intFaceAddreses) < 1 {
-		log.Print(fmt.Sprintf("error: can not find ip address on interface %s", interfaceName))
+		log.Print(fmt.Sprintf("error: can not find ip address on interface  %s", interfaceName))
 		os.Exit(1)
 	}
 	intFaceAddr := strings.Split(intFaceAddreses[0].String(), "/")[0]
