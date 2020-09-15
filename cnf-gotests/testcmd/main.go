@@ -105,7 +105,7 @@ func main() {
 			}
 			servers.RunMulticastUDPServer(*serverPort, *dstAddress, *mtu)
 		} else {
-			servers.RunUDPServer(*serverPort)
+			servers.RunUDPServer(*serverPort, *mtu)
 		}
 		return
 	}

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"syscall"
 	"time"
 )
 
@@ -66,15 +67,33 @@ func (test *UDPTest) runUDPPing(conn *net.UDPConn, packetNumber int, byteTestStr
 	startTime := time.Now()
 	deadline := time.Now().Add(timeout)
 	conn.SetDeadline(deadline)
-	conn.Write(byteTestString)
+	f, err := conn.File()
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	err = syscall.SetsockoptInt(int(f.Fd()), syscall.IPPROTO_IP, syscall.IP_MTU_DISCOVER, syscall.IP_PMTUDISC_DO)
+	if err != nil {
+		fmt.Printf("Error define DF flag %s", err)
+		os.Exit(1)
+	}
+	_, err = conn.Write(byteTestString)
+	elapsed := time.Since(startTime)
+	if err != nil {
+		fmt.Println(err)
+		statTotalTime += elapsed.Microseconds()
+		statPacketLost++
+		exitCode = 1
+		return
+	}
 	bnumber, addr, err := conn.ReadFromUDP(buffer)
 	if err != nil {
 		fmt.Printf("Package lost\n")
 		statPacketLost++
 		exitCode = 1
+		return
 	}
 	receivedFromServerString := string(bytes.Trim(buffer, "\x00"))
-	elapsed := time.Since(startTime)
 	if receivedFromServerString == testString {
 		statTotalTime += elapsed.Microseconds()
 		fmt.Printf("%d bytes from %s: udp_seq=%d time=%dms\n", bnumber, addr, packetNumber, elapsed.Microseconds())
