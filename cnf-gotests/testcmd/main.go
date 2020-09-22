@@ -11,6 +11,10 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/cnf-gotests/testcmd/servers"
 )
 
+const (
+	ipv4BroadcastAddress = "255.255.255.255"
+)
+
 var (
 	supportedProtocols       = []string{protocols.ProtocolICMP, protocols.ProtocolUDP, protocols.ProtocolTCP, "sctp"}
 	supportedServerProtocols = []string{protocols.ProtocolUDP}
@@ -73,6 +77,7 @@ func main() {
 	serverMode := flag.Bool("listen", false, "Insert this flag in order to run server")
 	interfaceName := flag.String("interface", "", "Interface name. Examples: ens33/eth0/net1")
 	multicast := flag.Bool("multicast", false, "Insert this flag in order to run udp multicast server")
+	broadcast := flag.Bool("broadcast", false, "Insert this flag in order to run udp broadcast server")
 	protocol := flag.String("protocol", "", "Protocol name. Options: tcp/udp/icmp/sctp")
 	mtu := flag.Int("mtu", 1450, "MTU Size. Options: Any int in range 50-9000")
 	dstAddress := flag.String("server", "", "Destination ip address IPv4/IPv6")
@@ -92,19 +97,22 @@ func main() {
 			fmt.Fprintf(os.Stderr, "error: %v\n", err)
 			os.Exit(1)
 		}
-		if *multicast {
-			err = validateMtu(*mtu)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "error: %v\n", err)
-				os.Exit(1)
-			}
+		err = validateMtu(*mtu)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			os.Exit(1)
+		}
+		switch {
+		case *multicast:
 			err = validateIP(*dstAddress, *multicast)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "error: %v\n", err)
 				os.Exit(1)
 			}
-			servers.RunMulticastUDPServer(*serverPort, *dstAddress, *mtu)
-		} else {
+			servers.RunMulticastUDPServer(*serverPort, *dstAddress, *mtu, *interfaceName)
+		case *broadcast:
+			servers.RunBroadcastUDPServer(*serverPort, ipv4BroadcastAddress, *mtu, *interfaceName)
+		default:
 			servers.RunUDPServer(*serverPort, *mtu)
 		}
 		return
@@ -141,7 +149,7 @@ func main() {
 			fmt.Fprintf(os.Stderr, "error: %v\n", err)
 			os.Exit(1)
 		}
-		test := protocols.NewUDPTest(*mtu, protocolVersion, *dstAddress, *serverPort, *negative, *multicast, *interfaceName)
+		test := protocols.NewUDPTest(*mtu, protocolVersion, *dstAddress, *serverPort, *negative, *multicast, *broadcast, *interfaceName)
 		test.RunTest()
 	}
 }

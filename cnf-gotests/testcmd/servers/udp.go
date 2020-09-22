@@ -19,8 +19,17 @@ func defineConnection(serverPort int) net.PacketConn {
 	return pc
 }
 
+// RunBroadcastUDPServer starts multicast udp server
+func RunBroadcastUDPServer(serverPort int, serverIP string, udpDatagramSize int, interfaceName string) {
+	runGenericUDPServer("broadcast", serverPort, serverIP, udpDatagramSize, interfaceName)
+}
+
 // RunMulticastUDPServer starts multicast udp server
 func RunMulticastUDPServer(serverPort int, serverIP string, udpDatagramSize int, interfaceName string) {
+	runGenericUDPServer("multicast", serverPort, serverIP, udpDatagramSize, interfaceName)
+}
+
+func runGenericUDPServer(mode string, serverPort int, serverIP string, udpDatagramSize int, interfaceName string) {
 	var testString string
 	raddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", serverIP, serverPort))
 	if err != nil {
@@ -68,9 +77,9 @@ func RunMulticastUDPServer(serverPort int, serverIP string, udpDatagramSize int,
 		testString += "a"
 	}
 	byteTestString := []byte(testString)
-	log.Print("Start UDP Mulicast Server")
+	log.Printf("Start UDP %s Server", mode)
 	for {
-		log.Printf("Transmit udp datagramm: size %d to multicast address %s", udpDatagramSize, serverIP)
+		log.Printf("Transmit udp datagramm: size %d to %s address %s", udpDatagramSize, mode, serverIP)
 		time.Sleep(2 * time.Second)
 		byteTransmitted, err := conn.Write(byteTestString)
 		if err != nil {

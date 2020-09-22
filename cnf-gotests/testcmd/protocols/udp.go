@@ -36,20 +36,21 @@ type UDPTest struct {
 	CommonTest
 	ServerPort    int
 	Multicast     bool
+	Broadcast     bool
 	InterfaceName *net.Interface
 }
 
 //NewUDPTest creates new instance of ConnectivityTestParameters
-func NewUDPTest(mtu int, protocolVersion int, serverIP string, serverPort int, negative bool, multicast bool, interfaceName string) *UDPTest {
+func NewUDPTest(mtu int, protocolVersion int, serverIP string, serverPort int, negative bool, multicast bool, broadcast bool, interfaceName string) *UDPTest {
 	if multicast {
 		intFace, err := net.InterfaceByName(interfaceName)
 		if err != nil {
 			fmt.Print(err)
 			os.Exit(1)
 		}
-		return &UDPTest{CommonTest{mtu, serverIP, protocolVersion, negative}, serverPort, multicast, intFace}
+		return &UDPTest{CommonTest{mtu, serverIP, protocolVersion, negative}, serverPort, multicast, broadcast, intFace}
 	}
-	return &UDPTest{CommonTest{mtu, serverIP, protocolVersion, negative}, serverPort, multicast, nil}
+	return &UDPTest{CommonTest{mtu, serverIP, protocolVersion, negative}, serverPort, multicast, broadcast, nil}
 }
 
 func (test *UDPTest) resolveAddress() *net.UDPAddr {
@@ -126,7 +127,7 @@ func (test *UDPTest) testUnicastUDP() error {
 	return nil
 }
 
-func (test *UDPTest) receiveUDPMulticast(conn *net.UDPConn) error {
+func (test *UDPTest) receiveUDPTraffic(conn *net.UDPConn) error {
 	buffer := make([]byte, test.MTU)
 	for i := 0; i <= packagesNumberUDP; i++ {
 		deadline := time.Now().Add(timeout)
@@ -151,7 +152,24 @@ func (test *UDPTest) testMulticastUDP() error {
 	}
 	defer pc.Close()
 	pc.SetReadBuffer(test.MTU)
-	err = test.receiveUDPMulticast(pc)
+	err = test.receiveUDPTraffic(pc)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (test *UDPTest) testBroadcastUDP() error {
+	var err error
+	addr := test.resolveAddress()
+	pc, err := net.ListenUDP(ProtocolUDP, addr)
+	if err != nil {
+		fmt.Print(err)
+		os.Exit(1)
+	}
+	defer pc.Close()
+	pc.SetReadBuffer(test.MTU)
+	err = test.receiveUDPTraffic(pc)
 	if err != nil {
 		return err
 	}
@@ -161,10 +179,13 @@ func (test *UDPTest) testMulticastUDP() error {
 // RunTest runs the test
 func (test *UDPTest) RunTest() {
 	var err error
-	if !test.Multicast {
-		err = test.testUnicastUDP()
-	} else {
+	switch {
+	case test.Multicast:
 		err = test.testMulticastUDP()
+	case test.Broadcast:
+		err = test.testBroadcastUDP()
+	default:
+		err = test.testUnicastUDP()
 	}
 	if err == nil {
 		if test.Negative {
