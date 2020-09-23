@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log"
 	"net"
 	"os"
 	"strings"
@@ -16,8 +17,8 @@ const (
 )
 
 var (
-	supportedProtocols       = []string{protocols.ProtocolICMP, protocols.ProtocolUDP, protocols.ProtocolTCP, "sctp"}
-	supportedServerProtocols = []string{protocols.ProtocolUDP}
+	supportedProtocols       = []string{protocols.ProtocolICMP, protocols.ProtocolUDP, protocols.ProtocolTCP, protocols.ProtocolSCTP}
+	supportedServerProtocols = []string{protocols.ProtocolUDP, protocols.ProtocolSCTP}
 )
 
 func validateIP(host string, multicast bool) error {
@@ -102,20 +103,24 @@ func main() {
 			fmt.Fprintf(os.Stderr, "error: %v\n", err)
 			os.Exit(1)
 		}
-		switch {
-		case *multicast:
+
+		if *multicast {
 			err = validateIP(*dstAddress, *multicast)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "error: %v\n", err)
 				os.Exit(1)
 			}
 			servers.RunMulticastUDPServer(*serverPort, *dstAddress, *mtu, *interfaceName)
-		case *broadcast:
+		} else if *broadcast {
 			servers.RunBroadcastUDPServer(*serverPort, ipv4BroadcastAddress, *mtu, *interfaceName)
-		default:
-			servers.RunUDPServer(*serverPort, *mtu)
+		} else {
+			switch *protocol {
+			case protocols.ProtocolUDP:
+				servers.RunUDPServer(*serverPort, *mtu)
+			case protocols.ProtocolSCTP:
+				servers.RunSCTP(*dstAddress, *serverPort, *mtu, *interfaceName)
+			}
 		}
-		return
 	}
 
 	err = validateMtu(*mtu)
@@ -135,6 +140,7 @@ func main() {
 	case protocols.ProtocolICMP:
 		test := protocols.NewICMPTest(*mtu, protocolVersion, *dstAddress, *negative)
 		test.RunTest()
+
 	case protocols.ProtocolTCP:
 		err = validatePort(*serverPort)
 		if err != nil {
@@ -143,6 +149,7 @@ func main() {
 		}
 		test := protocols.NewTCPTest(*mtu, protocolVersion, *dstAddress, *serverPort, *negative)
 		test.RunTest()
+
 	case protocols.ProtocolUDP:
 		err = validatePort(*serverPort)
 		if err != nil {
@@ -150,6 +157,14 @@ func main() {
 			os.Exit(1)
 		}
 		test := protocols.NewUDPTest(*mtu, protocolVersion, *dstAddress, *serverPort, *negative, *multicast, *broadcast, *interfaceName)
+		test.RunTest()
+
+	case protocols.ProtocolSCTP:
+		err = validatePort(*serverPort)
+		if err != nil {
+			log.Fatalf("port validation error: %v\n", err)
+		}
+		test := protocols.NewSCTPTest(*mtu, *dstAddress, protocolVersion, *serverPort)
 		test.RunTest()
 	}
 }

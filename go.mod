@@ -1,12 +1,12 @@
 require (
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
+	github.com/ishidawataru/sctp v0.0.0-20191218070446-00ab2ac2db07
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/onsi/ginkgo v1.14.0
 	github.com/onsi/gomega v1.10.1
 	github.com/openshift/client-go v0.0.0-20200320150128-a906f3d8e723
 	github.com/openshift/machine-config-operator v4.2.0-alpha.0.0.20190917115525-033375cbe820+incompatible
 	github.com/openshift/sriov-network-operator v0.0.0-20200714215514-091a868e6d9b
-	github.com/openshift/sriov-tests v0.0.0-20200430133953-189e0fb45a7b // indirect
 	golang.org/x/sys v0.0.0-20200625212154-ddb9806d33ae // indirect
 	gopkg.in/yaml.v2 v2.3.0
 	k8s.io/api v0.18.2
