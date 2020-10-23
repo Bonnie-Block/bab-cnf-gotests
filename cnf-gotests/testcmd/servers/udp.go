@@ -68,6 +68,23 @@ func runGenericUDPServer(mode string, serverPort int, serverIP string, udpDatagr
 		fmt.Println(err)
 		os.Exit(1)
 	}
+	timeVal := new(syscall.Timeval)
+	timeVal.Sec = 5
+	err = syscall.SetsockoptTimeval(int(f.Fd()), syscall.SOL_SOCKET, syscall.SO_SNDTIMEO, timeVal)
+	if err != nil {
+		fmt.Printf("Error define send timeout %s", err)
+		os.Exit(1)
+	}
+	err = syscall.SetsockoptTimeval(int(f.Fd()), syscall.SOL_SOCKET, syscall.SO_RCVTIMEO, timeVal)
+	if err != nil {
+		fmt.Printf("Error define DF receive timeout %s", err)
+		os.Exit(1)
+	}
+	err = syscall.SetsockoptInt(int(f.Fd()), syscall.IPPROTO_IP, syscall.IP_MTU_DISCOVER, syscall.IP_PMTUDISC_DO)
+	if err != nil {
+		fmt.Printf("Error define DF flag %s", err)
+		os.Exit(1)
+	}
 	err = syscall.SetsockoptInt(int(f.Fd()), syscall.IPPROTO_IP, syscall.IP_MTU_DISCOVER, syscall.IP_PMTUDISC_DO)
 	if err != nil {
 		fmt.Printf("Error define DF flag %s", err)

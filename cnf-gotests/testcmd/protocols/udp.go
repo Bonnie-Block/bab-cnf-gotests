@@ -13,6 +13,7 @@ const (
 	// ProtocolUDP the name of the protocol
 	ProtocolUDP       = "udp"
 	packagesNumberUDP = 5
+	timeout           = 5
 )
 
 func totalPackageLoss(total int, loss int) int {
@@ -28,7 +29,6 @@ var (
 	statPacketLost     int
 	statPacketReceived int
 	testString         string
-	timeout            = 10 * time.Second
 )
 
 // UDPTest define, run and process return code of udp test command
@@ -66,11 +66,23 @@ func (test *UDPTest) runUDPPing(conn *net.UDPConn, packetNumber int, byteTestStr
 	time.Sleep(1 * time.Second)
 	buffer := make([]byte, test.MTU)
 	startTime := time.Now()
-	deadline := time.Now().Add(timeout)
+	deadline := time.Now().Add(timeout * time.Second)
 	conn.SetDeadline(deadline)
 	f, err := conn.File()
 	if err != nil {
 		fmt.Println(err)
+		os.Exit(1)
+	}
+	timeVal := new(syscall.Timeval)
+	timeVal.Sec = timeout
+	err = syscall.SetsockoptTimeval(int(f.Fd()), syscall.SOL_SOCKET, syscall.SO_SNDTIMEO, timeVal)
+	if err != nil {
+		fmt.Printf("Error define send timeout %s", err)
+		os.Exit(1)
+	}
+	err = syscall.SetsockoptTimeval(int(f.Fd()), syscall.SOL_SOCKET, syscall.SO_RCVTIMEO, timeVal)
+	if err != nil {
+		fmt.Printf("Error define DF receive timeout %s", err)
 		os.Exit(1)
 	}
 	err = syscall.SetsockoptInt(int(f.Fd()), syscall.IPPROTO_IP, syscall.IP_MTU_DISCOVER, syscall.IP_PMTUDISC_DO)
@@ -130,7 +142,7 @@ func (test *UDPTest) testUnicastUDP() error {
 func (test *UDPTest) receiveUDPTraffic(conn *net.UDPConn) error {
 	buffer := make([]byte, test.MTU)
 	for i := 0; i <= packagesNumberUDP; i++ {
-		deadline := time.Now().Add(timeout)
+		deadline := time.Now().Add(timeout * time.Second)
 		conn.SetDeadline(deadline)
 		n, addr, err := conn.ReadFromUDP(buffer)
 		if err != nil {
