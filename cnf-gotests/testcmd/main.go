@@ -164,7 +164,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("port validation error: %v\n", err)
 		}
-		test := protocols.NewSCTPTest(*mtu, *dstAddress, protocolVersion, *serverPort)
+		test := protocols.NewSCTPTest(*mtu, *dstAddress, protocolVersion, *serverPort, *negative)
 		test.RunTest()
 	}
 }

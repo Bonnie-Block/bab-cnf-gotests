@@ -21,8 +21,8 @@ type SCTPTest struct {
 }
 
 // NewSCTPTest returns a new SCTP test
-func NewSCTPTest(mtu int, serverIP string, protocolVersion int, serverPort int) *SCTPTest {
-	return &SCTPTest{CommonTest{mtu, serverIP, protocolVersion, false}, serverPort}
+func NewSCTPTest(mtu int, serverIP string, protocolVersion int, serverPort int, negative bool) *SCTPTest {
+	return &SCTPTest{CommonTest{mtu, serverIP, protocolVersion, negative}, serverPort}
 }
 
 // RunTest runs the sctp test
