@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+GOPATH="${GOPATH:-~/go}"
+export PATH=$PATH:$GOPATH/bin
 
 function run_tests {
     case $1 in

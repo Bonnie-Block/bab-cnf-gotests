@@ -34,3 +34,7 @@ test-bin:
 test-pod:
 	@echo "Making test pod"
 	docker build --no-cache -f cnf-gotests/Dockerfile -t cnf-gotests-client .
+
+install: deps-update
+	@echo "Installing needed dependencies"
+	hack/install-ginkgo.sh
