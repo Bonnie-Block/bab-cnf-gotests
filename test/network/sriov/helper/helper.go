@@ -117,9 +117,6 @@ func CompareNodeSriovInterfaces(sriovInfos *cluster.EnabledNodes) error {
 				baseInterfaces[index].TotalVfs != sriovInterfaces[index].TotalVfs {
 				return fmt.Errorf("sriov network interfaces on Nodes are not identical")
 			}
-			if sriovInterfaces[index].TotalVfs < 5 {
-				return fmt.Errorf("sriov network interfaces requires minimum 5 vfs for running the tests")
-			}
 		}
 	}
 	return nil
