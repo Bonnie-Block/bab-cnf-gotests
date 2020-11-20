@@ -82,12 +82,12 @@ var _ = Describe("CNF SRIOV", func() {
 		By("Configuring SriovPolicy resources")
 		err = namespaces.Create(parameters.OperatorTestNamespace, clients)
 		Expect(err).ToNot(HaveOccurred())
-		usualSriovPolicyConfig := DefineSriovPolicy("test-policy-usual", sriovInterfaces[0], "#0-1", 1500, "testresourceusual", "netdevice")
-		customSriovPolicyConfig := DefineSriovPolicy("test-policy-custom", sriovInterfaces[0], "#2-3", 1450, "testresourcecustom", "netdevice")
-		jumboSriovPolicyConfig := DefineSriovPolicy("test-policy-jumbo", sriovInterfaces[1], "#0-1", 9000, "testresourcejumbo", "netdevice")
-		usualSriovPolicyConfigDiffPF := DefineSriovPolicy("test-policy-usual-diff", sriovInterfaces[1], "#2-2", 1500, "testresourceusualdiff", "netdevice")
-		customSriovPolicyConfigDiffPF := DefineSriovPolicy("test-policy-custom-diff", sriovInterfaces[1], "#3-3", 1450, "testresourcecustomdiff", "netdevice")
-		jumboSriovPolicyConfigDiffPF := DefineSriovPolicy("test-policy-jumbo-diff", sriovInterfaces[1], "#4-4", 9000, "testresourcejumbodiff", "netdevice")
+		usualSriovPolicyConfig := DefineSriovPolicy("test-policy-usual", sriovInterfaces[0], 5, "#0-1", 1500, "testresourceusual", "netdevice")
+		customSriovPolicyConfig := DefineSriovPolicy("test-policy-custom", sriovInterfaces[0], 5, "#2-3", 1450, "testresourcecustom", "netdevice")
+		jumboSriovPolicyConfig := DefineSriovPolicy("test-policy-jumbo", sriovInterfaces[1], 5, "#0-1", 9000, "testresourcejumbo", "netdevice")
+		usualSriovPolicyConfigDiffPF := DefineSriovPolicy("test-policy-usual-diff", sriovInterfaces[1], 5, "#2-2", 1500, "testresourceusualdiff", "netdevice")
+		customSriovPolicyConfigDiffPF := DefineSriovPolicy("test-policy-custom-diff", sriovInterfaces[1], 5, "#3-3", 1450, "testresourcecustomdiff", "netdevice")
+		jumboSriovPolicyConfigDiffPF := DefineSriovPolicy("test-policy-jumbo-diff", sriovInterfaces[1], 5, "#4-4", 9000, "testresourcejumbodiff", "netdevice")
 		for _, networkPolicy := range []*sriovv1.SriovNetworkNodePolicy{usualSriovPolicyConfig, customSriovPolicyConfig,
 			jumboSriovPolicyConfig, customSriovPolicyConfigDiffPF, jumboSriovPolicyConfigDiffPF, usualSriovPolicyConfigDiffPF} {
 			err = clients.Create(context.Background(), networkPolicy)

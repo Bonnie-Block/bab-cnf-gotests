@@ -75,7 +75,7 @@ func DefineSriovNetwork(name string, resourceName string, ipamStatic bool) *srio
 }
 
 // DefineSriovPolicy build SriovPolicy resource
-func DefineSriovPolicy(name string, sriovInt *sriovv1.InterfaceExt, pfRange string, mtu int, resourceName string, devType string) *sriovv1.SriovNetworkNodePolicy {
+func DefineSriovPolicy(name string, sriovInt *sriovv1.InterfaceExt, VfsNumber int, pfRange string, mtu int, resourceName string, devType string) *sriovv1.SriovNetworkNodePolicy {
 	conf, err := config.NewConfig()
 	Expect(err).ToNot(HaveOccurred())
 	return &sriovv1.SriovNetworkNodePolicy{
@@ -88,7 +88,7 @@ func DefineSriovPolicy(name string, sriovInt *sriovv1.InterfaceExt, pfRange stri
 			NodeSelector: map[string]string{
 				conf.General.CnfNodeLabel: "",
 			},
-			NumVfs:       sriovInt.TotalVfs,
+			NumVfs:       VfsNumber,
 			Mtu:          mtu,
 			ResourceName: resourceName,
 			Priority:     99,
