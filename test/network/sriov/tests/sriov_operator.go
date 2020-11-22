@@ -132,7 +132,7 @@ var _ = Describe("CNF SRIOV", func() {
 		}, 3*time.Minute, 10*time.Second).Should(BeTrue())
 	})
 
-	DescribeTable("IP Static, Ip Stack: ipv4, Mac address: MAC static", func(mtu int, protocol string, connectivity string) {
+	DescribeTable("Ipam type: IP Static, Ip Stack: ipv4, Mac address: MAC static", func(mtu int, protocol string, connectivity string) {
 		By("Validating test paremetes")
 		connectivityParameters, err := parameters.NewConnectivityTestParameters(mtu, connectivity, protocol)
 		Expect(err).ToNot(HaveOccurred())
