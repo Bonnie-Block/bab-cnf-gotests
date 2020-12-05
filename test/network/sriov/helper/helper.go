@@ -122,8 +122,8 @@ func CompareNodeSriovInterfaces(sriovInfos *cluster.EnabledNodes) error {
 	return nil
 }
 
-// DefinePodWithStaticIpam sets pod network with static IPAM config
-func DefinePodWithStaticIpam(pod *corev1.Pod, networkName string, ipAddress string, macAddress string) *corev1.Pod {
+// DefinePodWithStaticMacAndIpam sets pod network with static IPAM config with Static Mac address
+func DefinePodWithStaticMacAndIpam(pod *corev1.Pod, networkName string, ipAddress string, macAddress string) *corev1.Pod {
 
 	pod.Annotations = map[string]string{"k8s.v1.cni.cncf.io/networks": fmt.Sprintf(`[
 		{
@@ -132,6 +132,20 @@ func DefinePodWithStaticIpam(pod *corev1.Pod, networkName string, ipAddress stri
 			"ips": ["%s/24"]
 		}
 	]`, networkName, macAddress, ipAddress)}
+
+	return pod
+}
+
+// DefinePodWithStaticIpamAndDynamicMac sets pod network with static IPAM config with Dynamic Mac address
+func DefinePodWithStaticIpamAndDynamicMac(pod *corev1.Pod, networkName string, ipAddress string) *corev1.Pod {
+
+	pod.Annotations = map[string]string{"k8s.v1.cni.cncf.io/networks": fmt.Sprintf(`[
+		{
+			"name": "%s",
+			"ips": ["%s/24"]
+		}
+	]`, networkName, ipAddress)}
+
 	return pod
 }
 
@@ -139,4 +153,19 @@ func DefinePodWithStaticIpam(pod *corev1.Pod, networkName string, ipAddress stri
 func DefinePodCommand(pod *corev1.Pod, command []string) *corev1.Pod {
 	pod.Spec.Containers[0].Command = command
 	return pod
+}
+
+// DefinePodCommandWithIpamAndMac checks this  static Mac or dynamic Mac
+func DefinePodCommandWithIpamAndMac(podDefinition *corev1.Pod, networkName string, ipaddress string, macAddress string, podCommand []string) *corev1.Pod {
+	if macAddress == "" {
+		podDefinition = DefinePodCommand(
+			DefinePodWithStaticIpamAndDynamicMac(podDefinition, networkName, ipaddress),
+			podCommand)
+	} else {
+		podDefinition = DefinePodCommand(
+			DefinePodWithStaticMacAndIpam(podDefinition, networkName, ipaddress, macAddress),
+			podCommand)
+	}
+
+	return podDefinition
 }

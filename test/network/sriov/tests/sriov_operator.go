@@ -110,7 +110,7 @@ var _ = Describe("CNF SRIOV", func() {
 		By("Waiting until SRIOV become stable")
 		WaitForSRIOVStable(clients, operatorNamespace, waitingTime)
 
-		By("Waiting until SRIOV resources become avaliable")
+		By("Waiting until SRIOV resources become available")
 		ValidateSriovVFsAvailableOnNodes(clients, sriovInfos.Nodes, []*sriovv1.SriovNetworkNodePolicy{usualSriovPolicyConfig, customSriovPolicyConfig,
 			jumboSriovPolicyConfig}, 2)
 		ValidateSriovVFsAvailableOnNodes(clients, sriovInfos.Nodes, []*sriovv1.SriovNetworkNodePolicy{usualSriovPolicyConfigDiffPF,
@@ -133,110 +133,16 @@ var _ = Describe("CNF SRIOV", func() {
 	})
 
 	DescribeTable("Ipam type: IP Static, Ip Stack: ipv4, Mac address: MAC static", func(mtu int, protocol string, connectivity string) {
-		By("Validating test paremetes")
-		connectivityParameters, err := parameters.NewConnectivityTestParameters(mtu, connectivity, protocol)
-		Expect(err).ToNot(HaveOccurred())
+		buildDescribeTable(mtu, protocol, connectivity, sriovInfos, config, clientMacAddress, serverMacAddress)
+	}, buildTableEntries(describe(""))...)
 
-		By("Defining test resources")
-		nodeSelector := defineNodeSelector(connectivity, sriovInfos)
-		serverNetworkName := defineServerNetworkName(mtu)
-		clientNetworkName := defineClientNetworkName(mtu, connectivityParameters.Connectivity)
-		negativeFlag := false
-		clientTestCommand, err := defineTestCommandParameters(negativeFlag, connectivityParameters.Protocol, connectivityParameters.MTU,
-			connectivityParameters.Connectivity, serverPodIP)
-		Expect(err).ToNot(HaveOccurred())
-		clientPodDefinition := defineClientPod(connectivityParameters.Protocol, nodeSelector, clientNetworkName, clientPodIP,
-			clientMacAddress, config.Network.TestContainerImage, clientTestCommand)
-
-		By("Creating Server Pod")
-		runServerPod(protocol, connectivityParameters.MTU, connectivityParameters.Connectivity, sriovInfos, config, serverNetworkName,
-			nodeSelector, negativeFlag)
-
-		By("Creating Client Pod")
-		clientPod, err := clients.Pods(parameters.OperatorTestNamespace).Create(context.Background(), clientPodDefinition, metav1.CreateOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		Eventually(func() corev1.PodPhase {
-			clientPod, _ = clients.Pods(parameters.OperatorTestNamespace).Get(context.Background(), clientPod.Name, metav1.GetOptions{})
-			return clientPod.Status.Phase
-		}, podWaitingTime, time.Second).Should(Equal(corev1.PodSucceeded), fmt.Sprintf("Invalid return code. Command: %s", fmt.Sprint(clientTestCommand)))
-
-		By("Positive test flow - success. Running negative flow")
-		negativeFlag = true
-		if protocol == parameters.CommunicationProtocolMulticastUDP || protocol == parameters.CommunicationProtocolBroadcastUDP {
-			runServerPod(protocol, connectivityParameters.MTU, connectivityParameters.Connectivity, sriovInfos, config, serverNetworkName, nodeSelector, negativeFlag)
-		}
-		clientTestCommand, err = defineTestCommandParameters(
-			negativeFlag, connectivityParameters.Protocol, connectivityParameters.MTU, connectivityParameters.Connectivity, serverPodIP)
-		Expect(err).ToNot(HaveOccurred())
-
-		By("Creating Client Pod with negative flag")
-		clientPodDefinitionNegative := defineClientPod(connectivityParameters.Protocol, nodeSelector, clientNetworkName,
-			clientPodIP, clientMacAddress, config.Network.TestContainerImage, clientTestCommand)
-		clientPodNegative, err := clients.Pods(parameters.OperatorTestNamespace).Create(context.Background(), clientPodDefinitionNegative, metav1.CreateOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		Eventually(func() corev1.PodPhase {
-			clientPodNegative, _ = clients.Pods(parameters.OperatorTestNamespace).Get(context.Background(), clientPodNegative.Name, metav1.GetOptions{})
-			return clientPodNegative.Status.Phase
-		}, podWaitingTime, time.Second).Should(Equal(corev1.PodSucceeded), fmt.Sprintf("Invalid return code. Command: %s", fmt.Sprint(clientTestCommand)))
-	},
-		Entry(describe(""), parameters.MTUStandart, parameters.CommunicationProtocolUnicastSCTP, parameters.ConnectivityDiffNode),
-		Entry(describe(""), parameters.MTUStandart, parameters.CommunicationProtocolUnicastSCTP, parameters.ConnectivitySameNodeSamePF),
-		Entry(describe(""), parameters.MTUStandart, parameters.CommunicationProtocolUnicastSCTP, parameters.ConnectivitySameNodeDiffPF),
-		Entry(describe(""), parameters.MTUCustom, parameters.CommunicationProtocolUnicastSCTP, parameters.ConnectivityDiffNode),
-		Entry(describe(""), parameters.MTUCustom, parameters.CommunicationProtocolUnicastSCTP, parameters.ConnectivitySameNodeSamePF),
-		Entry(describe(""), parameters.MTUCustom, parameters.CommunicationProtocolUnicastSCTP, parameters.ConnectivitySameNodeDiffPF),
-		Entry(describe(""), parameters.MTUJumbo, parameters.CommunicationProtocolUnicastSCTP, parameters.ConnectivityDiffNode),
-		Entry(describe(""), parameters.MTUJumbo, parameters.CommunicationProtocolUnicastSCTP, parameters.ConnectivitySameNodeSamePF),
-		Entry(describe(""), parameters.MTUJumbo, parameters.CommunicationProtocolUnicastSCTP, parameters.ConnectivitySameNodeDiffPF),
-		Entry(describe(""), parameters.MTUStandart, parameters.CommunicationProtocolUnicastICMP, parameters.ConnectivityDiffNode),
-		Entry(describe(""), parameters.MTUStandart, parameters.CommunicationProtocolUnicastICMP, parameters.ConnectivitySameNodeSamePF),
-		Entry(describe(""), parameters.MTUCustom, parameters.CommunicationProtocolUnicastICMP, parameters.ConnectivityDiffNode),
-		Entry(describe(""), parameters.MTUCustom, parameters.CommunicationProtocolUnicastICMP, parameters.ConnectivitySameNodeSamePF),
-		Entry(describe(""), parameters.MTUCustom, parameters.CommunicationProtocolUnicastICMP, parameters.ConnectivitySameNodeDiffPF),
-		Entry(describe(""), parameters.MTUJumbo, parameters.CommunicationProtocolUnicastICMP, parameters.ConnectivityDiffNode),
-		Entry(describe(""), parameters.MTUJumbo, parameters.CommunicationProtocolUnicastICMP, parameters.ConnectivitySameNodeSamePF),
-		Entry(describe(""), parameters.MTUJumbo, parameters.CommunicationProtocolUnicastICMP, parameters.ConnectivitySameNodeDiffPF),
-		Entry(describe(""), parameters.MTUStandart, parameters.CommunicationProtocolUnicastTCP, parameters.ConnectivitySameNodeSamePF),
-		Entry(describe(""), parameters.MTUStandart, parameters.CommunicationProtocolUnicastTCP, parameters.ConnectivityDiffNode),
-		Entry(describe(""), parameters.MTUStandart, parameters.CommunicationProtocolUnicastTCP, parameters.ConnectivitySameNodeDiffPF),
-		Entry(describe(""), parameters.MTUCustom, parameters.CommunicationProtocolUnicastTCP, parameters.ConnectivitySameNodeSamePF),
-		Entry(describe(""), parameters.MTUCustom, parameters.CommunicationProtocolUnicastTCP, parameters.ConnectivityDiffNode),
-		Entry(describe(""), parameters.MTUCustom, parameters.CommunicationProtocolUnicastTCP, parameters.ConnectivitySameNodeDiffPF),
-		Entry(describe(""), parameters.MTUJumbo, parameters.CommunicationProtocolUnicastTCP, parameters.ConnectivitySameNodeSamePF),
-		Entry(describe(""), parameters.MTUJumbo, parameters.CommunicationProtocolUnicastTCP, parameters.ConnectivityDiffNode),
-		Entry(describe(""), parameters.MTUJumbo, parameters.CommunicationProtocolUnicastTCP, parameters.ConnectivitySameNodeDiffPF),
-		Entry(describe(""), parameters.MTUStandart, parameters.CommunicationProtocolUnicastUDP, parameters.ConnectivitySameNodeSamePF),
-		Entry(describe(""), parameters.MTUStandart, parameters.CommunicationProtocolUnicastUDP, parameters.ConnectivityDiffNode),
-		Entry(describe(""), parameters.MTUStandart, parameters.CommunicationProtocolUnicastUDP, parameters.ConnectivitySameNodeDiffPF),
-		Entry(describe(""), parameters.MTUCustom, parameters.CommunicationProtocolUnicastUDP, parameters.ConnectivitySameNodeSamePF),
-		Entry(describe(""), parameters.MTUCustom, parameters.CommunicationProtocolUnicastUDP, parameters.ConnectivityDiffNode),
-		Entry(describe(""), parameters.MTUCustom, parameters.CommunicationProtocolUnicastUDP, parameters.ConnectivitySameNodeDiffPF),
-		Entry(describe(""), parameters.MTUJumbo, parameters.CommunicationProtocolUnicastUDP, parameters.ConnectivitySameNodeSamePF),
-		Entry(describe(""), parameters.MTUJumbo, parameters.CommunicationProtocolUnicastUDP, parameters.ConnectivityDiffNode),
-		Entry(describe(""), parameters.MTUJumbo, parameters.CommunicationProtocolUnicastUDP, parameters.ConnectivitySameNodeDiffPF),
-		Entry(describe(""), parameters.MTUStandart, parameters.CommunicationProtocolMulticastUDP, parameters.ConnectivitySameNodeSamePF),
-		Entry(describe(""), parameters.MTUStandart, parameters.CommunicationProtocolMulticastUDP, parameters.ConnectivityDiffNode),
-		Entry(describe(""), parameters.MTUStandart, parameters.CommunicationProtocolMulticastUDP, parameters.ConnectivitySameNodeDiffPF),
-		Entry(describe(""), parameters.MTUCustom, parameters.CommunicationProtocolMulticastUDP, parameters.ConnectivitySameNodeSamePF),
-		Entry(describe(""), parameters.MTUCustom, parameters.CommunicationProtocolMulticastUDP, parameters.ConnectivityDiffNode),
-		Entry(describe(""), parameters.MTUCustom, parameters.CommunicationProtocolMulticastUDP, parameters.ConnectivitySameNodeDiffPF),
-		Entry(describe(""), parameters.MTUJumbo, parameters.CommunicationProtocolMulticastUDP, parameters.ConnectivitySameNodeSamePF),
-		Entry(describe(""), parameters.MTUJumbo, parameters.CommunicationProtocolMulticastUDP, parameters.ConnectivityDiffNode),
-		Entry(describe(""), parameters.MTUJumbo, parameters.CommunicationProtocolMulticastUDP, parameters.ConnectivitySameNodeDiffPF),
-		Entry(describe(""), parameters.MTUStandart, parameters.CommunicationProtocolBroadcastUDP, parameters.ConnectivitySameNodeSamePF),
-		Entry(describe(""), parameters.MTUStandart, parameters.CommunicationProtocolBroadcastUDP, parameters.ConnectivityDiffNode),
-		Entry(describe(""), parameters.MTUStandart, parameters.CommunicationProtocolBroadcastUDP, parameters.ConnectivitySameNodeDiffPF),
-		Entry(describe(""), parameters.MTUCustom, parameters.CommunicationProtocolBroadcastUDP, parameters.ConnectivityDiffNode),
-		Entry(describe(""), parameters.MTUCustom, parameters.CommunicationProtocolBroadcastUDP, parameters.ConnectivitySameNodeSamePF),
-		Entry(describe(""), parameters.MTUCustom, parameters.CommunicationProtocolBroadcastUDP, parameters.ConnectivitySameNodeDiffPF),
-		Entry(describe(""), parameters.MTUJumbo, parameters.CommunicationProtocolBroadcastUDP, parameters.ConnectivityDiffNode),
-		Entry(describe(""), parameters.MTUJumbo, parameters.CommunicationProtocolBroadcastUDP, parameters.ConnectivitySameNodeSamePF),
-		Entry(describe(""), parameters.MTUJumbo, parameters.CommunicationProtocolBroadcastUDP, parameters.ConnectivitySameNodeDiffPF),
-	)
+	DescribeTable("Ipam type: IP Static, Ip Stack: ipv4, Mac address: MAC dynamic", func(mtu int, protocol string, connectivity string) {
+		buildDescribeTable(mtu, protocol, connectivity, sriovInfos, config, "", "")
+	}, buildTableEntries(describe(""))...)
 })
 
 func runServerPod(protocol string, mtu int, connectivity string, sriovInfos *cluster.EnabledNodes,
-	config *config.Config, networkName string, serverCommand []string, negative bool) {
+	config *config.Config, networkName string, serverCommand []string, negative bool, serverMacAddress string) {
 	nodeSelector := defineNodeSelector(connectivity, sriovInfos)
 	if (protocol == parameters.CommunicationProtocolMulticastUDP || protocol == parameters.CommunicationProtocolBroadcastUDP) && negative == true {
 		namespaces.CleanPods(parameters.OperatorTestNamespace, clients)
@@ -392,9 +298,7 @@ func defineServerPod(protocol string, nodeSelector []string, networkName string,
 	if protocol == parameters.CommunicationProtocolUnicastSCTP {
 		podDefinition = pod.RedefineAsPrivileged(podDefinition)
 	}
-	podDefinition = DefinePodCommand(
-		DefinePodWithStaticIpam(podDefinition, networkName, ipaddress, macAddress),
-		podCommand)
+	podDefinition = DefinePodCommandWithIpamAndMac(podDefinition, networkName, ipaddress, macAddress, podCommand)
 	return podDefinition
 }
 
@@ -412,8 +316,76 @@ func defineClientPod(protocol string, nodeSelector []string, networkName string,
 	if protocol == parameters.CommunicationProtocolUnicastTCP || protocol == parameters.CommunicationProtocolUnicastSCTP {
 		podDefinition = pod.RedefineAsPrivileged(podDefinition)
 	}
-	podDefinition = DefinePodCommand(
-		DefinePodWithStaticIpam(podDefinition, networkName, ipaddress, macAddress),
-		podCommand)
+	podDefinition = DefinePodCommandWithIpamAndMac(podDefinition, networkName, ipaddress, macAddress, podCommand)
+
 	return podDefinition
+}
+
+func buildDescribeTable(mtu int, protocol string, connectivity string, sriovInfos *cluster.EnabledNodes, config *config.Config, clientMacAddress string, serverMacAddress string) {
+	By("Validating test parameters")
+	connectivityParameters, err := parameters.NewConnectivityTestParameters(mtu, connectivity, protocol)
+	Expect(err).ToNot(HaveOccurred())
+
+	By("Defining test resources")
+	nodeSelector := defineNodeSelector(connectivity, sriovInfos)
+	serverNetworkName := defineServerNetworkName(mtu)
+	clientNetworkName := defineClientNetworkName(mtu, connectivityParameters.Connectivity)
+	negativeFlag := false
+	clientTestCommand, err := defineTestCommandParameters(negativeFlag, connectivityParameters.Protocol, connectivityParameters.MTU,
+		connectivityParameters.Connectivity, serverPodIP)
+	Expect(err).ToNot(HaveOccurred())
+	clientPodDefinition := defineClientPod(connectivityParameters.Protocol, nodeSelector, clientNetworkName, clientPodIP,
+		clientMacAddress, config.Network.TestContainerImage, clientTestCommand)
+
+	By("Creating Server Pod")
+	runServerPod(protocol, connectivityParameters.MTU, connectivityParameters.Connectivity, sriovInfos, config, serverNetworkName,
+		nodeSelector, negativeFlag, serverMacAddress)
+
+	By("Creating Client Pod")
+	clientPod, err := clients.Pods(parameters.OperatorTestNamespace).Create(context.Background(), clientPodDefinition, metav1.CreateOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	Eventually(func() corev1.PodPhase {
+		clientPod, _ = clients.Pods(parameters.OperatorTestNamespace).Get(context.Background(), clientPod.Name, metav1.GetOptions{})
+		return clientPod.Status.Phase
+	}, podWaitingTime, time.Second).Should(Equal(corev1.PodSucceeded), fmt.Sprintf("Invalid return code. Command: %s", fmt.Sprint(clientTestCommand)))
+
+	By("Positive test flow - success. Running negative flow")
+	negativeFlag = true
+	if protocol == parameters.CommunicationProtocolMulticastUDP || protocol == parameters.CommunicationProtocolBroadcastUDP {
+		runServerPod(protocol, connectivityParameters.MTU, connectivityParameters.Connectivity, sriovInfos, config, serverNetworkName, nodeSelector, negativeFlag, serverMacAddress)
+	}
+	clientTestCommand, err = defineTestCommandParameters(
+		negativeFlag, connectivityParameters.Protocol, connectivityParameters.MTU, connectivityParameters.Connectivity, serverPodIP)
+	Expect(err).ToNot(HaveOccurred())
+
+	By("Creating Client Pod with negative flag")
+	clientPodDefinitionNegative := defineClientPod(connectivityParameters.Protocol, nodeSelector, clientNetworkName,
+		clientPodIP, clientMacAddress, config.Network.TestContainerImage, clientTestCommand)
+	clientPodNegative, err := clients.Pods(parameters.OperatorTestNamespace).Create(context.Background(), clientPodDefinitionNegative, metav1.CreateOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	Eventually(func() corev1.PodPhase {
+		clientPodNegative, _ = clients.Pods(parameters.OperatorTestNamespace).Get(context.Background(), clientPodNegative.Name, metav1.GetOptions{})
+		return clientPodNegative.Status.Phase
+	}, podWaitingTime, time.Second).Should(Equal(corev1.PodSucceeded), fmt.Sprintf("Invalid return code. Command: %s", fmt.Sprint(clientTestCommand)))
+
+}
+
+func buildTableEntries(describe interface{}) []TableEntry {
+	var (
+		tableEntries           []TableEntry
+		mtuParameters          = []int{parameters.MTUCustom, parameters.MTUJumbo, parameters.MTUStandart}
+		connectivityParameters = []string{
+			parameters.ConnectivityDiffNode, parameters.ConnectivitySameNodeDiffPF, parameters.ConnectivitySameNodeSamePF}
+		protocolParameters = []string{parameters.CommunicationProtocolUnicastICMP, parameters.CommunicationProtocolUnicastTCP,
+			parameters.CommunicationProtocolUnicastUDP, parameters.CommunicationProtocolMulticastUDP,
+			parameters.CommunicationProtocolBroadcastUDP, parameters.CommunicationProtocolUnicastSCTP}
+	)
+	for _, protocol := range protocolParameters {
+		for _, mtu := range mtuParameters {
+			for _, connectivity := range connectivityParameters {
+				tableEntries = append(tableEntries, Entry(describe, mtu, protocol, connectivity))
+			}
+		}
+	}
+	return tableEntries
 }
