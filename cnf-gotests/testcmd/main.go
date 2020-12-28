@@ -119,7 +119,7 @@ func main() {
 			case protocols.ProtocolUDP:
 				servers.RunUDPServer(*serverPort, *mtu)
 			case protocols.ProtocolSCTP:
-				servers.RunSCTP(*dstAddress, *serverPort, *mtu, *interfaceName)
+				servers.RunSCTP(*dstAddress, *serverPort, *mtu, *interfaceName, ipProtocolVersion(*dstAddress))
 			}
 		}
 	}

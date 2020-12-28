@@ -1,6 +1,7 @@
 package servers
 
 import (
+	"fmt"
 	"log"
 	"net"
 	"syscall"
@@ -9,7 +10,7 @@ import (
 )
 
 // RunSCTP runs a sctp server
-func RunSCTP(serverAddr string, port int, mtu int, interfaceName string) {
+func RunSCTP(serverAddr string, port int, mtu int, interfaceName string, protocolVersion int) {
 	address, err := net.ResolveIPAddr("ip", serverAddr)
 	if err != nil {
 		exitWithError(err)
@@ -46,7 +47,9 @@ func RunSCTP(serverAddr string, port int, mtu int, interfaceName string) {
 		},
 	}
 
-	listener, err := socketConfig.Listen("ipv4", listenAddr)
+	network := fmt.Sprintf("ipv%d", protocolVersion)
+
+	listener, err := socketConfig.Listen(network, listenAddr)
 	if err != nil {
 		exitWithError(err)
 	}

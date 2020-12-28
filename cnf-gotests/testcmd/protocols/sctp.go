@@ -2,6 +2,7 @@ package protocols
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"net"
 	"syscall"
@@ -27,18 +28,21 @@ func NewSCTPTest(mtu int, serverIP string, protocolVersion int, serverPort int, 
 
 // RunTest runs the sctp test
 func (sctpTest *SCTPTest) RunTest() {
-	err := runClient(sctpTest.ServerIP, sctpTest.ServerPort, sctpTest.MTU, "")
-	if err != nil {
-		if sctpTest.Negative == true {
+	err := runClient(sctpTest.ServerIP, sctpTest.ServerPort, sctpTest.MTU, "", sctpTest.ProtocolVersion)
+	if sctpTest.Negative == true {
+		if err != nil {
 			log.Println("SCTP test failed as expected")
 			return
 		}
+		log.Fatalln("SCTP Negative test failed.")
+	}
+	if err != nil {
 		log.Fatalf("SCTP test failed with error: %v\n", err)
 	}
 	log.Println("SCTP test passed as expected")
 }
 
-func runClient(serverAddr string, port int, mtu int, interfaceName string) error {
+func runClient(serverAddr string, port int, mtu int, interfaceName string, protocolVersion int) error {
 	address, err := net.ResolveIPAddr("ip", serverAddr)
 	server := &sctp.SCTPAddr{
 		IPAddrs: []net.IPAddr{*address},
@@ -72,11 +76,13 @@ func runClient(serverAddr string, port int, mtu int, interfaceName string) error
 	}
 
 	laddr := &sctp.SCTPAddr{
-		IPAddrs: []net.IPAddr{{IP: net.IPv4zero}},
+		IPAddrs: nil,
 		Port:    0,
 	}
 
-	conn, err := socketConfig.Dial("ipv4", laddr, server)
+	network := fmt.Sprintf("ipv%d", protocolVersion)
+
+	conn, err := socketConfig.Dial(network, laddr, server)
 	if err != nil {
 		return err
 	}
