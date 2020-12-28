@@ -111,17 +111,22 @@ func main() {
 				fmt.Fprintf(os.Stderr, "error: %v\n", err)
 				os.Exit(1)
 			}
-			servers.RunMulticastUDPServer(*serverPort, *dstAddress, *mtu, *interfaceName)
+			protocolVersion := ipProtocolVersion(*dstAddress)
+			servers.RunMulticastUDPServer(*serverPort, *dstAddress, protocolVersion, *mtu, *interfaceName)
 		} else if *broadcast {
 			servers.RunBroadcastUDPServer(*serverPort, ipv4BroadcastAddress, *mtu, *interfaceName)
 		} else {
 			switch *protocol {
 			case protocols.ProtocolUDP:
+				if *dstAddress != "" {
+					log.Printf("Parameter -server=%s ignored in server UDP unicast mode. Use all interfaces 0.0.0.0", *dstAddress)
+				}
 				servers.RunUDPServer(*serverPort, *mtu)
 			case protocols.ProtocolSCTP:
 				servers.RunSCTP(*dstAddress, *serverPort, *mtu, *interfaceName, ipProtocolVersion(*dstAddress))
 			}
 		}
+		return
 	}
 
 	err = validateIP(*dstAddress, *multicast)
@@ -142,7 +147,7 @@ func main() {
 			fmt.Fprintf(os.Stderr, "error: %v\n", err)
 			os.Exit(1)
 		}
-		test := protocols.NewTCPTest(*mtu, protocolVersion, *dstAddress, *serverPort, *negative)
+		test := protocols.NewTCPTest(*mtu, protocolVersion, *dstAddress, *serverPort, *negative, *interfaceName)
 		test.RunTest()
 
 	case protocols.ProtocolUDP:

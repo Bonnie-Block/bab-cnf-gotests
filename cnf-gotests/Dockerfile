@@ -3,9 +3,18 @@ WORKDIR /go/src/gitlab.cee.redhat.com/cnf/cnf-gotests
 COPY . .
 RUN make test-bin
 
-FROM centos:7
+# TODO: Remove this step once PR https://github.com/nmap/nmap/pull/2033 will be merged
+FROM centos:7 AS compiler
+RUN yum install -y make gcc gcc-c++ git sshd openssh-server openssh-clients
+RUN git clone https://github.com/kononovn/nmap.git
+WORKDIR "/nmap"
+RUN ./configure
+RUN make
+RUN make install
 
+FROM centos:7
 COPY --from=builder /go/src/gitlab.cee.redhat.com/cnf/cnf-gotests/cnf-gotests/bin/testcmd /usr/bin/testcmd
-RUN yum install -y iproute ethtool ping httpd nmap
+COPY --from=compiler /nmap/nping/nping /usr/bin/nping
+RUN yum install -y iproute ethtool ping httpd
 
 CMD ["/usr/bin/testcmd"]

@@ -54,7 +54,8 @@ func NewUDPTest(mtu int, protocolVersion int, serverIP string, serverPort int, n
 }
 
 func (test *UDPTest) resolveAddress() *net.UDPAddr {
-	addr, err := net.ResolveUDPAddr(ProtocolUDP, fmt.Sprintf("%s:%d", test.ServerIP, test.ServerPort))
+	addr, err := net.ResolveUDPAddr(fmt.Sprintf("%s%d", ProtocolUDP, test.ProtocolVersion),
+		fmt.Sprintf("[%s]:%d", test.ServerIP, test.ServerPort))
 	if err != nil {
 		fmt.Print(err)
 		os.Exit(1)
@@ -85,9 +86,13 @@ func (test *UDPTest) runUDPPing(conn *net.UDPConn, packetNumber int, byteTestStr
 		fmt.Printf("Error define DF receive timeout %s", err)
 		os.Exit(1)
 	}
-	err = syscall.SetsockoptInt(int(f.Fd()), syscall.IPPROTO_IP, syscall.IP_MTU_DISCOVER, syscall.IP_PMTUDISC_DO)
+	if test.ProtocolVersion == 4 {
+		err = syscall.SetsockoptInt(int(f.Fd()), syscall.IPPROTO_IP, syscall.IP_MTU_DISCOVER, syscall.IP_PMTUDISC_DO)
+	} else {
+		err = syscall.SetsockoptInt(int(f.Fd()), syscall.IPPROTO_IPV6, syscall.IPV6_MTU_DISCOVER, syscall.IPV6_PMTUDISC_DO)
+	}
 	if err != nil {
-		fmt.Printf("Error define DF flag %s", err)
+		fmt.Printf("Error define MTU discovery flag %s", err)
 		os.Exit(1)
 	}
 	_, err = conn.Write(byteTestString)
@@ -116,7 +121,7 @@ func (test *UDPTest) runUDPPing(conn *net.UDPConn, packetNumber int, byteTestStr
 
 func (test *UDPTest) testUnicastUDP() error {
 	raddr := test.resolveAddress()
-	conn, err := net.DialUDP(ProtocolUDP, nil, raddr)
+	conn, err := net.DialUDP(fmt.Sprintf("%s%d", ProtocolUDP, test.ProtocolVersion), nil, raddr)
 	if err != nil {
 		fmt.Print(err)
 		os.Exit(1)
@@ -157,7 +162,7 @@ func (test *UDPTest) receiveUDPTraffic(conn *net.UDPConn) error {
 func (test *UDPTest) testMulticastUDP() error {
 	var err error
 	addr := test.resolveAddress()
-	pc, err := net.ListenMulticastUDP(ProtocolUDP, test.InterfaceName, addr)
+	pc, err := net.ListenMulticastUDP(fmt.Sprintf("%s%d", ProtocolUDP, test.ProtocolVersion), test.InterfaceName, addr)
 	if err != nil {
 		fmt.Print(err)
 		os.Exit(1)

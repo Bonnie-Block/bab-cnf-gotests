@@ -3,6 +3,7 @@ package protocols
 import (
 	"fmt"
 	"log"
+	"net"
 	"os"
 	"strings"
 )
@@ -19,12 +20,13 @@ const (
 // TCPTest define, run and process return code of tcp test command
 type TCPTest struct {
 	CommonTest
-	ServerPort int
-	FrameSize  int
+	ServerPort    int
+	FrameSize     int
+	InterfaceName *net.Interface
 }
 
 // NewTCPTest creates new instance of ConnectivityTestParameters
-func NewTCPTest(mtu int, protocolVersion int, serverIP string, serverPort int, negative bool) *TCPTest {
+func NewTCPTest(mtu int, protocolVersion int, serverIP string, serverPort int, negative bool, interfaceName string) *TCPTest {
 	var frameSize int
 	if mtu <= 1450 {
 		frameSize = 1464
@@ -33,11 +35,23 @@ func NewTCPTest(mtu int, protocolVersion int, serverIP string, serverPort int, n
 	} else {
 		frameSize = 9000
 	}
-	return &TCPTest{CommonTest{mtu, serverIP, protocolVersion, negative}, serverPort, frameSize}
+	if protocolVersion == 4 {
+		return &TCPTest{CommonTest{mtu, serverIP, protocolVersion, negative}, serverPort, frameSize, nil}
+	}
+	intFace, err := net.InterfaceByName(interfaceName)
+	if err != nil {
+		fmt.Print(err)
+		os.Exit(1)
+	}
+	return &TCPTest{CommonTest{mtu, serverIP, protocolVersion, negative}, serverPort, frameSize, intFace}
 }
 
 func (test *TCPTest) defineUnicastBaseCommand() []string {
-	return []string{"nping", fmt.Sprintf("-%d", test.ProtocolVersion), fmt.Sprintf("-c %d", packagesNumberTCP), "-df"}
+	command := []string{"nping", fmt.Sprintf("-%d", test.ProtocolVersion), fmt.Sprintf("-c %d", packagesNumberTCP), "-df"}
+	if test.ProtocolVersion == 6 {
+		command = append(command, fmt.Sprintf("-e %s", test.InterfaceName.Name))
+	}
+	return command
 }
 
 func (test *TCPTest) runCommandAndCompareOutput(command string, output string) error {

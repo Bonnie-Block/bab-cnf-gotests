@@ -10,6 +10,41 @@ import (
 	"time"
 )
 
+const (
+	// ProtocolUDP name of protocol
+	ProtocolUDP = "udp"
+)
+
+func defineSourceIP(interfaceName string, protocolVersion int) (*string, error) {
+	var intFaceAddr string
+	intFace, err := net.InterfaceByName(interfaceName)
+	if err != nil {
+		log.Printf("Can not get interface by name %s", interfaceName)
+		return nil, err
+	}
+	intFaceAddreses, err := intFace.Addrs()
+	if err != nil {
+		log.Printf("Can not get ip addresses on interface %s", interfaceName)
+		return nil, err
+	}
+	if len(intFaceAddreses) < 1 {
+		log.Print(fmt.Sprintf("error: can not find ip address on interface %s", interfaceName))
+		return nil, err
+	}
+	for _, addr := range intFaceAddreses {
+		if strings.Contains(addr.String(), ":") && protocolVersion == 6 && !strings.Contains(addr.String(), "fe80") {
+			intFaceAddr = strings.Split(addr.String(), "/")[0]
+		} else if protocolVersion == 4 && !strings.Contains(addr.String(), ":") {
+			intFaceAddr = strings.Split(addr.String(), "/")[0]
+		}
+	}
+	if intFaceAddr == "" {
+		log.Print(fmt.Sprintf("error: can not find ip address on interface %s", interfaceName))
+		return nil, fmt.Errorf(fmt.Sprintf("error: can not find ip address on interface %s", interfaceName))
+	}
+	return &intFaceAddr, nil
+}
+
 func defineConnection(serverPort int) net.PacketConn {
 	pc, err := net.ListenPacket("udp", fmt.Sprintf("0.0.0.0:%d", serverPort))
 	if err != nil {
@@ -21,42 +56,32 @@ func defineConnection(serverPort int) net.PacketConn {
 
 // RunBroadcastUDPServer starts multicast udp server
 func RunBroadcastUDPServer(serverPort int, serverIP string, udpDatagramSize int, interfaceName string) {
-	runGenericUDPServer("broadcast", serverPort, serverIP, udpDatagramSize, interfaceName)
+	runGenericUDPServer("broadcast", serverPort, serverIP, 4, udpDatagramSize, interfaceName)
 }
 
 // RunMulticastUDPServer starts multicast udp server
-func RunMulticastUDPServer(serverPort int, serverIP string, udpDatagramSize int, interfaceName string) {
-	runGenericUDPServer("multicast", serverPort, serverIP, udpDatagramSize, interfaceName)
+func RunMulticastUDPServer(serverPort int, serverIP string, protocolVersion int, udpDatagramSize int, interfaceName string) {
+	runGenericUDPServer("multicast", serverPort, serverIP, protocolVersion, udpDatagramSize, interfaceName)
 }
 
-func runGenericUDPServer(mode string, serverPort int, serverIP string, udpDatagramSize int, interfaceName string) {
+func runGenericUDPServer(mode string, serverPort int, serverIP string, protocolVersion int, udpDatagramSize int, interfaceName string) {
 	var testString string
-	raddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", serverIP, serverPort))
+	raddr, err := net.ResolveUDPAddr(fmt.Sprintf("%s%d", ProtocolUDP, protocolVersion), fmt.Sprintf("[%s]:%d", serverIP, serverPort))
 	if err != nil {
 		log.Print(err)
 		os.Exit(1)
 	}
-	intFace, err := net.InterfaceByName(interfaceName)
+	intFaceAddr, err := defineSourceIP(interfaceName, protocolVersion)
 	if err != nil {
 		log.Print(err)
 		os.Exit(1)
 	}
-	intFaceAddreses, err := intFace.Addrs()
+	laddr, err := net.ResolveUDPAddr(fmt.Sprintf("%s%d", ProtocolUDP, protocolVersion), fmt.Sprintf("[%s]:%d", *intFaceAddr, serverPort))
 	if err != nil {
 		log.Print(err)
 		os.Exit(1)
 	}
-	if len(intFaceAddreses) < 1 {
-		log.Print(fmt.Sprintf("error: can not find ip address on interface %s", interfaceName))
-		os.Exit(1)
-	}
-	intFaceAddr := strings.Split(intFaceAddreses[0].String(), "/")[0]
-	laddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", intFaceAddr, serverPort))
-	if err != nil {
-		log.Print(err)
-		os.Exit(1)
-	}
-	conn, err := net.DialUDP("udp", laddr, raddr)
+	conn, err := net.DialUDP(fmt.Sprintf("%s%d", ProtocolUDP, protocolVersion), laddr, raddr)
 	if err != nil {
 		log.Print(err)
 		os.Exit(1)
@@ -80,14 +105,13 @@ func runGenericUDPServer(mode string, serverPort int, serverIP string, udpDatagr
 		fmt.Printf("Error define DF receive timeout %s", err)
 		os.Exit(1)
 	}
-	err = syscall.SetsockoptInt(int(f.Fd()), syscall.IPPROTO_IP, syscall.IP_MTU_DISCOVER, syscall.IP_PMTUDISC_DO)
-	if err != nil {
-		fmt.Printf("Error define DF flag %s", err)
-		os.Exit(1)
+	if protocolVersion == 4 {
+		err = syscall.SetsockoptInt(int(f.Fd()), syscall.IPPROTO_IP, syscall.IP_MTU_DISCOVER, syscall.IP_PMTUDISC_DO)
+	} else {
+		err = syscall.SetsockoptInt(int(f.Fd()), syscall.IPPROTO_IPV6, syscall.IPV6_MTU_DISCOVER, syscall.IPV6_PMTUDISC_DO)
 	}
-	err = syscall.SetsockoptInt(int(f.Fd()), syscall.IPPROTO_IP, syscall.IP_MTU_DISCOVER, syscall.IP_PMTUDISC_DO)
 	if err != nil {
-		fmt.Printf("Error define DF flag %s", err)
+		fmt.Printf("Error define MTU discovery flag %s", err)
 		os.Exit(1)
 	}
 	for i := 1; i <= udpDatagramSize; i++ {
