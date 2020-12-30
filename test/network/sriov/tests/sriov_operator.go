@@ -44,22 +44,18 @@ var (
 )
 
 var _ = Describe("CNF SRIOV", func() {
-	describe := func(desc string) func(mtu int, protocol string, connectivity string) string {
-
-		return func(mtu int, protocol string, connectivity string) string {
-			connectivityParameters, err := parameters.NewConnectivityTestParameters(mtu, connectivity, protocol)
-			if err != nil {
-				log.Print(err)
-				return fmt.Sprintf("error in parameters: %s MTU=%d, Connectivity=%s, Protocol=%s", desc, mtu, connectivity, protocol)
-			}
-			myPrams, err := json.Marshal(connectivityParameters)
-			if err != nil {
-				log.Print(err)
-				return fmt.Sprintf("error in parameters: %s MTU=%d, Connectivity=%s, Protocol=%s", desc, mtu, connectivity, protocol)
-			}
-
-			return fmt.Sprintf("%s %s", desc, string(myPrams))
+	describe := func(mtu int, protocol string, connectivity string) string {
+		connectivityParameters, err := parameters.NewConnectivityTestParameters(mtu, connectivity, protocol)
+		if err != nil {
+			log.Print(err)
+			return fmt.Sprintf("error in parameters: MTU=%d, Connectivity=%s, Protocol=%s", mtu, connectivity, protocol)
 		}
+		myPrams, err := json.Marshal(connectivityParameters)
+		if err != nil {
+			log.Print(err)
+			return fmt.Sprintf("error in parameters: MTU=%d, Connectivity=%s, Protocol=%s", mtu, connectivity, protocol)
+		}
+		return string(myPrams)
 	}
 	var sriovInfos *cluster.EnabledNodes
 	config, err := config.NewConfig()
@@ -134,17 +130,28 @@ var _ = Describe("CNF SRIOV", func() {
 
 	DescribeTable("Ipam type: IP Static, Ip Stack: ipv4, Mac address: MAC static", func(mtu int, protocol string, connectivity string) {
 		buildDescribeTable(mtu, protocol, connectivity, sriovInfos, config, clientMacAddress, serverMacAddress)
-	}, buildTableEntries(describe(""))...)
+	}, buildTableEntries(describe, []int{parameters.MTUCustom, parameters.MTUJumbo, parameters.MTUStandart},
+		[]string{
+			parameters.ConnectivityDiffNode, parameters.ConnectivitySameNodeDiffPF, parameters.ConnectivitySameNodeSamePF},
+		[]string{parameters.CommunicationProtocolUnicastICMP, parameters.CommunicationProtocolUnicastTCP,
+			parameters.CommunicationProtocolUnicastUDP, parameters.CommunicationProtocolMulticastUDP,
+			parameters.CommunicationProtocolBroadcastUDP, parameters.CommunicationProtocolUnicastSCTP})...)
 
 	DescribeTable("Ipam type: IP Static, Ip Stack: ipv4, Mac address: MAC dynamic", func(mtu int, protocol string, connectivity string) {
 		buildDescribeTable(mtu, protocol, connectivity, sriovInfos, config, "", "")
-	}, buildTableEntries(describe(""))...)
+	}, buildTableEntries(describe, []int{parameters.MTUCustom, parameters.MTUJumbo, parameters.MTUStandart},
+		[]string{
+			parameters.ConnectivityDiffNode, parameters.ConnectivitySameNodeDiffPF, parameters.ConnectivitySameNodeSamePF},
+		[]string{parameters.CommunicationProtocolUnicastICMP, parameters.CommunicationProtocolUnicastTCP,
+			parameters.CommunicationProtocolUnicastUDP, parameters.CommunicationProtocolMulticastUDP,
+			parameters.CommunicationProtocolBroadcastUDP, parameters.CommunicationProtocolUnicastSCTP})...)
 })
 
 func runServerPod(protocol string, mtu int, connectivity string, sriovInfos *cluster.EnabledNodes,
 	config *config.Config, networkName string, serverCommand []string, negative bool, serverMacAddress string) {
 	nodeSelector := defineNodeSelector(connectivity, sriovInfos)
-	if (protocol == parameters.CommunicationProtocolMulticastUDP || protocol == parameters.CommunicationProtocolBroadcastUDP) && negative == true {
+	if (protocol == parameters.CommunicationProtocolMulticastUDP || protocol == parameters.CommunicationProtocolBroadcastUDP ||
+		protocol == parameters.CommunicationProtocolUnicastSCTP) && negative == true {
 		namespaces.CleanPods(parameters.OperatorTestNamespace, clients)
 	}
 	serverCommand, err := serverCommandFor(protocol, mtu, negative)
@@ -351,6 +358,10 @@ func buildDescribeTable(mtu int, protocol string, connectivity string, sriovInfo
 
 	By("Positive test flow - success. Running negative flow")
 	negativeFlag = true
+	if protocol == parameters.CommunicationProtocolUnicastSCTP {
+		serverNetworkName = defineClientNetworkName(mtu, connectivityParameters.Connectivity)
+		clientNetworkName = defineServerNetworkName(mtu)
+	}
 	if protocol == parameters.CommunicationProtocolMulticastUDP || protocol == parameters.CommunicationProtocolBroadcastUDP {
 		runServerPod(protocol, connectivityParameters.MTU, connectivityParameters.Connectivity, sriovInfos, config, serverNetworkName, nodeSelector, negativeFlag, serverMacAddress)
 	}
@@ -370,16 +381,8 @@ func buildDescribeTable(mtu int, protocol string, connectivity string, sriovInfo
 
 }
 
-func buildTableEntries(describe interface{}) []TableEntry {
-	var (
-		tableEntries           []TableEntry
-		mtuParameters          = []int{parameters.MTUCustom, parameters.MTUJumbo, parameters.MTUStandart}
-		connectivityParameters = []string{
-			parameters.ConnectivityDiffNode, parameters.ConnectivitySameNodeDiffPF, parameters.ConnectivitySameNodeSamePF}
-		protocolParameters = []string{parameters.CommunicationProtocolUnicastICMP, parameters.CommunicationProtocolUnicastTCP,
-			parameters.CommunicationProtocolUnicastUDP, parameters.CommunicationProtocolMulticastUDP,
-			parameters.CommunicationProtocolBroadcastUDP, parameters.CommunicationProtocolUnicastSCTP}
-	)
+func buildTableEntries(describe interface{}, mtuParameters []int, connectivityParameters []string, protocolParameters []string) []TableEntry {
+	var tableEntries []TableEntry
 	for _, protocol := range protocolParameters {
 		for _, mtu := range mtuParameters {
 			for _, connectivity := range connectivityParameters {
