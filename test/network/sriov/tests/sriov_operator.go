@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -31,16 +32,20 @@ const (
 	sriovNetworkCustomMTUNameDiff  = "test-sriov-static-custom-diff"
 	sriovNetworkJumboFrameNameDiff = "test-sriov-static-jumbo-diff"
 	clientPodIP                    = "192.168.100.1"
+	clientPodIPv6                  = "2001:1db8:85a3::1"
 	clientMacAddress               = "20:04:0f:f1:88:01"
 	serverPodIP                    = "192.168.100.2"
+	serverPodIpv6                  = "2001:1db8:85a3::2"
 	serverMacAddress               = "20:04:0f:f1:88:03"
 	testPort                       = 50000
 	testInterfaceName              = "net1"
+	multicastIPv6Address           = "FF05:0:0:0:0:0:0:18C"
+	multicastIPAddress             = "224.255.0.10"
 )
 
 var (
 	waitingTime    time.Duration = 20 * time.Minute
-	podWaitingTime time.Duration = 2 * time.Minute
+	podWaitingTime time.Duration = 4 * time.Minute
 )
 
 var _ = Describe("CNF SRIOV", func() {
@@ -145,18 +150,36 @@ var _ = Describe("CNF SRIOV", func() {
 		[]string{parameters.CommunicationProtocolUnicastICMP, parameters.CommunicationProtocolUnicastTCP,
 			parameters.CommunicationProtocolUnicastUDP, parameters.CommunicationProtocolMulticastUDP,
 			parameters.CommunicationProtocolBroadcastUDP, parameters.CommunicationProtocolUnicastSCTP})...)
+
+	DescribeTable("Ipam type: IP Static, Ip Stack: ipv6, Mac address: MAC static", func(mtu int, protocol string, connectivity string) {
+		buildDescribeTable6(mtu, protocol, connectivity, sriovInfos, config, clientMacAddress, serverMacAddress)
+	}, buildTableEntries(describe, []int{parameters.MTUCustom, parameters.MTUJumbo, parameters.MTUStandart},
+		[]string{
+			parameters.ConnectivityDiffNode, parameters.ConnectivitySameNodeDiffPF, parameters.ConnectivitySameNodeSamePF},
+		[]string{parameters.CommunicationProtocolUnicastICMP, parameters.CommunicationProtocolUnicastTCP,
+			parameters.CommunicationProtocolUnicastUDP, parameters.CommunicationProtocolMulticastUDP,
+			parameters.CommunicationProtocolUnicastSCTP})...)
+
+	DescribeTable("Ipam type: IP Static, Ip Stack: ipv6, Mac address: MAC dynamic", func(mtu int, protocol string, connectivity string) {
+		buildDescribeTable6(mtu, protocol, connectivity, sriovInfos, config, "", "")
+	}, buildTableEntries(describe, []int{parameters.MTUCustom, parameters.MTUJumbo, parameters.MTUStandart},
+		[]string{
+			parameters.ConnectivityDiffNode, parameters.ConnectivitySameNodeDiffPF, parameters.ConnectivitySameNodeSamePF},
+		[]string{parameters.CommunicationProtocolUnicastICMP, parameters.CommunicationProtocolUnicastTCP,
+			parameters.CommunicationProtocolUnicastUDP, parameters.CommunicationProtocolMulticastUDP,
+			parameters.CommunicationProtocolUnicastSCTP})...)
 })
 
 func runServerPod(protocol string, mtu int, connectivity string, sriovInfos *cluster.EnabledNodes,
-	config *config.Config, networkName string, serverCommand []string, negative bool, serverMacAddress string) {
+	config *config.Config, networkName string, serverCommand []string, negative bool, serverMacAddress string, serverIP string) {
 	nodeSelector := defineNodeSelector(connectivity, sriovInfos)
 	if (protocol == parameters.CommunicationProtocolMulticastUDP || protocol == parameters.CommunicationProtocolBroadcastUDP ||
 		protocol == parameters.CommunicationProtocolUnicastSCTP) && negative == true {
 		namespaces.CleanPods(parameters.OperatorTestNamespace, clients)
 	}
-	serverCommand, err := serverCommandFor(protocol, mtu, negative)
+	serverCommand, err := serverCommandFor(protocol, mtu, serverIP, negative)
 	Expect(err).ToNot(HaveOccurred())
-	serverPodDefinition := defineServerPod(protocol, nodeSelector, networkName, serverPodIP, serverMacAddress,
+	serverPodDefinition := defineServerPod(protocol, nodeSelector, networkName, serverIP, serverMacAddress,
 		config.Network.TestContainerImage, serverCommand)
 	serverPod, err := clients.Pods(parameters.OperatorTestNamespace).Create(context.Background(), serverPodDefinition, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
@@ -166,7 +189,7 @@ func runServerPod(protocol string, mtu int, connectivity string, sriovInfos *clu
 	}, podWaitingTime, time.Second).Should(Equal(corev1.PodRunning))
 }
 
-func serverCommandFor(testProtocol string, mtu int, negative bool) ([]string, error) {
+func serverCommandFor(testProtocol string, mtu int, serverIP string, negative bool) ([]string, error) {
 	testCommand := []string{}
 	switch testProtocol {
 	case parameters.CommunicationProtocolUnicastICMP:
@@ -175,21 +198,25 @@ func serverCommandFor(testProtocol string, mtu int, negative bool) ([]string, er
 		testCommand = []string{"httpd", "-X"}
 	case parameters.CommunicationProtocolUnicastSCTP:
 		testCommand = []string{"testcmd", "-protocol=sctp", "-listen", fmt.Sprintf("-port=%d", testPort),
-			fmt.Sprintf("-interface=%s", testInterfaceName), fmt.Sprintf("-server=%s", serverPodIP)}
+			fmt.Sprintf("-interface=%s", testInterfaceName), fmt.Sprintf("-server=%s", serverIP)}
 	case parameters.CommunicationProtocolUnicastUDP:
 		testCommand = []string{"testcmd", "-listen", "-protocol=udp", fmt.Sprintf("-port=%d", testPort),
 			fmt.Sprintf("-mtu=%d", mtu)}
 	case parameters.CommunicationProtocolMulticastUDP:
+		multicastAddress := multicastIPAddress
+		if strings.Contains(serverIP, ":") {
+			multicastAddress = multicastIPv6Address
+		}
 		testCommand = []string{"testcmd", "-listen", "-protocol=udp", fmt.Sprintf("-port=%d", testPort),
-			"-multicast", "-server=224.255.0.10", fmt.Sprintf("-interface=%s", testInterfaceName)}
+			"-multicast", fmt.Sprintf("-interface=%s", testInterfaceName), fmt.Sprintf("-server=%s", multicastAddress)}
 		if negative {
 			if mtu < parameters.MTUJumbo {
-				testCommand = append(testCommand, fmt.Sprintf("-mtu=%d", mtu+40))
+				testCommand = append(testCommand, fmt.Sprintf("-mtu=%d", mtu+100))
 			} else {
 				testCommand = append(testCommand, fmt.Sprintf("-mtu=%d", mtu))
 			}
 		} else {
-			testCommand = append(testCommand, fmt.Sprintf("-mtu=%d", mtu-50))
+			testCommand = append(testCommand, fmt.Sprintf("-mtu=%d", mtu-100))
 		}
 	case parameters.CommunicationProtocolBroadcastUDP:
 		if negative {
@@ -208,21 +235,29 @@ func serverCommandFor(testProtocol string, mtu int, negative bool) ([]string, er
 func defineTestCommandParameters(negative bool, protocol string, mtu int, connectivity string, serverIP string) ([]string, error) {
 	testCommand := []string{"testcmd"}
 	var protocolOption string
+	protocolVersion := 4
+	if strings.Contains(serverIP, ":") {
+		protocolVersion = 6
+	}
 	switch protocol {
 	case parameters.CommunicationProtocolUnicastICMP:
 		protocolOption = "icmp"
 	case parameters.CommunicationProtocolUnicastTCP:
 		protocolOption = "tcp"
-		testCommand = append(testCommand, fmt.Sprintf("-port=%d", 80))
+		testCommand = append(testCommand, fmt.Sprintf("-port=%d", 80), fmt.Sprintf("-interface=%s", testInterfaceName))
 	case parameters.CommunicationProtocolUnicastSCTP:
 		protocolOption = "sctp"
-		testCommand = append(testCommand, fmt.Sprintf("-port=%d", testPort), fmt.Sprintf("-interface=%s", testInterfaceName))
+		testCommand = append(testCommand, fmt.Sprintf("-server=%s", serverIP),
+			fmt.Sprintf("-port=%d", testPort), fmt.Sprintf("-interface=%s", testInterfaceName))
 	case parameters.CommunicationProtocolUnicastUDP:
 		protocolOption = "udp"
 		testCommand = append(testCommand, fmt.Sprintf("-port=%d", testPort))
 	case parameters.CommunicationProtocolMulticastUDP:
 		protocolOption = "udp"
-		serverIP = "224.255.0.10"
+		serverIP = multicastIPAddress
+		if protocolVersion == 6 {
+			serverIP = multicastIPv6Address
+		}
 		testCommand = append(testCommand, fmt.Sprintf("-port=%d", testPort), "-multicast", fmt.Sprintf("-interface=%s", testInterfaceName))
 	case parameters.CommunicationProtocolBroadcastUDP:
 		protocolOption = "udp"
@@ -235,13 +270,13 @@ func defineTestCommandParameters(negative bool, protocol string, mtu int, connec
 	case negative:
 		var parameterMtu string
 		if mtu < parameters.MTUJumbo {
-			parameterMtu = fmt.Sprintf("-mtu=%d", mtu+40)
+			parameterMtu = fmt.Sprintf("-mtu=%d", mtu+100)
 		} else {
 			parameterMtu = fmt.Sprintf("-mtu=%d", mtu)
 		}
 		testCommand = append(testCommand, "-negative", parameterMtu)
 	default:
-		testCommand = append(testCommand, fmt.Sprintf("-mtu=%d", mtu-50))
+		testCommand = append(testCommand, fmt.Sprintf("-mtu=%d", mtu-100))
 	}
 	testCommand = append(testCommand, fmt.Sprintf("-server=%s", serverIP), fmt.Sprintf("-protocol=%s", protocolOption))
 	return testCommand, nil
@@ -306,6 +341,12 @@ func defineServerPod(protocol string, nodeSelector []string, networkName string,
 		podDefinition = pod.RedefineAsPrivileged(podDefinition)
 	}
 	podDefinition = DefinePodCommandWithIpamAndMac(podDefinition, networkName, ipaddress, macAddress, podCommand)
+	if strings.Contains(ipaddress, ":") {
+		podDefinition = redefinePodWithInitCommandPolicy(podDefinition, podImage,
+			fmt.Sprintf("ip -6 route add %s/128 dev net1 && ip -6 route add %s/128 dev net1 table local"+
+				" && for i in {1..10}; do sleep 1; if ip -6 addr show | grep %s; then exit 0; fi; done; exit 1", clientPodIPv6,
+				multicastIPv6Address, serverPodIpv6))
+	}
 	return podDefinition
 }
 
@@ -324,8 +365,41 @@ func defineClientPod(protocol string, nodeSelector []string, networkName string,
 		podDefinition = pod.RedefineAsPrivileged(podDefinition)
 	}
 	podDefinition = DefinePodCommandWithIpamAndMac(podDefinition, networkName, ipaddress, macAddress, podCommand)
-
+	if strings.Contains(ipaddress, ":") {
+		var validateHttpdCommand string
+		if protocol == parameters.CommunicationProtocolUnicastTCP {
+			validateHttpdCommand = fmt.Sprintf(" && for i in {1..60}; do sleep 1; if curl --max-time 3 -6 -g http://[%s]:80; then exit 0; fi; done; exit 1", serverPodIpv6)
+		}
+		podDefinition = redefinePodWithInitCommandPolicy(podDefinition, podImage,
+			fmt.Sprintf("for i in {1..10}; do sleep 1; if ip -6 addr show | grep %s; then exit 0; fi; done; exit 1  && "+
+				"ip -6 route add %s/128 dev net1 && "+
+				"ip -6 route add %s/128 dev net1 table local%s",
+				clientPodIPv6, serverPodIpv6, multicastIPv6Address, validateHttpdCommand))
+	}
 	return podDefinition
+}
+
+func buildTableEntries(describe interface{}, mtuParameters []int, connectivityParameters []string, protocolParameters []string) []TableEntry {
+	var tableEntries []TableEntry
+	for _, protocol := range protocolParameters {
+		for _, mtu := range mtuParameters {
+			for _, connectivity := range connectivityParameters {
+				tableEntries = append(tableEntries, Entry(describe, mtu, protocol, connectivity))
+			}
+		}
+	}
+	return tableEntries
+}
+
+func redefinePodWithInitCommandPolicy(podObject *corev1.Pod, initImage string, command string) *corev1.Pod {
+	b := true
+	podObject.Spec.InitContainers = []corev1.Container{{Name: "inittest",
+		Image: initImage,
+		SecurityContext: &corev1.SecurityContext{
+			Privileged: &b,
+		},
+		Command: []string{"/bin/bash", "-c", command}}}
+	return podObject
 }
 
 func buildDescribeTable(mtu int, protocol string, connectivity string, sriovInfos *cluster.EnabledNodes, config *config.Config, clientMacAddress string, serverMacAddress string) {
@@ -346,7 +420,7 @@ func buildDescribeTable(mtu int, protocol string, connectivity string, sriovInfo
 
 	By("Creating Server Pod")
 	runServerPod(protocol, connectivityParameters.MTU, connectivityParameters.Connectivity, sriovInfos, config, serverNetworkName,
-		nodeSelector, negativeFlag, serverMacAddress)
+		nodeSelector, negativeFlag, serverMacAddress, serverPodIP)
 
 	By("Creating Client Pod")
 	clientPod, err := clients.Pods(parameters.OperatorTestNamespace).Create(context.Background(), clientPodDefinition, metav1.CreateOptions{})
@@ -362,8 +436,10 @@ func buildDescribeTable(mtu int, protocol string, connectivity string, sriovInfo
 		serverNetworkName = defineClientNetworkName(mtu, connectivityParameters.Connectivity)
 		clientNetworkName = defineServerNetworkName(mtu)
 	}
-	if protocol == parameters.CommunicationProtocolMulticastUDP || protocol == parameters.CommunicationProtocolBroadcastUDP {
-		runServerPod(protocol, connectivityParameters.MTU, connectivityParameters.Connectivity, sriovInfos, config, serverNetworkName, nodeSelector, negativeFlag, serverMacAddress)
+	if protocol == parameters.CommunicationProtocolMulticastUDP || protocol == parameters.CommunicationProtocolBroadcastUDP ||
+		protocol == parameters.CommunicationProtocolUnicastSCTP {
+		runServerPod(protocol, connectivityParameters.MTU, connectivityParameters.Connectivity, sriovInfos, config,
+			serverNetworkName, nodeSelector, negativeFlag, serverMacAddress, serverPodIP)
 	}
 	clientTestCommand, err = defineTestCommandParameters(
 		negativeFlag, connectivityParameters.Protocol, connectivityParameters.MTU, connectivityParameters.Connectivity, serverPodIP)
@@ -381,14 +457,60 @@ func buildDescribeTable(mtu int, protocol string, connectivity string, sriovInfo
 
 }
 
-func buildTableEntries(describe interface{}, mtuParameters []int, connectivityParameters []string, protocolParameters []string) []TableEntry {
-	var tableEntries []TableEntry
-	for _, protocol := range protocolParameters {
-		for _, mtu := range mtuParameters {
-			for _, connectivity := range connectivityParameters {
-				tableEntries = append(tableEntries, Entry(describe, mtu, protocol, connectivity))
-			}
-		}
+func buildDescribeTable6(mtu int, protocol string, connectivity string, sriovInfos *cluster.EnabledNodes, config *config.Config, clientMacAddress string, serverMacAddress string) {
+	By("Validating test parameters")
+	connectivityParameters, err := parameters.NewConnectivityTestParameters(mtu, connectivity, protocol)
+	Expect(err).ToNot(HaveOccurred())
+
+	By("Defining test resources")
+	nodeSelector := defineNodeSelector(connectivity, sriovInfos)
+	serverNetworkName := defineServerNetworkName(mtu)
+	clientNetworkName := defineClientNetworkName(mtu, connectivityParameters.Connectivity)
+	negativeFlag := false
+	clientTestCommand, err := defineTestCommandParameters(negativeFlag, connectivityParameters.Protocol, connectivityParameters.MTU,
+		connectivityParameters.Connectivity, serverPodIpv6)
+	Expect(err).ToNot(HaveOccurred())
+	clientPodDefinition := defineClientPod(connectivityParameters.Protocol, nodeSelector, clientNetworkName, clientPodIPv6,
+		clientMacAddress, config.Network.TestContainerImage, clientTestCommand)
+
+	By("Creating Server Pod")
+	runServerPod(protocol, connectivityParameters.MTU, connectivityParameters.Connectivity, sriovInfos, config, serverNetworkName,
+		nodeSelector, negativeFlag, serverMacAddress, serverPodIpv6)
+
+	By("Creating Client Pod")
+	clientPod, err := clients.Pods(parameters.OperatorTestNamespace).Create(context.Background(), clientPodDefinition, metav1.CreateOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	Eventually(func() corev1.PodPhase {
+		clientPod, _ = clients.Pods(parameters.OperatorTestNamespace).Get(context.Background(), clientPod.Name, metav1.GetOptions{})
+		return clientPod.Status.Phase
+	}, podWaitingTime, time.Second).Should(Equal(corev1.PodSucceeded), fmt.Sprintf("Invalid return code. Command: %s", fmt.Sprint(clientTestCommand)))
+	// TODO: Remove this return and add negative support to IPv6 TCP test
+	if protocol == parameters.CommunicationProtocolUnicastTCP {
+		return
 	}
-	return tableEntries
+
+	By("Positive test flow - success. Running negative flow")
+	negativeFlag = true
+	if protocol == parameters.CommunicationProtocolUnicastSCTP {
+		serverNetworkName = defineClientNetworkName(mtu, connectivityParameters.Connectivity)
+		clientNetworkName = defineServerNetworkName(mtu)
+	}
+	if protocol == parameters.CommunicationProtocolMulticastUDP || protocol == parameters.CommunicationProtocolBroadcastUDP ||
+		protocol == parameters.CommunicationProtocolUnicastSCTP {
+		runServerPod(protocol, connectivityParameters.MTU, connectivityParameters.Connectivity, sriovInfos, config,
+			serverNetworkName, nodeSelector, negativeFlag, serverMacAddress, serverPodIpv6)
+	}
+	clientTestCommand, err = defineTestCommandParameters(
+		negativeFlag, connectivityParameters.Protocol, connectivityParameters.MTU, connectivityParameters.Connectivity, serverPodIpv6)
+	Expect(err).ToNot(HaveOccurred())
+
+	By("Creating Client Pod with negative flag")
+	clientPodDefinitionNegative := defineClientPod(connectivityParameters.Protocol, nodeSelector, clientNetworkName,
+		clientPodIPv6, clientMacAddress, config.Network.TestContainerImage, clientTestCommand)
+	clientPodNegative, err := clients.Pods(parameters.OperatorTestNamespace).Create(context.Background(), clientPodDefinitionNegative, metav1.CreateOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	Eventually(func() corev1.PodPhase {
+		clientPodNegative, _ = clients.Pods(parameters.OperatorTestNamespace).Get(context.Background(), clientPodNegative.Name, metav1.GetOptions{})
+		return clientPodNegative.Status.Phase
+	}, podWaitingTime, time.Second).Should(Equal(corev1.PodSucceeded), fmt.Sprintf("Invalid return code. Command: %s", fmt.Sprint(clientTestCommand)))
 }

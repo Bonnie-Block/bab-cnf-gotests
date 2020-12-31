@@ -3,6 +3,7 @@ package helper
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	. "github.com/onsi/gomega"
@@ -124,27 +125,33 @@ func CompareNodeSriovInterfaces(sriovInfos *cluster.EnabledNodes) error {
 
 // DefinePodWithStaticMacAndIpam sets pod network with static IPAM config with Static Mac address
 func DefinePodWithStaticMacAndIpam(pod *corev1.Pod, networkName string, ipAddress string, macAddress string) *corev1.Pod {
-
+	subnet := 24
+	if strings.Contains(ipAddress, ":") {
+		subnet = 64
+	}
 	pod.Annotations = map[string]string{"k8s.v1.cni.cncf.io/networks": fmt.Sprintf(`[
 		{
 			"name": "%s", 
 			"mac": "%s",
-			"ips": ["%s/24"]
+			"ips": ["%s/%d"]
 		}
-	]`, networkName, macAddress, ipAddress)}
+	]`, networkName, macAddress, ipAddress, subnet)}
 
 	return pod
 }
 
 // DefinePodWithStaticIpamAndDynamicMac sets pod network with static IPAM config with Dynamic Mac address
 func DefinePodWithStaticIpamAndDynamicMac(pod *corev1.Pod, networkName string, ipAddress string) *corev1.Pod {
-
+	subnet := 24
+	if strings.Contains(ipAddress, ":") {
+		subnet = 64
+	}
 	pod.Annotations = map[string]string{"k8s.v1.cni.cncf.io/networks": fmt.Sprintf(`[
 		{
 			"name": "%s",
-			"ips": ["%s/24"]
+			"ips": ["%s/%d"]
 		}
-	]`, networkName, ipAddress)}
+	]`, networkName, ipAddress, subnet)}
 
 	return pod
 }
