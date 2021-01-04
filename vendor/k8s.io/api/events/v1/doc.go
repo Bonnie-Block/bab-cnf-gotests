@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Kubernetes Authors.
+Copyright 2020 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,6 +18,6 @@ limitations under the License.
 // +k8s:protobuf-gen=package
 // +k8s:openapi-gen=true
 
-// +groupName=auditregistration.k8s.io
+// +groupName=events.k8s.io
 
-package v1alpha1 // import "k8s.io/api/auditregistration/v1alpha1"
+package v1 // import "k8s.io/api/events/v1"
