@@ -4,19 +4,38 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
+	"time"
 
 	sriovv1 "github.com/openshift/sriov-network-operator/pkg/apis/sriovnetwork/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 )
 
 // NodesSelector represent the label selector used to filter impacted nodes.
 var NodesSelector string
 
+const (
+	// LabelRole contains the key for the role label
+	LabelRole = "node-role.kubernetes.io"
+)
+
 func init() {
 	NodesSelector = os.Getenv("NODES_SELECTOR")
+}
+
+// NodeInterface represent the interface connected to node.
+type NodeInterface struct {
+	Name     string
+	Physical bool
+	UP       bool
+	Bridge   bool
+	DefRoute bool
 }
 
 // MatchingOptionalSelectorByName filter the given slice with only the nodes matching the optional selector.
@@ -82,4 +101,89 @@ func MatchingOptionalSelector(clients *client.ClientSet, toFilter []corev1.Node)
 		return nil, fmt.Errorf("Failed to find matching nodes with %s label selector", NodesSelector)
 	}
 	return res, nil
+}
+
+// GetByRole returns all nodes with the specified role
+func GetByRole(cs *client.ClientSet, role string) ([]corev1.Node, error) {
+	nodes, err := cs.Nodes().List(context.Background(), metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("%s/%s=", LabelRole, role),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return nodes.Items, nil
+}
+
+// GetPhysicalNodeInterfaces return list of interfaces
+func GetPhysicalNodeInterfaces(cs *client.ClientSet, node string) ([]NodeInterface, error) {
+	defer namespaces.CleanPods("default", cs)
+	config, err := config.NewConfig()
+	if err != nil {
+		return nil, err
+	}
+	privilegedPod := pod.RedefineWithHostNetwork(pod.DefinePodOnNode("default", config.Network.TestContainerImage, node))
+	runningPrivilegedPod, err := cs.Pods("default").Create(context.Background(), privilegedPod, metav1.CreateOptions{})
+	if err != nil {
+		return nil, err
+	}
+	var podStatus *corev1.Pod
+	for start := time.Now(); time.Since(start) < time.Second*120; {
+		podStatus, _ = cs.Pods("default").Get(context.Background(), runningPrivilegedPod.Name, metav1.GetOptions{})
+		if podStatus.Status.Phase == corev1.PodRunning {
+			break
+		}
+		time.Sleep(3 * time.Second)
+	}
+
+	if podStatus.Status.Phase != corev1.PodRunning {
+		return nil, fmt.Errorf("Can not run privileged pod")
+	}
+
+	interfaces, err := pod.ExecCommand(cs, *runningPrivilegedPod, []string{"ls", "-l", "/sys/class/net/"})
+	if err != nil {
+		return nil, err
+	}
+
+	interfaceLinksStatus, err := pod.ExecCommand(cs, *runningPrivilegedPod, []string{"ip", "link", "show"})
+	if err != nil {
+		return nil, err
+	}
+
+	defaultRoute, err := pod.ExecCommand(cs, *runningPrivilegedPod, []string{"ip", "route", "show", "0.0.0.0/0"})
+	if err != nil {
+		return nil, err
+	}
+
+	var nodeInterfaces []NodeInterface
+
+	for _, oneInterface := range strings.Split(interfaces.String(), "\n") {
+		nodeInterface := new(NodeInterface)
+		splitedInterfaceSting := strings.Split(oneInterface, "/")
+		interfaceName := strings.ReplaceAll(splitedInterfaceSting[len(splitedInterfaceSting)-1], "\r", "")
+		nodeInterface.Name = interfaceName
+
+		if !strings.Contains(oneInterface, "virtual") {
+			nodeInterface.Physical = true
+		}
+
+		if len(splitedInterfaceSting) > 1 {
+			for _, interfaceInfo := range strings.Split(interfaceLinksStatus.String(), "ff:ff:ff:ff:ff:ff") {
+				if strings.Contains(interfaceInfo, interfaceName) {
+					if strings.Contains(interfaceInfo, "state UP") {
+						nodeInterface.UP = true
+					}
+
+					if strings.Contains(interfaceInfo, "master") {
+						nodeInterface.Bridge = true
+					}
+					if strings.Contains(defaultRoute.String(), interfaceName) {
+						nodeInterface.DefRoute = true
+					}
+				}
+			}
+		}
+		nodeInterfaces = append(nodeInterfaces, *nodeInterface)
+	}
+
+	return nodeInterfaces, nil
 }

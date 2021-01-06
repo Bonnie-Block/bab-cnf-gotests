@@ -3,6 +3,7 @@ package pod
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -95,8 +96,8 @@ func RedefineWithRestartPolicy(pod *corev1.Pod, restartPolicy corev1.RestartPoli
 }
 
 // ExecCommand runs command in the pod and returns buffer output
-func ExecCommand(cs *testclient.ClientSet, pod *corev1.Pod, command ...string) (string, string, error) {
-	var buf, errbuf bytes.Buffer
+func ExecCommand(cs *testclient.ClientSet, pod corev1.Pod, command []string) (bytes.Buffer, error) {
+	var buf bytes.Buffer
 	req := cs.CoreV1Interface.RESTClient().
 		Post().
 		Namespace(pod.Namespace).
@@ -114,20 +115,20 @@ func ExecCommand(cs *testclient.ClientSet, pod *corev1.Pod, command ...string) (
 
 	exec, err := remotecommand.NewSPDYExecutor(cs.Config, "POST", req.URL())
 	if err != nil {
-		return buf.String(), errbuf.String(), err
+		return buf, err
 	}
 
 	err = exec.Stream(remotecommand.StreamOptions{
 		Stdin:  os.Stdin,
 		Stdout: &buf,
-		Stderr: &errbuf,
+		Stderr: os.Stderr,
 		Tty:    true,
 	})
 	if err != nil {
-		return buf.String(), errbuf.String(), err
+		return buf, err
 	}
 
-	return buf.String(), errbuf.String(), nil
+	return buf, nil
 }
 
 // GetLog connects to a pod and fetches log
@@ -148,4 +149,36 @@ func GetLog(cs *testclient.ClientSet, p *corev1.Pod, s time.Duration) (string, e
 	}
 
 	return buf.String(), nil
+}
+
+// RedefinePodWithNetwork updates the pod defintion with a network annotation
+func RedefinePodWithNetwork(pod *corev1.Pod, networksSpec string) *corev1.Pod {
+	pod.ObjectMeta.Annotations = map[string]string{"k8s.v1.cni.cncf.io/networks": networksSpec}
+	return pod
+}
+
+// DefinePodOnNode creates the pod defintion with a node selector
+func DefinePodOnNode(namespace string, image string, nodeName string) *corev1.Pod {
+	pod := getDefinition(namespace, image)
+	pod.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
+	return pod
+}
+
+// DefinePodOnHostNetwork updates the pod defintion with a host network flag
+func DefinePodOnHostNetwork(namespace string, image string, nodeName string) *corev1.Pod {
+	pod := DefinePodOnNode(namespace, image, nodeName)
+	pod.Spec.HostNetwork = true
+	return pod
+}
+
+// DefinePodWithStaticIpamStatiMac sets pod's network with static IP+mac address config
+func DefinePodWithStaticIpamStatiMac(pod *corev1.Pod, networkName string, ipAddress string, macAddress string) *corev1.Pod {
+	pod.Annotations = map[string]string{"k8s.v1.cni.cncf.io/networks": fmt.Sprintf(`[
+		{
+			"name": "%s", 
+			"mac": "%s",
+			"ips": ["%s/24"]
+		}
+	]`, networkName, macAddress, ipAddress)}
+	return pod
 }

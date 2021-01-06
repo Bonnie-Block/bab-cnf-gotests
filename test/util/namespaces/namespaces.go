@@ -116,6 +116,31 @@ func CleanNetworks(operatorNamespace string, cs *testclient.ClientSet) error {
 	return waitForSriovNetworkDeletion(operatorNamespace, cs, 15*time.Second)
 }
 
+// CleanPodsByPrefix cleans all pods objects from the given namespace by prefix.
+func CleanPodsByPrefix(namespace string, prefix string, cs *testclient.ClientSet) error {
+	_, err := cs.Namespaces().Get(context.Background(), namespace, metav1.GetOptions{})
+	if err != nil && k8serrors.IsNotFound(err) {
+		return nil
+	}
+
+	pods, err := cs.Pods(namespace).List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return err
+	}
+
+	for _, pod := range pods.Items {
+		if strings.HasPrefix(pod.Name, prefix) {
+			err = cs.Pods(namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{
+				GracePeriodSeconds: pointer.Int64Ptr(0),
+			})
+			if err != nil && !errors.IsNotFound(err) {
+				return err
+			}
+		}
+	}
+	return err
+}
+
 func waitForSriovNetworkDeletion(operatorNamespace string, cs *testclient.ClientSet, timeout time.Duration) error {
 	return wait.PollImmediate(time.Second, timeout, func() (bool, error) {
 		networks := sriovv1.SriovNetworkList{}
