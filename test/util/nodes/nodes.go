@@ -7,14 +7,14 @@ import (
 	"strings"
 	"time"
 
-	sriovv1 "github.com/openshift/sriov-network-operator/pkg/apis/sriovnetwork/v1"
+	sriovv1 "github.com/k8snetworkplumbingwg/sriov-network-operator/api/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 )
 
 // NodesSelector represent the label selector used to filter impacted nodes.

@@ -12,7 +12,7 @@ import (
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
-	netattdefv1 "github.com/openshift/sriov-network-operator/pkg/apis/k8s/v1"
+	netattdefv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/vrf/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"

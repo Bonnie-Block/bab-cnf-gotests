@@ -1,15 +1,13 @@
 require (
-	github.com/go-logr/logr v0.2.1 // indirect
-	github.com/go-logr/zapr v0.2.0 // indirect
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/ishidawataru/sctp v0.0.0-20191218070446-00ab2ac2db07
+	github.com/k8snetworkplumbingwg/network-attachment-definition-client v0.0.0-20200626054723-37f83d1996bc
+	github.com/k8snetworkplumbingwg/sriov-network-operator v0.0.0-20201204053545-49045c36efb9
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/onsi/ginkgo v1.14.1
 	github.com/onsi/gomega v1.10.2
 	github.com/openshift/client-go v0.0.0-20200827190008-3062137373b5
 	github.com/openshift/machine-config-operator v4.2.0-alpha.0.0.20190917115525-033375cbe820+incompatible
-	github.com/openshift/sriov-network-operator v0.0.0-20200714215514-091a868e6d9b
-	golang.org/x/sys v0.0.0-20200625212154-ddb9806d33ae // indirect
 	gopkg.in/yaml.v2 v2.3.0
 	k8s.io/api v0.19.2
 	k8s.io/apimachinery v0.19.2
@@ -45,6 +43,7 @@ replace (
 
 replace (
 	github.com/Azure/go-autorest => github.com/Azure/go-autorest v13.3.2+incompatible // Required by OLM
+	github.com/k8snetworkplumbingwg/sriov-network-operator => github.com/openshift/sriov-network-operator v0.0.0-20210105152551-211d8ee0992e // release-4.7
 	github.com/mattn/go-sqlite3 => github.com/mattn/go-sqlite3 v1.10.0
 	github.com/openshift/library-go => github.com/openshift/library-go v0.0.0-20200421122923-c1de486c7d47 // fix bitbucket dependency https://github.com/openshift/library-go/pull/776
 	github.com/openshift/machine-config-operator => github.com/openshift/machine-config-operator v0.0.1-0.20201222202713-eab9c35dfbeb // release-4.6
