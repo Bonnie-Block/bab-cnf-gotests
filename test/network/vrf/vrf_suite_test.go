@@ -10,6 +10,8 @@ import (
 	"github.com/onsi/ginkgo/reporters"
 	. "github.com/onsi/gomega"
 
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/helper"
+	sriovHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/sriov/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/vrf/parameters"
 	_ "gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/vrf/tests"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
@@ -18,7 +20,8 @@ import (
 )
 
 const (
-	timeout = 1800 * time.Second
+	waitingTime time.Duration = 20 * time.Minute
+	timeout                   = 1800 * time.Second
 )
 
 func TestVrf(t *testing.T) {
@@ -41,9 +44,22 @@ func TestVrf(t *testing.T) {
 	RunSpecsWithDefaultAndCustomReporters(t, "VRF tests", rr)
 }
 
+var _ = BeforeSuite(func() {
+	clients, err := config.DefineClients()
+	Expect(err).ToNot(HaveOccurred())
+	By(fmt.Sprintf("Create %s namespace", parameters.TestNamespace))
+	err = namespaces.Create(parameters.TestNamespace, clients)
+	Expect(err).ToNot(HaveOccurred())
+})
+
 var _ = AfterSuite(func() {
 	clients, err := config.DefineClients()
 	Expect(err).ToNot(HaveOccurred())
+	By(fmt.Sprintf("Clean test namespace %s", parameters.TestNamespace))
+	err = namespaces.Clean(helper.SriovOperatorNamespace, parameters.TestNamespace, clients, false)
+	Expect(err).ToNot(HaveOccurred())
 	err = namespaces.DeleteAndWait(clients, parameters.TestNamespace, timeout)
 	Expect(err).ToNot(HaveOccurred())
+	By("Waiting until SRIOV become stable")
+	sriovHelper.WaitForSRIOVStable(clients, helper.SriovOperatorNamespace, waitingTime)
 })

@@ -7,16 +7,21 @@ import (
 )
 
 const (
-	SameNode                     = "Same Node"
-	DiffNode                     = "Different Node"
-	IPStackIPv4                  = "ipv4"
-	IPStackIPv6                  = "ipv6"
-	HostnameLabel                = "kubernetes.io/hostname"
-	TestNamespace                = "vrf-cni-test"
-	PodWaitingTime time.Duration = 2 * time.Minute
-	VRFBlueName                  = "blue"
-	VRFRedName                   = "red"
-	LabelNodeRole                = "worker"
+	ResourceNameVRF                    = "sriovnicvrf"
+	TestSriovNetworkRed                = "test-vrf-sriov-network-red"
+	TestSriovNetworkBlue               = "test-vrf-sriov-network-blue"
+	SriovPolicyName                    = "test-sriov-policy-vrf"
+	SameNode                           = "Same Node"
+	DiffNode                           = "Different Node"
+	IPStackIPv4                        = "ipv4"
+	IPStackIPv6                        = "ipv6"
+	HostnameLabel                      = "kubernetes.io/hostname"
+	TestNamespace                      = "vrf-cni-test"
+	PodWaitingTime       time.Duration = 2 * time.Minute
+	VRFBlueName                        = "blue"
+	VRFRedName                         = "red"
+	LabelNodeRole                      = "worker"
+	WaitingTime          time.Duration = 20 * time.Minute
 )
 
 var (

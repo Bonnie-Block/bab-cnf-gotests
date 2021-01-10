@@ -5,12 +5,45 @@ import (
 	"fmt"
 	"time"
 
+	sriovv1 "github.com/k8snetworkplumbingwg/sriov-network-operator/api/v1"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
 )
+
+// SriovNetworkOptions additional options for SriovNetwork
+type SriovNetworkOptions func(*sriovv1.SriovNetwork)
+
+// CreateSriovNetwork adds sriov network
+func CreateSriovNetwork(clientSet *client.ClientSet, intf *sriovv1.InterfaceExt, name string, namespace string, operatorNamespace string, resourceName string, ipam string, options ...SriovNetworkOptions) error {
+	sriovNetwork := &sriovv1.SriovNetwork{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: operatorNamespace,
+		},
+		Spec: sriovv1.SriovNetworkSpec{
+			ResourceName:     resourceName,
+			IPAM:             ipam,
+			NetworkNamespace: namespace,
+			// Enable the linkState instead of auto so even if the PF is down we can still use the VF
+			// for pod to pod connectivity tests in the same host
+			LinkState: "enable",
+		}}
+
+	for _, o := range options {
+		o(sriovNetwork)
+	}
+
+	// We need this to be able to run the connectivity checks on Mellanox cards
+	if intf.DeviceID == "1015" {
+		sriovNetwork.Spec.SpoofChk = "off"
+	}
+
+	err := clientSet.Create(context.Background(), sriovNetwork)
+	return err
+}
 
 // WaitUntilPodCreatedAndRunning waits until pod created and running. Returns running pod
 func WaitUntilPodCreatedAndRunning(cs *client.ClientSet, podStruct *k8sv1.Pod, namespace string, waitingTime time.Duration) *k8sv1.Pod {

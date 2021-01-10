@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	. "github.com/onsi/gomega"
 	sriovv1 "github.com/k8snetworkplumbingwg/sriov-network-operator/api/v1"
+	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -24,6 +24,7 @@ func WaitForSRIOVStable(clients *testclient.ClientSet, operatorNamespace string,
 	// then stable. The issue is that if no configuration is applied, then
 	// the status won't never go to not stable and the test will fail.
 	// TODO: find a better way to handle this scenario
+	time.Sleep(5 * time.Second)
 	Eventually(func() bool {
 		res, err := cluster.SriovStable(operatorNamespace, clients)
 		Expect(err).ToNot(HaveOccurred())
@@ -52,7 +53,7 @@ func validateSriovVFsNodeAllocatedResources(clients *testclient.ClientSet, node 
 			resNum, _ := testedNode.Status.Allocatable[corev1.ResourceName("openshift.io/"+networkPolicy.Spec.ResourceName)]
 			allocatable, _ := resNum.AsInt64()
 			return allocatable
-		}, 10*time.Minute, time.Second).Should(Equal(int64(VfNumber)))
+		}, 20*time.Minute, time.Second).Should(Equal(int64(VfNumber)))
 	}
 }
 
