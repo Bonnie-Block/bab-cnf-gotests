@@ -8,6 +8,7 @@ require (
 	github.com/onsi/gomega v1.10.2
 	github.com/openshift/client-go v0.0.0-20200827190008-3062137373b5
 	github.com/openshift/machine-config-operator v4.2.0-alpha.0.0.20190917115525-033375cbe820+incompatible
+	github.com/openshift/ptp-operator v0.0.0-20210110151302-58d8ffd4a37e
 	gopkg.in/yaml.v2 v2.3.0
 	k8s.io/api v0.19.2
 	k8s.io/apimachinery v0.19.2
