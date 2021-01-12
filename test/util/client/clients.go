@@ -10,11 +10,13 @@ import (
 	clientsriovv1 "github.com/k8snetworkplumbingwg/sriov-network-operator/pkg/client/clientset/versioned/typed/sriovnetwork/v1"
 	clientconfigv1 "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 	clientmachineconfigv1 "github.com/openshift/machine-config-operator/pkg/generated/clientset/versioned/typed/machineconfiguration.openshift.io/v1"
+	ptpv1 "github.com/openshift/ptp-operator/pkg/client/clientset/versioned/typed/ptp/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	discovery "k8s.io/client-go/discovery"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	appsv1client "k8s.io/client-go/kubernetes/typed/apps/v1"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
+	networkv1client "k8s.io/client-go/kubernetes/typed/networking/v1"
 
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -27,12 +29,14 @@ type ClientSet struct {
 	corev1client.CoreV1Interface
 	clientconfigv1.ConfigV1Interface
 	clientmachineconfigv1.MachineconfigurationV1Interface
+	networkv1client.NetworkingV1Client
 
 	appsv1client.AppsV1Interface
 	discovery.DiscoveryInterface
 	clientsriovv1.SriovnetworkV1Interface
 	Config *rest.Config
 	runtimeclient.Client
+	ptpv1.PtpV1Interface
 }
 
 // New returns a *ClientBuilder with the given kubeconfig.
@@ -62,6 +66,8 @@ func New(kubeconfig string) *ClientSet {
 	clientSet.AppsV1Interface = appsv1client.NewForConfigOrDie(config)
 	clientSet.DiscoveryInterface = discovery.NewDiscoveryClientForConfigOrDie(config)
 	clientSet.SriovnetworkV1Interface = clientsriovv1.NewForConfigOrDie(config)
+	clientSet.NetworkingV1Client = *networkv1client.NewForConfigOrDie(config)
+	clientSet.PtpV1Interface = ptpv1.NewForConfigOrDie(config)
 	clientSet.Config = config
 
 	crScheme := runtime.NewScheme()

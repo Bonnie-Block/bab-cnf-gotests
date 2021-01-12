@@ -187,3 +187,28 @@ func GetPhysicalNodeInterfaces(cs *client.ClientSet, node string) ([]NodeInterfa
 
 	return nodeInterfaces, nil
 }
+
+// LabelNode set label (key & value) to a node
+func LabelNode(cs *client.ClientSet, nodeName, key, value string) (*corev1.Node, error) {
+	NodeObject, err := cs.Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	NodeObject.Labels[key] = value
+	NodeObject, err = cs.Nodes().Update(context.Background(), NodeObject, metav1.UpdateOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	return NodeObject, nil
+}
+
+// FindNodesByLabel retrieves Node list by label
+func GetByLabel(cs *client.ClientSet, label string) (*corev1.NodeList, error) {
+	nodeList, err := cs.Nodes().List(context.Background(), metav1.ListOptions{LabelSelector: label})
+	if err != nil {
+		return nil, err
+	}
+	return nodeList, nil
+}

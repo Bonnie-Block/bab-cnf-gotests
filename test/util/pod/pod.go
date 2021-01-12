@@ -132,9 +132,9 @@ func ExecCommand(cs *testclient.ClientSet, pod corev1.Pod, command []string) (by
 }
 
 // GetLog connects to a pod and fetches log
-func GetLog(cs *testclient.ClientSet, p *corev1.Pod, s time.Duration) (string, error) {
+func GetLog(cs *testclient.ClientSet, p *corev1.Pod, s time.Duration, containerName string) (string, error) {
 	logStart := int64(s.Seconds())
-	req := cs.Pods(p.Namespace).GetLogs(p.Name, &corev1.PodLogOptions{SinceSeconds: &logStart})
+	req := cs.Pods(p.Namespace).GetLogs(p.Name, &corev1.PodLogOptions{SinceSeconds: &logStart, Container: containerName})
 	log, err := req.Stream(context.Background())
 	if err != nil {
 		return "", err
