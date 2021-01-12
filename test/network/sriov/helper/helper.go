@@ -18,6 +18,11 @@ import (
 	testclient "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
 )
 
+const (
+	ipv4Subnet int = 24
+	ipv6Subnet int = 64
+)
+
 // WaitForSRIOVStable waits until sriov stable
 func WaitForSRIOVStable(clients *testclient.ClientSet, operatorNamespace string, waitingTime time.Duration) {
 	// This used to be to check for sriov not to be stable first,
@@ -141,6 +146,19 @@ func DefinePodWithStaticMacAndIpam(pod *corev1.Pod, networkName string, ipAddres
 	return pod
 }
 
+// DefinePodWithStaticMacAndDualIpam sets pod network with static IPAM config with Static Mac address
+func DefinePodWithStaticMacAndDualIpam(pod *corev1.Pod, networkName string, ip4address string, ip6address string, macAddress string) *corev1.Pod {
+	pod.Annotations = map[string]string{"k8s.v1.cni.cncf.io/networks": fmt.Sprintf(`[
+		{
+			"name": "%s", 
+			"mac": "%s",
+			"ips": ["%s/%d","%s/%d"]
+		}
+	]`, networkName, macAddress, ip4address, ipv4Subnet, ip6address, ipv6Subnet)}
+
+	return pod
+}
+
 // DefinePodWithStaticIpamAndDynamicMac sets pod network with static IPAM config with Dynamic Mac address
 func DefinePodWithStaticIpamAndDynamicMac(pod *corev1.Pod, networkName string, ipAddress string) *corev1.Pod {
 	subnet := 24
@@ -163,6 +181,19 @@ func DefinePodCommand(pod *corev1.Pod, command []string) *corev1.Pod {
 	return pod
 }
 
+// DefinePodCommands sets a container for every command
+func DefinePodCommands(pod *corev1.Pod, commands ...[]string) *corev1.Pod {
+	for index := 0; index < len(commands); index++ {
+		if index == len(pod.Spec.Containers) {
+			pod.Spec.Containers = append(pod.Spec.Containers, *pod.Spec.Containers[0].DeepCopy())
+		}
+		pod.Spec.Containers[index].Command = commands[index]
+		pod.Spec.Containers[index].Name = fmt.Sprintf("test-%d", index)
+	}
+
+	return pod
+}
+
 // DefinePodCommandWithIpamAndMac checks this  static Mac or dynamic Mac
 func DefinePodCommandWithIpamAndMac(podDefinition *corev1.Pod, networkName string, ipaddress string, macAddress string, podCommand []string) *corev1.Pod {
 	if macAddress == "" {
@@ -174,6 +205,16 @@ func DefinePodCommandWithIpamAndMac(podDefinition *corev1.Pod, networkName strin
 			DefinePodWithStaticMacAndIpam(podDefinition, networkName, ipaddress, macAddress),
 			podCommand)
 	}
+
+	return podDefinition
+}
+
+// DefinePodCommandsWithDualIpamAndMac returns a pod with 2 ip addresses and 2 containers
+func DefinePodCommandsWithDualIpamAndMac(podDefinition *corev1.Pod, networkName string, ip4address string, ip6address string, macAddress string, podCommands ...[]string) *corev1.Pod {
+	podDefinition = DefinePodCommands(
+		DefinePodWithStaticMacAndDualIpam(podDefinition, networkName, ip4address, ip6address, macAddress),
+		podCommands...,
+	)
 
 	return podDefinition
 }
