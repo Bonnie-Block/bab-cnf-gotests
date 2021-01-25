@@ -10,6 +10,7 @@ import (
 	"github.com/kelseyhightower/envconfig"
 	"gopkg.in/yaml.v2"
 
+	sriovv1 "github.com/k8snetworkplumbingwg/sriov-network-operator/api/v1"
 	testclient "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
 )
 
@@ -27,6 +28,7 @@ type Config struct {
 	} `yaml:"general"`
 	Network struct {
 		TestContainerImage string `yaml:"test_container_image" envconfig:"NETWORK_TEST_CONTAINER_IMAGE"`
+		SriovInterfaces    string `envconfig:"CNF_INTERFACES_LIST"`
 	} `yaml:"network"`
 }
 
@@ -75,6 +77,29 @@ func readEnv(c *Config) error {
 func (c *Config) GetReportPath(file string) string {
 	reportFileName := strings.TrimSuffix(filepath.Base(file), filepath.Ext(filepath.Base(file)))
 	return fmt.Sprintf("%s.xml", filepath.Join(c.General.ReportDirAbsPath, reportFileName))
+}
+
+// GetSriovInterfaces returns list of requested interfaces
+func (c *Config) GetSriovInterfaces(availableSriovInterfaces []*sriovv1.InterfaceExt, requestedNumber int) ([]*sriovv1.InterfaceExt, error) {
+	var validSriovIntefaceList []*sriovv1.InterfaceExt
+	if c.Network.SriovInterfaces == "" {
+		return nil, fmt.Errorf("Environmnet variable CNF_INTERFACES_LIST is not set")
+	}
+	requestedSriovInterfaceList := strings.Split(c.Network.SriovInterfaces, ",")
+	if len(requestedSriovInterfaceList) < requestedNumber {
+		return nil, fmt.Errorf("CNF_INTERFACES_LIST has less interfaces than requested by test suite")
+	}
+	for _, availableSriovInterface := range availableSriovInterfaces {
+		for _, requestedSriovInterface := range requestedSriovInterfaceList {
+			if availableSriovInterface.Name == requestedSriovInterface {
+				validSriovIntefaceList = append(validSriovIntefaceList, availableSriovInterface)
+			}
+		}
+	}
+	if len(validSriovIntefaceList) < requestedNumber {
+		return nil, fmt.Errorf("Requested interfaces %v are not present on cluster node", requestedSriovInterfaceList)
+	}
+	return validSriovIntefaceList, nil
 }
 
 // GetDumpFailedTestReportLocation returns destination file for failed tests logs

@@ -44,7 +44,7 @@ const (
 )
 
 var (
-	waitingTime    time.Duration = 20 * time.Minute
+	waitingTime    time.Duration = 35 * time.Minute
 	podWaitingTime time.Duration = 4 * time.Minute
 )
 
@@ -65,12 +65,14 @@ var _ = Describe("CNF SRIOV", func() {
 	var sriovInfos *cluster.EnabledNodes
 	config, err := config.NewConfig()
 	Expect(err).ToNot(HaveOccurred())
-
 	execute.BeforeAll(func() {
 		By("Discover SRIOV interfaces")
 		sriovInfos, err = cluster.DiscoverSriov(clients, operatorNamespace)
 		Expect(err).ToNot(HaveOccurred())
 		sriovInterfaces, err := sriovInfos.FindSriovDevices(sriovInfos.Nodes[0])
+		Expect(err).ToNot(HaveOccurred())
+
+		validSriovInterfaces, err := config.GetSriovInterfaces(sriovInterfaces, 2)
 		Expect(err).ToNot(HaveOccurred())
 
 		By(fmt.Sprintf("Clean test namespace %s", parameters.OperatorTestNamespace))
@@ -83,12 +85,12 @@ var _ = Describe("CNF SRIOV", func() {
 		By("Configuring SriovPolicy resources")
 		err = namespaces.Create(parameters.OperatorTestNamespace, clients)
 		Expect(err).ToNot(HaveOccurred())
-		usualSriovPolicyConfig := DefineSriovPolicy("test-policy-usual", sriovInterfaces[0], 5, "#0-1", 1500, "testresourceusual", "netdevice")
-		customSriovPolicyConfig := DefineSriovPolicy("test-policy-custom", sriovInterfaces[0], 5, "#2-3", 1450, "testresourcecustom", "netdevice")
-		jumboSriovPolicyConfig := DefineSriovPolicy("test-policy-jumbo", sriovInterfaces[1], 5, "#0-1", 9000, "testresourcejumbo", "netdevice")
-		usualSriovPolicyConfigDiffPF := DefineSriovPolicy("test-policy-usual-diff", sriovInterfaces[1], 5, "#2-2", 1500, "testresourceusualdiff", "netdevice")
-		customSriovPolicyConfigDiffPF := DefineSriovPolicy("test-policy-custom-diff", sriovInterfaces[1], 5, "#3-3", 1450, "testresourcecustomdiff", "netdevice")
-		jumboSriovPolicyConfigDiffPF := DefineSriovPolicy("test-policy-jumbo-diff", sriovInterfaces[1], 5, "#4-4", 9000, "testresourcejumbodiff", "netdevice")
+		usualSriovPolicyConfig := DefineSriovPolicy("test-policy-usual", validSriovInterfaces[0], 5, "#0-1", 1500, "testresourceusual", "netdevice")
+		customSriovPolicyConfig := DefineSriovPolicy("test-policy-custom", validSriovInterfaces[0], 5, "#2-3", 1450, "testresourcecustom", "netdevice")
+		jumboSriovPolicyConfig := DefineSriovPolicy("test-policy-jumbo", validSriovInterfaces[1], 5, "#0-1", 9000, "testresourcejumbo", "netdevice")
+		usualSriovPolicyConfigDiffPF := DefineSriovPolicy("test-policy-usual-diff", validSriovInterfaces[1], 5, "#2-2", 1500, "testresourceusualdiff", "netdevice")
+		customSriovPolicyConfigDiffPF := DefineSriovPolicy("test-policy-custom-diff", validSriovInterfaces[1], 5, "#3-3", 1450, "testresourcecustomdiff", "netdevice")
+		jumboSriovPolicyConfigDiffPF := DefineSriovPolicy("test-policy-jumbo-diff", validSriovInterfaces[1], 5, "#4-4", 9000, "testresourcejumbodiff", "netdevice")
 		for _, networkPolicy := range []*sriovv1.SriovNetworkNodePolicy{usualSriovPolicyConfig, customSriovPolicyConfig,
 			jumboSriovPolicyConfig, customSriovPolicyConfigDiffPF, jumboSriovPolicyConfigDiffPF, usualSriovPolicyConfigDiffPF} {
 			err = clients.Create(context.Background(), networkPolicy)
