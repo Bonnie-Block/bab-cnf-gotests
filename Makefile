@@ -27,13 +27,21 @@ test-all:
 test-features:
 	FEATURES="$(FEATURES)" ./hack/run-tests.sh features 
 
-test-bin:
-	@echo "Making test cmd binary"
+testcmd-bin:
+	@echo "Making testcmd binary"
 	hack/build-testcmd-bin.sh
 
-test-pod:
-	@echo "Making test pod"
+testcmd-image:
+	@echo "Making testcmd image"
 	docker build --no-cache -f cnf-gotests/Dockerfile -t cnf-gotests-client .
+
+testcmd-image-podman:
+	@echo "Making testcmd podman image"
+	sudo podman build --no-cache -f cnf-gotests/Dockerfile -t cnf-gotests-client .
+
+testcmd-test: testcmd-image-podman
+	@echo "Making testcmd test binary"
+	hack/build-testcmd-test-bin.sh
 
 install: deps-update
 	@echo "Installing needed dependencies"
