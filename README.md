@@ -33,6 +33,8 @@ The [cnf-gotests](https://gitlab.cee.redhat.com/cnf/cnf-gotests) is desgined to 
 The list of available features:
 
 * *sriov*
+* *ptp*
+* *vrf*
 
 #### Environment variables
 
@@ -40,6 +42,7 @@ The list of available features:
 * `REPORT_DIR_NAME` - path to general report (default `report/`)
 * `REPORTER_ERROR_OUTPUT` - path to test failure report for troubleshooting (default `failed_tests.logs.txt`)
 * `NETWORK_TEST_CONTAINER_IMAGE` - path where to download the container image of [testcmd](https://gitlab.cee.redhat.com/cnf/cnf-gotests/-/tree/master/cnf-gotests/testcmd) (default `docker-registry.upshift.redhat.com/cnf-gotests/cnf-gotests-client:latest`)
+* `CNF_INTERFACES_LIST` - select the SR-IOV interfaces used in the tests. Multiple interfaces can be selected as needed (ex. SR-IOV suite requires 2 interfaces). 
 
 #### Preconfiguration
 
@@ -65,7 +68,9 @@ Below is an e2e flow example:
 
 4. Download and install needed dependecies - `make install`
 
-5. Run all tests - `make test-all`
+5. Select SR-IOV supported interfaces - `export CNF_INTERFACES_LIST=ens1f0,ens1f1`
+
+6. Run all tests - `make test-all`
 
 ## Testcmd
 

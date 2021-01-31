@@ -3,8 +3,6 @@ package helper
 import (
 	"context"
 	"fmt"
-	ptpv1 "github.com/openshift/ptp-operator/pkg/apis/ptp/v1"
-	corev1 "k8s.io/api/core/v1"
 
 	"k8s.io/apimachinery/pkg/util/wait"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -12,6 +10,11 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/ptp/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/cluster"
+
+	ptpv1 "github.com/openshift/ptp-operator/pkg/apis/ptp/v1"
+	corev1 "k8s.io/api/core/v1"
 )
 
 // CleanAllPtpConfig removes any configuration applied by ptp tests.
@@ -150,3 +153,25 @@ func getPtpConfigsByNamespace(cs *client.ClientSet, namespace string) (*ptpv1.Pt
 	return ptpConfigList, nil
 }
 
+// GetPtpInterfaces returns list of requested interfaces
+func  GetPtpInterfaces(config *config.Config, apiclient *client.ClientSet, requestedNumber int)([] string, error) {
+	var validPtpInterfacesList []string
+	sriovInfos, err := cluster.DiscoverSriov(apiclient, "openshift-sriov-network-operator")
+	if err != nil {
+		return nil, err
+	}
+	sriovInterfaces, err := sriovInfos.FindSriovDevices(sriovInfos.Nodes[0])
+	if err != nil {
+		return nil, err
+	}
+
+	validSriovInterfaces, err := config.GetSriovInterfaces(sriovInterfaces, requestedNumber)
+	if err != nil {
+		return nil, err
+	}
+	for _, validSriovInterface := range validSriovInterfaces {
+		validPtpInterfacesList = append(validPtpInterfacesList, validSriovInterface.Name)
+	}
+
+	return validPtpInterfacesList, nil
+}

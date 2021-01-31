@@ -18,6 +18,7 @@ import (
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/ptp/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/ptp/parameters"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
@@ -121,10 +122,13 @@ func configurePTP() {
 	ptpSlaveNode.NodeObject, err = nodes.LabelNode(apiclient, ptpSlaveNode.NodeName, parameters.PtpSlaveNodeLabel, "")
 	Expect(err).ToNot(HaveOccurred())
 
-	fmt.Printf("Validating interface %s %s for grandmaster, %s %s for slave\n", ptpGrandMasterNode.InterfaceList[0], ptpGrandMasterNode.InterfaceList[1], ptpSlaveNode.InterfaceList[0], ptpSlaveNode.InterfaceList[1])
 	By("Creating the policy for the grandmaster node")
+	config, err := config.NewConfig()
+	Expect(err).ToNot(HaveOccurred())
+	validPtpInterfaces, err := helper.GetPtpInterfaces(config, apiclient, 2)
+	Expect(err).ToNot(HaveOccurred())
 	err = createConfigMultipleInterfaces(parameters.PtpGrandMasterPolicyNameArr,
-		ptpGrandMasterNode.InterfaceList,
+		validPtpInterfaces ,
 		"-2",
 		"-a -r -r",
 		parameters.PtpGrandmasterNodeLabel,
@@ -133,7 +137,7 @@ func configurePTP() {
 
 	By("Creating the policy for the slave node")
 	err = createConfigMultipleInterfaces(parameters.PtpSlavePolicyNameArr,
-		ptpSlaveNode.InterfaceList,
+		validPtpInterfaces ,
 		"-s -2",
 		"-a -r",
 		parameters.PtpSlaveNodeLabel,
@@ -173,7 +177,7 @@ func configurePTP() {
 		Expect(err).ToNot(HaveOccurred())
 
 		if strings.Contains(logs, "new foreign master") {
-			fmt.Printf("Found valid PTP Configuration, using %s %s for master, %s %s for slave\n", ptpGrandMasterNode.InterfaceList[0], ptpGrandMasterNode.InterfaceList[1], ptpSlaveNode.InterfaceList[0], ptpSlaveNode.InterfaceList[1])
+			fmt.Printf("Found valid PTP Configuration, using %s %s for master and slave\n", validPtpInterfaces[0], validPtpInterfaces[1])
 			return true, nil
 		}
 		return false, nil
