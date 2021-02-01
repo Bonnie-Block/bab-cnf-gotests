@@ -3,7 +3,7 @@
 ## Overview
 
 The [cnf-gotests](https://gitlab.cee.redhat.com/cnf/cnf-gotests) is the downstream CNF test framework.
-The [cnf-gotests](https://gitlab.cee.redhat.com/cnf/cnf-gotests) uses an auxiliary resource for network testing - [testcmd](https://gitlab.cee.redhat.com/cnf/cnf-gotests/-/tree/master/cnf-gotests/testcmd) 
+The [cnf-gotests](https://gitlab.cee.redhat.com/cnf/cnf-gotests) uses an auxiliary resource for network testing - [testcmd](https://gitlab.cee.redhat.com/cnf/cnf-gotests/-/tree/master/cnf-gotests) 
 
 ## cnf-gotests
 
@@ -43,7 +43,7 @@ The list of available features:
 * `FEATURES` - select the feature you are going to test
 * `REPORT_DIR_NAME` - path to general report (default `report/`)
 * `REPORTER_ERROR_OUTPUT` - path to test failure report for troubleshooting (default `failed_tests.logs.txt`)
-* `NETWORK_TEST_CONTAINER_IMAGE` - path where to download the container image of [testcmd](https://gitlab.cee.redhat.com/cnf/cnf-gotests/-/tree/master/cnf-gotests/testcmd) (default `docker-registry.upshift.redhat.com/cnf-gotests/cnf-gotests-client:latest`)
+* `NETWORK_TEST_CONTAINER_IMAGE` - path where to download the container image of [testcmd](https://gitlab.cee.redhat.com/cnf/cnf-gotests/-/tree/master/cnf-gotests) (default `docker-registry.upshift.redhat.com/cnf-gotests/cnf-gotests-client:latest`)
 * `CNF_INTERFACES_LIST` - select the SR-IOV interfaces used in the tests. Multiple interfaces can be selected as needed (ex. SR-IOV suite requires 2 interfaces). 
 
 #### Preconfiguration
@@ -74,35 +74,3 @@ Below is an e2e flow example:
 
 6. Run all tests - `make test-all`
 
-## Testcmd
-
-The Pods used by [cnf-gotests](https://gitlab.cee.redhat.com/cnf/cnf-gotests) check the network connectivity between them with [testcmd](https://gitlab.cee.redhat.com/cnf/cnf-gotests/-/tree/master/cnf-gotests/testcmd) tool. [testcmd](https://gitlab.cee.redhat.com/cnf/cnf-gotests/-/tree/master/cnf-gotests/testcmd) is based on a [docker container](https://gitlab.cee.redhat.com/cnf/cnf-gotests/-/blob/master/cnf-gotests/Dockerfile). Which can be built via the following command:
-
-`make test-pod`
-
-It is also possible to build just the [testcmd](https://gitlab.cee.redhat.com/cnf/cnf-gotests/-/tree/master/cnf-gotests/testcmd) binary using the command:
-
-`make test-bin`
-
-#### Protocols
-
-Following protocols can be tested via [testcmd](https://gitlab.cee.redhat.com/cnf/cnf-gotests/-/tree/master/cnf-gotests/testcmd):
-
-* *icmp*
-* *sctp*
-* *tcp*
-* *udp* 
-
-#### Flags
-
-The [testcmd](https://gitlab.cee.redhat.com/cnf/cnf-gotests/-/tree/master/cnf-gotests/testcmd) can accept the following options:
-
-* **listen** - insert this flag in order to run server 
-* **interface** - interface that are you going to use (Examples: ens33/eth0/net1)
-* **multicast** - insert this flag in order to run udp **multicast** server
-* **broadcast** - insert this flag in order to run udp **broadcast** server
-* **protocol** -  protocol name (Options: tcp/udp/icmp/sctp)
-* **mtu** - MTU size. Any integer number in range 50-9000 (default 1450)
-* **server** - destination IPv4/IPv6 address  
-* **port** - port number. Any integer number in range 1-65534 (default 80)
-* **negative** - insert this flag if no connectivity expected
