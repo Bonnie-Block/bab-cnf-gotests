@@ -38,14 +38,15 @@ var _ = Describe("CNF VRF", func() {
 		}
 		return fmt.Sprintf("%s", string(params))
 	}
+	var sriovInfos *cluster.EnabledNodes
 	config, err := config.NewConfig()
 	Expect(err).ToNot(HaveOccurred())
 
-	By("Discover SRIOV Nodes")
-	sriovInfos, err := cluster.DiscoverSriov(apiclient, networkHelper.SriovOperatorNamespace)
-	Expect(err).ToNot(HaveOccurred())
-
 	execute.BeforeAll(func() {
+		By("Discover SRIOV Nodes")
+		sriovInfos, err := cluster.DiscoverSriov(apiclient, networkHelper.SriovOperatorNamespace)
+		Expect(err).ToNot(HaveOccurred())
+
 		By(fmt.Sprintf("Clean test namespace %s", parameters.TestNamespace))
 		namespaces.Clean(networkHelper.SriovOperatorNamespace, parameters.TestNamespace, apiclient, false)
 

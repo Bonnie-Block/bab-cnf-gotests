@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
+set -e
 
 . $(dirname "$0")/common.sh
 
-which golint
-if [ $? -ne 0 ]; then
+if which golint; then
+	echo "golint installed"
+else
 	echo "Downloading golint tool"
 	go get -u golang.org/x/lint/golint
 fi

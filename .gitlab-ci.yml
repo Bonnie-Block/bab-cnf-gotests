@@ -1,0 +1,33 @@
+default:
+  image: quay.io/centos/centos:7
+  before_script:
+    - yum -y install make wget which gcc
+    - wget --no-verbose --directory-prefix=/tmp/ https://golang.org/dl/go1.15.7.linux-amd64.tar.gz
+    - tar -C /usr/local -xzf /tmp/go1.15.7.linux-amd64.tar.gz
+    - export PATH=$PATH:/usr/local/go/bin
+    - go version
+
+gofmt:
+  script:
+    - make gofmt
+
+golint:
+  script:
+    - make golint
+
+compile-testcmd:
+  script:
+    - make install
+    - make testcmd-bin
+
+compile-all-test-suites:
+  script:
+    - make install
+    - export PATH=$PATH:/usr/local/go/bin:~/go/bin
+    - ginkgo build -r ./test/
+
+dry-run-tests:
+  script:
+    - make install
+    - export PATH=$PATH:/usr/local/go/bin:~/go/bin
+    - ginkgo -dryRun -v --keepGoing -requireSuite -r test/
