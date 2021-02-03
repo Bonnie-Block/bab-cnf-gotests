@@ -10,24 +10,34 @@ default:
 gofmt:
   script:
     - make gofmt
+  only:
+    - merge_requests
 
 golint:
   script:
     - make golint
+  only:
+    - merge_requests
 
 compile-testcmd:
   script:
     - make install
     - make testcmd-bin
+  only:
+    - merge_requests
 
 compile-all-test-suites:
   script:
     - make install
     - export PATH=$PATH:/usr/local/go/bin:~/go/bin
     - ginkgo build -r ./test/
+  only:
+    - merge_requests
 
 dry-run-tests:
   script:
     - make install
     - export PATH=$PATH:/usr/local/go/bin:~/go/bin
     - ginkgo -dryRun -v --keepGoing -requireSuite -r test/
+  only:
+    - merge_requests
