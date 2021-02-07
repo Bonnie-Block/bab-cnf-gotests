@@ -15,7 +15,7 @@ RUN make install
 FROM centos:7
 COPY --from=builder /go/src/gitlab.cee.redhat.com/cnf/cnf-gotests/cnf-gotests/bin/testcmd /usr/bin/testcmd
 COPY --from=compiler /nmap/nping/nping /usr/bin/nping
-RUN yum install -y iproute ethtool ping httpd lksctp-tools
+RUN yum install -y iproute ethtool ping httpd lksctp-tools tcpdump
 RUN checksctp
 
 CMD ["/usr/bin/testcmd"]
