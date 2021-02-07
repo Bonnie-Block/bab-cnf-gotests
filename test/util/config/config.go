@@ -23,7 +23,7 @@ const (
 type Config struct {
 	General struct {
 		ReportDirAbsPath              string `yaml:"report" envconfig:"REPORT_DIR_NAME"`
-		CnfNodeLabel                  string `yaml:"cnf_worker_label"`
+		CnfNodeLabel                  string `yaml:"cnf_worker_label" envconfig:"ROLE_WORKER_CNF"`
 		DumpFailedTestsReportLocation string `envconfig:"REPORTER_ERROR_OUTPUT"`
 	} `yaml:"general"`
 	Network struct {

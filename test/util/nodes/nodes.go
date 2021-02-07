@@ -3,7 +3,7 @@ package nodes
 import (
 	"context"
 	"fmt"
-	"os"
+	"log"
 	"strings"
 	"time"
 
@@ -26,7 +26,11 @@ const (
 )
 
 func init() {
-	NodesSelector = os.Getenv("NODES_SELECTOR")
+	config, err := config.NewConfig()
+	if err != nil {
+		log.Fatalf("Error in getting configuration: %v", err)
+	}
+	NodesSelector = config.General.CnfNodeLabel
 }
 
 // NodeInterface represent the interface connected to node.
@@ -38,7 +42,7 @@ type NodeInterface struct {
 	DefRoute bool
 }
 
-// MatchingOptionalSelectorByName filter the given slice with only the nodes matching the optional selector.
+// MatchingOptionalSelectorState filter the given slice with only the nodes matching the optional selector.
 // If no selector is set, it returns the same list.
 // The NODES_SELECTOR must be in the form of label=value.
 // For example: NODES_SELECTOR="sctp=true"
@@ -204,7 +208,7 @@ func LabelNode(cs *client.ClientSet, nodeName, key, value string) (*corev1.Node,
 	return NodeObject, nil
 }
 
-// FindNodesByLabel retrieves Node list by label
+// GetByLabel retrieves Node list by label
 func GetByLabel(cs *client.ClientSet, label string) (*corev1.NodeList, error) {
 	nodeList, err := cs.Nodes().List(context.Background(), metav1.ListOptions{LabelSelector: label})
 	if err != nil {
