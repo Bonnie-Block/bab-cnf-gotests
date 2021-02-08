@@ -44,7 +44,7 @@ var _ = Describe("CNF VRF", func() {
 
 	execute.BeforeAll(func() {
 		By("Discover SRIOV Nodes")
-		sriovInfos, err := cluster.DiscoverSriov(apiclient, networkHelper.SriovOperatorNamespace)
+		sriovInfos, err = cluster.DiscoverSriov(apiclient, networkHelper.SriovOperatorNamespace)
 		Expect(err).ToNot(HaveOccurred())
 
 		By(fmt.Sprintf("Clean test namespace %s", parameters.TestNamespace))
