@@ -87,6 +87,9 @@ var _ = Describe("CNF SRIOV", func() {
 		Expect(err).ToNot(HaveOccurred())
 		usualSriovPolicyConfig := DefineSriovPolicy("test-policy-usual", validSriovInterfaces[0], 5, "#0-1", 1500, "testresourceusual", "netdevice")
 		customSriovPolicyConfig := DefineSriovPolicy("test-policy-custom", validSriovInterfaces[0], 5, "#2-3", 1450, "testresourcecustom", "netdevice")
+		// TODO: Change policy jumboSriovPolicyConfig to
+		// jumboSriovPolicyConfig := DefineSriovPolicy("test-policy-jumbo", validSriovInterfaces[0], 5, "#0-1", 9000, "testresourcejumbo", "netdevice")
+		// when bug https://bugzilla.redhat.com/show_bug.cgi?id=1926279 will be fixed
 		jumboSriovPolicyConfig := DefineSriovPolicy("test-policy-jumbo", validSriovInterfaces[1], 5, "#0-1", 9000, "testresourcejumbo", "netdevice")
 		usualSriovPolicyConfigDiffPF := DefineSriovPolicy("test-policy-usual-diff", validSriovInterfaces[1], 5, "#2-2", 1500, "testresourceusualdiff", "netdevice")
 		customSriovPolicyConfigDiffPF := DefineSriovPolicy("test-policy-custom-diff", validSriovInterfaces[1], 5, "#3-3", 1450, "testresourcecustomdiff", "netdevice")
@@ -213,11 +216,13 @@ func serverCommandFor(testProtocol string, mtu int, serverIP string, negative bo
 			"-multicast", fmt.Sprintf("-interface=%s", testInterfaceName), fmt.Sprintf("-server=%s", multicastAddress)}
 		if negative {
 			if mtu < parameters.MTUJumbo {
+				// TODO: change mtu+100 to mtu+50 once https://bugzilla.redhat.com/show_bug.cgi?id=1926279 will be fixed
 				testCommand = append(testCommand, fmt.Sprintf("-mtu=%d", mtu+100))
 			} else {
 				testCommand = append(testCommand, fmt.Sprintf("-mtu=%d", mtu))
 			}
 		} else {
+			// TODO: change mtu+100 to mtu+50 once https://bugzilla.redhat.com/show_bug.cgi?id=1926279 will be fixed
 			testCommand = append(testCommand, fmt.Sprintf("-mtu=%d", mtu-100))
 		}
 	case parameters.CommunicationProtocolBroadcastUDP:
@@ -272,12 +277,14 @@ func defineTestCommandParameters(negative bool, protocol string, mtu int, connec
 	case negative:
 		var parameterMtu string
 		if mtu < parameters.MTUJumbo {
+			// TODO: change mtu+100 to mtu+50 once https://bugzilla.redhat.com/show_bug.cgi?id=1926279 will be fixed
 			parameterMtu = fmt.Sprintf("-mtu=%d", mtu+100)
 		} else {
 			parameterMtu = fmt.Sprintf("-mtu=%d", mtu)
 		}
 		testCommand = append(testCommand, "-negative", parameterMtu)
 	default:
+		// TODO: change mtu+100 to mtu+50 once https://bugzilla.redhat.com/show_bug.cgi?id=1926279 will be fixed
 		testCommand = append(testCommand, fmt.Sprintf("-mtu=%d", mtu-100))
 	}
 	testCommand = append(testCommand, fmt.Sprintf("-server=%s", serverIP), fmt.Sprintf("-protocol=%s", protocolOption))
