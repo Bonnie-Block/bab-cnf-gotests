@@ -34,6 +34,7 @@ func getDefinition(namespace string, image string) *corev1.Pod {
 	return podObject
 }
 
+// DefineWithNetworks defines pod attached to network
 func DefineWithNetworks(networks []string, namespace string, image string) *corev1.Pod {
 	podObject := getDefinition(namespace, image)
 	podObject.Annotations = map[string]string{"k8s.v1.cni.cncf.io/networks": strings.Join(networks, ",")}
@@ -41,6 +42,7 @@ func DefineWithNetworks(networks []string, namespace string, image string) *core
 	return podObject
 }
 
+// DefineWithNodeNetworks defines pod attached to Node network
 func DefineWithNodeNetworks(nodeName string, networks []string, namespace string, image string) *corev1.Pod {
 	podObject := getDefinition(namespace, image)
 	podObject.Annotations = map[string]string{"k8s.v1.cni.cncf.io/networks": strings.Join(networks, ",")}
@@ -50,6 +52,7 @@ func DefineWithNodeNetworks(nodeName string, networks []string, namespace string
 	return podObject
 }
 
+// DefineWithHostNetwork  defines pod attached to Host network
 func DefineWithHostNetwork(nodeName string, namespace string, image string) *corev1.Pod {
 	podObject := getDefinition(namespace, image)
 	podObject.Spec.HostNetwork = true

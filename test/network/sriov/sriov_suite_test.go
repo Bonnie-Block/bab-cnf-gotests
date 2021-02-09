@@ -9,7 +9,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/reporters"
 	. "github.com/onsi/gomega"
-
+	networkHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/sriov/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/sriov/parameters"
 	_ "gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/sriov/tests"
@@ -46,6 +46,9 @@ func TestSriov(t *testing.T) {
 var _ = BeforeSuite(func() {
 	clients, err := config.DefineClients()
 	Expect(err).ToNot(HaveOccurred())
+	configuration, err := config.NewConfig()
+	Expect(err).ToNot(HaveOccurred())
+	networkHelper.PullTestImage(configuration, clients)
 	sriovInfos, err := cluster.DiscoverSriov(clients, parameters.OperatorNamespace)
 	Expect(err).ToNot(HaveOccurred())
 	err = helper.CompareNodeSriovInterfaces(sriovInfos)

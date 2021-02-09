@@ -20,7 +20,7 @@ const (
 	PodWaitingTime       time.Duration = 2 * time.Minute
 	VRFBlueName                        = "blue"
 	VRFRedName                         = "red"
-	LabelNodeRole                      = "worker"
+	LabelNodeRole                      = "worker-cnf"
 	WaitingTime          time.Duration = 20 * time.Minute
 )
 

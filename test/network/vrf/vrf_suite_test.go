@@ -47,6 +47,9 @@ func TestVrf(t *testing.T) {
 var _ = BeforeSuite(func() {
 	clients, err := config.DefineClients()
 	Expect(err).ToNot(HaveOccurred())
+	configuration, err := config.NewConfig()
+	Expect(err).ToNot(HaveOccurred())
+	helper.PullTestImage(configuration, clients)
 	By(fmt.Sprintf("Create %s namespace", parameters.TestNamespace))
 	err = namespaces.Create(parameters.TestNamespace, clients)
 	Expect(err).ToNot(HaveOccurred())

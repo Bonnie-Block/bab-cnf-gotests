@@ -45,7 +45,7 @@ const (
 
 var (
 	waitingTime    time.Duration = 35 * time.Minute
-	podWaitingTime time.Duration = 4 * time.Minute
+	podWaitingTime time.Duration = 1 * time.Minute
 )
 
 var _ = Describe("CNF SRIOV", func() {
