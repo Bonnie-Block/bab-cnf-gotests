@@ -7,13 +7,15 @@ The [cnf-gotests](https://gitlab.cee.redhat.com/cnf/cnf-gotests) uses an auxilia
 
 ## cnf-gotests
 
-The [cnf-gotests](https://gitlab.cee.redhat.com/cnf/cnf-gotests) is desgined to test an OCP cluster with pre-installed CNF components such as:
+The [cnf-gotests](https://gitlab.cee.redhat.com/cnf/cnf-gotests) is designed to test an OCP cluster with pre-installed CNF components such as:
 
 * Machine config pool to define/collect configurations for labeled nodes
 * PTP operator
 * SR-IOV operator
-* Perforamnce Addon Operator
-* SCTP via machine coonfig
+* Performance Addon Operator
+* SCTP via machine config
+
+NOTICE: The [cnf-gotests](https://gitlab.cee.redhat.com/cnf/cnf-gotests) removes existing configuration such as PtpConfig, SR-IOV configs.
 
 *More tests you can find in the upstream project - [cnf-tests](https://github.com/openshift-kni/cnf-features-deploy/tree/master/cnf-tests)*
 
@@ -32,9 +34,9 @@ The [cnf-gotests](https://gitlab.cee.redhat.com/cnf/cnf-gotests) is desgined to 
 
 The list of available features:
 
-* *sriov*
-* *ptp*
-* *vrf*
+* *SR-IOV*
+* *PTP*
+* *VRF*
 
 #### Environment variables
 
@@ -66,7 +68,7 @@ Below is an e2e flow example:
 
 3. Configure Global Proxy via environment variable - `export GOPROXY="https://goproxy.io,direct"`
 
-4. Download and install needed dependecies - `make install`
+4. Download and install needed dependencies - `make install`
 
 5. Select SR-IOV supported interfaces - `export CNF_INTERFACES_LIST=ens1f0,ens1f1`
 
@@ -96,11 +98,11 @@ Following protocols can be tested via [testcmd](https://gitlab.cee.redhat.com/cn
 The [testcmd](https://gitlab.cee.redhat.com/cnf/cnf-gotests/-/tree/master/cnf-gotests/testcmd) can accept the following options:
 
 * **listen** - insert this flag in order to run server 
-* **interface** - iterface that are you going to use (Examples: ens33/eth0/net1)
+* **interface** - interface that are you going to use (Examples: ens33/eth0/net1)
 * **multicast** - insert this flag in order to run udp **multicast** server
 * **broadcast** - insert this flag in order to run udp **broadcast** server
 * **protocol** -  protocol name (Options: tcp/udp/icmp/sctp)
-* **mtu** - MTU size. Any integer number in range 50-9000 (deafult 1450)
+* **mtu** - MTU size. Any integer number in range 50-9000 (default 1450)
 * **server** - destination IPv4/IPv6 address  
 * **port** - port number. Any integer number in range 1-65534 (default 80)
 * **negative** - insert this flag if no connectivity expected

@@ -56,11 +56,9 @@ func Clean(cs *client.ClientSet, operatorNamespace string) error {
 		return fmt.Errorf("helper.CleanAllPtpConfig: Failed to retrieve ptp config list %v", err)
 	}
 	for _, ptpConfig := range ptpConfigList.Items {
-		if ptpConfig.Name == parameters.PtpGrandMasterPolicyName || ptpConfig.Name == parameters.PtpSlavePolicyName {
-			err = cs.PtpConfigs(operatorNamespace).Delete(context.Background(), ptpConfig.Name, metav1.DeleteOptions{})
-			if err != nil {
-				return fmt.Errorf("helper.CleanAllPtpConfig: Failed to delete ptp config %s %v", ptpConfig.Name, err)
-			}
+		err = cs.PtpConfigs(operatorNamespace).Delete(context.Background(), ptpConfig.Name, metav1.DeleteOptions{})
+		if err != nil {
+			return fmt.Errorf("helper.CleanAllPtpConfig: Failed to delete ptp config %s %v", ptpConfig.Name, err)
 		}
 	}
 	err = wait.PollImmediate(5, 20, func() (done bool, err error) {
