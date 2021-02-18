@@ -12,9 +12,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
+	networkHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/helper"
 	. "gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/sriov/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/sriov/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/cluster"
@@ -22,6 +20,8 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -44,9 +44,10 @@ const (
 )
 
 var (
-	waitingTime        time.Duration = 35 * time.Minute
-	podWaitingTime     time.Duration = 1 * time.Minute
-	dualPodWaitingTime time.Duration = 3 * time.Minute
+	waitingTime                time.Duration = 35 * time.Minute
+	podWaitingTime             time.Duration = 1 * time.Minute
+	dualPodWaitingTime         time.Duration = 3 * time.Minute
+	podDeafultInterfaceIPStack int
 )
 
 var _ = Describe("CNF SRIOV", func() {
@@ -69,6 +70,8 @@ var _ = Describe("CNF SRIOV", func() {
 	Expect(err).ToNot(HaveOccurred())
 
 	execute.BeforeAll(func() {
+		By("Discover POD default interface ip stack versions")
+		podDeafultInterfaceIPStack = networkHelper.GetPodIPStacks(config, clients)
 		By("Discover SRIOV interfaces")
 		sriovInfos, err = cluster.DiscoverSriov(clients, operatorNamespace)
 		Expect(err).ToNot(HaveOccurred())
@@ -638,7 +641,11 @@ func buildDescribeTable6(mtu int, protocol string, connectivity string, sriovInf
 	By("Validating test parameters")
 	connectivityParameters, err := parameters.NewConnectivityTestParameters(mtu, connectivity, protocol)
 	Expect(err).ToNot(HaveOccurred())
-
+	// TODO: Remove this condition once bug https://bugzilla.redhat.com/show_bug.cgi?id=1927750 will be fixed
+	if (podDeafultInterfaceIPStack == 6 || podDeafultInterfaceIPStack == 46) &&
+		connectivityParameters.MTU == parameters.MTUJumbo {
+		Skip("Skip test due to https://bugzilla.redhat.com/show_bug.cgi?id=1927750")
+	}
 	By("Defining test resources")
 	nodeSelector := defineNodeSelector(connectivity, sriovInfos)
 	serverNetworkName := defineServerNetworkName(mtu)
@@ -696,7 +703,11 @@ func buildDescribeTableDual(mtu int, protocol string, connectivity string, sriov
 	By("Validating test parameters")
 	connectivityParameters, err := parameters.NewConnectivityTestParameters(mtu, connectivity, protocol)
 	Expect(err).ToNot(HaveOccurred())
-
+	// TODO: Remove this condition once bug https://bugzilla.redhat.com/show_bug.cgi?id=1927750 will be fixed
+	if (podDeafultInterfaceIPStack == 6 || podDeafultInterfaceIPStack == 46) &&
+		connectivityParameters.MTU == parameters.MTUJumbo {
+		Skip("Skip test due to https://bugzilla.redhat.com/show_bug.cgi?id=1927750")
+	}
 	By("Defining test resources")
 	nodeSelector := defineNodeSelector(connectivity, sriovInfos)
 	serverNetworkName := defineServerNetworkName(mtu)
