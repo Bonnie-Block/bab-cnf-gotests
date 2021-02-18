@@ -131,9 +131,9 @@ func CompareNodeSriovInterfaces(sriovInfos *cluster.EnabledNodes) error {
 
 // DefinePodWithStaticMacAndIpam sets pod network with static IPAM config with Static Mac address
 func DefinePodWithStaticMacAndIpam(pod *corev1.Pod, networkName string, ipAddress string, macAddress string) *corev1.Pod {
-	subnet := 24
+	subnet := ipv4Subnet
 	if strings.Contains(ipAddress, ":") {
-		subnet = 64
+		subnet = ipv6Subnet
 	}
 	pod.Annotations = map[string]string{"k8s.v1.cni.cncf.io/networks": fmt.Sprintf(`[
 		{
@@ -159,11 +159,23 @@ func DefinePodWithStaticMacAndDualIpam(pod *corev1.Pod, networkName string, ip4a
 	return pod
 }
 
+// DefinePodWithStaticDualIpamAndDynamicMac sets pod network with static dual IPAM config with Dynamic Mac address
+func DefinePodWithStaticDualIpamAndDynamicMac(pod *corev1.Pod, networkName string, ip4address string, ip6address string) *corev1.Pod {
+	pod.Annotations = map[string]string{"k8s.v1.cni.cncf.io/networks": fmt.Sprintf(`[
+		{
+			"name": "%s",
+			"ips": ["%s/%d","%s/%d"]
+		}
+	]`, networkName, ip4address, ipv4Subnet, ip6address, ipv6Subnet)}
+
+	return pod
+}
+
 // DefinePodWithStaticIpamAndDynamicMac sets pod network with static IPAM config with Dynamic Mac address
 func DefinePodWithStaticIpamAndDynamicMac(pod *corev1.Pod, networkName string, ipAddress string) *corev1.Pod {
-	subnet := 24
+	subnet := ipv4Subnet
 	if strings.Contains(ipAddress, ":") {
-		subnet = 64
+		subnet = ipv6Subnet
 	}
 	pod.Annotations = map[string]string{"k8s.v1.cni.cncf.io/networks": fmt.Sprintf(`[
 		{
@@ -211,10 +223,15 @@ func DefinePodCommandWithIpamAndMac(podDefinition *corev1.Pod, networkName strin
 
 // DefinePodCommandsWithDualIpamAndMac returns a pod with 2 ip addresses and 2 containers
 func DefinePodCommandsWithDualIpamAndMac(podDefinition *corev1.Pod, networkName string, ip4address string, ip6address string, macAddress string, podCommands ...[]string) *corev1.Pod {
-	podDefinition = DefinePodCommands(
-		DefinePodWithStaticMacAndDualIpam(podDefinition, networkName, ip4address, ip6address, macAddress),
-		podCommands...,
-	)
+	if macAddress == "" {
+		podDefinition = DefinePodCommands(
+			DefinePodWithStaticDualIpamAndDynamicMac(podDefinition, networkName, ip4address, ip6address),
+			podCommands...)
+	} else {
+		podDefinition = DefinePodCommands(
+			DefinePodWithStaticMacAndDualIpam(podDefinition, networkName, ip4address, ip6address, macAddress),
+			podCommands...)
+	}
 
 	return podDefinition
 }

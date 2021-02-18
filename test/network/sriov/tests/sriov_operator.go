@@ -239,6 +239,26 @@ var _ = Describe("CNF SRIOV", func() {
 			},
 		)...,
 	)
+
+	DescribeTable(
+		"Ipam type: IP Static, Ip Stack: dual-stack, Mac address: MAC dynamic",
+		func(mtu int, protocol string, connectivity string) {
+			buildDescribeTableDual(mtu, protocol, connectivity, sriovInfos, config, "", "")
+		},
+		buildTableEntries(
+			describe,
+			[]int{parameters.MTUCustom, parameters.MTUJumbo, parameters.MTUStandart},
+			[]string{parameters.ConnectivityDiffNode, parameters.ConnectivitySameNodeDiffPF, parameters.ConnectivitySameNodeSamePF},
+			[]string{
+				parameters.CommunicationProtocolUnicastICMP,
+				parameters.CommunicationProtocolUnicastTCP,
+				parameters.CommunicationProtocolUnicastUDP,
+				parameters.CommunicationProtocolMulticastUDP,
+				parameters.CommunicationProtocolBroadcastUDP,
+				parameters.CommunicationProtocolUnicastSCTP,
+			},
+		)...,
+	)
 })
 
 func runServerPod(protocol string, mtu int, connectivity string, sriovInfos *cluster.EnabledNodes,
