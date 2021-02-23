@@ -31,7 +31,7 @@ func (sctpTest *SCTPTest) RunTest() {
 	err := runClient(sctpTest.ServerIP, sctpTest.ServerPort, sctpTest.MTU, "", sctpTest.ProtocolVersion)
 	if sctpTest.Negative == true {
 		if err != nil {
-			log.Println("SCTP test failed as expected")
+			log.Printf("SCTP test failed as expected with error: %v\n", err)
 			return
 		}
 		log.Fatalln("SCTP Negative test failed.")
@@ -84,14 +84,14 @@ func runClient(serverAddr string, port int, mtu int, interfaceName string, proto
 
 	conn, err := socketConfig.Dial(network, laddr, server)
 	if err != nil {
-		return err
+		return fmt.Errorf("socketConfig.Dial() failed with error: %v", err)
 	}
 
 	buff := make([]byte, mtu)
 	info := &sctp.SndRcvInfo{}
 	n, err := conn.SCTPWrite(buff, info)
 	if err != nil {
-		return err
+		return fmt.Errorf("conn.SCTPWrite failed with error: %v", err)
 	} else if n != mtu {
 		return errors.New("SCTPWrite() failed to write all of the buffer")
 	}
