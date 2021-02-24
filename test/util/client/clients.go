@@ -8,7 +8,9 @@ import (
 	"github.com/golang/glog"
 	sriovv1 "github.com/k8snetworkplumbingwg/sriov-network-operator/api/v1"
 	clientsriovv1 "github.com/k8snetworkplumbingwg/sriov-network-operator/pkg/client/clientset/versioned/typed/sriovnetwork/v1"
+	fpgav1 "github.com/open-ness/openshift-operator/N3000/api/v1"
 	clientconfigv1 "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
+	mcv1 "github.com/openshift/machine-config-operator/pkg/apis/machineconfiguration.openshift.io/v1"
 	clientmachineconfigv1 "github.com/openshift/machine-config-operator/pkg/generated/clientset/versioned/typed/machineconfiguration.openshift.io/v1"
 	ptpv1 "github.com/openshift/ptp-operator/pkg/client/clientset/versioned/typed/ptp/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -74,6 +76,8 @@ func New(kubeconfig string) *ClientSet {
 	clientgoscheme.AddToScheme(crScheme)
 	netattdefv1.SchemeBuilder.AddToScheme(crScheme)
 	sriovv1.AddToScheme(crScheme)
+	fpgav1.AddToScheme(crScheme)
+	mcv1.AddToScheme(crScheme)
 
 	clientSet.Client, err = runtimeclient.New(config, client.Options{
 		Scheme: crScheme,

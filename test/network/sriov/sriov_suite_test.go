@@ -53,7 +53,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 	configuration, err := config.NewConfig()
 	Expect(err).ToNot(HaveOccurred())
-	networkHelper.PullTestImage(configuration, clients)
+	networkHelper.PullTestImage(clients, configuration.General.CnfNodeLabel, configuration.Network.TestContainerImage)
 	sriovInfos, err := cluster.DiscoverSriov(clients, parameters.OperatorNamespace)
 	Expect(err).ToNot(HaveOccurred())
 	err = helper.CompareNodeSriovInterfaces(sriovInfos)

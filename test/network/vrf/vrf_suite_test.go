@@ -54,7 +54,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 	configuration, err := config.NewConfig()
 	Expect(err).ToNot(HaveOccurred())
-	helper.PullTestImage(configuration, clients)
+	helper.PullTestImage(clients, configuration.General.CnfNodeLabel, configuration.Network.TestContainerImage)
 	By(fmt.Sprintf("Create %s namespace", parameters.TestNamespace))
 	err = namespaces.Create(parameters.TestNamespace, clients)
 	Expect(err).ToNot(HaveOccurred())

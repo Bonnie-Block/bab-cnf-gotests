@@ -8,8 +8,11 @@ import (
 	"time"
 
 	sriovv1 "github.com/k8snetworkplumbingwg/sriov-network-operator/api/v1"
+	mcv1 "github.com/openshift/machine-config-operator/pkg/apis/machineconfiguration.openshift.io/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
+	goclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
@@ -215,4 +218,58 @@ func GetByLabel(cs *client.ClientSet, label string) (*corev1.NodeList, error) {
 		return nil, err
 	}
 	return nodeList, nil
+}
+
+// WaitForClusterToBeStable waits until cluster become stable
+func WaitForClusterToBeStable(cs *client.ClientSet) error {
+	mcp := &mcv1.MachineConfigPool{}
+	config, _ := config.NewConfig()
+	cnfNodeLabel := strings.Split(config.General.CnfNodeLabel, "/")[1]
+	err := cs.Get(context.TODO(), goclient.ObjectKey{Name: cnfNodeLabel}, mcp)
+	if err != nil {
+		return err
+	}
+
+	err = WaitForCondition(
+		cs,
+		&mcv1.MachineConfigPool{ObjectMeta: metav1.ObjectMeta{Name: cnfNodeLabel}},
+		mcv1.MachineConfigPoolUpdating,
+		corev1.ConditionTrue,
+		2*time.Minute)
+	if err != nil {
+		return err
+	}
+
+	// We need to wait a long time here for the node to reboot
+	err = WaitForCondition(
+		cs,
+		&mcv1.MachineConfigPool{ObjectMeta: metav1.ObjectMeta{Name: cnfNodeLabel}},
+		mcv1.MachineConfigPoolUpdated,
+		corev1.ConditionTrue,
+		time.Duration(45*mcp.Status.MachineCount)*time.Minute)
+
+	return err
+}
+
+// WaitForCondition waits expected condition
+func WaitForCondition(
+	cs *client.ClientSet,
+	mcp *mcv1.MachineConfigPool,
+	conditionType mcv1.MachineConfigPoolConditionType,
+	conditionStatus corev1.ConditionStatus,
+	timeout time.Duration,
+) error {
+	return wait.PollImmediate(10*time.Second, timeout, func() (bool, error) {
+		mcpUpdated, err := cs.MachineConfigPools().Get(context.Background(), mcp.Name, metav1.GetOptions{})
+		if err != nil {
+			return false, nil
+		}
+
+		for _, c := range mcpUpdated.Status.Conditions {
+			if c.Type == conditionType && c.Status == conditionStatus {
+				return true, nil
+			}
+		}
+		return false, nil
+	})
 }

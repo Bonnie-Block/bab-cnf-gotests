@@ -185,3 +185,15 @@ func DefinePodWithStaticIpamStatiMac(pod *corev1.Pod, networkName string, ipAddr
 	]`, networkName, macAddress, ipAddress)}
 	return pod
 }
+
+// GetPodDefinitionWithPortAndLabel retrieves pod with port and label configuration
+func GetPodDefinitionWithPortAndLabel(namespace string, image string, port int32, label map[string]string) *corev1.Pod {
+	podObject := getDefinition(namespace, image)
+	podObject.Labels = label
+	podObject.Spec.Containers[0].ImagePullPolicy = "IfNotPresent"
+	podObject.Spec.Containers[0].Command = []string{}
+	podObject.Spec.Containers[0].Ports = []corev1.ContainerPort{{
+		ContainerPort: port,
+		Protocol:      "TCP"}}
+	return podObject
+}

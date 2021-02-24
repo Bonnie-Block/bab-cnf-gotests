@@ -78,11 +78,11 @@ func StrParamInListOfParams(param string, paramRange []string) error {
 }
 
 // PullTestImage pulls test image on all relevant nodes
-func PullTestImage(config *config.Config, apiclient *client.ClientSet) {
-	nodesList, err := nodes.GetByLabel(apiclient, config.General.CnfNodeLabel)
+func PullTestImage(apiclient *client.ClientSet, cnfNodeLabel string, image string) {
+	nodesList, err := nodes.GetByLabel(apiclient, cnfNodeLabel)
 	Expect(err).ToNot(HaveOccurred())
 	for _, node := range nodesList.Items {
-		pullPodDefenition := pod.RedefineWithRestartPolicy(pod.RedefineWithCommand(pod.DefinePodOnNode("default", config.Network.TestContainerImage, node.Name),
+		pullPodDefenition := pod.RedefineWithRestartPolicy(pod.RedefineWithCommand(pod.DefinePodOnNode("default", image, node.Name),
 			[]string{"echo", "image pulled Successfully && exit 0"}, []string{}), k8sv1.RestartPolicyNever)
 		pullPod, err := apiclient.Pods("default").Create(context.Background(), pullPodDefenition, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
