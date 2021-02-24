@@ -549,6 +549,9 @@ github.com/onsi/gomega/matchers/support/goraph/edge
 github.com/onsi/gomega/matchers/support/goraph/node
 github.com/onsi/gomega/matchers/support/goraph/util
 github.com/onsi/gomega/types
+# github.com/open-ness/openshift-operator/N3000 v0.0.0-20210201193514-f5eee4917b54
+## explicit
+github.com/open-ness/openshift-operator/N3000/api/v1
 # github.com/opencontainers/go-digest v1.0.0
 github.com/opencontainers/go-digest
 # github.com/opencontainers/image-spec v1.0.2-0.20190823105129-775207bd45b6
@@ -574,11 +577,11 @@ github.com/opencontainers/runtime-tools/validate
 github.com/opencontainers/selinux/go-selinux
 github.com/opencontainers/selinux/go-selinux/label
 github.com/opencontainers/selinux/pkg/pwalk
-# github.com/openshift/api v0.0.0-20200829102639-8a3a835f1acf
+# github.com/openshift/api v3.9.0+incompatible => github.com/openshift/api v0.0.0-20200526144822-34f54f12813a
 github.com/openshift/api/config/v1
 github.com/openshift/api/operator/v1
 github.com/openshift/api/operator/v1alpha1
-# github.com/openshift/client-go v0.0.0-20200827190008-3062137373b5
+# github.com/openshift/client-go v0.0.0-20200827190008-3062137373b5 => github.com/openshift/client-go v0.0.0-20200521150516-05eb9880269c
 ## explicit
 github.com/openshift/client-go/config/clientset/versioned
 github.com/openshift/client-go/config/clientset/versioned/scheme
@@ -605,7 +608,7 @@ github.com/openshift/imagebuilder/dockerfile/command
 github.com/openshift/imagebuilder/dockerfile/parser
 github.com/openshift/imagebuilder/signal
 github.com/openshift/imagebuilder/strslice
-# github.com/openshift/machine-config-operator v4.2.0-alpha.0.0.20190917115525-033375cbe820+incompatible => github.com/openshift/machine-config-operator v0.0.1-0.20201222202713-eab9c35dfbeb
+# github.com/openshift/machine-config-operator v4.2.0-alpha.0.0.20190917115525-033375cbe820+incompatible => github.com/openshift/machine-config-operator v0.0.1-0.20201202182407-c470febe19e3
 ## explicit
 github.com/openshift/machine-config-operator/internal/clients
 github.com/openshift/machine-config-operator/pkg/apis/machineconfiguration.openshift.io/v1
@@ -837,7 +840,7 @@ gopkg.in/tomb.v1
 # gopkg.in/yaml.v2 v2.3.0
 ## explicit
 gopkg.in/yaml.v2
-# k8s.io/api v0.19.2 => k8s.io/api v0.19.2
+# k8s.io/api v0.19.3 => k8s.io/api v0.19.3
 ## explicit
 k8s.io/api/admissionregistration/v1
 k8s.io/api/admissionregistration/v1beta1
@@ -880,7 +883,7 @@ k8s.io/api/settings/v1alpha1
 k8s.io/api/storage/v1
 k8s.io/api/storage/v1alpha1
 k8s.io/api/storage/v1beta1
-# k8s.io/apiextensions-apiserver v0.19.0 => k8s.io/apiextensions-apiserver v0.19.2
+# k8s.io/apiextensions-apiserver v0.19.0 => k8s.io/apiextensions-apiserver v0.19.3
 k8s.io/apiextensions-apiserver/pkg/apis/apiextensions
 k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1
 k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1
@@ -895,7 +898,7 @@ k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions/apiextensio
 k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions/internalinterfaces
 k8s.io/apiextensions-apiserver/pkg/client/listers/apiextensions/v1
 k8s.io/apiextensions-apiserver/pkg/client/listers/apiextensions/v1beta1
-# k8s.io/apimachinery v0.19.4 => k8s.io/apimachinery v0.19.2
+# k8s.io/apimachinery v0.19.4 => k8s.io/apimachinery v0.19.3
 ## explicit
 k8s.io/apimachinery/pkg/api/equality
 k8s.io/apimachinery/pkg/api/errors
@@ -941,7 +944,7 @@ k8s.io/apimachinery/pkg/version
 k8s.io/apimachinery/pkg/watch
 k8s.io/apimachinery/third_party/forked/golang/netutil
 k8s.io/apimachinery/third_party/forked/golang/reflect
-# k8s.io/client-go v12.0.0+incompatible => k8s.io/client-go v0.19.2
+# k8s.io/client-go v12.0.0+incompatible => k8s.io/client-go v0.19.3
 ## explicit
 k8s.io/client-go/discovery
 k8s.io/client-go/informers
@@ -1118,7 +1121,7 @@ k8s.io/utils/buffer
 k8s.io/utils/integer
 k8s.io/utils/pointer
 k8s.io/utils/trace
-# sigs.k8s.io/controller-runtime v0.6.2
+# sigs.k8s.io/controller-runtime v0.6.3
 ## explicit
 sigs.k8s.io/controller-runtime/pkg/client
 sigs.k8s.io/controller-runtime/pkg/client/apiutil
@@ -1129,29 +1132,32 @@ sigs.k8s.io/controller-runtime/pkg/scheme
 sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.2.0
 sigs.k8s.io/yaml
-# k8s.io/api => k8s.io/api v0.19.2
-# k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.19.2
-# k8s.io/apimachinery => k8s.io/apimachinery v0.19.2
-# k8s.io/apiserver => k8s.io/apiserver v0.19.2
-# k8s.io/cli-runtime => k8s.io/cli-runtime v0.19.2
-# k8s.io/client-go => k8s.io/client-go v0.19.2
-# k8s.io/cloud-provider => k8s.io/cloud-provider v0.19.2
-# k8s.io/cluster-bootstrap => k8s.io/cluster-bootstrap v0.19.2
-# k8s.io/code-generator => k8s.io/code-generator v0.19.2
-# k8s.io/component-base => k8s.io/component-base v0.19.2
-# k8s.io/cri-api => k8s.io/cri-api v0.19.2
-# k8s.io/csi-translation-lib => k8s.io/csi-translation-lib v0.19.2
-# k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.19.2
-# k8s.io/kube-controller-manager => k8s.io/kube-controller-manager v0.19.2
-# k8s.io/kube-proxy => k8s.io/kube-proxy v0.19.2
-# k8s.io/kube-scheduler => k8s.io/kube-scheduler v0.19.2
-# k8s.io/kubectl => k8s.io/kubectl v0.19.2
-# k8s.io/kubelet => k8s.io/kubelet v0.19.2
-# k8s.io/legacy-cloud-providers => k8s.io/legacy-cloud-providers v0.19.2
-# k8s.io/metrics => k8s.io/metrics v0.19.2
-# k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.19.2
+# k8s.io/api => k8s.io/api v0.19.3
+# k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.19.3
+# k8s.io/apimachinery => k8s.io/apimachinery v0.19.3
+# k8s.io/apiserver => k8s.io/apiserver v0.19.3
+# k8s.io/cli-runtime => k8s.io/cli-runtime v0.19.3
+# k8s.io/client-go => k8s.io/client-go v0.19.3
+# k8s.io/cloud-provider => k8s.io/cloud-provider v0.19.3
+# k8s.io/cluster-bootstrap => k8s.io/cluster-bootstrap v0.19.3
+# k8s.io/code-generator => k8s.io/code-generator v0.19.3
+# k8s.io/component-base => k8s.io/component-base v0.19.3
+# k8s.io/cri-api => k8s.io/cri-api v0.19.3
+# k8s.io/csi-translation-lib => k8s.io/csi-translation-lib v0.19.3
+# k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.19.3
+# k8s.io/kube-controller-manager => k8s.io/kube-controller-manager v0.19.3
+# k8s.io/kube-proxy => k8s.io/kube-proxy v0.19.3
+# k8s.io/kube-scheduler => k8s.io/kube-scheduler v0.19.3
+# k8s.io/kubectl => k8s.io/kubectl v0.19.3
+# k8s.io/kubelet => k8s.io/kubelet v0.19.3
+# k8s.io/legacy-cloud-providers => k8s.io/legacy-cloud-providers v0.19.3
+# k8s.io/metrics => k8s.io/metrics v0.19.3
+# k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.19.3
 # github.com/Azure/go-autorest => github.com/Azure/go-autorest v13.3.2+incompatible
 # github.com/k8snetworkplumbingwg/sriov-network-operator => github.com/openshift/sriov-network-operator v0.0.0-20210105152551-211d8ee0992e
 # github.com/mattn/go-sqlite3 => github.com/mattn/go-sqlite3 v1.10.0
+# github.com/openshift/api => github.com/openshift/api v0.0.0-20200526144822-34f54f12813a
+# github.com/openshift/client-go => github.com/openshift/client-go v0.0.0-20200521150516-05eb9880269c
+# github.com/openshift/cluster-node-tuning-operator => github.com/openshift/cluster-node-tuning-operator v0.0.0-20200408190329-b227599f61b0
 # github.com/openshift/library-go => github.com/openshift/library-go v0.0.0-20200421122923-c1de486c7d47
-# github.com/openshift/machine-config-operator => github.com/openshift/machine-config-operator v0.0.1-0.20201222202713-eab9c35dfbeb
+# github.com/openshift/machine-config-operator => github.com/openshift/machine-config-operator v0.0.1-0.20201202182407-c470febe19e3

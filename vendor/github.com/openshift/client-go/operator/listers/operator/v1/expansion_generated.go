@@ -10,18 +10,6 @@ type AuthenticationListerExpansion interface{}
 // CSISnapshotControllerLister.
 type CSISnapshotControllerListerExpansion interface{}
 
-// CloudCredentialListerExpansion allows custom methods to be added to
-// CloudCredentialLister.
-type CloudCredentialListerExpansion interface{}
-
-// ClusterCSIDriverListerExpansion allows custom methods to be added to
-// ClusterCSIDriverLister.
-type ClusterCSIDriverListerExpansion interface{}
-
-// ConfigListerExpansion allows custom methods to be added to
-// ConfigLister.
-type ConfigListerExpansion interface{}
-
 // ConsoleListerExpansion allows custom methods to be added to
 // ConsoleLister.
 type ConsoleListerExpansion interface{}
@@ -81,7 +69,3 @@ type ServiceCatalogAPIServerListerExpansion interface{}
 // ServiceCatalogControllerManagerListerExpansion allows custom methods to be added to
 // ServiceCatalogControllerManagerLister.
 type ServiceCatalogControllerManagerListerExpansion interface{}
-
-// StorageListerExpansion allows custom methods to be added to
-// StorageLister.
-type StorageListerExpansion interface{}
