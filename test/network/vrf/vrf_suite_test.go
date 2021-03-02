@@ -2,6 +2,7 @@ package vrf
 
 import (
 	"fmt"
+	"log"
 	"runtime"
 	"testing"
 	"time"
@@ -15,8 +16,8 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/vrf/parameters"
 	_ "gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/vrf/tests"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/k8sreporter"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
+	testutils "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/utils"
 )
 
 const (
@@ -35,11 +36,15 @@ func TestVrf(t *testing.T) {
 	dumpFile := configSuite.GetDumpFailedTestReportLocation(currentFile)
 	RegisterFailHandler(Fail)
 	rr := append([]Reporter{}, reporters.NewJUnitReporter(junitPath))
-	if dumpFile != nil {
-		clients, err := config.DefineClients()
-		Expect(err).ToNot(HaveOccurred())
-		rr = append(rr, k8sreporter.New(clients, dumpFile))
-		defer dumpFile.Close()
+	if dumpFile != "" {
+		reporter, err := testutils.NewReporter(
+			dumpFile,
+			parameters.ReporterNamespacesToDump,
+			parameters.ReporterCrds)
+		if err != nil {
+			log.Fatalf("Failed to create log reporter %s", err)
+		}
+		rr = append(rr, reporter)
 	}
 	RunSpecsWithDefaultAndCustomReporters(t, "VRF tests", rr)
 }

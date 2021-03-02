@@ -94,8 +94,8 @@ var _ = Describe("CNF VRF", func() {
 
 	})
 
-	AfterEach(func() {
-		By("Cleaning up resources after test")
+	BeforeEach(func() {
+		By("Cleaning up resources before test")
 		err := namespaces.CleanPods(parameters.TestNamespace, apiclient)
 		Expect(err).ToNot(HaveOccurred())
 		Eventually(func() bool {

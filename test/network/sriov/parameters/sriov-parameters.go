@@ -2,6 +2,10 @@ package parameters
 
 import (
 	"fmt"
+
+	sriovv1 "github.com/k8snetworkplumbingwg/sriov-network-operator/api/v1"
+	mcfgv1 "github.com/openshift/machine-config-operator/pkg/apis/machineconfiguration.openshift.io/v1"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/k8sreporter"
 )
 
 const (
@@ -31,6 +35,20 @@ var (
 	protocolParameters = []string{CommunicationProtocolUnicastICMP, CommunicationProtocolUnicastTCP,
 		CommunicationProtocolUnicastUDP, CommunicationProtocolMulticastUDP,
 		CommunicationProtocolBroadcastUDP, CommunicationProtocolUnicastSCTP}
+	// ReporterNamespacesToDump tells to reporter from where to collect logs
+	ReporterNamespacesToDump = map[string]string{
+		"openshift-performance-addon-operator": "performance",
+		OperatorNamespace:                      "sriov",
+		OperatorTestNamespace:                  "other",
+	}
+	// ReporterCrds tells to reporter what resources to collect
+	ReporterCrds = []k8sreporter.CRData{
+		{Cr: &mcfgv1.MachineConfigPoolList{}},
+		{Cr: &sriovv1.SriovNetworkNodePolicyList{}},
+		{Cr: &sriovv1.SriovNetworkList{}},
+		{Cr: &sriovv1.SriovNetworkNodeStateList{}},
+		{Cr: &sriovv1.SriovOperatorConfigList{}},
+	}
 )
 
 // ConnectivityTestParameters contains test parameters for connectivity

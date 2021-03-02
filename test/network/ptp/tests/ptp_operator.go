@@ -70,7 +70,7 @@ var _ = Describe("PTP", func() {
 		})
 
 		AfterEach(func() {
-			By("Cleaning up resources after test")
+			By("Cleaning up resources before test")
 
 			err := helper.Clean(apiclient, operatorNamespace)
 			Expect(err).NotTo(HaveOccurred())

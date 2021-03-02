@@ -73,8 +73,8 @@ var _ = Describe("CNF VRF", func() {
 		vrfRed = addVRFNad(apiclient, "test-vrf-red", masterMacVlanInterfaceName, parameters.VRFRedName)
 	})
 
-	AfterEach(func() {
-		By("Cleaning up resources after test")
+	BeforeEach(func() {
+		By("Cleaning up resources before test")
 		err := namespaces.CleanPods(parameters.TestNamespace, apiclient)
 		Expect(err).ToNot(HaveOccurred())
 	})

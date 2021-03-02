@@ -129,8 +129,8 @@ var _ = Describe("CNF SRIOV", func() {
 			customSriovPolicyConfigDiffPF, jumboSriovPolicyConfigDiffPF}, 1)
 	})
 
-	AfterEach(func() {
-		By("Cleaning up resources after test")
+	BeforeEach(func() {
+		By("Cleaning up resources before test")
 		err = namespaces.CleanPods(parameters.OperatorTestNamespace, clients)
 		Expect(err).ToNot(HaveOccurred())
 		Eventually(func() bool {
@@ -151,8 +151,12 @@ var _ = Describe("CNF SRIOV", func() {
 		},
 		buildTableEntries(
 			describe,
-			[]int{parameters.MTUCustom, parameters.MTUJumbo, parameters.MTUStandart},
-			[]string{parameters.ConnectivityDiffNode, parameters.ConnectivitySameNodeDiffPF, parameters.ConnectivitySameNodeSamePF},
+			[]int{parameters.MTUCustom, 
+				parameters.MTUJumbo, 
+				parameters.MTUStandart},
+			[]string{parameters.ConnectivityDiffNode, 
+				parameters.ConnectivitySameNodeDiffPF, 
+				parameters.ConnectivitySameNodeSamePF},
 			[]string{
 				parameters.CommunicationProtocolUnicastICMP,
 				parameters.CommunicationProtocolUnicastTCP,
@@ -170,9 +174,13 @@ var _ = Describe("CNF SRIOV", func() {
 			buildDescribeTable(mtu, protocol, connectivity, sriovInfos, config, "", "")
 		},
 		buildTableEntries(
-			describe, 
-			[]int{parameters.MTUCustom, parameters.MTUJumbo, parameters.MTUStandart},
-			[]string{parameters.ConnectivityDiffNode, parameters.ConnectivitySameNodeDiffPF, parameters.ConnectivitySameNodeSamePF},
+			describe,
+			[]int{parameters.MTUCustom, 
+				parameters.MTUJumbo, 
+				parameters.MTUStandart},
+			[]string{parameters.ConnectivityDiffNode, 
+				parameters.ConnectivitySameNodeDiffPF, 
+				parameters.ConnectivitySameNodeSamePF},
 			[]string{
 				parameters.CommunicationProtocolUnicastICMP,
 				parameters.CommunicationProtocolUnicastTCP,
@@ -191,8 +199,12 @@ var _ = Describe("CNF SRIOV", func() {
 		},
 		buildTableEntries(
 			describe,
-			[]int{parameters.MTUCustom, parameters.MTUJumbo, parameters.MTUStandart},
-			[]string{parameters.ConnectivityDiffNode, parameters.ConnectivitySameNodeDiffPF, parameters.ConnectivitySameNodeSamePF},
+			[]int{parameters.MTUCustom, 
+				parameters.MTUJumbo, 
+				parameters.MTUStandart},
+			[]string{parameters.ConnectivityDiffNode, 
+				parameters.ConnectivitySameNodeDiffPF, 
+				parameters.ConnectivitySameNodeSamePF},
 			[]string{
 				parameters.CommunicationProtocolUnicastICMP,
 				parameters.CommunicationProtocolUnicastTCP,
@@ -210,8 +222,12 @@ var _ = Describe("CNF SRIOV", func() {
 		},
 		buildTableEntries(
 			describe,
-			[]int{parameters.MTUCustom, parameters.MTUJumbo, parameters.MTUStandart},
-			[]string{parameters.ConnectivityDiffNode, parameters.ConnectivitySameNodeDiffPF, parameters.ConnectivitySameNodeSamePF},
+			[]int{parameters.MTUCustom, 
+				parameters.MTUJumbo, 
+				parameters.MTUStandart},
+			[]string{parameters.ConnectivityDiffNode, 
+				parameters.ConnectivitySameNodeDiffPF, 
+				parameters.ConnectivitySameNodeSamePF},
 			[]string{
 				parameters.CommunicationProtocolUnicastICMP,
 				parameters.CommunicationProtocolUnicastTCP,
@@ -229,8 +245,12 @@ var _ = Describe("CNF SRIOV", func() {
 		},
 		buildTableEntries(
 			describe,
-			[]int{parameters.MTUCustom, parameters.MTUJumbo, parameters.MTUStandart},
-			[]string{parameters.ConnectivityDiffNode, parameters.ConnectivitySameNodeDiffPF, parameters.ConnectivitySameNodeSamePF},
+			[]int{parameters.MTUCustom, 
+				parameters.MTUJumbo, 
+				parameters.MTUStandart},
+			[]string{parameters.ConnectivityDiffNode, 
+				parameters.ConnectivitySameNodeDiffPF, 
+				parameters.ConnectivitySameNodeSamePF},
 			[]string{
 				parameters.CommunicationProtocolUnicastICMP,
 				parameters.CommunicationProtocolUnicastTCP,
@@ -249,8 +269,15 @@ var _ = Describe("CNF SRIOV", func() {
 		},
 		buildTableEntries(
 			describe,
-			[]int{parameters.MTUCustom, parameters.MTUJumbo, parameters.MTUStandart},
-			[]string{parameters.ConnectivityDiffNode, parameters.ConnectivitySameNodeDiffPF, parameters.ConnectivitySameNodeSamePF},
+			[]int{parameters.MTUCustom,
+				parameters.MTUJumbo,
+				parameters.MTUStandart,
+			},
+			[]string{parameters.ConnectivityDiffNode,
+				parameters.ConnectivitySameNodeDiffPF,
+				parameters.ConnectivitySameNodeSamePF,
+			},
+
 			[]string{
 				parameters.CommunicationProtocolUnicastICMP,
 				parameters.CommunicationProtocolUnicastTCP,
@@ -285,7 +312,7 @@ func runServerPod(protocol string, mtu int, connectivity string, sriovInfos *clu
 }
 
 func runDualServerPod(protocol string, mtu int, connectivity string, sriovInfos *cluster.EnabledNodes,
-	config *config.Config, networkName string, serverCommand []string, negative bool, serverMacAddress string, serverIPV4 string, serverIPV6 string) {
+	config *config.Config, networkName string, negative bool, serverMacAddress string, serverIPV4 string, serverIPV6 string) {
 
 	nodeSelector := defineNodeSelector(connectivity, sriovInfos)
 
@@ -309,7 +336,7 @@ func runDualServerPod(protocol string, mtu int, connectivity string, sriovInfos 
 
 	serverPod, err := clients.Pods(parameters.OperatorTestNamespace).Create(context.Background(), serverPodDefinition, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
-	waitUntilPodInStatus(serverPod, "Server", serverCommand, corev1.PodRunning, dualPodWaitingTime)
+	waitUntilPodInStatus(serverPod, "Server", append(serverIPv4Command, serverIPv6Command...), corev1.PodRunning, dualPodWaitingTime)
 }
 
 func serverCommandFor(testProtocol string, mtu int, serverIP string, negative bool, testPort int) ([]string, error) {
@@ -614,36 +641,11 @@ func waitUntilPodInStatus(createdPod *corev1.Pod, podRole string, execCommand []
 	Eventually(func() corev1.PodPhase {
 		createdPod, _ = clients.Pods(parameters.OperatorTestNamespace).Get(context.Background(), createdPod.Name, metav1.GetOptions{})
 		if createdPod.Status.Phase == corev1.PodFailed {
-			Fail(fmt.Sprintf("%s Pod. Invalid return code. Command: %s.\nPod logs: \n%s", podRole, execCommand,
-				getTestPodsLogs(
-					parameters.OperatorTestNamespace,
-					waitingTime)))
+			Fail(fmt.Sprintf("Pod role %s.Invalid return code. Command: %s", podRole, execCommand))
 		}
 		return createdPod.Status.Phase
 	}, waitingTime, time.Second).Should(Equal(podStatus),
-		fmt.Sprintf("Server Pod. Invalid return code. Command: %s.\nPod logs: \n%s", execCommand,
-			getTestPodsLogs(parameters.OperatorTestNamespace, waitingTime)))
-}
-
-func getTestPodsLogs(namespace string, podWaitingTime time.Duration) string {
-	pods, err := clients.Pods(namespace).List(context.Background(), metav1.ListOptions{})
-	if err != nil {
-		return "Can not get list of pods from namespace"
-	}
-	var logs []string
-	for _, testPod := range pods.Items {
-		log := fmt.Sprintf("Pod Name: %s\nPod Spec Info:\n%v", testPod.Name, testPod.Spec)
-		for _, container := range append(testPod.Spec.InitContainers, testPod.Spec.Containers...) {
-			containerlog, err := pod.GetLog(clients, &testPod, podWaitingTime, container.Name)
-			if err != nil {
-				log += fmt.Sprintf("\nError to collect logs from container %s due to the error: %s", container.Name, err)
-			} else {
-				log += fmt.Sprintf("\n%s", containerlog)
-			}
-		}
-		logs = append(logs, log+"\n\n\n\n")
-	}
-	return strings.Join(logs, "\n")
+		fmt.Sprintf("Pod role %s. Invalid return code. Command: %s", podRole, execCommand))
 }
 
 func buildDescribeTable(mtu int, protocol string, connectivity string, sriovInfos *cluster.EnabledNodes, config *config.Config, clientMacAddress string, serverMacAddress string) {
@@ -897,7 +899,6 @@ func buildDescribeTableDual(mtu int, protocol string, connectivity string, sriov
 		sriovInfos,
 		config,
 		serverNetworkName,
-		nodeSelector,
 		negativeFlag,
 		serverMacAddress,
 		serverPodIP,
@@ -930,7 +931,6 @@ func buildDescribeTableDual(mtu int, protocol string, connectivity string, sriov
 			sriovInfos,
 			config,
 			serverNetworkName,
-			nodeSelector,
 			negativeFlag,
 			serverMacAddress,
 			serverPodIP,

@@ -103,26 +103,18 @@ func (c *Config) GetSriovInterfaces(availableSriovInterfaces []*sriovv1.Interfac
 }
 
 // GetDumpFailedTestReportLocation returns destination file for failed tests logs
-func (c *Config) GetDumpFailedTestReportLocation(file string) *os.File {
-	if c.General.DumpFailedTestsReportLocation == "stdout" {
-		return os.Stdout
-	} else if c.General.DumpFailedTestsReportLocation == "true" {
+func (c *Config) GetDumpFailedTestReportLocation(file string) string {
+	if c.General.DumpFailedTestsReportLocation == "true" {
 
 		if _, err := os.Stat(c.General.ReportDirAbsPath); os.IsNotExist(err) {
 			os.Mkdir(c.General.ReportDirAbsPath, 0744)
 		}
 
 		dumpFileName := strings.TrimSuffix(filepath.Base(file), filepath.Ext(filepath.Base(file)))
-		f, err := os.OpenFile(
-			filepath.Join(c.General.ReportDirAbsPath, fmt.Sprintf("failed_%s.log", dumpFileName)), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 
-		if err != nil {
-			return nil
-		}
-		return f
-	} else {
-		return nil
+		return filepath.Join(c.General.ReportDirAbsPath, fmt.Sprintf("failed_%s", dumpFileName))
 	}
+	return ""
 }
 
 // DefineClients sets client and return it's instance
