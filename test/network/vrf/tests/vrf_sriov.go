@@ -27,7 +27,9 @@ import (
 )
 
 var _ = Describe("CNF VRF", func() {
+
 	describe := func(node string, ipStack string) string {
+
 		VRFParameters, err := parameters.NewVRFTestParameters(node, ipStack)
 		if err != nil {
 			return fmt.Sprintf("error in parameters: node=%s, ipStack=%s", node, ipStack)
@@ -36,8 +38,10 @@ var _ = Describe("CNF VRF", func() {
 		if err != nil {
 			return fmt.Sprintf("error in parameters: node=%s, ipStack=%s", node, ipStack)
 		}
+
 		return fmt.Sprintf("%s", string(params))
 	}
+
 	var sriovInfos *cluster.EnabledNodes
 	config, err := config.NewConfig()
 	Expect(err).ToNot(HaveOccurred())
@@ -111,7 +115,7 @@ var _ = Describe("CNF VRF", func() {
 
 	DescribeTable("Integration: SRIOV, IPAM: static, Interfaces: 1, Scheme: 2 Pods 2 VRFs OCP Primary network overlap",
 		func(node string, ipStack string) {
-			helper.TestVRFScenario(apiclient, node, ipStack, config, sriovInfos.Nodes,
+			helper.TestVRFScenario(apiclient, node, ipStack, true, config, sriovInfos.Nodes,
 				parameters.TestSriovNetworkBlue, parameters.TestSriovNetworkRed)
 		},
 		Entry(describe, parameters.SameNode, parameters.IPStackIPv4),

@@ -31,7 +31,7 @@ const (
 var (
 	podClientVRFBlueIPAddress string
 	podServerVRFBlueIPAddress string
-	nodeParameters            = []string{SameNode, DiffNode}
+	NodeParameters            = []string{SameNode, DiffNode}
 	ipStackParameters         = []string{IPStackIPv4, IPStackIPv6}
 	// ReporterNamespacesToDump tells to reporter from where to collect logs
 	ReporterNamespacesToDump = map[string]string{
@@ -39,6 +39,7 @@ var (
 		SriovOperatorNamespace:                 "sriov",
 		TestNamespace:                          "other",
 	}
+
 	// ReporterCrds tells to reporter what resources to collect
 	ReporterCrds = []k8sreporter.CRData{
 		{Cr: &mcfgv1.MachineConfigPoolList{}},
@@ -58,7 +59,7 @@ type VrfTestParameters struct {
 // NewVRFTestParameters constructor for VRFTestParameters
 func NewVRFTestParameters(Node string, IPStack string) (*VrfTestParameters, error) {
 	VRFTestParameters := new(VrfTestParameters)
-	err := helper.StrParamInListOfParams(Node, nodeParameters)
+	err := helper.StrParamInListOfParams(Node, NodeParameters)
 	if err != nil {
 		return nil, err
 	}
@@ -69,5 +70,6 @@ func NewVRFTestParameters(Node string, IPStack string) (*VrfTestParameters, erro
 		return nil, err
 	}
 	VRFTestParameters.IPStack = IPStack
+
 	return VRFTestParameters, nil
 }

@@ -35,6 +35,7 @@ var _ = Describe("CNF VRF", func() {
 
 	var nodeListString []string
 	var masterMacVlanInterfaceName string
+	var secondMacVlanInterfaceName string
 	var vrfBlue netattdefv1.NetworkAttachmentDefinition
 	var vrfRed netattdefv1.NetworkAttachmentDefinition
 	config, err := config.NewConfig()
@@ -65,9 +66,21 @@ var _ = Describe("CNF VRF", func() {
 		}
 		Expect(err).ToNot(HaveOccurred())
 
+		By("Select host dual interface for mac-vlan")
+		nodeInterfaceList, err = nodes.GetPhysicalNodeInterfaces(apiclient, nodesList[0].Name)
+		Expect(err).ToNot(HaveOccurred())
+		for _, secondInterface := range nodeInterfaceList {
+			if !secondInterface.Bridge && !secondInterface.DefRoute && secondInterface.Name != masterMacVlanInterfaceName && secondInterface.Physical && secondInterface.UP {
+				secondMacVlanInterfaceName = secondInterface.Name
+			}
+		}
+		if secondMacVlanInterfaceName == "" {
+			Skip("There is not two valid interfaces on Node for VRF tests")
+		}
+
 		By("Adding NADs")
-		vrfBlue = helper.AddVRFNad(apiclient, "test-vrf-blue", masterMacVlanInterfaceName, parameters.VRFBlueName)
-		vrfRed = helper.AddVRFNad(apiclient, "test-vrf-red", masterMacVlanInterfaceName, parameters.VRFRedName)
+		vrfBlue = helper.AddVRFNad(apiclient, "vrf-blue", masterMacVlanInterfaceName, parameters.VRFBlueName)
+		vrfRed = helper.AddVRFNad(apiclient, "vrf-red", secondMacVlanInterfaceName, parameters.VRFRedName)
 	})
 
 	BeforeEach(func() {
@@ -76,9 +89,9 @@ var _ = Describe("CNF VRF", func() {
 		Expect(err).ToNot(HaveOccurred())
 	})
 
-	DescribeTable("Integration: NAD, IPAM: static, Interfaces: 1, Scheme: 2 Pods 2 VRFs OCP Primary network overlap",
+	DescribeTable("Integration: NAD, IPAM: static, Interfaces: 2, Scheme: 2 Pods 2 VRFs network overlap",
 		func(node string, ipStack string) {
-			helper.TestVRFScenario(apiclient, node, ipStack, true, config, nodeListString, vrfBlue.Name, vrfRed.Name)
+			helper.TestVRFScenario(apiclient, node, ipStack, false, config, nodeListString, vrfBlue.Name, vrfRed.Name)
 		},
 		Entry(describe, parameters.SameNode, parameters.IPStackIPv4),
 		Entry(describe, parameters.DiffNode, parameters.IPStackIPv4),

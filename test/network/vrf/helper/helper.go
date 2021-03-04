@@ -14,6 +14,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
 
+	netattdefv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	networkHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/vrf/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
@@ -22,13 +23,13 @@ import (
 )
 
 // TestVRFScenario verifies that VRF feature works as expected
-func TestVRFScenario(apiclient *client.ClientSet, node string, ipStack string, config *config.Config, nodes []string,
+func TestVRFScenario(apiclient *client.ClientSet, node string, ipStack string, overLapToSDN bool, config *config.Config, nodes []string,
 	VRFNetworkBlue string, VRFNetworkRed string) {
 	var podClientNodeLabel string
 	var podServerNodeLabel string
 	var redVRFNetworkPrefix string
+
 	By("Validating test parameters")
-	
 	VRFParameters, err := parameters.NewVRFTestParameters(node, ipStack)
 	Expect(err).ToNot(HaveOccurred())
 	if VRFParameters.Node == parameters.SameNode {
@@ -38,39 +39,62 @@ func TestVRFScenario(apiclient *client.ClientSet, node string, ipStack string, c
 	} else {
 		if len(nodes) < 2 {
 			Skip(fmt.Sprintf("There is not enough nodes to run test with following parameter %s", node))
+
+		} else if VRFParameters.Node == parameters.DiffNode && overLapToSDN == true {
+			podClientNodeLabel = nodes[0]
+			podServerNodeLabel = nodes[1]
+			redVRFNetworkPrefix = "8"
+
+		} else if VRFParameters.Node == parameters.DiffNode && overLapToSDN == false {
+			podClientNodeLabel = nodes[0]
+			podServerNodeLabel = nodes[1]
+			redVRFNetworkPrefix = "24"
 		}
-		podClientNodeLabel = nodes[0]
-		podServerNodeLabel = nodes[1]
-		redVRFNetworkPrefix = "8"
 	}
 
-	By("Getting overlapping IP addresses")
-	podClientVRFRedOverlappingIP := getOverlapIP(apiclient, podClientNodeLabel, config.Network.TestContainerImage)
-	podServerVRFRedOverlappingIP := getOverlapIP(apiclient, podServerNodeLabel, config.Network.TestContainerImage)
+	var podClientVRFRedIPAddress string
+	var podServerVRFRedIPAddress string
 	var podClientVRFBlueIPAddress string
 	var podServerVRFBlueIPAddress string
 
-	if ipStack == parameters.IPStackIPv4 && net.ParseIP(podClientVRFRedOverlappingIP).To4() == nil {
-		Skip("Skipping IPv4 test. Cluster supports IPv6 protocol")
-	} else if ipStack == parameters.IPStackIPv4 && net.ParseIP(podClientVRFRedOverlappingIP).To4() != nil {
+	if ipStack == parameters.IPStackIPv4 {
+		By("Setting overlapping IP Address for VRF Blue")
 		podClientVRFBlueIPAddress = "10.255.255.1"
 		podServerVRFBlueIPAddress = "10.255.255.2"
-	} else {
-		Skip("Unpsupported protocol parameter")
+	} else if ipStack == parameters.IPStackIPv6 {
+		Skip("Unsupported protocol parameter")
+	}
+
+	switch {
+	case overLapToSDN == true:
+		By("Getting overlapping SDN IP Addresses for VRF Red")
+		podClientVRFRedIPAddress = getOverlapIP(apiclient, podClientNodeLabel, config.Network.TestContainerImage)
+		podServerVRFRedIPAddress = getOverlapIP(apiclient, podServerNodeLabel, config.Network.TestContainerImage)
+		if ipStack == parameters.IPStackIPv4 && net.ParseIP(podClientVRFRedIPAddress).To4() == nil {
+			Skip("Skipping IPv4 test. Cluster supports IPv6 protocol")
+		}
+
+	case overLapToSDN == false:
+		if ipStack == parameters.IPStackIPv4 {
+			By("Setting overlapping non-SDN IP Addresses for VRF Red")
+			podClientVRFRedIPAddress = "10.255.255.3"
+			podServerVRFRedIPAddress = "10.255.255.4"
+		}
 	}
 
 	By("Define client/server pods")
 	podClientIpamConfig := fmt.Sprintf(`[{"name": "%s", "mac": "%s", "ips": ["%s/24"]}, {"name": "%s", "mac": "%s", "ips": ["%s/%s"]}]`,
 		VRFNetworkBlue, "20:04:0f:f1:88:A1", podClientVRFBlueIPAddress, VRFNetworkRed,
-		"20:04:0f:f1:88:B2", podClientVRFRedOverlappingIP, redVRFNetworkPrefix)
+		"20:04:0f:f1:88:B2", podClientVRFRedIPAddress, redVRFNetworkPrefix)
+	fmt.Println("Client", podClientIpamConfig)
 	podClient := pod.RedefineAsPrivileged(
 		pod.RedefinePodWithNetwork(pod.DefinePodOnNode(parameters.TestNamespace, config.Network.TestContainerImage, podClientNodeLabel), podClientIpamConfig))
 	podServerIpamConfig := fmt.Sprintf(`[{"name": "%s", "mac": "%s", "ips": ["%s/24"]}, {"name": "%s", "mac": "%s", "ips": ["%s/%s"]}]`,
 		VRFNetworkBlue, "20:04:0f:f1:88:A3", podServerVRFBlueIPAddress, VRFNetworkRed,
-		"20:04:0f:f1:88:B4", podServerVRFRedOverlappingIP, redVRFNetworkPrefix)
+		"20:04:0f:f1:88:B4", podServerVRFRedIPAddress, redVRFNetworkPrefix)
+	fmt.Println("Server", podServerIpamConfig)
 	podServer := pod.RedefineAsPrivileged(
 		pod.RedefinePodWithNetwork(pod.DefinePodOnNode(parameters.TestNamespace, config.Network.TestContainerImage, podServerNodeLabel), podServerIpamConfig))
-
 	By("Running client/server pods")
 	runningClientPod := networkHelper.WaitUntilPodCreatedAndRunning(apiclient, podClient, parameters.TestNamespace, parameters.PodWaitingTime)
 	networkHelper.WaitUntilPodCreatedAndRunning(apiclient, podServer, parameters.TestNamespace, parameters.PodWaitingTime)
@@ -79,12 +103,12 @@ func TestVRFScenario(apiclient *client.ClientSet, node string, ipStack string, c
 	podHasCorrectVrfConfig(apiclient, podClient.Name,
 		[]map[string]string{
 			{"vrfName": parameters.VRFBlueName, "vrfClientIP": podClientVRFBlueIPAddress, "vrfInterface": "net1"},
-			{"vrfName": parameters.VRFRedName, "vrfClientIP": podClientVRFRedOverlappingIP, "vrfInterface": "net2"}})
+			{"vrfName": parameters.VRFRedName, "vrfClientIP": podClientVRFRedIPAddress, "vrfInterface": "net2"}})
 	podHasCorrectVrfConfig(apiclient, podServer.Name,
 		[]map[string]string{
 			{"vrfName": parameters.VRFBlueName, "vrfClientIP": podServerVRFBlueIPAddress, "vrfInterface": "net1"},
-			{"vrfName": parameters.VRFRedName, "vrfClientIP": podServerVRFRedOverlappingIP, "vrfInterface": "net2"}})
-	err = pingIPViaVRF(apiclient, *runningClientPod, parameters.VRFRedName, podServerVRFRedOverlappingIP)
+			{"vrfName": parameters.VRFRedName, "vrfClientIP": podServerVRFRedIPAddress, "vrfInterface": "net2"}})
+	err = pingIPViaVRF(apiclient, *runningClientPod, parameters.VRFRedName, podServerVRFRedIPAddress)
 	Expect(err).ToNot(HaveOccurred())
 	err = pingIPViaVRF(apiclient, *runningClientPod, parameters.VRFBlueName, podServerVRFBlueIPAddress)
 	Expect(err).ToNot(HaveOccurred())
@@ -99,10 +123,12 @@ func TestVRFScenario(apiclient *client.ClientSet, node string, ipStack string, c
 
 	err = pingIPViaVRF(apiclient, *runningClientPod, parameters.VRFBlueName, podServerVRFBlueIPAddress)
 	Expect(err).To(HaveOccurred())
-	err = pingIPViaVRF(apiclient, *runningClientPod, parameters.VRFRedName, podServerVRFRedOverlappingIP)
+	err = pingIPViaVRF(apiclient, *runningClientPod, parameters.VRFRedName, podServerVRFRedIPAddress)
 	Expect(err).To(HaveOccurred())
-	err = pingIPViaVRF(apiclient, *runningClientPod, "eth0", podServerVRFRedOverlappingIP)
-	Expect(err).ToNot(HaveOccurred())
+	if overLapToSDN == true {
+		err = pingIPViaVRF(apiclient, *runningClientPod, "eth0", podServerVRFRedIPAddress)
+		Expect(err).ToNot(HaveOccurred())
+	}
 }
 
 func podHasCorrectVrfConfig(cs *client.ClientSet, podName string, vrfMapsConfig []map[string]string) {
@@ -147,4 +173,20 @@ func getOverlapIP(cs *client.ClientSet, nodeName string, podImage string) string
 	pod, err := cs.Pods(parameters.TestNamespace).Get(context.Background(), tempPodDefinition.Name, metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	return pod.Status.PodIP
+}
+
+// AddVRFNad creates a network Attachmnet Definition
+func AddVRFNad(cs *client.ClientSet, NadName string, ifName string, vrfName string) netattdefv1.NetworkAttachmentDefinition {
+	vrfDefinition := netattdefv1.NetworkAttachmentDefinition{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: NadName,
+			Namespace:    parameters.TestNamespace,
+		},
+		Spec: netattdefv1.NetworkAttachmentDefinitionSpec{
+			Config: fmt.Sprintf(`{"cniVersion": "0.4.0", "name": "macvlan-vrf", "plugins": [{"type": "macvlan","master": "%s","ipam": {"type": "static"}},{"type": "vrf","vrfname": "%s"}]}`, ifName, vrfName),
+		},
+	}
+	err := cs.Create(context.Background(), &vrfDefinition)
+	Expect(err).ToNot(HaveOccurred())
+	return vrfDefinition
 }
