@@ -8,22 +8,21 @@ import (
 	. "github.com/onsi/gomega"
 
 	fpgav1 "github.com/open-ness/openshift-operator/N3000/api/v1"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/accelerator/n3000/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/accelerator/n3000/parameters"
+	networkHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 )
 
 var _ = Describe("Intel", func() {
 
 	var (
-		bitstreamId   string
-		deviceId      string
-		port          int32 = 80
-		n3000NodeList       = &fpgav1.N3000NodeList{}
+		initialBitstreamId string
+		initialDeviceId    string
+		n3000NodeList      = &fpgav1.N3000NodeList{}
+		fpgaStatus         = &fpgav1.N3000FpgaStatus{}
 	)
 
 	execute.BeforeAll(func() {
@@ -38,55 +37,63 @@ var _ = Describe("Intel", func() {
 		}
 		helper.CreateService(apiclient, parameters.TestNamespace)
 		numberReadyN3000Daemonsets, numberDesiredN3000Daemonsets := helper.CountN3000Daemonsets(apiclient, parameters.OperatorNamespace)
-		Expect(numberReadyN3000Daemonsets).To(Equal(numberDesiredN3000Daemonsets))
-	})
-	BeforeEach(func() {
-		By("Flushing bitstream")
-		fpgaStatus, err := helper.GetN3000FpgaStatus(apiclient)
+		Expect(numberReadyN3000Daemonsets).To(Equal(numberDesiredN3000Daemonsets), "Not all n3000 daemonsets are ready")
+		n3000Node, err := helper.GetN3000Node(apiclient)
 		Expect(err).NotTo(HaveOccurred())
-		bitstreamId = fpgaStatus.BitstreamID
-		deviceId = fpgaStatus.DeviceID
+		fpgaStatus, err = helper.GetN3000FpgaStatus(n3000Node)
+		Expect(err).NotTo(HaveOccurred())
+		initialBitstreamId = fpgaStatus.BitstreamID
+		initialDeviceId = fpgaStatus.DeviceID
 		service, err := apiclient.Services(parameters.TestNamespace).List(context.Background(), metav1.ListOptions{})
 		Expect(err).NotTo(HaveOccurred())
-		installNewN3000Image(n3000NodeList, fpgaStatus, parameters.ImageBitstreamFlush, parameters.ChecksumBitstreamImage, port, &service.Items[0])
-	})
-
-	AfterEach(func() {
-		By("Cleaning up resources after test")
-		fpgaStatus, err := helper.GetN3000FpgaStatus(apiclient)
-		Expect(err).NotTo(HaveOccurred())
-		service, err := apiclient.Services(parameters.TestNamespace).List(context.Background(), metav1.ListOptions{})
-		Expect(err).NotTo(HaveOccurred())
-		installNewN3000Image(n3000NodeList, fpgaStatus, parameters.ImageDefault, parameters.ChecksumDefaultImage, port, &service.Items[0])
-		n3000NodeCondition, err := helper.GetN3000NodeCondition(apiclient)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(n3000NodeCondition.Status).To(Equal(metav1.ConditionStatus("True")), fmt.Sprintf("Default ClusterConfig with image \"%s\" is not applied properly", n3000NodeList.Items[0].Spec.FPGA[0].UserImageURL))
-		helper.CleanAllN3000Cluster(apiclient)
+		helper.InstallNewN3000Image(apiclient, n3000Node.Name, fpgaStatus, parameters.ImageBitstreamFlash, parameters.ChecksumBitstreamImage, parameters.Port, &service.Items[0])
 	})
 
 	Context("n3000", func() {
-		// 39002
-		It("Bitstream flushing", func() {
-			fpgaStatus, err := helper.GetN3000FpgaStatus(apiclient)
+		//39002
+		It("Bitstream flashing", func() {
+			n3000Node, err := helper.GetN3000Node(apiclient)
 			Expect(err).NotTo(HaveOccurred())
-			n3000NodeCondition, err := helper.GetN3000NodeCondition(apiclient)
+			fpgaStatus, err = helper.GetN3000FpgaStatus(n3000Node)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(n3000NodeCondition.Message).To(Equal("Flashed successfully"), "Bitstream flushing failed")
-			Expect(fpgaStatus.BitstreamID).NotTo(Equal(bitstreamId), "BitstreamId has not been changed after flushing")
-			Expect(fpgaStatus.DeviceID).To(Equal(deviceId), "DeviceID has been changed or removed after flushing")
+			Expect(fpgaStatus.BitstreamID).NotTo(Equal(initialBitstreamId), "BitstreamId has not been changed after flashing")
+			Expect(fpgaStatus.DeviceID).To(Equal(initialDeviceId), "DeviceID has been changed or removed after flashing")
+		})
+	})
+
+	Context("sriov-fec", func() {
+		BeforeEach(func() {
+			isSriovFecDeploymentReady, _ := helper.IsSriovFecDeploymentReady(apiclient, parameters.OperatorNamespace)
+			if !isSriovFecDeploymentReady {
+				Skip("Sriov-fec operator is not ready")
+			}
+			By("Creating SriovFecClusterConfig")
+			helper.InstallSriovFecClusterNodeConfig(apiclient, false)
+		})
+
+		AfterEach(func() {
+			isSriovFecDeploymentReady, err := helper.IsSriovFecDeploymentReady(apiclient, parameters.OperatorNamespace)
+			Expect(err).NotTo(HaveOccurred())
+			if isSriovFecDeploymentReady {
+				By("Cleaning up resources after sriov-fec tests")
+				helper.InstallSriovFecClusterNodeConfig(apiclient, true)
+			}
+		})
+
+		// 39008
+		It("configuration", func() {
+			By("Creating bbdev test pod")
+			bbdevPod := helper.CreateBbdevPod(apiclient, parameters.TestNamespace)
+
+			By("Running bbdev tests")
+			bbdevTestResults := helper.RunBbdevTests(apiclient, bbdevPod)
+			countOfTests := networkHelper.CountStringsByGreps(bbdevTestResults, "Starting Test Suite :")
+			countOfPassed := networkHelper.CountStringsByGreps(bbdevTestResults, "Tests Passed", "1")
+
+			Expect(countOfTests).To(Equal(parameters.TotalNumberBbdevTests), "Not all test have been executed")
+			Expect(countOfPassed).To(Equal(parameters.ExpectedNumberBbdevTestsPassed), "Not all expected tests passed")
+			Expect(helper.IsBbdevFailedTests(bbdevTestResults)).To(BeFalse(), fmt.Sprintf("There are failed tests.\n %s", bbdevTestResults))
 		})
 	})
 
 })
-
-func installNewN3000Image(n3000NodeList *fpgav1.N3000NodeList, fpgaStatus *fpgav1.N3000FpgaStatus, image string, checksum string, port int32, service *corev1.Service) {
-	helper.CleanAllN3000Cluster(apiclient)
-	helper.CreatePodWithPort(apiclient, parameters.TestNamespace, parameters.ImageBitstreamImages, port)
-	n3000Node := &n3000NodeList.Items[0]
-
-	err := helper.CreateN3000ClusterConfig(apiclient, n3000Node.Name, image, service.Spec.ClusterIP, checksum, fpgaStatus.PciAddr)
-	Expect(err).NotTo(HaveOccurred())
-	By("Waiting until cluster become stable")
-	err = nodes.WaitForClusterToBeStable(apiclient)
-	Expect(err).NotTo(HaveOccurred())
-}

@@ -3,6 +3,7 @@ package nodes
 import (
 	"context"
 	"fmt"
+
 	"log"
 	"strings"
 	"time"
@@ -224,15 +225,15 @@ func GetByLabel(cs *client.ClientSet, label string) (*corev1.NodeList, error) {
 func WaitForClusterToBeStable(cs *client.ClientSet) error {
 	mcp := &mcv1.MachineConfigPool{}
 	config, _ := config.NewConfig()
-	cnfNodeLabel := strings.Split(config.General.CnfNodeLabel, "/")[1]
-	err := cs.Get(context.TODO(), goclient.ObjectKey{Name: cnfNodeLabel}, mcp)
+	cnfNodelabel := strings.Split(config.General.CnfNodeLabel, "/")[1]
+	err := cs.Get(context.TODO(), goclient.ObjectKey{Name: cnfNodelabel}, mcp)
 	if err != nil {
 		return err
 	}
 
 	err = WaitForCondition(
 		cs,
-		&mcv1.MachineConfigPool{ObjectMeta: metav1.ObjectMeta{Name: cnfNodeLabel}},
+		&mcv1.MachineConfigPool{ObjectMeta: metav1.ObjectMeta{Name: cnfNodelabel}},
 		mcv1.MachineConfigPoolUpdating,
 		corev1.ConditionTrue,
 		2*time.Minute)
@@ -243,7 +244,7 @@ func WaitForClusterToBeStable(cs *client.ClientSet) error {
 	// We need to wait a long time here for the node to reboot
 	err = WaitForCondition(
 		cs,
-		&mcv1.MachineConfigPool{ObjectMeta: metav1.ObjectMeta{Name: cnfNodeLabel}},
+		&mcv1.MachineConfigPool{ObjectMeta: metav1.ObjectMeta{Name: cnfNodelabel}},
 		mcv1.MachineConfigPoolUpdated,
 		corev1.ConditionTrue,
 		time.Duration(45*mcp.Status.MachineCount)*time.Minute)

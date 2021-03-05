@@ -186,14 +186,20 @@ func DefinePodWithStaticIpamStatiMac(pod *corev1.Pod, networkName string, ipAddr
 	return pod
 }
 
-// GetPodDefinitionWithPortAndLabel retrieves pod with port and label configuration
-func GetPodDefinitionWithPortAndLabel(namespace string, image string, port int32, label map[string]string) *corev1.Pod {
+// GetPodDefinitionWithPort retrieves pod with port configuration
+func GetPodDefinitionWithPort(namespace string, image string, port int32) *corev1.Pod {
 	podObject := getDefinition(namespace, image)
-	podObject.Labels = label
+	podObject.Spec.Containers[0].Command = []string{"/bin/sleep", "3650d"}
 	podObject.Spec.Containers[0].ImagePullPolicy = "IfNotPresent"
-	podObject.Spec.Containers[0].Command = []string{}
 	podObject.Spec.Containers[0].Ports = []corev1.ContainerPort{{
 		ContainerPort: port,
 		Protocol:      "TCP"}}
+	return podObject
+}
+
+// GetPodDefinitionWithPort retrieves pod with port configuration
+func GetPodDefinitionWithPortAndLabel(namespace string, image string, port int32, labels map[string]string) *corev1.Pod {
+	podObject := GetPodDefinitionWithPort(namespace, image, port)
+	podObject.Labels = labels
 	return podObject
 }

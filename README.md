@@ -3,21 +3,30 @@
 ## Overview
 
 The [cnf-gotests](https://gitlab.cee.redhat.com/cnf/cnf-gotests) is the downstream CNF test framework.
-The [cnf-gotests](https://gitlab.cee.redhat.com/cnf/cnf-gotests) uses an auxiliary resource for network testing - [testcmd](https://gitlab.cee.redhat.com/cnf/cnf-gotests/-/tree/master/cnf-gotests) 
+The [cnf-gotests](https://gitlab.cee.redhat.com/cnf/cnf-gotests) uses an auxiliary resource for network testing
+- [testcmd](https://gitlab.cee.redhat.com/cnf/cnf-gotests/-/tree/master/cnf-gotests)
 
 ## cnf-gotests
 
-The [cnf-gotests](https://gitlab.cee.redhat.com/cnf/cnf-gotests) is designed to test an OCP cluster with pre-installed CNF components such as:
+The [cnf-gotests](https://gitlab.cee.redhat.com/cnf/cnf-gotests) is designed to test an OCP cluster with pre-installed
+CNF components such as:
 
+Mandatory:
 * Machine config pool to define/collect configurations for labeled nodes
 * PTP operator
 * SR-IOV operator
 * Performance Addon Operator
 * SCTP via machine config
 
-NOTICE: The [cnf-gotests](https://gitlab.cee.redhat.com/cnf/cnf-gotests) removes existing configuration such as PtpConfig, SR-IOV configs.
+Optional:
+* N3000 operator
+* Sriov-fec operator
 
-*More tests you can find in the upstream project - [cnf-tests](https://github.com/openshift-kni/cnf-features-deploy/tree/master/cnf-tests)*
+NOTICE: The [cnf-gotests](https://gitlab.cee.redhat.com/cnf/cnf-gotests) removes existing configuration such as
+PtpConfig, SR-IOV, N3000Cluster, SriovFecClusterConfig configs .
+
+*More tests you can find in the upstream project
+- [cnf-tests](https://github.com/openshift-kni/cnf-features-deploy/tree/master/cnf-tests)*
 
 ### Recommended environment
 
@@ -37,6 +46,7 @@ The list of available features:
 * *SR-IOV*
 * *PTP*
 * *VRF*
+* *N3000*
 
 #### Environment variables
 
@@ -44,8 +54,11 @@ The list of available features:
 * `FEATURES` - select the feature you are going to test
 * `REPORT_DIR_NAME` - path to general report (default `report/`)
 * `REPORTER_ERROR_OUTPUT` - path to test failure report for troubleshooting (default `failed_tests.logs.txt`)
-* `NETWORK_TEST_CONTAINER_IMAGE` - path where to download the container image of [testcmd](https://gitlab.cee.redhat.com/cnf/cnf-gotests/-/tree/master/cnf-gotests) (default `docker-registry.upshift.redhat.com/cnf-gotests/cnf-gotests-client:latest`)
-* `CNF_INTERFACES_LIST` - select the SR-IOV interfaces used in the tests. Multiple interfaces can be selected as needed (ex. SR-IOV suite requires 2 interfaces). 
+* `NETWORK_TEST_CONTAINER_IMAGE` - path where to download the container image
+  of [testcmd](https://gitlab.cee.redhat.com/cnf/cnf-gotests/-/tree/master/cnf-gotests) (
+  default `docker-registry.upshift.redhat.com/cnf-gotests/cnf-gotests-client:latest`)
+* `CNF_INTERFACES_LIST` - select the SR-IOV interfaces used in the tests. Multiple interfaces can be selected as
+  needed (ex. SR-IOV suite requires 2 interfaces).
 
 ##### SR-IOV suite environment variables:
 * `SRIOV_OPERATOR_NAMESPACE` - select the namespace were sriov-network-operator installed. Default openshift-sriov-network-operator
@@ -60,7 +73,7 @@ The list of available features:
 
 Choose the variant that suits you best:
 
-* `make test-features` - will only run tests for the features that were defined in the `FEATURES` variable 
+* `make test-features` - will only run tests for the features that were defined in the `FEATURES` variable
 * `make test-all` - will run the test suite for all features
 
 ## How to run

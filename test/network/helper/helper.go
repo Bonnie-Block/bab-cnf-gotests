@@ -142,3 +142,21 @@ func appendIfMissing(slice []string, element string) []string {
 	}
 	return append(slice, element)
 }
+
+func CountStringsByGreps(str string, stringsToGrep ...string) int {
+	count := 0
+	exists := false
+	for _, line := range strings.Split(str, "\n") {
+		for _, grep := range stringsToGrep {
+			if !strings.Contains(line, grep) {
+				exists = false
+				break
+			}
+			exists = true
+		}
+		if exists {
+			count++
+		}
+	}
+	return count
+}
