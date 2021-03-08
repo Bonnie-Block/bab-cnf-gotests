@@ -125,10 +125,16 @@ func configurePTP() {
 	By("Creating the policy for the grandmaster node")
 	config, err := config.NewConfig()
 	Expect(err).ToNot(HaveOccurred())
-	validPtpInterfaces, err := helper.GetPtpInterfaces(config, apiclient, 2)
-	Expect(err).ToNot(HaveOccurred())
+
+	var validPtpInterfaces []string
+	Eventually(func() error {
+		validPtpInterfaces, err = helper.GetPtpInterfaces(config, apiclient, 2)
+		return err
+	}, 5*time.Minute, 2*time.Second).ShouldNot(HaveOccurred(), "Error to collect ptp supported interfaces")
+	Expect(len(validPtpInterfaces)).To(Equal(2), "Expect 2 ptp supported interfaces")
+	
 	err = createConfigMultipleInterfaces(parameters.PtpGrandMasterPolicyNameArr,
-		validPtpInterfaces ,
+		validPtpInterfaces,
 		"-2",
 		"-a -r -r",
 		parameters.PtpGrandmasterNodeLabel,
@@ -137,7 +143,7 @@ func configurePTP() {
 
 	By("Creating the policy for the slave node")
 	err = createConfigMultipleInterfaces(parameters.PtpSlavePolicyNameArr,
-		validPtpInterfaces ,
+		validPtpInterfaces,
 		"-s -2",
 		"-a -r",
 		parameters.PtpSlaveNodeLabel,
