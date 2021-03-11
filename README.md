@@ -40,11 +40,16 @@ The list of available features:
 
 #### Environment variables
 
+##### Common environment variables:
 * `FEATURES` - select the feature you are going to test
 * `REPORT_DIR_NAME` - path to general report (default `report/`)
 * `REPORTER_ERROR_OUTPUT` - path to test failure report for troubleshooting (default `failed_tests.logs.txt`)
 * `NETWORK_TEST_CONTAINER_IMAGE` - path where to download the container image of [testcmd](https://gitlab.cee.redhat.com/cnf/cnf-gotests/-/tree/master/cnf-gotests) (default `docker-registry.upshift.redhat.com/cnf-gotests/cnf-gotests-client:latest`)
 * `CNF_INTERFACES_LIST` - select the SR-IOV interfaces used in the tests. Multiple interfaces can be selected as needed (ex. SR-IOV suite requires 2 interfaces). 
+
+##### SR-IOV suite environment variables:
+* `SRIOV_OPERATOR_NAMESPACE` - select the namespace were sriov-network-operator installed. Default openshift-sriov-network-operator
+* `CNF_GOTESTS_SRIOV_SMOKE` - If this variable is set to true then sriov suite will be running in smoke mode. Default value false. Allowed value: `export CNF_GOTESTS_SRIOV_SMOKE="true"`
 
 #### Preconfiguration
 

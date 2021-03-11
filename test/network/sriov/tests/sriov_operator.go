@@ -70,6 +70,9 @@ var _ = Describe("CNF SRIOV", func() {
 	Expect(err).ToNot(HaveOccurred())
 
 	execute.BeforeAll(func() {
+		if sriovSmokeTestMode {
+			By("Run sriov tests in smoke mode")
+		}
 		By("Discover POD default interface ip stack versions")
 		podDeafultInterfaceIPStack = networkHelper.GetPodIPStacks(config, clients)
 		By("Discover SRIOV interfaces")
@@ -151,11 +154,11 @@ var _ = Describe("CNF SRIOV", func() {
 		},
 		buildTableEntries(
 			describe,
-			[]int{parameters.MTUCustom, 
-				parameters.MTUJumbo, 
+			[]int{parameters.MTUCustom,
+				parameters.MTUJumbo,
 				parameters.MTUStandart},
-			[]string{parameters.ConnectivityDiffNode, 
-				parameters.ConnectivitySameNodeDiffPF, 
+			[]string{parameters.ConnectivityDiffNode,
+				parameters.ConnectivitySameNodeDiffPF,
 				parameters.ConnectivitySameNodeSamePF},
 			[]string{
 				parameters.CommunicationProtocolUnicastICMP,
@@ -175,11 +178,11 @@ var _ = Describe("CNF SRIOV", func() {
 		},
 		buildTableEntries(
 			describe,
-			[]int{parameters.MTUCustom, 
-				parameters.MTUJumbo, 
+			[]int{parameters.MTUCustom,
+				parameters.MTUJumbo,
 				parameters.MTUStandart},
-			[]string{parameters.ConnectivityDiffNode, 
-				parameters.ConnectivitySameNodeDiffPF, 
+			[]string{parameters.ConnectivityDiffNode,
+				parameters.ConnectivitySameNodeDiffPF,
 				parameters.ConnectivitySameNodeSamePF},
 			[]string{
 				parameters.CommunicationProtocolUnicastICMP,
@@ -199,11 +202,11 @@ var _ = Describe("CNF SRIOV", func() {
 		},
 		buildTableEntries(
 			describe,
-			[]int{parameters.MTUCustom, 
-				parameters.MTUJumbo, 
+			[]int{parameters.MTUCustom,
+				parameters.MTUJumbo,
 				parameters.MTUStandart},
-			[]string{parameters.ConnectivityDiffNode, 
-				parameters.ConnectivitySameNodeDiffPF, 
+			[]string{parameters.ConnectivityDiffNode,
+				parameters.ConnectivitySameNodeDiffPF,
 				parameters.ConnectivitySameNodeSamePF},
 			[]string{
 				parameters.CommunicationProtocolUnicastICMP,
@@ -222,11 +225,11 @@ var _ = Describe("CNF SRIOV", func() {
 		},
 		buildTableEntries(
 			describe,
-			[]int{parameters.MTUCustom, 
-				parameters.MTUJumbo, 
+			[]int{parameters.MTUCustom,
+				parameters.MTUJumbo,
 				parameters.MTUStandart},
-			[]string{parameters.ConnectivityDiffNode, 
-				parameters.ConnectivitySameNodeDiffPF, 
+			[]string{parameters.ConnectivityDiffNode,
+				parameters.ConnectivitySameNodeDiffPF,
 				parameters.ConnectivitySameNodeSamePF},
 			[]string{
 				parameters.CommunicationProtocolUnicastICMP,
@@ -245,11 +248,11 @@ var _ = Describe("CNF SRIOV", func() {
 		},
 		buildTableEntries(
 			describe,
-			[]int{parameters.MTUCustom, 
-				parameters.MTUJumbo, 
+			[]int{parameters.MTUCustom,
+				parameters.MTUJumbo,
 				parameters.MTUStandart},
-			[]string{parameters.ConnectivityDiffNode, 
-				parameters.ConnectivitySameNodeDiffPF, 
+			[]string{parameters.ConnectivityDiffNode,
+				parameters.ConnectivitySameNodeDiffPF,
 				parameters.ConnectivitySameNodeSamePF},
 			[]string{
 				parameters.CommunicationProtocolUnicastICMP,
@@ -601,10 +604,52 @@ func defineDualClientPod(protocol string, nodeSelector []string, networkName str
 
 func buildTableEntries(describe interface{}, mtuParameters []int, connectivityParameters []string, protocolParameters []string) []TableEntry {
 	var tableEntries []TableEntry
-	for _, protocol := range protocolParameters {
-		for _, mtu := range mtuParameters {
-			for _, connectivity := range connectivityParameters {
-				tableEntries = append(tableEntries, Entry(describe, mtu, protocol, connectivity))
+	if sriovSmokeTestMode {
+		var protocolIndex int
+		var mtuIndex int
+		var connectivityIndex int
+		lenghtOfParametersArrays := []int{
+			len(mtuParameters),
+			len(connectivityParameters),
+			len(protocolParameters),
+		}
+		max := lenghtOfParametersArrays[0]
+		for _, listLeght := range lenghtOfParametersArrays {
+			if listLeght > max {
+				max = listLeght
+			}
+		}
+		for i := 0; i < max; i++ {
+			if protocolIndex >= len(protocolParameters) {
+				protocolIndex = 0
+			}
+			if mtuIndex >= len(mtuParameters) {
+				mtuIndex = 0
+			}
+			if connectivityIndex >= len(connectivityParameters) {
+				connectivityIndex = 0
+			}
+			tableEntries = append(
+				tableEntries,
+				Entry(
+					describe,
+					mtuParameters[mtuIndex],
+					protocolParameters[protocolIndex],
+					connectivityParameters[connectivityIndex],
+				),
+			)
+			mtuIndex++
+			connectivityIndex++
+			protocolIndex++
+		}
+	} else {
+		for _, protocol := range protocolParameters {
+			for _, mtu := range mtuParameters {
+				for _, connectivity := range connectivityParameters {
+					tableEntries = append(
+						tableEntries,
+						Entry(describe, mtu, protocol, connectivity))
+				}
 			}
 		}
 	}

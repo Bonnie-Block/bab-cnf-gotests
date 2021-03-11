@@ -8,16 +8,20 @@ import (
 )
 
 var (
-	clients           *testclient.ClientSet
-	operatorNamespace string
+	clients            *testclient.ClientSet
+	operatorNamespace  string
+	sriovSmokeTestMode bool
 )
 
 func init() {
-	operatorNamespace = os.Getenv("OPERATOR_NAMESPACE")
+	operatorNamespace = os.Getenv("SRIOV_OPERATOR_NAMESPACE")
 	if operatorNamespace == "" {
 		operatorNamespace = parameters.OperatorNamespace
 	}
+	sriovSmokeTestModeEnvVar := os.Getenv("CNF_GOTESTS_SRIOV_SMOKE")
+	if sriovSmokeTestModeEnvVar == "true" {
+		sriovSmokeTestMode = true
+	}
 
 	clients = testclient.New("")
-
 }
