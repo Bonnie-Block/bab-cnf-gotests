@@ -745,6 +745,7 @@ github.com/inconshreveable/mousetrap v1.0.0/go.mod h1:PxqpIevigyE2G7u3NXJIT2ANyt
 github.com/influxdata/influxdb v1.7.7/go.mod h1:qZna6X/4elxqT3yI9iZYdZrWWdeFOOprn86kgg4+IzY=
 github.com/insomniacslk/dhcp v0.0.0-20200806210722-3f14f7f8bd9c/go.mod h1:CfMdguCK66I5DAUJgGKyNz8aB6vO5dZzkm9Xep6WGvw=
 github.com/intel/sriov-network-device-plugin v0.0.0-20200924101303-b7f6d3e06797/go.mod h1:r5UdRrPdydO6IXz4pu8ZKIQYmuoDkOu37l8jLZTy0fg=
+github.com/intel/sriov-network-device-plugin v3.0.0+incompatible/go.mod h1:bwPJMhYNmtB+ECWsLTjSOqLaPhiT3Zz2/2apaKaQ9ms=
 github.com/ishidawataru/sctp v0.0.0-20191218070446-00ab2ac2db07 h1:rw3IAne6CDuVFlZbPOkA7bhxlqawFh7RJJ+CejfMaxE=
 github.com/ishidawataru/sctp v0.0.0-20191218070446-00ab2ac2db07/go.mod h1:co9pwDoBCm1kGxawmb4sPq0cSIOOWNPT4KnHotMP1Zg=
 github.com/j-keck/arping v0.0.0-20160618110441-2cf9dc699c56/go.mod h1:ymszkNOg6tORTn+6F6j+Jc8TOr5osrynvN6ivFWZ2GA=
@@ -753,7 +754,9 @@ github.com/jackc/pgx v3.2.0+incompatible/go.mod h1:0ZGrqGqkRlliWnWB4zKnWtjbSWbGk
 github.com/jamescun/tuntap v0.0.0-20190712092105-cb1fb277045c/go.mod h1:zzwpsgcYhzzIP5WyF8g9ivCv38cY9uAV9Gu0m3lThhE=
 github.com/jaypipes/ghw v0.6.0/go.mod h1:QOXppNRCLGYR1H+hu09FxZPqjNt09bqUZUnOL3Rcero=
 github.com/jaypipes/ghw v0.6.1/go.mod h1:QOXppNRCLGYR1H+hu09FxZPqjNt09bqUZUnOL3Rcero=
+github.com/jaypipes/ghw v0.7.0/go.mod h1:+gR9bjm3W/HnFi90liF+Fj9GpCe/Dsibl9Im8KmC7c4=
 github.com/jaypipes/pcidb v0.5.0/go.mod h1:L2RGk04sfRhp5wvHO0gfRAMoLY/F3PKv/nwJeVoho0o=
+github.com/jaypipes/pcidb v0.6.0/go.mod h1:L2RGk04sfRhp5wvHO0gfRAMoLY/F3PKv/nwJeVoho0o=
 github.com/jessevdk/go-flags v0.0.0-20180331124232-1c38ed7ad0cc/go.mod h1:4FA24M0QyGHXBuZZK/XkWh8h0e1EYbRYJSGM75WSRxI=
 github.com/jessevdk/go-flags v1.4.0/go.mod h1:4FA24M0QyGHXBuZZK/XkWh8h0e1EYbRYJSGM75WSRxI=
 github.com/jmespath/go-jmespath v0.0.0-20160202185014-0b12d6b521d8/go.mod h1:Nht3zPeWKUH0NzdCt2Blrr5ys8VGpn0CEB0cQHVjt7k=
@@ -979,6 +982,11 @@ github.com/onsi/gomega v1.10.1/go.mod h1:iN09h71vgCQne3DLsj+A5owkum+a2tYe+TOCB1y
 github.com/onsi/gomega v1.10.2/go.mod h1:iN09h71vgCQne3DLsj+A5owkum+a2tYe+TOCB1ybHNo=
 github.com/onsi/gomega v1.10.3 h1:gph6h/qe9GSUw1NhH1gp+qb+h8rXD8Cy60Z32Qw3ELA=
 github.com/onsi/gomega v1.10.3/go.mod h1:V9xEwhxec5O8UDM77eCW8vLymOMltsqPVYWrpDsH8xc=
+github.com/open-ness/openshift-operator/N3000 v0.0.0-20210331183103-74dc4d717390 h1:E+OOWAfoR0U3+5cvXzo7kEJC/V50G116fkouMmmKPuQ=
+github.com/open-ness/openshift-operator/N3000 v0.0.0-20210331183103-74dc4d717390/go.mod h1:nAwt6Sk+nWg1pzci0A1jTJdHNaRACKyN0Cd9kuH29vY=
+github.com/open-ness/openshift-operator/common v0.0.0-20210331133825-661f430b5d9f/go.mod h1:fBndHQObxhZp00oa4CJNOMzucNpPY6uqW7EqkB+NTHw=
+github.com/open-ness/openshift-operator/sriov-fec v0.0.0-20210331183103-74dc4d717390 h1:lxMzxUYUwBno4oX0pCh4VHwhwDOg2CLgNgNZ36Ukn2s=
+github.com/open-ness/openshift-operator/sriov-fec v0.0.0-20210331183103-74dc4d717390/go.mod h1:kvz1MgpU+V7SpxVkwYhHVyJe7mNVhHmYPQ0kXkp4UJI=
 github.com/opencontainers/go-digest v0.0.0-20170106003457-a6d0ee40d420/go.mod h1:cMLVZDEM3+U2I4VmLI6N8jQYUd2OVphdqWwCJHrFt2s=
 github.com/opencontainers/go-digest v0.0.0-20180430190053-c9281466c8b2/go.mod h1:cMLVZDEM3+U2I4VmLI6N8jQYUd2OVphdqWwCJHrFt2s=
 github.com/opencontainers/go-digest v1.0.0-rc1/go.mod h1:cMLVZDEM3+U2I4VmLI6N8jQYUd2OVphdqWwCJHrFt2s=
@@ -1038,9 +1046,6 @@ github.com/operator-framework/operator-registry v1.12.6-0.20200605115407-01fa069
 github.com/operator-framework/operator-sdk v0.18.1/go.mod h1:QMFHXj8+SxF56tfR1QmIU/tc9FKI73TG8Qw7Iy4D2zY=
 github.com/ostreedev/ostree-go v0.0.0-20190702140239-759a8c1ac913 h1:TnbXhKzrTOyuvWrjI8W6pcoI9XPbLHFXCdN2dtUw7Rw=
 github.com/ostreedev/ostree-go v0.0.0-20190702140239-759a8c1ac913/go.mod h1:J6OG6YJVEWopen4avK3VNQSnALmmjvniMmni/YFYAwc=
-github.com/otcshare/openshift-operator/N3000 v0.0.0-20210318084613-47ff60d3afe3 h1:VfMkr4SCYTWWwG2nOGN2TvbNcYB7obmszI9sgHi94j0=
-github.com/otcshare/openshift-operator/N3000 v0.0.0-20210318084613-47ff60d3afe3/go.mod h1:jCxZoGM16mQ/fExPqXfO1oX1Zr7IDpNypicxzrVIsSM=
-github.com/otcshare/openshift-operator/common v0.0.0-20210309091601-f98f7258338e/go.mod h1:P4J8gt44yxJ/gqmELdMl8ent+bXhnvDQuU8GkNK3CRg=
 github.com/otiai10/copy v1.2.0/go.mod h1:rrF5dJ5F0t/EWSYODDu4j9/vEeYHMkc8jt0zJChqQWw=
 github.com/otiai10/curr v0.0.0-20150429015615-9b4961190c95/go.mod h1:9qAhocn7zKJG+0mI8eUu6xqkFDYS2kb2saOteoSB3cE=
 github.com/otiai10/curr v1.0.0/go.mod h1:LskTG5wDwr8Rs+nNQ+1LlxRjAtTZZjtJW4rMXl6j4vs=
@@ -1772,6 +1777,7 @@ gopkg.in/inf.v0 v0.9.1 h1:73M5CoZyi3ZLMOyDlQh031Cx6N9NDJ2Vvfl76EDAgDc=
 gopkg.in/inf.v0 v0.9.1/go.mod h1:cWUDdTG/fYaXco+Dcufb5Vnc6Gp2YChqWtbxRZE0mXw=
 gopkg.in/ini.v1 v1.42.0/go.mod h1:pNLf8WUiyNEtQjuu5G5vTm06TEv9tsIgeAvK8hOrP4k=
 gopkg.in/ini.v1 v1.51.0/go.mod h1:pNLf8WUiyNEtQjuu5G5vTm06TEv9tsIgeAvK8hOrP4k=
+gopkg.in/ini.v1 v1.62.0/go.mod h1:pNLf8WUiyNEtQjuu5G5vTm06TEv9tsIgeAvK8hOrP4k=
 gopkg.in/ldap.v2 v2.5.1/go.mod h1:oI0cpe/D7HRtBQl8aTg+ZmzFUAvu4lsv3eLXMLGFxWk=
 gopkg.in/natefinch/lumberjack.v2 v2.0.0/go.mod h1:l0ndWWf7gzL7RNwBG7wST/UCcT4T24xpD6X8LsfU/+k=
 gopkg.in/op/go-logging.v1 v1.0.0-20160211212156-b2cb9fa56473/go.mod h1:N1eN2tsCx0Ydtgjl4cqmbRCsY4/+z4cYDeqwZTk6zog=

@@ -9,7 +9,8 @@ require (
 	github.com/kennygrant/sanitize v1.2.4
 	github.com/onsi/ginkgo v1.14.2
 	github.com/onsi/gomega v1.10.3
-	github.com/open-ness/openshift-operator/N3000 v0.0.0-00010101000000-000000000000
+	github.com/open-ness/openshift-operator/N3000 v0.0.0-20210331183103-74dc4d717390
+	github.com/open-ness/openshift-operator/sriov-fec v0.0.0-20210331183103-74dc4d717390
 	github.com/openshift/client-go v0.0.0-20210112165513-ebc401615f47
 	github.com/openshift/machine-config-operator v4.2.0-alpha.0.0.20190917115525-033375cbe820+incompatible
 	github.com/openshift/ptp-operator v0.0.0-20210110151302-58d8ffd4a37e
@@ -53,7 +54,6 @@ replace (
 	github.com/k8snetworkplumbingwg/sriov-network-operator => github.com/openshift/sriov-network-operator v0.0.0-20210105152551-211d8ee0992e // release-4.7
 	github.com/mattn/go-sqlite3 => github.com/mattn/go-sqlite3 v1.10.0
 	github.com/open-ness/openshift-operator => github.com/otcshare/openshift-operator v0.0.0-20210318084613-47ff60d3afe3 // master
-	github.com/open-ness/openshift-operator/N3000 => github.com/otcshare/openshift-operator/N3000 v0.0.0-20210318084613-47ff60d3afe3 // master
 	github.com/openshift/api => github.com/openshift/api v0.0.0-20210202165416-a9e731090f5e // release-4.7
 	github.com/openshift/client-go => github.com/openshift/client-go v0.0.0-20210112165513-ebc401615f47 // release-4.7
 	github.com/openshift/cluster-node-tuning-operator => github.com/openshift/cluster-node-tuning-operator v0.0.0-20210205110635-24392937d275 // release-4.7
