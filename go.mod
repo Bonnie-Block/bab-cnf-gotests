@@ -9,18 +9,18 @@ require (
 	github.com/kennygrant/sanitize v1.2.4
 	github.com/onsi/ginkgo v1.14.2
 	github.com/onsi/gomega v1.10.3
-	github.com/open-ness/openshift-operator/N3000 v0.0.0-20210201193514-f5eee4917b54
+	github.com/open-ness/openshift-operator/N3000 v0.0.0-00010101000000-000000000000
 	github.com/openshift/client-go v0.0.0-20200827190008-3062137373b5
 	github.com/openshift/machine-config-operator v4.2.0-alpha.0.0.20190917115525-033375cbe820+incompatible
 	github.com/openshift/ptp-operator v0.0.0-20210110151302-58d8ffd4a37e
 	golang.org/x/lint v0.0.0-20201208152925-83fdc39ff7b5 // indirect
 	golang.org/x/tools v0.1.0 // indirect
 	gopkg.in/yaml.v2 v2.3.0
-	k8s.io/api v0.19.3
-	k8s.io/apimachinery v0.19.4
+	k8s.io/api v0.20.4
+	k8s.io/apimachinery v0.20.4
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/utils v0.0.0-20200912215256-4140de9c8800
-	sigs.k8s.io/controller-runtime v0.6.3
+	sigs.k8s.io/controller-runtime v0.7.0
 )
 
 // Pinned to kubernetes-1.19.3
@@ -52,12 +52,15 @@ replace (
 	github.com/Azure/go-autorest => github.com/Azure/go-autorest v13.3.2+incompatible // Required by OLM
 	github.com/k8snetworkplumbingwg/sriov-network-operator => github.com/openshift/sriov-network-operator v0.0.0-20210105152551-211d8ee0992e // release-4.7
 	github.com/mattn/go-sqlite3 => github.com/mattn/go-sqlite3 v1.10.0
+	github.com/open-ness/openshift-operator => github.com/otcshare/openshift-operator v0.0.0-20210318084613-47ff60d3afe3 // master
+	github.com/open-ness/openshift-operator/N3000 => github.com/otcshare/openshift-operator/N3000 v0.0.0-20210318084613-47ff60d3afe3 // master
 	github.com/openshift/api => github.com/openshift/api v0.0.0-20200526144822-34f54f12813a // release-4.6
 	github.com/openshift/client-go => github.com/openshift/client-go v0.0.0-20200521150516-05eb9880269c // release-4.5
 	github.com/openshift/cluster-node-tuning-operator => github.com/openshift/cluster-node-tuning-operator v0.0.0-20200408190329-b227599f61b0 // release-4.5
 	github.com/openshift/library-go => github.com/openshift/library-go v0.0.0-20200421122923-c1de486c7d47 // fix bitbucket dependency https://github.com/openshift/library-go/pull/776
 	//github.com/openshift/machine-config-operator => github.com/openshift/machine-config-operator v0.0.1-0.20201222202713-eab9c35dfbeb // release-4.6
 	github.com/openshift/machine-config-operator => github.com/openshift/machine-config-operator v0.0.1-0.20201202182407-c470febe19e3 // release-4.6
+	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.6.3
 )
 
 module gitlab.cee.redhat.com/cnf/cnf-gotests
