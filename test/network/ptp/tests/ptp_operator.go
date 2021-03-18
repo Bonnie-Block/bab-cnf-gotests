@@ -132,7 +132,7 @@ func configurePTP() {
 		return err
 	}, 5*time.Minute, 2*time.Second).ShouldNot(HaveOccurred(), "Error to collect ptp supported interfaces")
 	Expect(len(validPtpInterfaces)).To(Equal(2), "Expect 2 ptp supported interfaces")
-	
+
 	err = createConfigMultipleInterfaces(parameters.PtpGrandMasterPolicyNameArr,
 		validPtpInterfaces,
 		"-2",

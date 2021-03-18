@@ -4,14 +4,14 @@ import (
 	"context"
 	"fmt"
 
-	"k8s.io/apimachinery/pkg/util/wait"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/ptp/parameters"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/cluster"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 
 	ptpv1 "github.com/openshift/ptp-operator/pkg/apis/ptp/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -152,7 +152,7 @@ func getPtpConfigsByNamespace(cs *client.ClientSet, namespace string) (*ptpv1.Pt
 }
 
 // GetPtpInterfaces returns list of requested interfaces
-func  GetPtpInterfaces(config *config.Config, apiclient *client.ClientSet, requestedNumber int)([] string, error) {
+func GetPtpInterfaces(config *config.Config, apiclient *client.ClientSet, requestedNumber int) ([]string, error) {
 	var validPtpInterfacesList []string
 	sriovInfos, err := cluster.DiscoverSriov(apiclient, "openshift-sriov-network-operator")
 	if err != nil {
