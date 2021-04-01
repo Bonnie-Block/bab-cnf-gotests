@@ -95,5 +95,7 @@ var _ = Describe("CNF VRF", func() {
 		},
 		Entry(describe, parameters.SameNode, parameters.IPStackIPv4),
 		Entry(describe, parameters.DiffNode, parameters.IPStackIPv4),
+		Entry(describe, parameters.SameNode, parameters.IPStackIPv6),
+		Entry(describe, parameters.DiffNode, parameters.IPStackIPv6),
 	)
 })
