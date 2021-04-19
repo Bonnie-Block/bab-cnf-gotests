@@ -61,8 +61,8 @@ var _ = AfterSuite(func() {
 	clients, err := config.DefineClients()
 	Expect(err).ToNot(HaveOccurred())
 	n3000NodeList, err := helper.GetN3000NodeList(clients)
-	helper.CleanAllN3000Cluster(clients)
-	if len(n3000NodeList.Items) > 0 && err == nil {
+	if err == nil && len(n3000NodeList.Items) > 0 {
+		helper.CleanAllN3000Cluster(clients)
 		numberReadyN3000Daemonsets, numberDesiredN3000Daemonsets := helper.CountN3000Daemonsets(clients, parameters.OperatorNamespace)
 		if numberReadyN3000Daemonsets == numberDesiredN3000Daemonsets {
 			By("Cleaning up resources after n3000 test suite")

@@ -168,7 +168,7 @@ func getN3000NodeCondition(n3000Node *fpgav1.N3000Node) (*metav1.Condition, erro
 // IsSriovFecDeploymentReady checks if Sriov Fec deployment exists and is ready
 func IsSriovFecDeploymentReady(cs *client.ClientSet, operatorNamespace string) (bool, error) {
 	deploymentSriovFec, err := cs.Deployments(operatorNamespace).Get(context.Background(), parameters.DeploymentSriovFecName, metav1.GetOptions{})
-	if deploymentSriovFec.Status.ReadyReplicas > 0 || err != nil {
+	if err == nil && deploymentSriovFec.Status.ReadyReplicas > 0 {
 		return true, nil
 	}
 	return false, err
