@@ -165,13 +165,25 @@ func getN3000NodeCondition(n3000Node *fpgav1.N3000Node) (*metav1.Condition, erro
 	return &n3000NodeCondition, nil
 }
 
-// IsSriovFecDeploymentReady checks if Sriov Fec deployment exists and is ready
+// IsSriovFecDeploymentReady checks if Sriov Fec deployment is ready
 func IsSriovFecDeploymentReady(cs *client.ClientSet, operatorNamespace string) (bool, error) {
 	deploymentSriovFec, err := cs.Deployments(operatorNamespace).Get(context.Background(), parameters.DeploymentSriovFecName, metav1.GetOptions{})
-	if err == nil && deploymentSriovFec.Status.ReadyReplicas > 0 {
+	if err != nil {
+		return false, err
+	}
+	if deploymentSriovFec.Status.ReadyReplicas > 0 {
 		return true, nil
 	}
-	return false, err
+	return false, nil
+}
+
+//IsSriovFecDeploymentInstalled checks if Sriov Fec deployment is installed
+func IsSriovFecDeploymentInstalled(cs *client.ClientSet, operatorNamespace string) (bool, error) {
+	_, err := cs.Deployments(operatorNamespace).Get(context.Background(), parameters.DeploymentSriovFecName, metav1.GetOptions{})
+	if err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 // InstallSriovFecClusterNodeConfig creates a new SriovFecClusterConfig and waits for the cluster to become stable

@@ -63,10 +63,13 @@ var _ = Describe("Intel", func() {
 
 	Context("sriov-fec", func() {
 		BeforeEach(func() {
-			isSriovFecDeploymentReady, _ := helper.IsSriovFecDeploymentReady(apiclient, parameters.OperatorNamespace)
-			if !isSriovFecDeploymentReady {
-				Skip("Sriov-fec operator is not ready")
+			IsSriovFecDeploymentInstalled, _ := helper.IsSriovFecDeploymentInstalled(apiclient, parameters.OperatorNamespace)
+			if !IsSriovFecDeploymentInstalled {
+				Skip("Sriov-fec operator is not installed")
 			}
+			isSriovFecDeploymentReady, err := helper.IsSriovFecDeploymentReady(apiclient, parameters.OperatorNamespace)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(isSriovFecDeploymentReady).To(Equal(true), "Sriov-fec operator is not ready")
 			By("Creating SriovFecClusterConfig")
 			helper.InstallSriovFecClusterNodeConfig(apiclient, false)
 		})

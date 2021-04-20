@@ -74,9 +74,9 @@ var _ = AfterSuite(func() {
 			Expect(err).NotTo(HaveOccurred())
 			helper.InstallNewN3000Image(clients, n3000Node.Name, fpgaStatus, parameters.ImageDefault, parameters.ChecksumDefaultImage, parameters.Port, &service.Items[0])
 			helper.CleanAllN3000Cluster(clients)
+			helper.CleanAllSriovFecClusterConfig(clients)
 		}
 	}
-	helper.CleanAllSriovFecClusterConfig(clients)
 	err = namespaces.DeleteAndWait(clients, parameters.TestNamespace, 5*time.Minute)
 	Expect(err).ToNot(HaveOccurred())
 })
