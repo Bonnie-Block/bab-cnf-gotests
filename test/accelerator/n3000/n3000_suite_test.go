@@ -14,7 +14,8 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/accelerator/n3000/helper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/accelerator/helper"
+	n3000helper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/accelerator/n3000/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/accelerator/n3000/parameters"
 	_ "gitlab.cee.redhat.com/cnf/cnf-gotests/test/accelerator/n3000/tests"
 	networkHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/helper"
@@ -60,20 +61,20 @@ var _ = BeforeSuite(func() {
 var _ = AfterSuite(func() {
 	clients, err := config.DefineClients()
 	Expect(err).ToNot(HaveOccurred())
-	n3000NodeList, err := helper.GetN3000NodeList(clients)
+	n3000NodeList, err := n3000helper.GetN3000NodeList(clients)
 	if err == nil && len(n3000NodeList.Items) > 0 {
-		helper.CleanAllN3000Cluster(clients)
-		numberReadyN3000Daemonsets, numberDesiredN3000Daemonsets := helper.CountN3000Daemonsets(clients, parameters.OperatorNamespace)
+		n3000helper.CleanAllN3000Cluster(clients)
+		numberReadyN3000Daemonsets, numberDesiredN3000Daemonsets := n3000helper.CountN3000Daemonsets(clients, parameters.OperatorNamespace)
 		if numberReadyN3000Daemonsets == numberDesiredN3000Daemonsets {
 			By("Cleaning up resources after n3000 test suite")
-			n3000Node, err := helper.GetN3000Node(clients)
+			n3000Node, err := n3000helper.GetN3000Node(clients)
 			Expect(err).NotTo(HaveOccurred())
-			fpgaStatus, err := helper.GetN3000FpgaStatus(n3000Node)
+			fpgaStatus, err := n3000helper.GetN3000FpgaStatus(n3000Node)
 			Expect(err).NotTo(HaveOccurred())
 			service, err := clients.Services(parameters.TestNamespace).List(context.Background(), metav1.ListOptions{})
 			Expect(err).NotTo(HaveOccurred())
-			helper.InstallNewN3000Image(clients, n3000Node.Name, fpgaStatus, parameters.ImageDefault, parameters.ChecksumDefaultImage, parameters.Port, &service.Items[0])
-			helper.CleanAllN3000Cluster(clients)
+			n3000helper.InstallNewN3000Image(clients, n3000Node.Name, fpgaStatus, parameters.ImageDefault, parameters.ChecksumDefaultImage, parameters.Port, &service.Items[0])
+			n3000helper.CleanAllN3000Cluster(clients)
 			helper.CleanAllSriovFecClusterConfig(clients)
 		}
 	}

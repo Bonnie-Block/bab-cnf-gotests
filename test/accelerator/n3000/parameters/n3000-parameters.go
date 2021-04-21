@@ -23,6 +23,8 @@ const (
 	DeploymentSriovFecName               = "sriov-fec-controller-manager"
 	TotalNumberBbdevTests                = 31
 	ExpectedNumberBbdevTestsPassed       = 14
+	N3000Bitstream5G                     = "0d8f"
+	N3000resource5G                      = "intel.com/intel_fec_5g"
 )
 
 var (

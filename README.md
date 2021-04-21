@@ -47,6 +47,7 @@ The list of available features:
 * *PTP*
 * *VRF*
 * *N3000*
+* *ACC100*
 
 #### Environment variables
 
