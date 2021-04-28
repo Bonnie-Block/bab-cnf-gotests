@@ -23,6 +23,7 @@ var _ = Describe("Intel ACC100", func() {
 
 	var (
 		sriovFecNodeList = &fpgav1.SriovFecNodeConfigList{}
+		testSkip         = ""
 	)
 
 	execute.BeforeAll(func() {
@@ -30,21 +31,25 @@ var _ = Describe("Intel ACC100", func() {
 
 		sriovFecNodeList, err = helper.GetSriovFecNodeConfigList(apiclient)
 		if err != nil && err.Error() == "no matches for kind \"SriovFecNodeConfig\" in version \"sriovfec.intel.com/v1\"" {
-			Skip("Cluster doesn't have intel easic acc100 card")
+			testSkip = "Cluster doesn't have intel easic acc100 card"
+			Skip(testSkip)
 		}
 		Expect(err).ToNot(HaveOccurred())
 		if len(sriovFecNodeList.Items) < 1 {
-			Skip("No sriov-fec capable node was detected")
+			testSkip = "No sriov-fec capable node was detected"
+			Skip(testSkip)
 		}
 
 		_, _, err = acc100helper.GetSriovFecNodeForAcc100(apiclient)
 		if err != nil {
-			Skip("No acc100 cards on the cluster")
+			testSkip = "No acc100 cards on the cluster"
+			Skip(testSkip)
 		}
 
 		IsSriovFecDeploymentInstalled, _ := helper.IsSriovFecDeploymentInstalled(apiclient, parameters.OperatorNamespace)
 		if !IsSriovFecDeploymentInstalled {
-			Skip("Sriov-fec operator is not installed")
+			testSkip = "Sriov-fec operator is not installed"
+			Skip(testSkip)
 		}
 		isSriovFecDeploymentReady, err := helper.IsSriovFecDeploymentReady(apiclient, parameters.OperatorNamespace)
 		Expect(err).NotTo(HaveOccurred())
@@ -59,6 +64,10 @@ var _ = Describe("Intel ACC100", func() {
 		var fecConfig *fpgav1.SriovFecClusterConfig
 
 		BeforeEach(func() {
+			if testSkip != "" {
+				Skip(testSkip)
+			}
+
 			By("Creating SriovFecClusterConfig")
 			fecConfig = acc100helper.GetSriovFecAcc100ClusterConfigDefinition(apiclient, false)
 			helper.InstallSriovFecClusterNodeConfig(apiclient, fecConfig)
