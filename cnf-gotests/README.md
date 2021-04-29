@@ -5,7 +5,9 @@
 The Pods used by [cnf-gotests](https://gitlab.cee.redhat.com/cnf/cnf-gotests) check the network connectivity between them with [testcmd](https://gitlab.cee.redhat.com/cnf/cnf-gotests/-/tree/master/cnf-gotests) containers.
 [testcmd](https://gitlab.cee.redhat.com/cnf/cnf-gotests/-/tree/master/cnf-gotests) is based on a [docker container image](https://gitlab.cee.redhat.com/cnf/cnf-gotests/-/blob/master/cnf-gotests/Dockerfile) which is built using the following command:
 
-`make testcmd-image`
+`make testcmd-image`*
+
+*you may need to use root privileges 
 
 It is also possible to build the [testcmd](https://gitlab.cee.redhat.com/cnf/cnf-gotests/-/tree/master/cnf-gotests) binary using the command:
 

@@ -33,11 +33,7 @@ testcmd-bin:
 
 testcmd-image:
 	@echo "Making testcmd image"
-	docker build --no-cache -f cnf-gotests/Dockerfile -t cnf-gotests-client .
-
-testcmd-image-podman:
-	@echo "Making testcmd podman image"
-	sudo podman build --no-cache -f cnf-gotests/Dockerfile -t cnf-gotests-client .
+	hack/build-testcmd-image.sh
 
 testcmd-test: testcmd-image-podman
 	@echo "Making testcmd test binary"
