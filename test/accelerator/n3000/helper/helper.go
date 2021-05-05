@@ -277,7 +277,7 @@ func GetSriovFecN30005GClusterConfigDefinition(cs *client.ClientSet, isDefaultCo
 	Eventually(func() error {
 		sriovFecNodeConfig, accelerator, err = GetSriovFecNodeForN3000Bitstream5G(cs)
 		return err
-	}, 2*time.Minute, 1*time.Second).ShouldNot(HaveOccurred(), "there are no available SriovAccelerators")
+	}, 5*time.Minute, 1*time.Second).ShouldNot(HaveOccurred(), "there are no available SriovAccelerators")
 
 	sriovFecClusterConfig := &fecv1.SriovFecClusterConfig{
 		ObjectMeta: metav1.ObjectMeta{

@@ -7,9 +7,9 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	fpgav1 "github.com/open-ness/openshift-operator/N3000/api/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	fpgav1 "github.com/open-ness/openshift-operator/N3000/api/v1"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/accelerator/helper"
 	n3000helper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/accelerator/n3000/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/accelerator/n3000/parameters"
@@ -72,6 +72,10 @@ var _ = Describe("Intel N3000", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(isSriovFecDeploymentReady).To(Equal(true), "Sriov-fec operator is not ready")
 			By("Creating SriovFecClusterConfig")
+
+			// TODO: this is a workaround to allow the sriovfecnode to update by force
+			helper.DeleteSriovFecPods(apiclient, parameters.OperatorNamespace)
+
 			fecConfig := n3000helper.GetSriovFecN30005GClusterConfigDefinition(apiclient, false)
 			helper.InstallSriovFecClusterNodeConfig(apiclient, fecConfig)
 		})
@@ -83,6 +87,9 @@ var _ = Describe("Intel N3000", func() {
 				By("Cleaning up resources after sriov-fec tests")
 				fecConfig := n3000helper.GetSriovFecN30005GClusterConfigDefinition(apiclient, true)
 				helper.InstallSriovFecClusterNodeConfig(apiclient, fecConfig)
+
+				// TODO: remove this after the sriov-fec operator clean spec automatically
+				helper.CleanSriovFecNodeSpec(apiclient, fecConfig.Spec.Nodes[0].NodeName, parameters.OperatorNamespace)
 			}
 		})
 

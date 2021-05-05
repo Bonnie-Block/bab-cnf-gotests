@@ -2,17 +2,22 @@ package helper
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
 
 	. "github.com/onsi/gomega"
 
-	fecv1 "github.com/open-ness/openshift-operator/sriov-fec/api/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/pointer"
+	k8s "sigs.k8s.io/controller-runtime/pkg/client"
+
+	fecv1 "github.com/open-ness/openshift-operator/sriov-fec/api/v1"
 
 	networkHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
@@ -115,19 +120,55 @@ func createSriovFecClusterConfig(cs *client.ClientSet, sriovFecClusterConfig *fe
 		sriovFecClusterConfigList, err := GetSriovFecClusterConfigList(cs)
 		Expect(err).NotTo(HaveOccurred())
 		return sriovFecClusterConfigList.Items[0].Status.SyncStatus
-	}, 10*time.Minute, 5*time.Second).Should(Equal(fecv1.SucceededSync), "SriovFecClusterConfig resource is not applied")
+	}, 5*time.Minute, 5*time.Second).Should(Equal(fecv1.SucceededSync), "SriovFecClusterConfig resource is not applied")
 }
 
 // CleanAllN3000Cluster removes all N3000Cluster resources
 func CleanAllSriovFecClusterConfig(cs *client.ClientSet) {
 	sriovFecClusterConfigList := &fecv1.SriovFecClusterConfigList{}
-	cs.List(context.Background(), sriovFecClusterConfigList)
+	err := cs.List(context.Background(), sriovFecClusterConfigList)
+	Expect(err).ToNot(HaveOccurred())
 	if len(sriovFecClusterConfigList.Items) > 0 {
 		for _, sriovFecClusterConfig := range sriovFecClusterConfigList.Items {
-			err := cs.Delete(context.Background(), &sriovFecClusterConfig)
+			err = cs.Delete(context.Background(), &sriovFecClusterConfig)
 			Expect(err).ToNot(HaveOccurred())
 		}
 	}
+}
+
+// DeleteSriovFecPods remove all the sriov fec daemonset pods
+func DeleteSriovFecPods(cs *client.ClientSet, operatorNamespace string) {
+	podList := &corev1.PodList{}
+	err := cs.List(context.Background(), podList, &k8s.ListOptions{LabelSelector: labels.SelectorFromSet(labels.Set{"app": "sriov-fec-daemonset"}), Namespace: operatorNamespace})
+	Expect(err).ToNot(HaveOccurred())
+	for _, podObj := range podList.Items {
+		err = cs.Delete(context.Background(), &podObj)
+		Expect(err).ToNot(HaveOccurred())
+	}
+}
+
+type RemoveStringValue struct {
+	Op   string `json:"op"`
+	Path string `json:"path"`
+}
+
+// CleanSriovFecNodeSpec use patch to clean the spec section of the sriovFecNode object
+// Not possible with update only patch
+func CleanSriovFecNodeSpec(cs *client.ClientSet, nodeName, operatorNamespace string) {
+	sriovFecNodeConfig := &fecv1.SriovFecNodeConfig{}
+	err := cs.Get(context.Background(), k8s.ObjectKey{Name: nodeName, Namespace: operatorNamespace}, sriovFecNodeConfig)
+	Expect(err).ToNot(HaveOccurred())
+
+	var payloads []interface{}
+	payload := RemoveStringValue{
+		Op:   "remove",
+		Path: "/spec",
+	}
+	payloads = append(payloads, payload)
+	payloadBytes, _ := json.Marshal(payloads)
+
+	err = cs.Patch(context.Background(), sriovFecNodeConfig, k8s.RawPatch(types.JSONPatchType, payloadBytes))
+	Expect(err).ToNot(HaveOccurred())
 }
 
 // matchingOptionalSelectorSriovFec filter the given slice with only the nodes matching the optional selector.
@@ -164,7 +205,7 @@ func matchingOptionalSelectorSriovFec(cs *client.ClientSet, toFilter []fecv1.Sri
 // CreateBbdevPod creates bbdev pod
 func CreateBbdevPod(cs *client.ClientSet, namespace, acceleratorResourceName string) *corev1.Pod {
 	podBbdevDefinition := getBbdevPodDefinition(namespace, acceleratorResourceName)
-	pod := networkHelper.WaitUntilPodCreatedAndRunning(cs, podBbdevDefinition, TestNamespace, 1*time.Minute)
+	pod := networkHelper.WaitUntilPodCreatedAndRunning(cs, podBbdevDefinition, TestNamespace, 5*time.Minute)
 	return pod
 }
 
