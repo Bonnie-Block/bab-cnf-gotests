@@ -1,12 +1,27 @@
 #!/usr/bin/env bash
 GOPATH="${GOPATH:-~/go}"
 export PATH=$PATH:$GOPATH/bin
+EXCEPTIONAL_FOLDERS_FROM_ALL_TESTS="cnf-tests"
+ALL_TESTS_FOLDERS=$(ls -d ./test/*/)
 
 function run_tests {
     case $1 in
         all)
             echo "#### Run all tests ####"
-            ginkgo -v --keepGoing -requireSuite -r test/
+            all_default_suites=""
+            for folder in ${ALL_TESTS_FOLDERS}
+            do
+              for exceptional_folder in ${EXCEPTIONAL_FOLDERS_FROM_ALL_TESTS}
+                do
+                  if [[ $folder == *"${exceptional_folder}"* ]]; then
+                    folder=''
+                  fi
+                done
+                if ! [ -z "$folder" ]; then
+                  all_default_suites+=" $folder"
+                fi
+            done
+            ginkgo -v --keepGoing -requireSuite -r $all_default_suites
             ;;
         features)
             if [ -z "$FEATURES" ]; then {
