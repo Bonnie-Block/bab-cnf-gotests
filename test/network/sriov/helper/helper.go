@@ -9,7 +9,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/sriov/parameters"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/cluster"
 )
 
 const (
@@ -34,28 +33,6 @@ func DefineSriovNetwork(name string, resourceName string, ipamStatic bool) *srio
 			Capabilities:     `{ "mac": true, "ips": true }`,
 			NetworkNamespace: parameters.OperatorTestNamespace,
 		}}
-}
-
-// CompareNodeSriovInterfaces validates if nodes have the same interface spec
-func CompareNodeSriovInterfaces(sriovInfos *cluster.EnabledNodes) error {
-	baseInterfaces, err := sriovInfos.FindSriovDevices(sriovInfos.Nodes[0])
-	if err != nil {
-		return fmt.Errorf("can not get sriov device")
-	}
-	for _, node := range sriovInfos.Nodes {
-		sriovInterfaces, err := sriovInfos.FindSriovDevices(node)
-		if err != nil {
-			return fmt.Errorf("can not get sriov device")
-		}
-		for index := range sriovInterfaces {
-			if baseInterfaces[index].Name != sriovInterfaces[index].Name &&
-				baseInterfaces[index].Vendor != sriovInterfaces[index].Vendor &&
-				baseInterfaces[index].TotalVfs != sriovInterfaces[index].TotalVfs {
-				return fmt.Errorf("sriov network interfaces on Nodes are not identical")
-			}
-		}
-	}
-	return nil
 }
 
 // DefinePodWithStaticMacAndIpam sets pod network with static IPAM config with Static Mac address

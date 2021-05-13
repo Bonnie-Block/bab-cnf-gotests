@@ -3,6 +3,7 @@ package tests
 import (
 	"encoding/json"
 	"fmt"
+
 	generalHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 
 	. "github.com/onsi/ginkgo"

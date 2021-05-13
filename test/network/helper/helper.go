@@ -10,6 +10,7 @@ import (
 
 	sriovv1 "github.com/k8snetworkplumbingwg/sriov-network-operator/api/v1"
 	. "github.com/onsi/gomega"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/cluster"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 	k8sv1 "k8s.io/api/core/v1"
@@ -52,6 +53,28 @@ func CreateSriovNetwork(clientSet *client.ClientSet, intf *sriovv1.InterfaceExt,
 
 	err := clientSet.Create(context.Background(), sriovNetwork)
 	return err
+}
+
+// CompareNodeSriovInterfaces validates if nodes have the same interface spec
+func CompareNodeSriovInterfaces(sriovInfos *cluster.EnabledNodes) error {
+	baseInterfaces, err := sriovInfos.FindSriovDevices(sriovInfos.Nodes[0])
+	if err != nil {
+		return fmt.Errorf("can not get sriov device")
+	}
+	for _, node := range sriovInfos.Nodes {
+		sriovInterfaces, err := sriovInfos.FindSriovDevices(node)
+		if err != nil {
+			return fmt.Errorf("can not get sriov device")
+		}
+		for index := range sriovInterfaces {
+			if baseInterfaces[index].Name != sriovInterfaces[index].Name &&
+				baseInterfaces[index].Vendor != sriovInterfaces[index].Vendor &&
+				baseInterfaces[index].TotalVfs != sriovInterfaces[index].TotalVfs {
+				return fmt.Errorf("sriov network interfaces on Nodes are not identical")
+			}
+		}
+	}
+	return nil
 }
 
 // WaitUntilPodCreatedAndRunning waits until pod created and running. Returns running pod

@@ -15,6 +15,7 @@ import (
 	"k8s.io/utils/pointer"
 
 	netattdefv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
+	sriovv1 "github.com/k8snetworkplumbingwg/sriov-network-operator/api/v1"
 	networkHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/vrf/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
@@ -237,4 +238,11 @@ func AddVRFNad(cs *client.ClientSet, NadName string, ifName string, vrfName stri
 	err := cs.Create(context.Background(), &vrfDefinition)
 	Expect(err).ToNot(HaveOccurred())
 	return vrfDefinition
+}
+
+//DefineSriovNetworkMetaPluginsVRFConfig
+func DefineSriovNetworkMetaPluginsVRFConfig(VRFName string) func(network *sriovv1.SriovNetwork) {
+	return func(network *sriovv1.SriovNetwork) {
+		network.Spec.MetaPluginsConfig = fmt.Sprintf(`{"type": "vrf", "vrfname": "%s"}`, VRFName)
+	}
 }

@@ -12,6 +12,8 @@ import (
 
 const (
 	ResourceNameVRF                    = "sriovnicvrf"
+	ResourceNameVRFVf1                 = "sriovnicvrfvf1"
+	ResourceNameVRFVf2                 = "sriovnicvrfvf2"
 	TestSriovNetworkRed                = "test-vrf-sriov-network-red"
 	TestSriovNetworkBlue               = "test-vrf-sriov-network-blue"
 	SriovPolicyName                    = "test-sriov-policy-vrf"

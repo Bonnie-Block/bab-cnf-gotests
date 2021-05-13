@@ -11,7 +11,7 @@ import (
 	"github.com/onsi/ginkgo/reporters"
 	. "github.com/onsi/gomega"
 	. "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/sriov/helper"
+	networkHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/sriov/parameters"
 	_ "gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/sriov/tests"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/cluster"
@@ -54,7 +54,7 @@ var _ = BeforeSuite(func() {
 	PullTestImage(configuration.General.CnfNodeLabel, configuration.Network.TestContainerImage)
 	sriovInfos, err := cluster.DiscoverSriov(Apiclient, parameters.OperatorNamespace)
 	Expect(err).ToNot(HaveOccurred())
-	err = helper.CompareNodeSriovInterfaces(sriovInfos)
+	err = networkHelper.CompareNodeSriovInterfaces(sriovInfos)
 	Expect(err).ToNot(HaveOccurred())
 	namespaces.Clean(parameters.OperatorNamespace, parameters.OperatorTestNamespace, Apiclient, false)
 	WaitForSRIOVStable(parameters.OperatorNamespace, timeout)

@@ -6,9 +6,6 @@ import (
 	"fmt"
 	"time"
 
-	generalHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
-	generalParam "gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -18,10 +15,13 @@ import (
 
 	netattdefv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	sriovv1 "github.com/k8snetworkplumbingwg/sriov-network-operator/api/v1"
-	networkHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/helper"
 
+	generalHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
+	networkHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/vrf/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/vrf/parameters"
+	generalParam "gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
+	generalParameters "gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/cluster"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
@@ -44,46 +44,52 @@ var _ = Describe("CNF VRF", func() {
 		return fmt.Sprintf("%s", string(params))
 	}
 
-	var sriovInfos *cluster.EnabledNodes
 	config, err := config.NewConfig()
+	var sriovInfos *cluster.EnabledNodes
 	Expect(err).ToNot(HaveOccurred())
 
 	execute.BeforeAll(func() {
-		By("Discover SRIOV Nodes")
-		sriovInfos, err = cluster.DiscoverSriov(generalHelper.Apiclient, generalParam.SriovOperatorNamespace)
+		By("Discover SRIOV Node Interfaces")
+		sriovInfos, err = cluster.DiscoverSriov(generalHelper.Apiclient, generalParameters.SriovOperatorNamespace)
 		Expect(err).ToNot(HaveOccurred())
 
+		numInterfaces := sriovInfos.States
+		if len(numInterfaces) < 2 {
+			Skip(fmt.Sprintf("There is not enough sriov interfaces to run this test"))
+		}
+
 		By(fmt.Sprintf("Clean test namespace %s", parameters.TestNamespace))
-		namespaces.Clean(generalParam.SriovOperatorNamespace, parameters.TestNamespace, generalHelper.Apiclient, false)
+		namespaces.Clean(generalParameters.SriovOperatorNamespace, parameters.TestNamespace, generalHelper.Apiclient, false)
 
 		By("Waiting until SRIOV become stable")
-		generalHelper.WaitForSRIOVStable(generalParam.SriovOperatorNamespace, parameters.WaitingTime)
+		generalHelper.WaitForSRIOVStable(generalParameters.SriovOperatorNamespace, parameters.WaitingTime)
 
+		By("Verify Node Interface Naming Convention")
+		err = networkHelper.CompareNodeSriovInterfaces(sriovInfos)
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Define SRIOV Policies")
 		sriovInterfaces, err := sriovInfos.FindSriovDevices(sriovInfos.Nodes[0])
 		Expect(err).ToNot(HaveOccurred())
 
-		By("Define SRIOV Policy")
-		usualSriovPolicyConfig := generalHelper.DefineSriovPolicy(
-			parameters.SriovPolicyName,
-			generalParam.SriovOperatorNamespace,
-			sriovInterfaces[0],
-			5,
-			"#0-4",
-			1500,
-			parameters.ResourceNameVRF,
-			"netdevice")
+		usualSriovPolicyConfig1 := generalHelper.DefineSriovPolicy(parameters.SriovPolicyName, generalParam.SriovOperatorNamespace, sriovInterfaces[0],
+			5, "#0-4", 1500, parameters.ResourceNameVRFVf1, "netdevice")
+		usualSriovPolicyConfig2 := generalHelper.DefineSriovPolicy(parameters.SriovPolicyName, generalParam.SriovOperatorNamespace, sriovInterfaces[1],
+			5, "#0-4", 1500, parameters.ResourceNameVRFVf2, "netdevice")
 
-		err = generalHelper.Apiclient.Create(context.Background(), usualSriovPolicyConfig)
+		err = generalHelper.Apiclient.Create(context.Background(), usualSriovPolicyConfig1)
+		Expect(err).ToNot(HaveOccurred())
+		err = generalHelper.Apiclient.Create(context.Background(), usualSriovPolicyConfig2)
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Define SRIOV Networks")
 		ipam := `{"type": "static"}`
 		err = networkHelper.CreateSriovNetwork(generalHelper.Apiclient, sriovInterfaces[0], parameters.TestSriovNetworkRed, parameters.TestNamespace,
-			generalParam.SriovOperatorNamespace, parameters.ResourceNameVRF, ipam, helper.DefineSriovNetworkMetaPluginsVRFConfig(parameters.VRFRedName))
+			generalParameters.SriovOperatorNamespace, parameters.ResourceNameVRFVf1, ipam, helper.DefineSriovNetworkMetaPluginsVRFConfig(parameters.VRFRedName))
 		Expect(err).ToNot(HaveOccurred())
 
-		err = networkHelper.CreateSriovNetwork(generalHelper.Apiclient, sriovInterfaces[0], parameters.TestSriovNetworkBlue, parameters.TestNamespace,
-			generalParam.SriovOperatorNamespace, parameters.ResourceNameVRF, ipam, helper.DefineSriovNetworkMetaPluginsVRFConfig(parameters.VRFBlueName))
+		err = networkHelper.CreateSriovNetwork(generalHelper.Apiclient, sriovInterfaces[1], parameters.TestSriovNetworkBlue, parameters.TestNamespace,
+			generalParameters.SriovOperatorNamespace, parameters.ResourceNameVRFVf2, ipam, helper.DefineSriovNetworkMetaPluginsVRFConfig(parameters.VRFBlueName))
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Waiting until SRIOV become stable")
@@ -91,7 +97,9 @@ var _ = Describe("CNF VRF", func() {
 
 		By("Waiting until SRIOV resources become available")
 		generalHelper.ValidateSriovVFsAvailableOnNodes(sriovInfos.Nodes,
-			[]*sriovv1.SriovNetworkNodePolicy{usualSriovPolicyConfig}, 5)
+			[]*sriovv1.SriovNetworkNodePolicy{usualSriovPolicyConfig1}, 5)
+		generalHelper.ValidateSriovVFsAvailableOnNodes(sriovInfos.Nodes,
+			[]*sriovv1.SriovNetworkNodePolicy{usualSriovPolicyConfig2}, 5)
 
 		Eventually(func() error {
 			netAttDef := &netattdefv1.NetworkAttachmentDefinition{}
@@ -104,6 +112,7 @@ var _ = Describe("CNF VRF", func() {
 			return generalHelper.Apiclient.Get(context.Background(), runtimeclient.ObjectKey{Name: parameters.TestSriovNetworkBlue,
 				Namespace: parameters.TestNamespace}, netAttDef)
 		}, 60*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+
 	})
 
 	BeforeEach(func() {
@@ -121,17 +130,14 @@ var _ = Describe("CNF VRF", func() {
 		}, 3*time.Minute, 10*time.Second).Should(BeTrue())
 	})
 
-	DescribeTable("Integration: SRIOV, IPAM: static, Interfaces: 1, Scheme: 2 Pods 2 VRFs OCP Primary network overlap",
+	DescribeTable("Integration: SRIOV, IPAM: static, Interfaces: 2, Scheme: 2 Pods 2 VRFs 2 VFs",
 		func(node string, ipStack string) {
-			helper.TestVRFScenario(generalHelper.Apiclient, node, ipStack, true, config, sriovInfos.Nodes,
+			helper.TestVRFScenario(generalHelper.Apiclient, node, ipStack, false, config, sriovInfos.Nodes,
 				parameters.TestSriovNetworkBlue, parameters.TestSriovNetworkRed)
 		},
 		Entry(describe, parameters.SameNode, parameters.IPStackIPv4),
-		Entry(describe, parameters.DiffNode, parameters.IPStackIPv4))
+		Entry(describe, parameters.DiffNode, parameters.IPStackIPv4),
+		Entry(describe, parameters.SameNode, parameters.IPStackIPv6),
+		Entry(describe, parameters.DiffNode, parameters.IPStackIPv6),
+	)
 })
-
-func defineSriovNetworkMetaPluginsVRFConfig(VRFName string) func(network *sriovv1.SriovNetwork) {
-	return func(network *sriovv1.SriovNetwork) {
-		network.Spec.MetaPluginsConfig = fmt.Sprintf(`{"type": "vrf", "vrfname": "%s"}`, VRFName)
-	}
-}
