@@ -57,7 +57,10 @@ var _ = BeforeSuite(func() {
 var _ = AfterSuite(func() {
 	clients, err := config.DefineClients()
 	Expect(err).ToNot(HaveOccurred())
-	helper.CleanAllSriovFecClusterConfig(clients)
+	sriovFecNodeList, err := helper.GetSriovFecNodeConfigList(clients)
+	if err == nil && len(sriovFecNodeList.Items) > 0 {
+		helper.CleanAllSriovFecClusterConfig(clients)
+	}
 	err = namespaces.DeleteAndWait(clients, helper.TestNamespace, 5*time.Minute)
 	Expect(err).ToNot(HaveOccurred())
 })
