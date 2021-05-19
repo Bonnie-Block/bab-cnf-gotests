@@ -10,6 +10,7 @@ import (
 	clientsriovv1 "github.com/k8snetworkplumbingwg/sriov-network-operator/pkg/client/clientset/versioned/typed/sriovnetwork/v1"
 	fpgav1 "github.com/open-ness/openshift-operator/N3000/api/v1"
 	fecv1 "github.com/open-ness/openshift-operator/sriov-fec/api/v1"
+	performancev2 "github.com/openshift-kni/performance-addon-operators/api/v2"
 	clientconfigv1 "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 	mcv1 "github.com/openshift/machine-config-operator/pkg/apis/machineconfiguration.openshift.io/v1"
 	clientmachineconfigv1 "github.com/openshift/machine-config-operator/pkg/generated/clientset/versioned/typed/machineconfiguration.openshift.io/v1"
@@ -80,6 +81,10 @@ func New(kubeconfig string) *ClientSet {
 	fpgav1.AddToScheme(crScheme)
 	mcv1.AddToScheme(crScheme)
 	fecv1.AddToScheme(crScheme)
+	if err := performancev2.AddToScheme(crScheme); err != nil {
+		panic(err)
+	}
+
 
 	clientSet.Client, err = runtimeclient.New(config, client.Options{
 		Scheme: crScheme,

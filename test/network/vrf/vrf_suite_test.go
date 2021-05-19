@@ -11,10 +11,10 @@ import (
 	"github.com/onsi/ginkgo/reporters"
 	. "github.com/onsi/gomega"
 
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/helper"
-	sriovHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/sriov/helper"
+	generalHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/vrf/parameters"
 	_ "gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/vrf/tests"
+	generalParameters "gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 	testutils "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/utils"
@@ -50,24 +50,23 @@ func TestVrf(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	clients, err := config.DefineClients()
-	Expect(err).ToNot(HaveOccurred())
 	configuration, err := config.NewConfig()
 	Expect(err).ToNot(HaveOccurred())
-	helper.PullTestImage(clients, configuration.General.CnfNodeLabel, configuration.Network.TestContainerImage)
+	generalHelper.PullTestImage(configuration.General.CnfNodeLabel, configuration.Network.TestContainerImage)
 	By(fmt.Sprintf("Create %s namespace", parameters.TestNamespace))
-	err = namespaces.Create(parameters.TestNamespace, clients)
+	err = namespaces.Create(parameters.TestNamespace, generalHelper.Apiclient)
 	Expect(err).ToNot(HaveOccurred())
 })
 
 var _ = AfterSuite(func() {
-	clients, err := config.DefineClients()
-	Expect(err).ToNot(HaveOccurred())
 	By(fmt.Sprintf("Clean test namespace %s", parameters.TestNamespace))
-	err = namespaces.Clean(helper.SriovOperatorNamespace, parameters.TestNamespace, clients, false)
+	err := namespaces.Clean(
+		generalParameters.SriovOperatorNamespace,
+		parameters.TestNamespace,
+		generalHelper.Apiclient, false)
 	Expect(err).ToNot(HaveOccurred())
-	err = namespaces.DeleteAndWait(clients, parameters.TestNamespace, timeout)
+	err = namespaces.DeleteAndWait(generalHelper.Apiclient, parameters.TestNamespace, timeout)
 	Expect(err).ToNot(HaveOccurred())
 	By("Waiting until SRIOV become stable")
-	sriovHelper.WaitForSRIOVStable(clients, helper.SriovOperatorNamespace, waitingTime)
+	generalHelper.WaitForSRIOVStable(generalParameters.SriovOperatorNamespace, waitingTime)
 })

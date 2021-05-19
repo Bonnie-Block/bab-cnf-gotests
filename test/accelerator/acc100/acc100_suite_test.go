@@ -14,7 +14,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/accelerator/acc100/parameters"
 	_ "gitlab.cee.redhat.com/cnf/cnf-gotests/test/accelerator/acc100/tests"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/accelerator/helper"
-	networkHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/helper"
+	generalHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 	testutils "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/utils"
@@ -45,22 +45,18 @@ func TestACC100(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	clients, err := config.DefineClients()
-	Expect(err).ToNot(HaveOccurred())
 	configuration, err := config.NewConfig()
 	Expect(err).ToNot(HaveOccurred())
-	networkHelper.PullTestImage(clients, configuration.General.CnfNodeLabel, configuration.Network.TestContainerImage)
-	err = namespaces.Create(helper.TestNamespace, clients)
+	generalHelper.PullTestImage(configuration.General.CnfNodeLabel, configuration.Network.TestContainerImage)
+	err = namespaces.Create(helper.TestNamespace, generalHelper.Apiclient)
 	Expect(err).ToNot(HaveOccurred())
 })
 
 var _ = AfterSuite(func() {
-	clients, err := config.DefineClients()
-	Expect(err).ToNot(HaveOccurred())
-	sriovFecNodeList, err := helper.GetSriovFecNodeConfigList(clients)
+	sriovFecNodeList, err := helper.GetSriovFecNodeConfigList(generalHelper.Apiclient)
 	if err == nil && len(sriovFecNodeList.Items) > 0 {
-		helper.CleanAllSriovFecClusterConfig(clients)
+		helper.CleanAllSriovFecClusterConfig(generalHelper.Apiclient)
 	}
-	err = namespaces.DeleteAndWait(clients, helper.TestNamespace, 5*time.Minute)
+	err = namespaces.DeleteAndWait(generalHelper.Apiclient, helper.TestNamespace, 5*time.Minute)
 	Expect(err).ToNot(HaveOccurred())
 })

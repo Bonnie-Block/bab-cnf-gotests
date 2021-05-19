@@ -77,24 +77,6 @@ func StrParamInListOfParams(param string, paramRange []string) error {
 	return fmt.Errorf("error: wrong parameter %v", param)
 }
 
-// PullTestImage pulls test image on all relevant nodes
-func PullTestImage(apiclient *client.ClientSet, cnfNodeLabel string, image string) {
-	nodesList, err := nodes.GetByLabel(apiclient, cnfNodeLabel)
-	Expect(err).ToNot(HaveOccurred())
-	for _, node := range nodesList.Items {
-		pullPodDefenition := pod.RedefineWithRestartPolicy(pod.RedefineWithCommand(pod.DefinePodOnNode("default", image, node.Name),
-			[]string{"echo", "image pulled Successfully && exit 0"}, []string{}), k8sv1.RestartPolicyNever)
-		pullPod, err := apiclient.Pods("default").Create(context.Background(), pullPodDefenition, metav1.CreateOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		Eventually(func() k8sv1.PodPhase {
-			pullPod, _ = apiclient.Pods("default").Get(context.Background(), pullPod.Name, metav1.GetOptions{})
-			return pullPod.Status.Phase
-		}, podWaitingTime, time.Second).Should(Equal(k8sv1.PodSucceeded), fmt.Sprint("Invalid pulling image"))
-	}
-	err = namespaces.CleanPods("default", apiclient)
-	Expect(err).ToNot(HaveOccurred())
-}
-
 // GetPodIPStacks returns pod ip stack.
 func GetPodIPStacks(config *config.Config, apiclient *client.ClientSet) int {
 	var ipStack []string
@@ -141,22 +123,4 @@ func appendIfMissing(slice []string, element string) []string {
 		}
 	}
 	return append(slice, element)
-}
-
-func CountStringsByGreps(str string, stringsToGrep ...string) int {
-	count := 0
-	exists := false
-	for _, line := range strings.Split(str, "\n") {
-		for _, grep := range stringsToGrep {
-			if !strings.Contains(line, grep) {
-				exists = false
-				break
-			}
-			exists = true
-		}
-		if exists {
-			count++
-		}
-	}
-	return count
 }

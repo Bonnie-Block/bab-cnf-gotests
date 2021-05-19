@@ -11,6 +11,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/onsi/ginkgo/reporters"
+	. "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/ptp/parameters"
 	_ "gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/ptp/tests"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
@@ -43,15 +44,11 @@ func TestPtp(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	clients, err := config.DefineClients()
-	Expect(err).ToNot(HaveOccurred())
-	err = namespaces.Create(parameters.TestNamespace, clients)
+	err := namespaces.Create(parameters.TestNamespace, Apiclient)
 	Expect(err).ToNot(HaveOccurred())
 })
 
 var _ = AfterSuite(func() {
-	clients, err := config.DefineClients()
-	Expect(err).ToNot(HaveOccurred())
-	err = namespaces.DeleteAndWait(clients, parameters.TestNamespace, 5*time.Minute)
+	err := namespaces.DeleteAndWait(Apiclient, parameters.TestNamespace, 5*time.Minute)
 	Expect(err).ToNot(HaveOccurred())
 })

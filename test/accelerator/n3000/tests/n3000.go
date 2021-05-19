@@ -13,8 +13,9 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/accelerator/helper"
 	n3000helper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/accelerator/n3000/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/accelerator/n3000/parameters"
-	networkHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/helper"
+
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
+	generalHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
 )
 
@@ -31,7 +32,7 @@ var _ = Describe("Intel N3000", func() {
 
 	execute.BeforeAll(func() {
 		var err error
-		n3000NodeList, err = n3000helper.GetN3000NodeList(apiclient)
+		n3000NodeList, err = n3000helper.GetN3000NodeList(generalHelper.Apiclient)
 		if err != nil && err.Error() == "no matches for kind \"N3000Node\" in version \"fpga.intel.com/v1\"" {
 			Skip("Cluster doesn't have intel fpga pac n3000 card")
 		}
@@ -39,25 +40,25 @@ var _ = Describe("Intel N3000", func() {
 		if len(n3000NodeList.Items) < 1 {
 			Skip("No n3000 node is detected")
 		}
-		n3000helper.CreateService(apiclient, parameters.TestNamespace)
-		numberReadyN3000Daemonsets, numberDesiredN3000Daemonsets := n3000helper.CountN3000Daemonsets(apiclient, parameters.OperatorNamespace)
+		n3000helper.CreateService(generalHelper.Apiclient, parameters.TestNamespace)
+		numberReadyN3000Daemonsets, numberDesiredN3000Daemonsets := n3000helper.CountN3000Daemonsets(generalHelper.Apiclient, parameters.OperatorNamespace)
 		Expect(numberReadyN3000Daemonsets).To(Equal(numberDesiredN3000Daemonsets), "Not all n3000 daemonsets are ready")
-		n3000Node, err := n3000helper.GetN3000Node(apiclient)
+		n3000Node, err := n3000helper.GetN3000Node(generalHelper.Apiclient)
 		Expect(err).NotTo(HaveOccurred())
 		fpgaStatus, err = n3000helper.GetN3000FpgaStatus(n3000Node)
 		Expect(err).NotTo(HaveOccurred())
 		initialBitstreamId = fpgaStatus.BitstreamID
 		initialDeviceId = fpgaStatus.DeviceID
-		service, err := apiclient.Services(parameters.TestNamespace).List(context.Background(), metav1.ListOptions{})
+		service, err := generalHelper.Apiclient.Services(parameters.TestNamespace).List(context.Background(), metav1.ListOptions{})
 		Expect(err).NotTo(HaveOccurred())
-		n3000helper.InstallNewN3000Image(apiclient, n3000Node.Name, fpgaStatus, parameters.ImageBitstreamFlash,
+		n3000helper.InstallNewN3000Image(generalHelper.Apiclient, n3000Node.Name, fpgaStatus, parameters.ImageBitstreamFlash,
 			parameters.ChecksumBitstreamImage, parameters.Port, &service.Items[0], config)
 	})
 
 	Context("opae", func() {
 		//39002
 		It("Bitstream flashing", func() {
-			n3000Node, err := n3000helper.GetN3000Node(apiclient)
+			n3000Node, err := n3000helper.GetN3000Node(generalHelper.Apiclient)
 			Expect(err).NotTo(HaveOccurred())
 			fpgaStatus, err = n3000helper.GetN3000FpgaStatus(n3000Node)
 			Expect(err).NotTo(HaveOccurred())
@@ -68,44 +69,44 @@ var _ = Describe("Intel N3000", func() {
 
 	Context("sriov-fec", func() {
 		BeforeEach(func() {
-			IsSriovFecDeploymentInstalled, _ := helper.IsSriovFecDeploymentInstalled(apiclient, parameters.OperatorNamespace)
+			IsSriovFecDeploymentInstalled, _ := helper.IsSriovFecDeploymentInstalled(generalHelper.Apiclient, parameters.OperatorNamespace)
 			if !IsSriovFecDeploymentInstalled {
 				Skip("Sriov-fec operator is not installed")
 			}
-			isSriovFecDeploymentReady, err := helper.IsSriovFecDeploymentReady(apiclient, parameters.OperatorNamespace)
+			isSriovFecDeploymentReady, err := helper.IsSriovFecDeploymentReady(generalHelper.Apiclient, parameters.OperatorNamespace)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(isSriovFecDeploymentReady).To(Equal(true), "Sriov-fec operator is not ready")
 			By("Creating SriovFecClusterConfig")
 
 			// TODO: this is a workaround to allow the sriovfecnode to update by force
-			helper.DeleteSriovFecPods(apiclient, parameters.OperatorNamespace)
+			helper.DeleteSriovFecPods(generalHelper.Apiclient, parameters.OperatorNamespace)
 
-			fecConfig := n3000helper.GetSriovFecN30005GClusterConfigDefinition(apiclient, false)
-			helper.InstallSriovFecClusterNodeConfig(apiclient, fecConfig)
+			fecConfig := n3000helper.GetSriovFecN30005GClusterConfigDefinition(generalHelper.Apiclient, false)
+			helper.InstallSriovFecClusterNodeConfig(generalHelper.Apiclient, fecConfig)
 		})
 
 		AfterEach(func() {
-			isSriovFecDeploymentReady, err := helper.IsSriovFecDeploymentReady(apiclient, parameters.OperatorNamespace)
+			isSriovFecDeploymentReady, err := helper.IsSriovFecDeploymentReady(generalHelper.Apiclient, parameters.OperatorNamespace)
 			Expect(err).NotTo(HaveOccurred())
 			if isSriovFecDeploymentReady {
 				By("Cleaning up resources after sriov-fec tests")
-				fecConfig := n3000helper.GetSriovFecN30005GClusterConfigDefinition(apiclient, true)
-				helper.InstallSriovFecClusterNodeConfig(apiclient, fecConfig)
+				fecConfig := n3000helper.GetSriovFecN30005GClusterConfigDefinition(generalHelper.Apiclient, true)
+				helper.InstallSriovFecClusterNodeConfig(generalHelper.Apiclient, fecConfig)
 
 				// TODO: remove this after the sriov-fec operator clean spec automatically
-				helper.CleanSriovFecNodeSpec(apiclient, fecConfig.Spec.Nodes[0].NodeName, parameters.OperatorNamespace)
+				helper.CleanSriovFecNodeSpec(generalHelper.Apiclient, fecConfig.Spec.Nodes[0].NodeName, parameters.OperatorNamespace)
 			}
 		})
 
 		// 39008
 		It("configuration", func() {
 			By("Creating bbdev test pod")
-			bbdevPod := helper.CreateBbdevPod(apiclient, parameters.TestNamespace, parameters.N3000resource5G, config)
+			bbdevPod := helper.CreateBbdevPod(generalHelper.Apiclient, parameters.TestNamespace, parameters.N3000resource5G, config)
 
 			By("Running bbdev tests")
-			bbdevTestResults := helper.RunBbdevTests(apiclient, bbdevPod)
-			countOfTests := networkHelper.CountStringsByGreps(bbdevTestResults, "Starting Test Suite :")
-			countOfPassed := networkHelper.CountStringsByGreps(bbdevTestResults, "Tests Passed", "1")
+			bbdevTestResults := helper.RunBbdevTests(generalHelper.Apiclient, bbdevPod)
+			countOfTests := helper.CountStringsByGreps(bbdevTestResults, "Starting Test Suite :")
+			countOfPassed := helper.CountStringsByGreps(bbdevTestResults, "Tests Passed", "1")
 
 			Expect(countOfTests).To(Equal(parameters.TotalNumberBbdevTests), "Not all test have been executed")
 			Expect(countOfPassed).To(Equal(parameters.ExpectedNumberBbdevTestsPassed), "Not all expected tests passed")

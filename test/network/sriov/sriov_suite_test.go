@@ -10,7 +10,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/reporters"
 	. "github.com/onsi/gomega"
-	networkHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/helper"
+	. "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/sriov/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/sriov/parameters"
 	_ "gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/sriov/tests"
@@ -49,24 +49,20 @@ func TestSriov(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	clients, err := config.DefineClients()
-	Expect(err).ToNot(HaveOccurred())
 	configuration, err := config.NewConfig()
 	Expect(err).ToNot(HaveOccurred())
-	networkHelper.PullTestImage(clients, configuration.General.CnfNodeLabel, configuration.Network.TestContainerImage)
-	sriovInfos, err := cluster.DiscoverSriov(clients, parameters.OperatorNamespace)
+	PullTestImage(configuration.General.CnfNodeLabel, configuration.Network.TestContainerImage)
+	sriovInfos, err := cluster.DiscoverSriov(Apiclient, parameters.OperatorNamespace)
 	Expect(err).ToNot(HaveOccurred())
 	err = helper.CompareNodeSriovInterfaces(sriovInfos)
 	Expect(err).ToNot(HaveOccurred())
-	namespaces.Clean(parameters.OperatorNamespace, parameters.OperatorTestNamespace, clients, false)
-	helper.WaitForSRIOVStable(clients, parameters.OperatorNamespace, timeout)
+	namespaces.Clean(parameters.OperatorNamespace, parameters.OperatorTestNamespace, Apiclient, false)
+	WaitForSRIOVStable(parameters.OperatorNamespace, timeout)
 })
 
 var _ = AfterSuite(func() {
-	clients, err := config.DefineClients()
+	namespaces.Clean(parameters.OperatorNamespace, parameters.OperatorTestNamespace, Apiclient, false)
+	err := namespaces.DeleteAndWait(Apiclient, parameters.OperatorTestNamespace, timeout)
 	Expect(err).ToNot(HaveOccurred())
-	namespaces.Clean(parameters.OperatorNamespace, parameters.OperatorTestNamespace, clients, false)
-	err = namespaces.DeleteAndWait(clients, parameters.OperatorTestNamespace, timeout)
-	Expect(err).ToNot(HaveOccurred())
-	helper.WaitForSRIOVStable(clients, parameters.OperatorNamespace, timeout)
+	WaitForSRIOVStable(parameters.OperatorNamespace, timeout)
 })

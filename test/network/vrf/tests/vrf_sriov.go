@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	generalHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
+	generalParam "gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -17,7 +19,6 @@ import (
 	sriovv1 "github.com/k8snetworkplumbingwg/sriov-network-operator/api/v1"
 
 	networkHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/helper"
-	sriovHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/sriov/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/vrf/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/vrf/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/cluster"
@@ -48,51 +49,58 @@ var _ = Describe("CNF VRF", func() {
 
 	execute.BeforeAll(func() {
 		By("Discover SRIOV Nodes")
-		sriovInfos, err = cluster.DiscoverSriov(apiclient, networkHelper.SriovOperatorNamespace)
+		sriovInfos, err = cluster.DiscoverSriov(generalHelper.Apiclient, generalParam.SriovOperatorNamespace)
 		Expect(err).ToNot(HaveOccurred())
 
 		By(fmt.Sprintf("Clean test namespace %s", parameters.TestNamespace))
-		namespaces.Clean(networkHelper.SriovOperatorNamespace, parameters.TestNamespace, apiclient, false)
+		namespaces.Clean(generalParam.SriovOperatorNamespace, parameters.TestNamespace, generalHelper.Apiclient, false)
 
 		By("Waiting until SRIOV become stable")
-		sriovHelper.WaitForSRIOVStable(apiclient, networkHelper.SriovOperatorNamespace, parameters.WaitingTime)
+		generalHelper.WaitForSRIOVStable(generalParam.SriovOperatorNamespace, parameters.WaitingTime)
 
 		sriovInterfaces, err := sriovInfos.FindSriovDevices(sriovInfos.Nodes[0])
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Define SRIOV Policy")
-		usualSriovPolicyConfig := sriovHelper.DefineSriovPolicy(parameters.SriovPolicyName, sriovInterfaces[0],
-			5, "#0-4", 1500, parameters.ResourceNameVRF, "netdevice")
+		usualSriovPolicyConfig := generalHelper.DefineSriovPolicy(
+			parameters.SriovPolicyName,
+			generalParam.SriovOperatorNamespace,
+			sriovInterfaces[0],
+			5,
+			"#0-4",
+			1500,
+			parameters.ResourceNameVRF,
+			"netdevice")
 
-		err = apiclient.Create(context.Background(), usualSriovPolicyConfig)
+		err = generalHelper.Apiclient.Create(context.Background(), usualSriovPolicyConfig)
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Define SRIOV Networks")
 		ipam := `{"type": "static"}`
-		err = networkHelper.CreateSriovNetwork(apiclient, sriovInterfaces[0], parameters.TestSriovNetworkRed, parameters.TestNamespace,
-			networkHelper.SriovOperatorNamespace, parameters.ResourceNameVRF, ipam, defineSriovNetworkMetaPluginsVRFConfig(parameters.VRFRedName))
+		err = networkHelper.CreateSriovNetwork(generalHelper.Apiclient, sriovInterfaces[0], parameters.TestSriovNetworkRed, parameters.TestNamespace,
+			generalParam.SriovOperatorNamespace, parameters.ResourceNameVRF, ipam, defineSriovNetworkMetaPluginsVRFConfig(parameters.VRFRedName))
 		Expect(err).ToNot(HaveOccurred())
 
-		err = networkHelper.CreateSriovNetwork(apiclient, sriovInterfaces[0], parameters.TestSriovNetworkBlue, parameters.TestNamespace,
-			networkHelper.SriovOperatorNamespace, parameters.ResourceNameVRF, ipam, defineSriovNetworkMetaPluginsVRFConfig(parameters.VRFBlueName))
+		err = networkHelper.CreateSriovNetwork(generalHelper.Apiclient, sriovInterfaces[0], parameters.TestSriovNetworkBlue, parameters.TestNamespace,
+			generalParam.SriovOperatorNamespace, parameters.ResourceNameVRF, ipam, defineSriovNetworkMetaPluginsVRFConfig(parameters.VRFBlueName))
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Waiting until SRIOV become stable")
-		sriovHelper.WaitForSRIOVStable(apiclient, networkHelper.SriovOperatorNamespace, parameters.WaitingTime)
+		generalHelper.WaitForSRIOVStable(generalParam.SriovOperatorNamespace, parameters.WaitingTime)
 
 		By("Waiting until SRIOV resources become available")
-		sriovHelper.ValidateSriovVFsAvailableOnNodes(apiclient, sriovInfos.Nodes,
+		generalHelper.ValidateSriovVFsAvailableOnNodes(sriovInfos.Nodes,
 			[]*sriovv1.SriovNetworkNodePolicy{usualSriovPolicyConfig}, 5)
 
 		Eventually(func() error {
 			netAttDef := &netattdefv1.NetworkAttachmentDefinition{}
-			return apiclient.Get(context.Background(), runtimeclient.ObjectKey{Name: parameters.TestSriovNetworkRed,
+			return generalHelper.Apiclient.Get(context.Background(), runtimeclient.ObjectKey{Name: parameters.TestSriovNetworkRed,
 				Namespace: parameters.TestNamespace}, netAttDef)
 		}, 60*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 
 		Eventually(func() error {
 			netAttDef := &netattdefv1.NetworkAttachmentDefinition{}
-			return apiclient.Get(context.Background(), runtimeclient.ObjectKey{Name: parameters.TestSriovNetworkBlue,
+			return generalHelper.Apiclient.Get(context.Background(), runtimeclient.ObjectKey{Name: parameters.TestSriovNetworkBlue,
 				Namespace: parameters.TestNamespace}, netAttDef)
 		}, 60*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 
@@ -100,10 +108,10 @@ var _ = Describe("CNF VRF", func() {
 
 	BeforeEach(func() {
 		By("Cleaning up resources before test")
-		err := namespaces.CleanPods(parameters.TestNamespace, apiclient)
+		err := namespaces.CleanPods(parameters.TestNamespace, generalHelper.Apiclient)
 		Expect(err).ToNot(HaveOccurred())
 		Eventually(func() bool {
-			podsList, err := apiclient.Pods(parameters.TestNamespace).List(context.Background(), metav1.ListOptions{})
+			podsList, err := generalHelper.Apiclient.Pods(parameters.TestNamespace).List(context.Background(), metav1.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			if len(podsList.Items) > 0 {
 				return false
@@ -115,7 +123,7 @@ var _ = Describe("CNF VRF", func() {
 
 	DescribeTable("Integration: SRIOV, IPAM: static, Interfaces: 1, Scheme: 2 Pods 2 VRFs OCP Primary network overlap",
 		func(node string, ipStack string) {
-			helper.TestVRFScenario(apiclient, node, ipStack, true, config, sriovInfos.Nodes,
+			helper.TestVRFScenario(generalHelper.Apiclient, node, ipStack, true, config, sriovInfos.Nodes,
 				parameters.TestSriovNetworkBlue, parameters.TestSriovNetworkRed)
 		},
 		Entry(describe, parameters.SameNode, parameters.IPStackIPv4),

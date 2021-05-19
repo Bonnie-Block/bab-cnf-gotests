@@ -18,7 +18,7 @@ import (
 	n3000helper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/accelerator/n3000/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/accelerator/n3000/parameters"
 	_ "gitlab.cee.redhat.com/cnf/cnf-gotests/test/accelerator/n3000/tests"
-	networkHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/helper"
+	generalHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 	testutils "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/utils"
@@ -49,38 +49,34 @@ func TestN3000(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	clients, err := config.DefineClients()
-	Expect(err).ToNot(HaveOccurred())
 	configuration, err := config.NewConfig()
 	Expect(err).ToNot(HaveOccurred())
-	networkHelper.PullTestImage(clients, configuration.General.CnfNodeLabel, configuration.Network.TestContainerImage)
-	err = namespaces.Create(parameters.TestNamespace, clients)
+	generalHelper.PullTestImage(configuration.General.CnfNodeLabel, configuration.Network.TestContainerImage)
+	err = namespaces.Create(parameters.TestNamespace, generalHelper.Apiclient)
 	Expect(err).ToNot(HaveOccurred())
 })
 
 var _ = AfterSuite(func() {
-	clients, err := config.DefineClients()
-	Expect(err).ToNot(HaveOccurred())
-	n3000NodeList, err := n3000helper.GetN3000NodeList(clients)
+	n3000NodeList, err := n3000helper.GetN3000NodeList(generalHelper.Apiclient)
 	if err == nil && len(n3000NodeList.Items) > 0 {
-		n3000helper.CleanAllN3000Cluster(clients)
-		numberReadyN3000Daemonsets, numberDesiredN3000Daemonsets := n3000helper.CountN3000Daemonsets(clients, parameters.OperatorNamespace)
+		n3000helper.CleanAllN3000Cluster(generalHelper.Apiclient)
+		numberReadyN3000Daemonsets, numberDesiredN3000Daemonsets := n3000helper.CountN3000Daemonsets(generalHelper.Apiclient, parameters.OperatorNamespace)
 		if numberReadyN3000Daemonsets == numberDesiredN3000Daemonsets {
 			By("Cleaning up resources after n3000 test suite")
 			configuration, err := config.NewConfig()
 			Expect(err).ToNot(HaveOccurred())
-			n3000Node, err := n3000helper.GetN3000Node(clients)
+			n3000Node, err := n3000helper.GetN3000Node(generalHelper.Apiclient)
 			Expect(err).NotTo(HaveOccurred())
 			fpgaStatus, err := n3000helper.GetN3000FpgaStatus(n3000Node)
 			Expect(err).NotTo(HaveOccurred())
-			service, err := clients.Services(parameters.TestNamespace).List(context.Background(), metav1.ListOptions{})
+			service, err := generalHelper.Apiclient.Services(parameters.TestNamespace).List(context.Background(), metav1.ListOptions{})
 			Expect(err).NotTo(HaveOccurred())
-			n3000helper.InstallNewN3000Image(clients, n3000Node.Name, fpgaStatus, parameters.ImageDefault,
+			n3000helper.InstallNewN3000Image(generalHelper.Apiclient, n3000Node.Name, fpgaStatus, parameters.ImageDefault,
 				parameters.ChecksumDefaultImage, parameters.Port, &service.Items[0], configuration)
-			n3000helper.CleanAllN3000Cluster(clients)
-			helper.CleanAllSriovFecClusterConfig(clients)
+			n3000helper.CleanAllN3000Cluster(generalHelper.Apiclient)
+			helper.CleanAllSriovFecClusterConfig(generalHelper.Apiclient)
 		}
 	}
-	err = namespaces.DeleteAndWait(clients, parameters.TestNamespace, 5*time.Minute)
+	err = namespaces.DeleteAndWait(generalHelper.Apiclient, parameters.TestNamespace, 5*time.Minute)
 	Expect(err).ToNot(HaveOccurred())
 })

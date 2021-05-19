@@ -9,6 +9,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	netattdefv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
+	generalHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/vrf/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/vrf/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
@@ -42,18 +43,18 @@ var _ = Describe("CNF VRF", func() {
 
 	execute.BeforeAll(func() {
 		By(fmt.Sprintf("Select nodes by label %s ", parameters.LabelNodeRole))
-		nodesList, err := nodes.GetByRole(apiclient, parameters.LabelNodeRole)
+		nodesList, err := nodes.GetByRole(generalHelper.Apiclient, parameters.LabelNodeRole)
 		Expect(err).ToNot(HaveOccurred())
 		for _, node := range nodesList {
 			nodeListString = append(nodeListString, node.Name)
 		}
 
 		By(fmt.Sprintf("Create %s namespace", parameters.TestNamespace))
-		err = namespaces.Create(parameters.TestNamespace, apiclient)
+		err = namespaces.Create(parameters.TestNamespace, generalHelper.Apiclient)
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Select host interface for mac-vlan")
-		nodeInterfaceList, err := nodes.GetPhysicalNodeInterfaces(apiclient, nodesList[0].Name)
+		nodeInterfaceList, err := nodes.GetPhysicalNodeInterfaces(generalHelper.Apiclient, nodesList[0].Name)
 		Expect(err).ToNot(HaveOccurred())
 		for _, oneInterface := range nodeInterfaceList {
 			if !oneInterface.Bridge && !oneInterface.DefRoute && oneInterface.Physical && oneInterface.UP {
@@ -66,19 +67,19 @@ var _ = Describe("CNF VRF", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Adding NADs")
-		vrfBlue = helper.AddVRFNad(apiclient, "test-vrf-blue", masterMacVlanInterfaceName, parameters.VRFBlueName)
-		vrfRed = helper.AddVRFNad(apiclient, "test-vrf-red", masterMacVlanInterfaceName, parameters.VRFRedName)
+		vrfBlue = helper.AddVRFNad(generalHelper.Apiclient, "test-vrf-blue", masterMacVlanInterfaceName, parameters.VRFBlueName)
+		vrfRed = helper.AddVRFNad(generalHelper.Apiclient, "test-vrf-red", masterMacVlanInterfaceName, parameters.VRFRedName)
 	})
 
 	BeforeEach(func() {
 		By("Cleaning up resources before test")
-		err := namespaces.CleanPods(parameters.TestNamespace, apiclient)
+		err := namespaces.CleanPods(parameters.TestNamespace, generalHelper.Apiclient)
 		Expect(err).ToNot(HaveOccurred())
 	})
 
 	DescribeTable("Integration: NAD, IPAM: static, Interfaces: 1, Scheme: 2 Pods 2 VRFs OCP Primary network overlap",
 		func(node string, ipStack string) {
-			helper.TestVRFScenario(apiclient, node, ipStack, true, config, nodeListString, vrfBlue.Name, vrfRed.Name)
+			helper.TestVRFScenario(generalHelper.Apiclient, node, ipStack, true, config, nodeListString, vrfBlue.Name, vrfRed.Name)
 		},
 		Entry(describe, parameters.SameNode, parameters.IPStackIPv4),
 		Entry(describe, parameters.DiffNode, parameters.IPStackIPv4),
