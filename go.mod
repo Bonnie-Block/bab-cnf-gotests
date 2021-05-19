@@ -11,11 +11,10 @@ require (
 	github.com/onsi/gomega v1.10.3
 	github.com/open-ness/openshift-operator/N3000 v0.0.0-20210331183103-74dc4d717390
 	github.com/open-ness/openshift-operator/sriov-fec v0.0.0-20210331183103-74dc4d717390
+	github.com/openshift-kni/performance-addon-operators v0.0.0-20210114132708-bcf9e53ff354
 	github.com/openshift/client-go v0.0.0-20210112165513-ebc401615f47
 	github.com/openshift/machine-config-operator v4.2.0-alpha.0.0.20190917115525-033375cbe820+incompatible
 	github.com/openshift/ptp-operator v0.0.0-20210110151302-58d8ffd4a37e
-	golang.org/x/lint v0.0.0-20201208152925-83fdc39ff7b5 // indirect
-	golang.org/x/tools v0.1.0 // indirect
 	gopkg.in/yaml.v2 v2.3.0
 	k8s.io/api v0.20.4
 	k8s.io/apimachinery v0.20.4
@@ -43,7 +42,8 @@ replace (
 	k8s.io/kube-proxy => k8s.io/kube-proxy v0.19.3
 	k8s.io/kube-scheduler => k8s.io/kube-scheduler v0.19.3
 	k8s.io/kubectl => k8s.io/kubectl v0.19.3
-	k8s.io/kubelet => k8s.io/kubelet v0.19.3
+	k8s.io/kubelet => k8s.io/kubelet v0.20.4
+	k8s.io/kubernetes => k8s.io/kubernetes v1.19.3
 	k8s.io/legacy-cloud-providers => k8s.io/legacy-cloud-providers v0.19.3
 	k8s.io/metrics => k8s.io/metrics v0.19.3
 	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.19.3
@@ -54,6 +54,7 @@ replace (
 	github.com/k8snetworkplumbingwg/sriov-network-operator => github.com/openshift/sriov-network-operator v0.0.0-20210105152551-211d8ee0992e // release-4.7
 	github.com/mattn/go-sqlite3 => github.com/mattn/go-sqlite3 v1.10.0
 	github.com/open-ness/openshift-operator => github.com/otcshare/openshift-operator v0.0.0-20210318084613-47ff60d3afe3 // master
+	github.com/openshift-kni/performance-addon-operators => github.com/openshift-kni/performance-addon-operators v0.0.0-20210416124233-c5ee96762702 // release-4.8
 	github.com/openshift/api => github.com/openshift/api v0.0.0-20210202165416-a9e731090f5e // release-4.7
 	github.com/openshift/client-go => github.com/openshift/client-go v0.0.0-20210112165513-ebc401615f47 // release-4.7
 	github.com/openshift/cluster-node-tuning-operator => github.com/openshift/cluster-node-tuning-operator v0.0.0-20210205110635-24392937d275 // release-4.7
