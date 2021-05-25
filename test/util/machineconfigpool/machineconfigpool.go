@@ -12,16 +12,15 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
-
 type Contents struct {
-	Source string
+	Source       string
 	Verification []string `json:"verification:"`
 }
 type Files struct {
-	Contents *Contents
+	Contents   *Contents
 	Filesystem string
-	Mode int
-	Path string
+	Mode       int
+	Path       string
 }
 type Ingnition struct {
 	Version string
@@ -31,8 +30,7 @@ type Storage struct {
 }
 type McpConfig struct {
 	Ingnition *Ingnition
-	Storage *Storage
-
+	Storage   *Storage
 }
 
 // WaitForCondition waits until the machine config pool will have specified condition type with the expected status

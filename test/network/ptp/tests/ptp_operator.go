@@ -106,7 +106,7 @@ var _ = Describe("PTP", func() {
 })
 
 func configurePTP() {
-	err := CleanAllPtpConfig(PtpOperatorNamespace,parameters.PtpGrandmasterNodeLabel, parameters.PtpSlaveNodeLabel)
+	err := CleanAllPtpConfig(PtpOperatorNamespace, parameters.PtpGrandmasterNodeLabel, parameters.PtpSlaveNodeLabel)
 	Expect(err).ToNot(HaveOccurred())
 
 	ptpNodes, err := PtpEnabled(PtpOperatorNamespace)
@@ -129,7 +129,7 @@ func configurePTP() {
 
 	var validPtpInterfaces []string
 	Eventually(func() error {
-		validPtpInterfaces, err = GetPtpInterfaces(config,2, PtpOperatorNamespace)
+		validPtpInterfaces, err = GetPtpInterfaces(config, 2, SriovOperatorNamespace)
 		return err
 	}, 5*time.Minute, 2*time.Second).ShouldNot(HaveOccurred(), "Error to collect ptp supported interfaces")
 	Expect(len(validPtpInterfaces)).To(Equal(2), "Expect 2 ptp supported interfaces")
@@ -286,38 +286,20 @@ func createConfigMultipleInterfaces(profileName []string, ifaceName []string, pt
 	return err
 }
 
-func amountStringsByGreps(str string, stringsToGrep ...string) int {
-	count := 0
-	exists := false
-	for _, line := range strings.Split(str, "\n") {
-		for _, grep := range stringsToGrep {
-			if !strings.Contains(line, grep) {
-				exists = false
-				break
-			}
-			exists = true
-		}
-		if exists {
-			count++
-		}
-	}
-	return count
-}
-
 func amountPtpProcessesAndMetrics(role string, podEntry v1core.Pod) (map[string]int, error) {
 	ptpMetrics, _ := pod.ExecCommand(Apiclient, podEntry, []string{"curl", "127.0.0.1:9091/metrics"})
 	psOutput, _ := pod.ExecCommand(Apiclient, podEntry, []string{"ps", "-C", "ptp4l", "-C", "phc2sys"})
 
 	if role == "master" {
-		phc2sysMetric := amountStringsByGreps(ptpMetrics.String(), "openshift_ptp_offset_from_master", "phc2sys")
-		ptp4lProc := amountStringsByGreps(psOutput.String(), "ptp4l")
-		phc2sysProc := amountStringsByGreps(psOutput.String(), "phc2sys")
+		phc2sysMetric := CountLinesByMatches(ptpMetrics.String(), "openshift_ptp_offset_from_master", "phc2sys")
+		ptp4lProc := CountLinesByMatches(psOutput.String(), "ptp4l")
+		phc2sysProc := CountLinesByMatches(psOutput.String(), "phc2sys")
 		return map[string]int{"phc2sysMetric": phc2sysMetric, "ptp4lProc": ptp4lProc, "phc2sysProc": phc2sysProc}, nil
 	} else if role == "slave" {
-		ptp4lMetric := amountStringsByGreps(ptpMetrics.String(), "openshift_ptp_offset_from_master", "ptp4l")
-		phc2sysMetric := amountStringsByGreps(ptpMetrics.String(), "openshift_ptp_offset_from_master", "phc2sys")
-		ptp4lProc := amountStringsByGreps(psOutput.String(), "ptp4l")
-		phc2sysProc := amountStringsByGreps(psOutput.String(), "phc2sys")
+		ptp4lMetric := CountLinesByMatches(ptpMetrics.String(), "openshift_ptp_offset_from_master", "ptp4l")
+		phc2sysMetric := CountLinesByMatches(ptpMetrics.String(), "openshift_ptp_offset_from_master", "phc2sys")
+		ptp4lProc := CountLinesByMatches(psOutput.String(), "ptp4l")
+		phc2sysProc := CountLinesByMatches(psOutput.String(), "phc2sys")
 		return map[string]int{"ptp4lMetric": ptp4lMetric, "phc2sysMetric": phc2sysMetric, "ptp4lProc": ptp4lProc, "phc2sysProc": phc2sysProc}, nil
 	}
 	return nil, fmt.Errorf("Wrong PTP role: %s  of Pod", role)

@@ -14,8 +14,8 @@ import (
 	n3000helper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/accelerator/n3000/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/accelerator/n3000/parameters"
 
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
 	generalHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
 )
 
@@ -105,8 +105,8 @@ var _ = Describe("Intel N3000", func() {
 
 			By("Running bbdev tests")
 			bbdevTestResults := helper.RunBbdevTests(generalHelper.Apiclient, bbdevPod)
-			countOfTests := helper.CountStringsByGreps(bbdevTestResults, "Starting Test Suite :")
-			countOfPassed := helper.CountStringsByGreps(bbdevTestResults, "Tests Passed", "1")
+			countOfTests := generalHelper.CountLinesByMatches(bbdevTestResults, "Starting Test Suite :")
+			countOfPassed := generalHelper.CountLinesByMatches(bbdevTestResults, "Tests Passed", "1")
 
 			Expect(countOfTests).To(Equal(parameters.TotalNumberBbdevTests), "Not all test have been executed")
 			Expect(countOfPassed).To(Equal(parameters.ExpectedNumberBbdevTestsPassed), "Not all expected tests passed")

@@ -3,71 +3,54 @@ package helper
 import (
 	"context"
 	"fmt"
+	"time"
+
+	sriovv1 "github.com/k8snetworkplumbingwg/sriov-network-operator/api/v1"
 	"github.com/kelseyhightower/envconfig"
+	performance "github.com/openshift-kni/performance-addon-operators/api/v2"
 	performancev2 "github.com/openshift-kni/performance-addon-operators/api/v2"
 	mcov1 "github.com/openshift/machine-config-operator/pkg/apis/machineconfiguration.openshift.io/v1"
 	mcv1 "github.com/openshift/machine-config-operator/pkg/apis/machineconfiguration.openshift.io/v1"
 	mcoScheme "github.com/openshift/machine-config-operator/pkg/generated/clientset/versioned/scheme"
 	ptpv1 "github.com/openshift/ptp-operator/pkg/apis/ptp/v1"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/cnf-tests/discovery/parameters"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
+	. "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
+	generalParameters "gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/machineconfigpool"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
-	"os/exec"
-	"path"
 	goclient "sigs.k8s.io/controller-runtime/pkg/client"
-	"strings"
-	"time"
 )
 
 func envVarErrorString(envVarName string) error {
 	return fmt.Errorf("error to detect %s env var", envVarName)
 }
+
+// NewConfig reads env var and sort them in to struct
 func NewConfig() (*parameters.EnvironmentConfig, error) {
-	var myEnv parameters.EnvironmentConfig
-	err := envconfig.Process("", &myEnv)
+	var environmentConfiguration parameters.EnvironmentConfig
+	err := envconfig.Process("", &environmentConfiguration)
 	if err != nil {
 		return nil, err
 	}
 
-	if myEnv.CnfTestImage == "" {
-		return nil,envVarErrorString("CNF_IMAGE_VERSION")
+	if environmentConfiguration.CnfTestImage == "" {
+		return nil, envVarErrorString("CNF_IMAGE_VERSION")
 	}
 
-	if myEnv.DpdkTestImage == "" {
-		return nil,envVarErrorString("DPDK_IMAGE_VERSION")
+	if environmentConfiguration.DpdkTestImage == "" {
+		return nil, envVarErrorString("DPDK_IMAGE_VERSION")
 	}
 
-	if myEnv.TestImageRegistry == "" {
-		return nil,envVarErrorString("CONTAINER_REPO")
+	if environmentConfiguration.TestImageRegistry == "" {
+		return nil, envVarErrorString("CONTAINER_REPO")
 	}
 
-	return &myEnv, nil
+	return &environmentConfiguration, nil
 }
 
-func validateDockerDaemonRunning() error {
-	isDaemonRunning := exec.Command("systemctl", "is-active", "--quiet", "docker")
-	err := isDaemonRunning.Run()
-	if err != nil {
-		return fmt.Errorf("docker daemon is not active on host")
-	}
-	return nil
-}
-
-func selectContainerEngine() (*exec.Cmd, error) {
-	for _, containerEngine := range []string{"docker", "podman"} {
-		containerEngineCMD := exec.Command(containerEngine)
-		directoryName, _ := path.Split(containerEngineCMD.Path)
-		if directoryName != "" {
-			return containerEngineCMD, nil
-		}
-	}
-	return nil, fmt.Errorf("no container Engine present on host machine")
-}
-
-func CreatePerformanceProfile(client *client.ClientSet, performanceProfileName string, mcpPoolName string) error {
+// CreatePerformanceProfile creates performance profile
+func CreatePerformanceProfile(performanceProfileName string, mcpPoolName string) error {
 	isolatedCPUSet := performancev2.CPUSet("8-15")
 	reservedCPUSet := performancev2.CPUSet("0-7")
 	hugepageSize := performancev2.HugePageSize("1G")
@@ -84,9 +67,8 @@ func CreatePerformanceProfile(client *client.ClientSet, performanceProfileName s
 				DefaultHugePagesSize: &hugepageSize,
 				Pages: []performancev2.HugePage{
 					{
-						Count: 5,
+						Count: 10,
 						Size:  hugepageSize,
-						Node:  pointer.Int32Ptr(0),
 					},
 				},
 			},
@@ -95,53 +77,19 @@ func CreatePerformanceProfile(client *client.ClientSet, performanceProfileName s
 			},
 		},
 	}
-	return client.Client.Create(context.TODO(), performanceProfile)
+	return Apiclient.Client.Create(context.TODO(), performanceProfile)
 }
 
-func PullImage(ImageRegistry string, ImageName string) error {
-	containerEngine, err := selectContainerEngine()
-	if err != nil {
-		return err
-	}
-	if strings.Contains(containerEngine.Path, "docker") {
-		err := validateDockerDaemonRunning()
-		if err != nil {
-			return err
-		}
-	}
-	status := exec.Command(
-		containerEngine.Path,
-		"pull",
-		fmt.Sprintf("%s/%s", ImageRegistry, ImageName))
-	_, err = status.Output()
-	if err != nil {
-		return err
-	}
-
-	status = exec.Command(
-		containerEngine.Path,
-		"images", "--quiet",
-		fmt.Sprintf("%s/%s", ImageRegistry, ImageName))
-
-	commandOutput, err := status.Output()
-	if err != nil {
-		return err
-	}
-	if string(commandOutput) == "" {
-		return fmt.Errorf("error to pull the image")
-	}
-	return nil
-}
-
-func WaitForClusterToBeStable(client *client.ClientSet, machineConfigPoolName string) error {
+// WaitForClusterToBeStable validates if MCP is stable
+func WaitForClusterToBeStable(machineConfigPoolName string) error {
 	mcp := &mcv1.MachineConfigPool{}
-	err := client.Client.Get(context.TODO(), goclient.ObjectKey{Name: machineConfigPoolName}, mcp)
+	err := Apiclient.Client.Get(context.TODO(), goclient.ObjectKey{Name: machineConfigPoolName}, mcp)
 	if err != nil {
 		return err
 	}
 
 	err = machineconfigpool.WaitForCondition(
-		client,
+		Apiclient,
 		&mcv1.MachineConfigPool{ObjectMeta: metav1.ObjectMeta{Name: machineConfigPoolName}},
 		mcv1.MachineConfigPoolUpdating,
 		corev1.ConditionTrue,
@@ -152,7 +100,7 @@ func WaitForClusterToBeStable(client *client.ClientSet, machineConfigPoolName st
 
 	// We need to wait a long time here for the node to reboot
 	err = machineconfigpool.WaitForCondition(
-		client,
+		Apiclient,
 		&mcv1.MachineConfigPool{ObjectMeta: metav1.ObjectMeta{Name: machineConfigPoolName}},
 		mcv1.MachineConfigPoolUpdated,
 		corev1.ConditionTrue,
@@ -161,8 +109,8 @@ func WaitForClusterToBeStable(client *client.ClientSet, machineConfigPoolName st
 	return err
 }
 
-func CreatePTPConfig(apiclient *client.ClientSet,
-	profileName string,
+// CreatePTPConfig creates PtpConfig based on provided resource
+func CreatePTPConfig(profileName string,
 	ptpOperatorNamespace string,
 	ifaceName string,
 	ptp4lOpts,
@@ -175,32 +123,108 @@ func CreatePTPConfig(apiclient *client.ClientSet,
 	matchRule := ptpv1.MatchRule{NodeLabel: &nodeLabel}
 	ptpProfile = append(
 		ptpProfile, ptpv1.PtpProfile{
-		Name: &profileName,
-		Interface: &ifaceName,
-		Phc2sysOpts: &phc2sysOpts,
-		Ptp4lOpts: &ptp4lOpts})
+			Name:        &profileName,
+			Interface:   &ifaceName,
+			Phc2sysOpts: &phc2sysOpts,
+			Ptp4lOpts:   &ptp4lOpts})
 
 	ptpRecommend = append(
 		ptpRecommend,
 		ptpv1.PtpRecommend{
-		Profile: &profileName,
-		Priority: priority,
-		Match: []ptpv1.MatchRule{matchRule}})
+			Profile:  &profileName,
+			Priority: priority,
+			Match:    []ptpv1.MatchRule{matchRule}})
 
 	policy := ptpv1.PtpConfig{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: profileName,
+			Name:      profileName,
 			Namespace: ptpOperatorNamespace},
 		Spec: ptpv1.PtpConfigSpec{
-			Profile: ptpProfile,
+			Profile:   ptpProfile,
 			Recommend: ptpRecommend}}
 
-	_, err := apiclient.PtpConfigs(ptpOperatorNamespace).Create(context.Background(), &policy, metav1.CreateOptions{})
+	_, err := Apiclient.PtpConfigs(ptpOperatorNamespace).Create(context.Background(), &policy, metav1.CreateOptions{})
 	return err
 }
 
-func DeploySCTPMc(apiclient *client.ClientSet, roleWorker string) error {
-	mcContent := fmt.Sprintf(`
+// DeployMC installs MachineConfig based on provided resource definition
+func DeployMC(machineConfig string) error {
+	mc, err := DecodeMCYaml(machineConfig)
+	if err != nil {
+		return err
+	}
+	err = Apiclient.Client.Create(context.TODO(), mc)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// DecodeMCYaml decodes a MachineConfig YAML to a MachineConfig struct
+func DecodeMCYaml(mcyaml string) (*mcov1.MachineConfig, error) {
+	decode := mcoScheme.Codecs.UniversalDeserializer().Decode
+	obj, _, err := decode([]byte(mcyaml), nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	mc, ok := obj.(*mcov1.MachineConfig)
+	if !ok {
+		return nil, fmt.Errorf("couldnt create MC object from mcyaml")
+	}
+
+	return mc, err
+}
+
+// CleanAllSriovPolicy removes all SriovNetworkNodePolicyList except default
+func CleanAllSriovPolicy() error {
+	sriovNodePolicyList := &sriovv1.SriovNetworkNodePolicyList{}
+	err := Apiclient.Client.List(context.TODO(), sriovNodePolicyList)
+	if err != nil {
+		return err
+	}
+	if len(sriovNodePolicyList.Items) > 1 {
+		for _, sriovNodePolicy := range sriovNodePolicyList.Items {
+			if sriovNodePolicy.Name != "default" {
+				err := Apiclient.Client.Delete(
+					context.TODO(),
+					&sriovNodePolicy)
+				if err != nil {
+					return err
+				}
+			}
+		}
+		WaitForSRIOVStable(generalParameters.SriovOperatorNamespace, parameters.SriovWaitingTime)
+	}
+	return nil
+}
+
+// CleanAllPerformanceProfile removes all PerformanceProfile from cluster
+func CleanAllPerformanceProfile(cnfNodeLabel string) error {
+	performanceProfileList := &performance.PerformanceProfileList{}
+	err := Apiclient.Client.List(context.TODO(), performanceProfileList)
+	if err != nil {
+		return err
+	}
+	if len(performanceProfileList.Items) > 0 {
+		for _, performanceProfile := range performanceProfileList.Items {
+			err := Apiclient.Client.Delete(
+				context.TODO(),
+				&performanceProfile)
+			if err != nil {
+				return err
+			}
+		}
+		err = WaitForClusterToBeStable(cnfNodeLabel)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// DefineSCTPMC returns SCTP MachineConfig string
+func DefineSCTPMC(roleWorker string) string {
+	return fmt.Sprintf(`
 apiVersion: machineconfiguration.openshift.io/v1
 kind: MachineConfig
 metadata:
@@ -225,31 +249,25 @@ spec:
           mode: 420
           path: /etc/modules-load.d/sctp-load.conf
 `, roleWorker)
-	_, err := createMCWithSCTPContent(apiclient, mcContent)
-	return err
 }
 
-func createMCWithSCTPContent(apiclient *client.ClientSet, mcContent string) (*mcov1.MachineConfig, error) {
-	mc, err := DecodeMCYaml(mcContent)
-	if err != nil {
-		return nil, err
-	}
-
-	err = apiclient.Client.Create(context.TODO(), mc)
-	return mc, err
-}
-
-// DecodeMCYaml decodes a MachineConfig YAML to a MachineConfig struct
-func DecodeMCYaml(mcyaml string) (*mcov1.MachineConfig, error) {
-	decode := mcoScheme.Codecs.UniversalDeserializer().Decode
-	obj, _, err := decode([]byte(mcyaml), nil, nil)
-	if err != nil {
-		return nil, err
-	}
-	mc, ok := obj.(*mcov1.MachineConfig)
-	if !ok {
-		return nil, fmt.Errorf("couldnt create MC object from mcyaml")
-	}
-
-	return mc, err
+// DefineXtu32MC returns XT_u32 MachineConfig string
+func DefineXtu32MC(roleWorker string) string {
+	return fmt.Sprintf(`apiVersion: machineconfiguration.openshift.io/v1
+kind: MachineConfig
+metadata:
+  labels:
+    machineconfiguration.openshift.io/role: %s
+  name: load-xt-u32-module
+spec:
+  config:
+    ignition:
+      version: 2.2.0
+    storage:
+      files:
+        - contents:
+            source: data:text/plain;charset=utf-8,xt_u32
+          filesystem: root
+          mode: 420
+          path: /etc/modules-load.d/xt_u32-load.conf`, roleWorker)
 }

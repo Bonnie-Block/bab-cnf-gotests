@@ -2,13 +2,14 @@ package helper
 
 import (
 	"context"
+	"time"
+
 	sriovv1 "github.com/k8snetworkplumbingwg/sriov-network-operator/api/v1"
 	. "github.com/onsi/gomega"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/cluster"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"time"
 )
 
 // WaitForSRIOVStable waits until sriov stable
@@ -85,4 +86,3 @@ func validateSriovVFsNodeAllocatedResources(node string, SriovNetworkPolicies []
 		}, 20*time.Minute, time.Second).Should(Equal(int64(VfNumber)))
 	}
 }
-

@@ -275,7 +275,7 @@ func RunBbdevTests(cs *client.ClientSet, bbdevPod *corev1.Pod) string {
 	return bbdevTestsOutput.String()
 }
 
-// isBbdevFailedTests  checks if  any  bbdev test has failed
+// IsBbdevFailedTests  checks if  any  bbdev test has failed
 func IsBbdevFailedTests(str string) bool {
 	for _, line := range strings.Split(str, "\n") {
 		if strings.Contains(line, "Tests Failed") && !strings.Contains(line, "0") {
@@ -284,22 +284,3 @@ func IsBbdevFailedTests(str string) bool {
 	}
 	return false
 }
-
-func CountStringsByGreps(str string, stringsToGrep ...string) int {
-	count := 0
-	exists := false
-	for _, line := range strings.Split(str, "\n") {
-		for _, grep := range stringsToGrep {
-			if !strings.Contains(line, grep) {
-				exists = false
-				break
-			}
-			exists = true
-		}
-		if exists {
-			count++
-		}
-	}
-	return count
-}
-

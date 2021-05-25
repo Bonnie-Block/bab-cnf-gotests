@@ -3,6 +3,7 @@ package helper
 import (
 	"context"
 	"fmt"
+
 	ptpv1 "github.com/openshift/ptp-operator/pkg/apis/ptp/v1"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/cluster"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
@@ -113,6 +114,7 @@ func MatchingOptionalSelectorPTP(toFilter []ptpv1.NodePtpDevice) ([]ptpv1.NodePt
 	return res, nil
 }
 
+// PTPClean removes all PtpConfig from cluster
 func PTPClean(operatorNamespace string) error {
 	ptpConfigList, err := getPtpConfigsByNamespace(operatorNamespace)
 	if err != nil {
@@ -140,6 +142,7 @@ func PTPClean(operatorNamespace string) error {
 	return nil
 }
 
+// GetPtpInterfaces collects and sorts ptp interfaces based on input
 func GetPtpInterfaces(
 	config *config.Config,
 	requestedNumber int,
@@ -165,7 +168,7 @@ func GetPtpInterfaces(
 	return validPtpInterfacesList, nil
 }
 
-// FindPtpConfigsByNamespace retrieves PtpConfig list by namespace
+// getPtpConfigsByNamespace retrieves PtpConfig list by namespace
 func getPtpConfigsByNamespace(namespace string) (*ptpv1.PtpConfigList, error) {
 	ptpConfigList, err := Apiclient.PtpConfigs(namespace).List(context.Background(), metav1.ListOptions{})
 	if err != nil {

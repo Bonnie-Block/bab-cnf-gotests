@@ -20,7 +20,7 @@ var (
 	// ReporterNamespacesToDump tells to reporter from where to collect logs
 	ReporterNamespacesToDump = map[string]string{
 		"openshift-performance-addon-operator": "performance",
-		PtpOperatorNamespace:                      "sriov",
+		PtpOperatorNamespace:                   "sriov",
 		TestNamespace:                          "other",
 	}
 	// ReporterCrds tells to reporter what resources to collect

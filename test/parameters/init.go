@@ -5,8 +5,8 @@ import (
 )
 
 var (
-	SriovOperatorNamespace  string
-	PtpOperatorNamespace	string
+	SriovOperatorNamespace string
+	PtpOperatorNamespace   string
 )
 
 func init() {

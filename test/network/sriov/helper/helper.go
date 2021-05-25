@@ -2,10 +2,11 @@ package helper
 
 import (
 	"fmt"
+	"strings"
+
 	sriovv1 "github.com/k8snetworkplumbingwg/sriov-network-operator/api/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"strings"
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/sriov/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/cluster"
@@ -34,7 +35,6 @@ func DefineSriovNetwork(name string, resourceName string, ipamStatic bool) *srio
 			NetworkNamespace: parameters.OperatorTestNamespace,
 		}}
 }
-
 
 // CompareNodeSriovInterfaces validates if nodes have the same interface spec
 func CompareNodeSriovInterfaces(sriovInfos *cluster.EnabledNodes) error {

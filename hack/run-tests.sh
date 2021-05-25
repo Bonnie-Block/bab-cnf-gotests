@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 GOPATH="${GOPATH:-~/go}"
 export PATH=$PATH:$GOPATH/bin
-EXCEPTIONAL_FOLDERS_FROM_ALL_TESTS="cnf-tests"
+EXCLUDED_FOLDERS="cnf-tests"
 ALL_TESTS_FOLDERS=$(ls -d ./test/*/)
 
 function run_tests {
@@ -11,9 +11,9 @@ function run_tests {
             all_default_suites=""
             for folder in ${ALL_TESTS_FOLDERS}
             do
-              for exceptional_folder in ${EXCEPTIONAL_FOLDERS_FROM_ALL_TESTS}
+              for excluded_folder in ${EXCLUDED_FOLDERS}
                 do
-                  if [[ $folder == *"${exceptional_folder}"* ]]; then
+                  if [[ $folder == *"${excluded_folder}"* ]]; then
                     folder=''
                   fi
                 done

@@ -2,6 +2,7 @@ package helper
 
 import (
 	"fmt"
+
 	"github.com/opentracing/opentracing-go/log"
 	testclient "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
@@ -18,4 +19,3 @@ func init() {
 		log.Error(fmt.Errorf("can not load api client. Please check KUBECONFIG env var"))
 	}
 }
-

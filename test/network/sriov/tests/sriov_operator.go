@@ -224,14 +224,14 @@ var _ = Describe("CNF SRIOV", func() {
 				usualSriovPolicyConfig,
 				customSriovPolicyConfig,
 				jumboSriovPolicyConfig},
-				2)
+			2)
 		generalHelper.ValidateSriovVFsAvailableOnNodes(
 			sriovInfos.Nodes,
 			[]*sriovv1.SriovNetworkNodePolicy{
 				usualSriovPolicyConfigDiffPF,
 				customSriovPolicyConfigDiffPF,
 				jumboSriovPolicyConfigDiffPF},
-				1)
+			1)
 	})
 
 	BeforeEach(func() {
@@ -430,9 +430,9 @@ func runServerPod(
 
 	serverPod, err := generalHelper.Apiclient.Pods(
 		parameters.OperatorTestNamespace).Create(
-			context.Background(),
-			serverPodDefinition,
-			metav1.CreateOptions{})
+		context.Background(),
+		serverPodDefinition,
+		metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	waitUntilPodInStatus(
 		serverPod,
@@ -512,20 +512,20 @@ func serverCommandFor(
 
 	case parameters.CommunicationProtocolUnicastSCTP:
 		testCommand = []string{
-		"testcmd",
-		"-protocol=sctp",
-		"-listen",
-		fmt.Sprintf("-port=%d", testPort),
-		fmt.Sprintf("-interface=%s", testInterfaceName),
-		fmt.Sprintf("-server=%s", serverIP)}
+			"testcmd",
+			"-protocol=sctp",
+			"-listen",
+			fmt.Sprintf("-port=%d", testPort),
+			fmt.Sprintf("-interface=%s", testInterfaceName),
+			fmt.Sprintf("-server=%s", serverIP)}
 
 	case parameters.CommunicationProtocolUnicastUDP:
 		testCommand = []string{
-		"testcmd",
-		"-listen",
-		"-protocol=udp",
-		fmt.Sprintf("-port=%d", testPort),
-		fmt.Sprintf("-mtu=%d", mtu)}
+			"testcmd",
+			"-listen",
+			"-protocol=udp",
+			fmt.Sprintf("-port=%d", testPort),
+			fmt.Sprintf("-mtu=%d", mtu)}
 
 	case parameters.CommunicationProtocolMulticastUDP:
 		multicastAddress := multicastIPAddress
@@ -953,9 +953,9 @@ func redefinePodWithInitCommandPolicy(podObject *corev1.Pod, initImage string, c
 
 func redefinePodWithInitDebugCommands(podObject *corev1.Pod, initImage string) *corev1.Pod {
 	podObject.Spec.InitContainers = append(podObject.Spec.InitContainers, corev1.Container{Name: "initlogs",
-		Image:   initImage,
+		Image: initImage,
 		Command: []string{
-		"/bin/bash", "-c", "echo $(date) DEBUG && hostname && ip addr show && ip route && ip -6 route"}})
+			"/bin/bash", "-c", "echo $(date) DEBUG && hostname && ip addr show && ip route && ip -6 route"}})
 	return podObject
 }
 

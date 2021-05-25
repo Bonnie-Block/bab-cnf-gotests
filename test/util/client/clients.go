@@ -85,7 +85,6 @@ func New(kubeconfig string) *ClientSet {
 		panic(err)
 	}
 
-
 	clientSet.Client, err = runtimeclient.New(config, client.Options{
 		Scheme: crScheme,
 	})

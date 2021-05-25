@@ -3,13 +3,15 @@ package helper
 import (
 	"context"
 	"fmt"
+	"strings"
+	"time"
+
 	. "github.com/onsi/gomega"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"time"
 )
 
 var podWaitingTime time.Duration = 5 * time.Minute
@@ -32,3 +34,21 @@ func PullTestImage(cnfNodeLabel string, image string) {
 	Expect(err).ToNot(HaveOccurred())
 }
 
+// CountLinesByMatches returns match count int based on match pattern
+func CountLinesByMatches(str string, stringsToGrep ...string) int {
+	count := 0
+	exists := false
+	for _, line := range strings.Split(str, "\n") {
+		for _, grep := range stringsToGrep {
+			if !strings.Contains(line, grep) {
+				exists = false
+				break
+			}
+			exists = true
+		}
+		if exists {
+			count++
+		}
+	}
+	return count
+}
