@@ -2,7 +2,8 @@
 
 set -e
 
-if ! git remote -v | grep https://gitlab.cee.redhat.com/cnf/cnf-gotests.git; then
+if ! git remote -v | grep https://gitlab.cee.redhat.com/cnf/cnf-gotests.git &&
+ ! git remote -v | grep git@gitlab.cee.redhat.com:cnf/cnf-gotests.git; then
   echo "upstream cnf/cnf-gotests is not connected"
   exit 1
 fi
