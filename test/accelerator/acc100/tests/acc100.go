@@ -16,6 +16,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/accelerator/acc100/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/accelerator/helper"
 	networkHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/helper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
 )
 
@@ -25,6 +26,8 @@ var _ = Describe("Intel ACC100", func() {
 		sriovFecNodeList = &fpgav1.SriovFecNodeConfigList{}
 		testSkip         = ""
 	)
+	config, err := config.NewConfig()
+	Expect(err).ToNot(HaveOccurred())
 
 	execute.BeforeAll(func() {
 		var err error
@@ -112,7 +115,7 @@ var _ = Describe("Intel ACC100", func() {
 			}, 10*time.Minute, time.Second).Should(Equal(int64(2)))
 
 			By("Creating bbdev test pod")
-			bbdevPod := helper.CreateBbdevPod(apiclient, helper.TestNamespace, parameters.Acc100ResourceName)
+			bbdevPod := helper.CreateBbdevPod(apiclient, helper.TestNamespace, parameters.Acc100ResourceName, config)
 
 			By("Running bbdev tests")
 			bbdevTestResults := helper.RunBbdevTests(apiclient, bbdevPod)

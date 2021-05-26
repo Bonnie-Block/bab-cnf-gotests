@@ -13,6 +13,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/accelerator/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/accelerator/n3000/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 	corev1 "k8s.io/api/core/v1"
@@ -222,9 +223,10 @@ func getServiceDefinition(selector map[string]string) *corev1.Service {
 }
 
 // InstallNewN3000Image creates a pod with n3000 images, creates a new N3000cluster config  and waits for the cluster to become stable
-func InstallNewN3000Image(cs *client.ClientSet, n3000NodeName string, fpgaStatus *fpgav1.N3000FpgaStatus, image string, checksum string, port int32, service *corev1.Service) {
+func InstallNewN3000Image(cs *client.ClientSet, n3000NodeName string, fpgaStatus *fpgav1.N3000FpgaStatus, image string,
+	checksum string, port int32, service *corev1.Service, config *config.Config) {
 	CleanAllN3000Cluster(cs)
-	podWithImages := createPodWithPort(cs, parameters.TestNamespace, parameters.ImageTestCMD, port)
+	podWithImages := createPodWithPort(cs, parameters.TestNamespace, config.Network.TestContainerImage, port)
 	installWebServerInPod(cs, podWithImages)
 	err := createN3000ClusterConfig(cs, n3000NodeName, image, service.Spec.ClusterIP, checksum, fpgaStatus.PciAddr)
 	Expect(err).NotTo(HaveOccurred())

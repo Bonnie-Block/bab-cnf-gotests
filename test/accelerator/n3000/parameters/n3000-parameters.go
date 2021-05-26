@@ -15,7 +15,6 @@ const (
 	DaemonsetN3000DaemonName             = "n3000-daemonset"
 	TestNamespace                        = "vran-acceleration-operators-test"
 	ImageBitstreamFlash                  = "20ww14.5-1x2x25G-5GLDPC-v1.5.7-3.0.0-unsigned.bin"
-	ImageTestCMD                         = "docker-registry.upshift.redhat.com/n3000/cnf-gotest-tests:v3"
 	ImageDefault                         = "sr_vista_rot_2x2x25-v1.3.16.bin"
 	ChecksumBitstreamImage               = "fd4b6a9a69480e4f5ad39aa8cae85163"
 	ChecksumDefaultImage                 = "1c2010bb71e85bfa4902d8fc959e6eaf"

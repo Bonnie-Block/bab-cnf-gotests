@@ -14,6 +14,7 @@ import (
 	n3000helper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/accelerator/n3000/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/accelerator/n3000/parameters"
 	networkHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/helper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
 )
 
@@ -25,6 +26,8 @@ var _ = Describe("Intel N3000", func() {
 		n3000NodeList      = &fpgav1.N3000NodeList{}
 		fpgaStatus         = &fpgav1.N3000FpgaStatus{}
 	)
+	config, err := config.NewConfig()
+	Expect(err).ToNot(HaveOccurred())
 
 	execute.BeforeAll(func() {
 		var err error
@@ -47,7 +50,8 @@ var _ = Describe("Intel N3000", func() {
 		initialDeviceId = fpgaStatus.DeviceID
 		service, err := apiclient.Services(parameters.TestNamespace).List(context.Background(), metav1.ListOptions{})
 		Expect(err).NotTo(HaveOccurred())
-		n3000helper.InstallNewN3000Image(apiclient, n3000Node.Name, fpgaStatus, parameters.ImageBitstreamFlash, parameters.ChecksumBitstreamImage, parameters.Port, &service.Items[0])
+		n3000helper.InstallNewN3000Image(apiclient, n3000Node.Name, fpgaStatus, parameters.ImageBitstreamFlash,
+			parameters.ChecksumBitstreamImage, parameters.Port, &service.Items[0], config)
 	})
 
 	Context("opae", func() {
@@ -96,7 +100,7 @@ var _ = Describe("Intel N3000", func() {
 		// 39008
 		It("configuration", func() {
 			By("Creating bbdev test pod")
-			bbdevPod := helper.CreateBbdevPod(apiclient, parameters.TestNamespace, parameters.N3000resource5G)
+			bbdevPod := helper.CreateBbdevPod(apiclient, parameters.TestNamespace, parameters.N3000resource5G, config)
 
 			By("Running bbdev tests")
 			bbdevTestResults := helper.RunBbdevTests(apiclient, bbdevPod)

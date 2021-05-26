@@ -21,12 +21,12 @@ import (
 
 	networkHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 )
 
 const (
-	ImageTestCMD                  = "docker-registry.upshift.redhat.com/n3000/cnf-gotest-tests:v3"
 	DeploymentSriovFecName        = "sriov-fec-controller-manager"
 	TestNamespace                 = "vran-acceleration-operators-test"
 	AcceleratorDiscoveryDaemonset = "accelerator-discovery"
@@ -203,14 +203,14 @@ func matchingOptionalSelectorSriovFec(cs *client.ClientSet, toFilter []fecv1.Sri
 }
 
 // CreateBbdevPod creates bbdev pod
-func CreateBbdevPod(cs *client.ClientSet, namespace, acceleratorResourceName string) *corev1.Pod {
-	podBbdevDefinition := getBbdevPodDefinition(namespace, acceleratorResourceName)
+func CreateBbdevPod(cs *client.ClientSet, namespace, acceleratorResourceName string, config *config.Config) *corev1.Pod {
+	podBbdevDefinition := getBbdevPodDefinition(namespace, acceleratorResourceName, config)
 	pod := networkHelper.WaitUntilPodCreatedAndRunning(cs, podBbdevDefinition, TestNamespace, 5*time.Minute)
 	return pod
 }
 
 // getBbdevPodDefinition retrieves bbdev pod definition
-func getBbdevPodDefinition(namespace, acceleratorResourceName string) *corev1.Pod {
+func getBbdevPodDefinition(namespace, acceleratorResourceName string, config *config.Config) *corev1.Pod {
 	podObject := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "pod-bbdev-sample-app",
@@ -225,7 +225,7 @@ func getBbdevPodDefinition(namespace, acceleratorResourceName string) *corev1.Po
 					},
 				},
 				Name:            "bbdev-sample-app",
-				Image:           ImageTestCMD,
+				Image:           config.Network.TestContainerImage,
 				ImagePullPolicy: "IfNotPresent",
 				Command:         []string{"/bin/bash", "-c", "--"},
 				Args:            []string{"while true; do sleep 300000; done;"},

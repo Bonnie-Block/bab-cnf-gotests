@@ -53,7 +53,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 	configuration, err := config.NewConfig()
 	Expect(err).ToNot(HaveOccurred())
-	networkHelper.PullTestImage(clients, configuration.General.CnfNodeLabel, parameters.ImageTestCMD)
+	networkHelper.PullTestImage(clients, configuration.General.CnfNodeLabel, configuration.Network.TestContainerImage)
 	err = namespaces.Create(parameters.TestNamespace, clients)
 	Expect(err).ToNot(HaveOccurred())
 })
@@ -67,13 +67,16 @@ var _ = AfterSuite(func() {
 		numberReadyN3000Daemonsets, numberDesiredN3000Daemonsets := n3000helper.CountN3000Daemonsets(clients, parameters.OperatorNamespace)
 		if numberReadyN3000Daemonsets == numberDesiredN3000Daemonsets {
 			By("Cleaning up resources after n3000 test suite")
+			configuration, err := config.NewConfig()
+			Expect(err).ToNot(HaveOccurred())
 			n3000Node, err := n3000helper.GetN3000Node(clients)
 			Expect(err).NotTo(HaveOccurred())
 			fpgaStatus, err := n3000helper.GetN3000FpgaStatus(n3000Node)
 			Expect(err).NotTo(HaveOccurred())
 			service, err := clients.Services(parameters.TestNamespace).List(context.Background(), metav1.ListOptions{})
 			Expect(err).NotTo(HaveOccurred())
-			n3000helper.InstallNewN3000Image(clients, n3000Node.Name, fpgaStatus, parameters.ImageDefault, parameters.ChecksumDefaultImage, parameters.Port, &service.Items[0])
+			n3000helper.InstallNewN3000Image(clients, n3000Node.Name, fpgaStatus, parameters.ImageDefault,
+				parameters.ChecksumDefaultImage, parameters.Port, &service.Items[0], configuration)
 			n3000helper.CleanAllN3000Cluster(clients)
 			helper.CleanAllSriovFecClusterConfig(clients)
 		}

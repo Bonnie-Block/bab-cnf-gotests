@@ -49,7 +49,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 	configuration, err := config.NewConfig()
 	Expect(err).ToNot(HaveOccurred())
-	networkHelper.PullTestImage(clients, configuration.General.CnfNodeLabel, helper.ImageTestCMD)
+	networkHelper.PullTestImage(clients, configuration.General.CnfNodeLabel, configuration.Network.TestContainerImage)
 	err = namespaces.Create(helper.TestNamespace, clients)
 	Expect(err).ToNot(HaveOccurred())
 })
