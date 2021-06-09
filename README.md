@@ -48,6 +48,7 @@ The list of available features:
 * *VRF*
 * *N3000*
 * *ACC100*
+* *CNF-TESTS*
 
 #### Environment variables
 
@@ -59,13 +60,20 @@ The list of available features:
   of [testcmd](https://gitlab.cee.redhat.com/cnf/cnf-gotests/-/tree/master/cnf-gotests) (
   default `docker-registry.upshift.redhat.com/cnf-gotests/cnf-gotests-client:latest`)
 * `CNF_INTERFACES_LIST` - select the SR-IOV interfaces used in the tests. Multiple interfaces can be selected as
-  needed (ex. SR-IOV suite requires 2 interfaces).
+  needed: 
+    * SR-IOV suite requires 2 interfaces
+    * CNF-TESTS suite requires 1 interfaces
 
 ##### SR-IOV suite environment variables:
 * `SRIOV_OPERATOR_NAMESPACE` - select the namespace were sriov-network-operator installed. Default openshift-sriov-network-operator
 * `CNF_GOTESTS_SRIOV_SMOKE` - If this variable is set to true then sriov suite will be running in smoke mode. Default value false. Allowed value: `export CNF_GOTESTS_SRIOV_SMOKE="true"`
 
-#### Preconfiguration
+##### CNF-TESTS suite environment variables:
+* `DPDK_IMAGE_VERSION` - select the name of dpdk image.
+* `CNF_IMAGE_VERSION` - select the name of cnf-tests container image. 
+* `CONTAINER_REPO` - select the image registry
+
+#### Pre-configuration
 
 1. `GOPROXY="https://goproxy.io,direct"` - configure Global Proxy for Go Modules
 2. `make install` - download and install all required dependencies
@@ -93,3 +101,22 @@ Below is an e2e flow example:
 
 6. Run all tests - `make test-all`
 
+## How to run tests for cnf-tests container:
+
+Below is an e2e flow example of testing cnf-tests image:
+
+1. Make sure either podman or docker container engine is installed and running
+
+2. Select a registry were cnf-tests image is stored - `export CONTAINER_REPO=registry-proxy.engineering.redhat.com/rh-osbs`
+
+3. Select the sriov interface which will be used in cnf-tests discovery mode - - `export CNF_INTERFACES_LIST=ens1f0`
+   
+4. Select cnf-tests image version - `export CNF_IMAGE_VERSION="openshift4-cnf-tests:v4.7.2-4"`
+
+5. Select dpdk-tests image version - `export DPDK_IMAGE_VERSION="dpdk-base:v4.7.2-1"`
+
+6. Export cnf-tests feature - `export FEATURES="cnf-tests"`
+
+7. Export KUBECONFIG - `export KUBECONFIG=/path/to/kubeconfig`
+
+8. Run feature tests - `make test-features`
