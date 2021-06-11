@@ -271,3 +271,40 @@ spec:
           mode: 420
           path: /etc/modules-load.d/xt_u32-load.conf`, roleWorker)
 }
+
+func DefineDiscoverySriovPolicyList(sriovInterface *sriovv1.InterfaceExt) []*sriovv1.SriovNetworkNodePolicy {
+	sriovVFNumber := 5
+	if sriovInterface.Vendor == "8086" {
+		sriovVFNumber = 10
+	}
+	discoverySriovPolicyList := []*sriovv1.SriovNetworkNodePolicy{DefineSriovPolicy(
+		parameters.DiscoverySriovPolicy,
+		generalParameters.SriovOperatorNamespace,
+		sriovInterface,
+		sriovVFNumber,
+		"#0-4",
+		9000,
+		"sriovnic",
+		"netdevice")}
+	// Mlx device
+	if sriovInterface.Vendor == "15b3" {
+		discoverySriovPolicyList[0].Spec.IsRdma = true
+	}
+
+	// Intel device
+	if sriovInterface.Vendor == "8086" {
+		discoverySriovPolicyList[0].Spec.DeviceType = "vfio-pci"
+		// We need to add additional sriov policy for intel device in order to run sctp-sriov tests cases
+		discoverySriovPolicyList = append(discoverySriovPolicyList,
+			DefineSriovPolicy(
+				parameters.DiscoverySriovPolicyIntel,
+				generalParameters.SriovOperatorNamespace,
+				sriovInterface,
+				sriovVFNumber,
+				"#5-9",
+				9000,
+				"sriovnicintel",
+				"netdevice"))
+	}
+	return discoverySriovPolicyList
+}

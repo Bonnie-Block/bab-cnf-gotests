@@ -15,7 +15,6 @@ import (
 	. "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	generalParameters "gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 )
 
 func TestDiscovery(t *testing.T) {
@@ -36,7 +35,6 @@ var _ = BeforeSuite(func() {
 	By("Clean all Sriov Policy")
 	err := helper.CleanAllSriovPolicy()
 	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error removing all sriov policy: %s", err))
-	_ = namespaces.DeleteAndWait(Apiclient, parameters.TestNamespace, parameters.NamespaceDeleteTimeout)
 
 	By("Clean All Performance profiles")
 	config, err := config.NewConfig()
@@ -45,7 +43,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error removing all Performance profiles: %s", err))
 
 	By("Clean All PTP config")
-	CleanAllPtpConfig(
+	err = CleanAllPtpConfig(
 		generalParameters.PtpOperatorNamespace,
 		parameters.DiscoveryPtpGrandmasterNodeLabel,
 		parameters.DiscoveryPtpSlaveNodeLabel)
@@ -53,6 +51,18 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = AfterSuite(func() {
-	By(fmt.Sprintf("Clean test namespace %s", parameters.TestNamespace))
-	_ = namespaces.DeleteAndWait(Apiclient, parameters.TestNamespace, parameters.NamespaceDeleteTimeout)
+	By("Clean all Sriov Policy")
+	err := helper.CleanAllSriovPolicy()
+	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error removing all sriov policy: %s", err))
+	By("Clean all PtpConfig Policy")
+	err = CleanAllPtpConfig(
+		generalParameters.PtpOperatorNamespace,
+		parameters.DiscoveryPtpGrandmasterNodeLabel,
+		parameters.DiscoveryPtpSlaveNodeLabel)
+	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error to remove ptp configuration: %s", err))
+	config, err := config.NewConfig()
+	Expect(err).ToNot(HaveOccurred())
+	By("Clean all PerformanceProfile Policy")
+	err = helper.CleanAllPerformanceProfile(strings.Split(config.General.CnfNodeLabel, "/")[1])
+	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error removing all Performance profiles: %s", err))
 })

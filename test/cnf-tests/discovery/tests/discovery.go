@@ -24,7 +24,6 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/cluster"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 	utilNode "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
@@ -40,6 +39,7 @@ var _ = Describe("Discovery mode with all ", func() {
 	var cnfTestEnv *parameters.EnvironmentConfig
 	var containerEngine *exec.Cmd
 	var machineConfigPoolName string
+	var discoverySriovPolicyList []*sriovv1.SriovNetworkNodePolicy
 
 	execute.BeforeAll(func() {
 		By("Validate env vars")
@@ -218,11 +218,6 @@ var _ = Describe("Discovery mode with all ", func() {
 				return false, nil
 			})
 		Expect(err).ToNot(HaveOccurred(), "Did not found valid PTP Configuration")
-
-		By("Create test namespace")
-		err = namespaces.Create(parameters.TestNamespace, Apiclient)
-		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error to create test namespace: %s", err))
-
 		By("Discover SRIOV interfaces")
 		sriovInfos, err := cluster.DiscoverSriov(Apiclient, generalParam.SriovOperatorNamespace)
 		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error discover SRIOV node info: %s", err))
@@ -232,33 +227,18 @@ var _ = Describe("Discovery mode with all ", func() {
 		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error determine SRIOV interfaces: %s", err))
 
 		By("Create SRIOV Policy")
-		discoverySriovPolicy := DefineSriovPolicy(
-			"discovery-policy",
-			generalParam.SriovOperatorNamespace,
-			validSriovInterfaces[0],
-			5,
-			"#0-4",
-			9000,
-			"sriovnic",
-			"netdevice")
-		// Mlx device
-		if validSriovInterfaces[0].Vendor == "15b3" {
-			discoverySriovPolicy.Spec.IsRdma = true
+		discoverySriovPolicyList = helper.DefineDiscoverySriovPolicyList(validSriovInterfaces[0])
+		for _, networkPolicy := range discoverySriovPolicyList {
+			err = Apiclient.Create(context.Background(), networkPolicy)
+			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error Create SRIOV policy: %s", err))
 		}
-		// Intel device
-		if validSriovInterfaces[0].Vendor == "8086" {
-			discoverySriovPolicy.Spec.DeviceType = "vfio-pci"
-		}
-		err = Apiclient.Create(context.Background(), discoverySriovPolicy)
-		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error Create SRIOV policy: %s", err))
-
 		By("Waiting until SRIOV become stable")
 		WaitForSRIOVStable(generalParam.SriovOperatorNamespace, parameters.SriovWaitingTime)
 
 		By("Waiting until SRIOV resources become available")
 		ValidateSriovVFsAvailableOnNodes(
 			sriovInfos.Nodes,
-			[]*sriovv1.SriovNetworkNodePolicy{discoverySriovPolicy},
+			discoverySriovPolicyList,
 			5)
 
 		By("Create Performance Profile")
@@ -280,6 +260,12 @@ var _ = Describe("Discovery mode with all ", func() {
 	})
 
 	It("features configured", func() {
+
+		// Skip test due to the Intel bug in discovery mode
+		if discoverySriovPolicyList[0].Spec.DeviceType == "vfio-pci" {
+			Skip("Skip test on top of intel card due to the BZ: https://bugzilla.redhat.com/show_bug.cgi?id=1971274")
+		}
+
 		runCNFTests(config.General.ReportDirAbsPath, cnfTestEnv, containerEngine)
 		reportIsValid(
 			config.General.ReportDirAbsPath,

@@ -46,8 +46,9 @@ type (
 )
 
 const (
+	DiscoverySriovPolicy             = "discovery-policy"
+	DiscoverySriovPolicyIntel        = "discovery-policy-Intel"
 	DiscoveryPerformanceProfile      = "discovery-mode-profile"
-	TestNamespace                    = "discovery-mode-validation"
 	DiscoveryPtpSlaveNodeLabel       = "ptp/discovery-slave"
 	DiscoveryPtpGrandmasterNodeLabel = "ptp/discovery-grandmaster"
 	DiscoveryPtpGrandmasterProfile   = "discovery-master-profile"
@@ -55,7 +56,6 @@ const (
 	JUnitCNFTestsReportName          = "cnftests-junit.xml"
 	HostnameLabel                    = "kubernetes.io/hostname"
 	SriovWaitingTime                 = 35 * time.Minute
-	NamespaceDeleteTimeout           = 1800 * time.Second
 )
 
 const (
@@ -67,23 +67,23 @@ const (
 	// SriovNetworkNodePolicy, sctp machine config, xt_u32 machine config, PerformanceProfile, PtpConfig
 	// resources configured
 	DiscoveryAllFeaturesSkippedTest = 22
+
 	// DiscoveryExceptSriovPassedTest expected number of passed tests with:
 	// sctp machine config, xt_u32 machine config, PerformanceProfile, PtpConfig resources configured
-
 	DiscoveryExceptSriovPassedTest = 49
 	// DiscoveryExceptSriovSkippedTest expected number of skipped tests with
 	// sctp machine config, xt_u32 machine config, PerformanceProfile, PtpConfig resources configured
 	DiscoveryExceptSriovSkippedTest = 40
+
 	// DiscoveryExceptSriovPtpPassedTest expected number of passed tests with
 	// sctp machine config, xt_u32 machine config, PerformanceProfile resources configured
-
 	DiscoveryExceptSriovPtpPassedTest = 43
 	// DiscoveryExceptSriovPtpSkippedTest expected number of skipped tests with
 	// sctp machine config, xt_u32 machine config, PerformanceProfile resources configured
 	DiscoveryExceptSriovPtpSkippedTest = 46
+
 	// DiscoveryExceptSriovPtpPerformancePassedTest expected number of passed tests with
 	// sctp machine config, xt_u32 machine config  resources configured
-
 	DiscoveryExceptSriovPtpPerformancePassedTest = 18
 	// DiscoveryExceptSriovPtpPerformancePassedTestSkippedTest expected number of skipped tests with
 	// sctp machine config, xt_u32 machine config resources configured

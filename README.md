@@ -62,7 +62,7 @@ The list of available features:
 * `CNF_INTERFACES_LIST` - select the SR-IOV interfaces used in the tests. Multiple interfaces can be selected as
   needed: 
     * SR-IOV suite requires 2 interfaces
-    * CNF-TESTS suite requires 1 interfaces
+    * CNF-TESTS suite requires 1 interface
 
 ##### SR-IOV suite environment variables:
 * `SRIOV_OPERATOR_NAMESPACE` - select the namespace were sriov-network-operator installed. Default openshift-sriov-network-operator
