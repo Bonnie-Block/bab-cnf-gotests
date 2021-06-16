@@ -38,10 +38,6 @@ func TestVRFScenario(apiclient *client.ClientSet, node string, ipStack string, o
 	VRFParameters, err := parameters.NewVRFTestParameters(node, ipStack)
 	Expect(err).ToNot(HaveOccurred())
 
-	if ipStack == parameters.IPStackIPv6 {
-		Skip("Skip test due to https://bugzilla.redhat.com/show_bug.cgi?id=1947305")
-	}
-
 	if VRFParameters.Node == parameters.DiffNode && len(nodes) < 2 {
 		Skip(fmt.Sprintf("There is not enough nodes to run test with following parameter %s", node))
 	}
