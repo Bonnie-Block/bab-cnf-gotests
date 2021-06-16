@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 GOPATH="${GOPATH:-~/go}"
 export PATH=$PATH:$GOPATH/bin
-EXCLUDED_FOLDERS="cnf-tests"
+EXCLUDED_FOLDERS="cnf-tests ran"
 ALL_TESTS_FOLDERS=$(ls -d ./test/*/)
 
 function run_tests {

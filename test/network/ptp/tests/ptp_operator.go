@@ -17,8 +17,8 @@ import (
 	ptpv1 "github.com/openshift/ptp-operator/pkg/apis/ptp/v1"
 
 	. "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/ptp/parameters"
-	. "gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
+	ptp_parameters "gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/ptp/parameters"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
@@ -38,7 +38,7 @@ var _ = Describe("PTP", func() {
 			By("Configure PTP")
 			configurePTP()
 
-			masterConfigs, slaveConfigs := discoveryPTPConfiguration(PtpOperatorNamespace)
+			masterConfigs, slaveConfigs := discoveryPTPConfiguration(parameters.PtpOperatorNamespace)
 
 			masterNodeLabel = checkPtpProfileLabels(masterConfigs).label
 
@@ -48,7 +48,7 @@ var _ = Describe("PTP", func() {
 			Expect(slaveNodeLabel).ShouldNot(Equal(""), "There is no PTP slave")
 
 			By("Find all master and slave PTP pods")
-			ptpPods, err := Apiclient.Pods(PtpOperatorNamespace).List(context.Background(), metav1.ListOptions{LabelSelector: "app=linuxptp-daemon"})
+			ptpPods, err := Apiclient.Pods(parameters.PtpOperatorNamespace).List(context.Background(), metav1.ListOptions{LabelSelector: "app=linuxptp-daemon"})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(ptpPods.Items)).To(BeNumerically(">", 0), fmt.Sprint("linuxptp-daemon is not deployed on cluster"))
 
@@ -73,7 +73,7 @@ var _ = Describe("PTP", func() {
 		AfterEach(func() {
 			By("Cleaning up resources before test")
 
-			err := PTPClean(PtpOperatorNamespace)
+			err := PTPClean(parameters.PtpOperatorNamespace)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -106,21 +106,21 @@ var _ = Describe("PTP", func() {
 })
 
 func configurePTP() {
-	err := CleanAllPtpConfig(PtpOperatorNamespace, parameters.PtpGrandmasterNodeLabel, parameters.PtpSlaveNodeLabel)
+	err := CleanAllPtpConfig(parameters.PtpOperatorNamespace, ptp_parameters.PtpGrandmasterNodeLabel, ptp_parameters.PtpSlaveNodeLabel)
 	Expect(err).ToNot(HaveOccurred())
 
-	ptpNodes, err := PtpEnabled(PtpOperatorNamespace)
+	ptpNodes, err := PtpEnabled(parameters.PtpOperatorNamespace)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(len(ptpNodes)).To(BeNumerically(">", 1), "need at least two nodes with ptp capable nics")
 
 	By("Labeling the grandmaster node")
 	ptpGrandMasterNode := ptpNodes[0]
-	ptpGrandMasterNode.NodeObject, err = nodes.LabelNode(Apiclient, ptpGrandMasterNode.NodeName, parameters.PtpGrandmasterNodeLabel, "")
+	ptpGrandMasterNode.NodeObject, err = nodes.LabelNode(Apiclient, ptpGrandMasterNode.NodeName, ptp_parameters.PtpGrandmasterNodeLabel, "")
 	Expect(err).ToNot(HaveOccurred())
 
 	By("Labeling the slave node")
 	ptpSlaveNode := ptpNodes[1]
-	ptpSlaveNode.NodeObject, err = nodes.LabelNode(Apiclient, ptpSlaveNode.NodeName, parameters.PtpSlaveNodeLabel, "")
+	ptpSlaveNode.NodeObject, err = nodes.LabelNode(Apiclient, ptpSlaveNode.NodeName, ptp_parameters.PtpSlaveNodeLabel, "")
 	Expect(err).ToNot(HaveOccurred())
 
 	By("Creating the policy for the grandmaster node")
@@ -129,58 +129,58 @@ func configurePTP() {
 
 	var validPtpInterfaces []string
 	Eventually(func() error {
-		validPtpInterfaces, err = GetPtpInterfaces(config, 2, SriovOperatorNamespace)
+		validPtpInterfaces, err = GetPtpInterfaces(config, 2, parameters.SriovOperatorNamespace)
 		return err
 	}, 5*time.Minute, 2*time.Second).ShouldNot(HaveOccurred(), "Error to collect ptp supported interfaces")
 	Expect(len(validPtpInterfaces)).To(Equal(2), "Expect 2 ptp supported interfaces")
 
-	err = createConfigMultipleInterfaces(parameters.PtpGrandMasterPolicyNameArr,
+	err = createConfigMultipleInterfaces(ptp_parameters.PtpGrandMasterPolicyNameArr,
 		validPtpInterfaces,
 		"-2",
 		"-a -r -r",
-		parameters.PtpGrandmasterNodeLabel,
+		ptp_parameters.PtpGrandmasterNodeLabel,
 		pointer.Int64Ptr(5))
 	Expect(err).ToNot(HaveOccurred())
 
 	By("Creating the policy for the slave node")
-	err = createConfigMultipleInterfaces(parameters.PtpSlavePolicyNameArr,
+	err = createConfigMultipleInterfaces(ptp_parameters.PtpSlavePolicyNameArr,
 		validPtpInterfaces,
 		"-s -2",
 		"-a -r",
-		parameters.PtpSlaveNodeLabel,
+		ptp_parameters.PtpSlaveNodeLabel,
 		pointer.Int64Ptr(5))
 	Expect(err).ToNot(HaveOccurred())
 
 	By("Restart the linuxptp-daemon pods")
-	ptpPods, err := Apiclient.Pods(PtpOperatorNamespace).List(context.Background(), metav1.ListOptions{LabelSelector: "app=linuxptp-daemon"})
+	ptpPods, err := Apiclient.Pods(parameters.PtpOperatorNamespace).List(context.Background(), metav1.ListOptions{LabelSelector: "app=linuxptp-daemon"})
 	Expect(err).ToNot(HaveOccurred())
 	for _, pod := range ptpPods.Items {
-		err = Apiclient.Pods(PtpOperatorNamespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{GracePeriodSeconds: pointer.Int64Ptr(0)})
+		err = Apiclient.Pods(parameters.PtpOperatorNamespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{GracePeriodSeconds: pointer.Int64Ptr(0)})
 		Expect(err).ToNot(HaveOccurred())
 	}
 
-	daemonset, err := Apiclient.DaemonSets(PtpOperatorNamespace).Get(context.Background(), PtpDaemonsetName, metav1.GetOptions{})
+	daemonset, err := Apiclient.DaemonSets(parameters.PtpOperatorNamespace).Get(context.Background(), parameters.PtpDaemonsetName, metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	expectedNumber := daemonset.Status.DesiredNumberScheduled
 	Eventually(func() int32 {
-		daemonset, err = Apiclient.DaemonSets(PtpOperatorNamespace).Get(context.Background(), PtpDaemonsetName, metav1.GetOptions{})
+		daemonset, err = Apiclient.DaemonSets(parameters.PtpOperatorNamespace).Get(context.Background(), parameters.PtpDaemonsetName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		return daemonset.Status.NumberReady
 	}, 2*time.Minute, 2*time.Second).Should(Equal(expectedNumber))
 
 	Eventually(func() int {
-		ptpPods, err := Apiclient.Pods(PtpOperatorNamespace).List(context.Background(), metav1.ListOptions{LabelSelector: "app=linuxptp-daemon"})
+		ptpPods, err := Apiclient.Pods(parameters.PtpOperatorNamespace).List(context.Background(), metav1.ListOptions{LabelSelector: "app=linuxptp-daemon"})
 		Expect(err).ToNot(HaveOccurred())
 		return len(ptpPods.Items)
 	}, 2*time.Minute, 2*time.Second).Should(Equal(int(expectedNumber)))
 
 	err = wait.PollImmediate(1*time.Second, 60*time.Second, func() (done bool, err error) {
-		ptpPods, err := Apiclient.Pods(PtpOperatorNamespace).List(context.Background(),
+		ptpPods, err := Apiclient.Pods(parameters.PtpOperatorNamespace).List(context.Background(),
 			metav1.ListOptions{LabelSelector: "app=linuxptp-daemon", FieldSelector: fmt.Sprintf("spec.nodeName=%s", ptpSlaveNode.NodeName)})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(len(ptpPods.Items)).To(Equal(1))
 
-		logs, err := pod.GetLog(Apiclient, &ptpPods.Items[0], 2*time.Second, PtpContainerName)
+		logs, err := pod.GetLog(Apiclient, &ptpPods.Items[0], 2*time.Second, parameters.PtpContainerName)
 		Expect(err).ToNot(HaveOccurred())
 
 		if strings.Contains(logs, "new foreign master") {
@@ -264,7 +264,7 @@ func podRole(runningPod v1core.Pod, role string) bool {
 
 func waitUntilLogIsDetected(podEntry v1core.Pod, timeout time.Duration, neededLog string) {
 	Eventually(func() string {
-		logs, err := pod.GetLog(Apiclient, &podEntry, 2*time.Minute, PtpContainerName)
+		logs, err := pod.GetLog(Apiclient, &podEntry, 2*time.Minute, parameters.PtpContainerName)
 		Expect(err).ToNot(HaveOccurred())
 
 		return logs
@@ -279,10 +279,10 @@ func createConfigMultipleInterfaces(profileName []string, ifaceName []string, pt
 		ptpProfile = append(ptpProfile, ptpv1.PtpProfile{Name: &profileName[i], Interface: &ifaceName[i], Phc2sysOpts: &phc2sysOpts, Ptp4lOpts: &ptp4lOpts})
 		ptpRecommend = append(ptpRecommend, ptpv1.PtpRecommend{Profile: &profileName[i], Priority: priority, Match: []ptpv1.MatchRule{matchRule}})
 	}
-	policy := ptpv1.PtpConfig{ObjectMeta: metav1.ObjectMeta{Name: profileName[0], Namespace: PtpOperatorNamespace},
+	policy := ptpv1.PtpConfig{ObjectMeta: metav1.ObjectMeta{Name: profileName[0], Namespace: parameters.PtpOperatorNamespace},
 		Spec: ptpv1.PtpConfigSpec{Profile: ptpProfile, Recommend: ptpRecommend}}
 
-	_, err := Apiclient.PtpConfigs(PtpOperatorNamespace).Create(context.Background(), &policy, metav1.CreateOptions{})
+	_, err := Apiclient.PtpConfigs(parameters.PtpOperatorNamespace).Create(context.Background(), &policy, metav1.CreateOptions{})
 	return err
 }
 
