@@ -84,4 +84,14 @@ var _ = Describe("CNF VRF", func() {
 		Entry(describe, parameters.SameNode, parameters.IPStackIPv4),
 		Entry(describe, parameters.DiffNode, parameters.IPStackIPv4),
 	)
+
+	DescribeTable("Integration: NAD, IPAM: static, Interfaces: 1, Scheme: 2 Pods 2 VRFs ip network overlap",
+		func(node string, ipStack string) {
+			helper.TestVRFScenario(generalHelper.Apiclient, node, ipStack, false, config, nodeListString, vrfBlue.Name, vrfRed.Name)
+		},
+		Entry(describe, parameters.SameNode, parameters.IPStackIPv4),
+		Entry(describe, parameters.DiffNode, parameters.IPStackIPv4),
+		Entry(describe, parameters.SameNode, parameters.IPStackIPv6),
+		Entry(describe, parameters.DiffNode, parameters.IPStackIPv6),
+	)
 })

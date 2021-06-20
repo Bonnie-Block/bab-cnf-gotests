@@ -127,11 +127,17 @@ var _ = Describe("CNF VRF", func() {
 				parameters.TestSriovNetworkBlue, parameters.TestSriovNetworkRed)
 		},
 		Entry(describe, parameters.SameNode, parameters.IPStackIPv4),
-		Entry(describe, parameters.DiffNode, parameters.IPStackIPv4))
-})
+		Entry(describe, parameters.DiffNode, parameters.IPStackIPv4),
+	)
 
-func defineSriovNetworkMetaPluginsVRFConfig(VRFName string) func(network *sriovv1.SriovNetwork) {
-	return func(network *sriovv1.SriovNetwork) {
-		network.Spec.MetaPluginsConfig = fmt.Sprintf(`{"type": "vrf", "vrfname": "%s"}`, VRFName)
-	}
-}
+	DescribeTable("Integration: SRIOV, IPAM: static, Interfaces: 1, Scheme: 2 Pods 2 VRFs ip network overlap",
+		func(node string, ipStack string) {
+			helper.TestVRFScenario(generalHelper.Apiclient, node, ipStack, false, config, sriovInfos.Nodes,
+				parameters.TestSriovNetworkBlue, parameters.TestSriovNetworkRed)
+		},
+		Entry(describe, parameters.SameNode, parameters.IPStackIPv4),
+		Entry(describe, parameters.DiffNode, parameters.IPStackIPv4),
+		Entry(describe, parameters.SameNode, parameters.IPStackIPv6),
+		Entry(describe, parameters.DiffNode, parameters.IPStackIPv6),
+	)
+})
