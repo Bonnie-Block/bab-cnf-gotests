@@ -13,7 +13,6 @@ import (
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	generalHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
-	networkHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/helper"
 	. "gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/sriov/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/sriov/parameters"
 	generalParameters "gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
@@ -49,7 +48,6 @@ var (
 	waitingTime                time.Duration = 35 * time.Minute
 	podWaitingTime             time.Duration = 1 * time.Minute
 	dualPodWaitingTime         time.Duration = 3 * time.Minute
-	podDeafultInterfaceIPStack int
 )
 
 var _ = Describe("CNF SRIOV", func() {
@@ -75,10 +73,6 @@ var _ = Describe("CNF SRIOV", func() {
 		if sriovSmokeTestMode {
 			By("Run sriov tests in smoke mode")
 		}
-		By("Discover POD default interface ip stack versions")
-		podDeafultInterfaceIPStack = networkHelper.GetPodIPStacks(
-			config,
-			generalHelper.Apiclient)
 		By("Discover SRIOV interfaces")
 		sriovInfos, err = cluster.DiscoverSriov(
 			generalHelper.Apiclient,
@@ -1095,11 +1089,6 @@ func buildDescribeTable6(
 	By("Validating test parameters")
 	connectivityParameters, err := parameters.NewConnectivityTestParameters(mtu, connectivity, protocol)
 	Expect(err).ToNot(HaveOccurred())
-	// TODO: Remove this condition once bug https://bugzilla.redhat.com/show_bug.cgi?id=1927750 will be fixed
-	if (podDeafultInterfaceIPStack == 6 || podDeafultInterfaceIPStack == 46) &&
-		connectivityParameters.MTU == parameters.MTUJumbo {
-		Skip("Skip test due to https://bugzilla.redhat.com/show_bug.cgi?id=1927750")
-	}
 	By("Defining test resources")
 	nodeSelector := defineNodeSelector(connectivity, sriovInfos)
 	serverNetworkName := defineServerNetworkName(mtu)
@@ -1218,11 +1207,6 @@ func buildDescribeTableDual(
 	By("Validating test parameters")
 	connectivityParameters, err := parameters.NewConnectivityTestParameters(mtu, connectivity, protocol)
 	Expect(err).ToNot(HaveOccurred())
-	// TODO: Remove this condition once bug https://bugzilla.redhat.com/show_bug.cgi?id=1927750 will be fixed
-	if (podDeafultInterfaceIPStack == 6 || podDeafultInterfaceIPStack == 46) &&
-		connectivityParameters.MTU == parameters.MTUJumbo {
-		Skip("Skip test due to https://bugzilla.redhat.com/show_bug.cgi?id=1927750")
-	}
 	By("Defining test resources")
 	nodeSelector := defineNodeSelector(connectivity, sriovInfos)
 	serverNetworkName := defineServerNetworkName(mtu)
