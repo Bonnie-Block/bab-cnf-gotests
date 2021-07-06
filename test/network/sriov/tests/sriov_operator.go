@@ -108,7 +108,7 @@ var _ = Describe("CNF SRIOV", func() {
 			"test-policy-usual",
 			generalParameters.SriovOperatorNamespace,
 			validSriovInterfaces[0],
-			5,
+			6,
 			"#0-1",
 			1500,
 			"testresourceusual",
@@ -117,27 +117,17 @@ var _ = Describe("CNF SRIOV", func() {
 			"test-policy-custom",
 			generalParameters.SriovOperatorNamespace,
 			validSriovInterfaces[0],
-			5,
+			6,
 			"#2-3",
 			1450,
 			"testresourcecustom",
 			"netdevice")
-		// TODO: Change policy jumboSriovPolicyConfig to
-		// jumboSriovPolicyConfig := DefineSriovPolicy(
-		//"test-policy-jumbo",
-		//validSriovInterfaces[0],
-		//5,
-		//"#0-1",
-		//9000,
-		//"testresourcejumbo",
-		//"netdevice")
-		// when bug https://bugzilla.redhat.com/show_bug.cgi?id=1926279 will be fixed
 		jumboSriovPolicyConfig := generalHelper.DefineSriovPolicy(
 			"test-policy-jumbo",
 			generalParameters.SriovOperatorNamespace,
-			validSriovInterfaces[1],
-			5,
-			"#0-1",
+			validSriovInterfaces[0],
+			6,
+			"#4-5",
 			9000,
 			"testresourcejumbo",
 			"netdevice")
@@ -146,7 +136,7 @@ var _ = Describe("CNF SRIOV", func() {
 			generalParameters.SriovOperatorNamespace,
 			validSriovInterfaces[1],
 			5,
-			"#2-2",
+			"#0-0",
 			1500,
 			"testresourceusualdiff",
 			"netdevice")
@@ -155,7 +145,7 @@ var _ = Describe("CNF SRIOV", func() {
 			generalParameters.SriovOperatorNamespace,
 			validSriovInterfaces[1],
 			5,
-			"#3-3",
+			"#1-1",
 			1450,
 			"testresourcecustomdiff",
 			"netdevice")
@@ -164,7 +154,7 @@ var _ = Describe("CNF SRIOV", func() {
 			generalParameters.SriovOperatorNamespace,
 			validSriovInterfaces[1],
 			5,
-			"#4-4",
+			"#2-2",
 			9000,
 			"testresourcejumbodiff",
 			"netdevice")
@@ -542,13 +532,11 @@ func serverCommandFor(
 			fmt.Sprintf("-server=%s", multicastAddress)}
 		if negative {
 			if mtu < parameters.MTUJumbo {
-				// TODO: change mtu+100 to mtu+50 once https://bugzilla.redhat.com/show_bug.cgi?id=1926279 will be fixed
-				testCommand = append(testCommand, fmt.Sprintf("-mtu=%d", mtu+100))
+				testCommand = append(testCommand, fmt.Sprintf("-mtu=%d", mtu+50))
 			} else {
 				testCommand = append(testCommand, fmt.Sprintf("-mtu=%d", mtu))
 			}
 		} else {
-			// TODO: change mtu+100 to mtu+50 once https://bugzilla.redhat.com/show_bug.cgi?id=1926279 will be fixed
 			testCommand = append(testCommand, fmt.Sprintf("-mtu=%d", mtu-100))
 		}
 	case parameters.CommunicationProtocolBroadcastUDP:
@@ -641,14 +629,12 @@ func defineTestCommandParameters(
 	case negative:
 		var parameterMtu string
 		if mtu < parameters.MTUJumbo {
-			// TODO: change mtu+100 to mtu+50 once https://bugzilla.redhat.com/show_bug.cgi?id=1926279 will be fixed
-			parameterMtu = fmt.Sprintf("-mtu=%d", mtu+100)
+			parameterMtu = fmt.Sprintf("-mtu=%d", mtu+50)
 		} else {
 			parameterMtu = fmt.Sprintf("-mtu=%d", mtu)
 		}
 		testCommand = append(testCommand, "-negative", parameterMtu)
 	default:
-		// TODO: change mtu+100 to mtu+50 once https://bugzilla.redhat.com/show_bug.cgi?id=1926279 will be fixed
 		testCommand = append(testCommand, fmt.Sprintf("-mtu=%d", mtu-100))
 	}
 	testCommand = append(testCommand, fmt.Sprintf("-server=%s", serverIP), fmt.Sprintf("-protocol=%s", protocolOption))
