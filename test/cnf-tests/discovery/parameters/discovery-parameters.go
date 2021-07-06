@@ -47,7 +47,7 @@ type (
 
 const (
 	DiscoverySriovPolicy             = "discovery-policy"
-	DiscoverySriovPolicyIntel        = "discovery-policy-Intel"
+	DiscoverySriovPolicyIntel        = "discovery-policy-intel"
 	DiscoveryPerformanceProfile      = "discovery-mode-profile"
 	DiscoveryPtpSlaveNodeLabel       = "ptp/discovery-slave"
 	DiscoveryPtpGrandmasterNodeLabel = "ptp/discovery-grandmaster"
