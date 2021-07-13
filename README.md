@@ -19,11 +19,10 @@ Mandatory:
 * SCTP via machine config
 
 Optional:
-* N3000 operator
 * Sriov-fec operator
 
 NOTICE: The [cnf-gotests](https://gitlab.cee.redhat.com/cnf/cnf-gotests) removes existing configuration such as
-PtpConfig, SR-IOV, N3000Cluster, SriovFecClusterConfig configs .
+PtpConfig, SR-IOV, SriovFecClusterConfig configs .
 
 *More tests you can find in the upstream project
 - [cnf-tests](https://github.com/openshift-kni/cnf-features-deploy/tree/master/cnf-tests)*
@@ -46,7 +45,6 @@ The list of available features:
 * *SR-IOV*
 * *PTP*
 * *VRF*
-* *N3000*
 * *ACC100*
 * *CNF-TESTS*
 

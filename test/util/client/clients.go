@@ -8,7 +8,6 @@ import (
 	"github.com/golang/glog"
 	sriovv1 "github.com/k8snetworkplumbingwg/sriov-network-operator/api/v1"
 	clientsriovv1 "github.com/k8snetworkplumbingwg/sriov-network-operator/pkg/client/clientset/versioned/typed/sriovnetwork/v1"
-	fpgav1 "github.com/open-ness/openshift-operator/N3000/api/v1"
 	fecv1 "github.com/open-ness/openshift-operator/sriov-fec/api/v1"
 	performancev2 "github.com/openshift-kni/performance-addon-operators/api/v2"
 	clientconfigv1 "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
@@ -78,7 +77,6 @@ func New(kubeconfig string) *ClientSet {
 	clientgoscheme.AddToScheme(crScheme)
 	netattdefv1.SchemeBuilder.AddToScheme(crScheme)
 	sriovv1.AddToScheme(crScheme)
-	fpgav1.AddToScheme(crScheme)
 	mcv1.AddToScheme(crScheme)
 	fecv1.AddToScheme(crScheme)
 	if err := performancev2.AddToScheme(crScheme); err != nil {
