@@ -30,7 +30,7 @@ func GetSriovFecNodeForAcc100(cs *client.ClientSet) (*fecv1.SriovFecNodeConfig, 
 }
 
 // GetSriovFecAcc100ClusterConfigDefinition retrieves SriovFecClusterConfig definition
-func GetSriovFecAcc100ClusterConfigDefinition(cs *client.ClientSet, isDefaultConfig bool) *fecv1.SriovFecClusterConfig {
+func GetSriovFecAcc100ClusterConfigDefinition(cs *client.ClientSet, isDefaultConfig bool, isSingleNode bool) *fecv1.SriovFecClusterConfig {
 	var err error
 	var sriovFecNodeConfig *fecv1.SriovFecNodeConfig
 	var accelerator *fecv1.SriovAccelerator
@@ -79,6 +79,6 @@ func GetSriovFecAcc100ClusterConfigDefinition(cs *client.ClientSet, isDefaultCon
 				},
 			},
 		}}
-
+	sriovFecClusterConfig.Spec.DrainSkip = isSingleNode
 	return sriovFecClusterConfig
 }

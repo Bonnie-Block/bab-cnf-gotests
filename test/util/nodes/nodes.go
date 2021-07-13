@@ -274,3 +274,11 @@ func WaitForCondition(
 		return false, nil
 	})
 }
+
+func IsSingleNodeCluster(cs *client.ClientSet) (bool, error) {
+	nodes, err := cs.Nodes().List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return false, err
+	}
+	return len(nodes.Items) == 1, nil
+}

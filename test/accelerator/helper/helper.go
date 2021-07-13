@@ -56,12 +56,14 @@ func IsSriovFecDeploymentInstalled(cs *client.ClientSet, operatorNamespace strin
 }
 
 // InstallSriovFecClusterNodeConfig creates a new SriovFecClusterConfig and waits for the cluster to become stable
-func InstallSriovFecClusterNodeConfig(cs *client.ClientSet, fecConfig *fecv1.SriovFecClusterConfig) {
+func InstallSriovFecClusterNodeConfig(cs *client.ClientSet, fecConfig *fecv1.SriovFecClusterConfig, isSingleNode bool) {
 	CleanAllSriovFecClusterConfig(cs)
 	createSriovFecClusterConfig(cs, fecConfig)
 	fmt.Println("Waiting for the cluster to become stable")
-	err := nodes.WaitForClusterToBeStable(cs)
-	Expect(err).NotTo(HaveOccurred())
+	if !isSingleNode {
+		err := nodes.WaitForClusterToBeStable(cs)
+		Expect(err).NotTo(HaveOccurred())
+	}
 
 	Eventually(func() string {
 		sriovFecNodeConfigList, err := GetSriovFecNodeConfigList(cs)

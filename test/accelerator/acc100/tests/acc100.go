@@ -18,6 +18,7 @@ import (
 	generalHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 )
 
 var _ = Describe("Intel ACC100", func() {
@@ -28,6 +29,7 @@ var _ = Describe("Intel ACC100", func() {
 	)
 	config, err := config.NewConfig()
 	Expect(err).ToNot(HaveOccurred())
+	var isSingleNode bool
 
 	execute.BeforeAll(func() {
 		var err error
@@ -63,6 +65,8 @@ var _ = Describe("Intel ACC100", func() {
 		Expect(numberReadySriovFecDaemonsets).To(Equal(numberDesiredSriovFecDaemonsets),
 			"Not all sriov-fec daemonsets are ready")
 
+		isSingleNode, err = nodes.IsSingleNodeCluster(generalHelper.Apiclient)
+
 	})
 
 	Context("sriov-fec", func() {
@@ -74,8 +78,8 @@ var _ = Describe("Intel ACC100", func() {
 			}
 
 			By("Creating SriovFecClusterConfig")
-			fecConfig = acc100helper.GetSriovFecAcc100ClusterConfigDefinition(generalHelper.Apiclient, false)
-			helper.InstallSriovFecClusterNodeConfig(generalHelper.Apiclient, fecConfig)
+			fecConfig = acc100helper.GetSriovFecAcc100ClusterConfigDefinition(generalHelper.Apiclient, false, isSingleNode)
+			helper.InstallSriovFecClusterNodeConfig(generalHelper.Apiclient, fecConfig, isSingleNode)
 		})
 
 		AfterEach(func() {
@@ -83,8 +87,8 @@ var _ = Describe("Intel ACC100", func() {
 			Expect(err).NotTo(HaveOccurred())
 			if isSriovFecDeploymentReady {
 				By("Cleaning up resources after sriov-fec tests")
-				fecConfig := acc100helper.GetSriovFecAcc100ClusterConfigDefinition(generalHelper.Apiclient, true)
-				helper.InstallSriovFecClusterNodeConfig(generalHelper.Apiclient, fecConfig)
+				fecConfig := acc100helper.GetSriovFecAcc100ClusterConfigDefinition(generalHelper.Apiclient, true, isSingleNode)
+				helper.InstallSriovFecClusterNodeConfig(generalHelper.Apiclient, fecConfig, isSingleNode)
 
 				Eventually(func() int64 {
 					testedNode, err := generalHelper.Apiclient.CoreV1Interface.Nodes().Get(context.TODO(), fecConfig.Spec.Nodes[0].NodeName, metav1.GetOptions{})
@@ -128,5 +132,4 @@ var _ = Describe("Intel ACC100", func() {
 			Expect(helper.IsBbdevFailedTests(bbdevTestResults)).To(BeFalse(), fmt.Sprintf("There are failed tests.\n %s", bbdevTestResults))
 		})
 	})
-
 })
