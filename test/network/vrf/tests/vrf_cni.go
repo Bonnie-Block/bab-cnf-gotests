@@ -35,7 +35,6 @@ var _ = Describe("CNF VRF", func() {
 	}
 
 	var nodeListString []string
-	var masterMacVlanInterfaceName string
 	var vrfBlue netattdefv1.NetworkAttachmentDefinition
 	var vrfRed netattdefv1.NetworkAttachmentDefinition
 	config, err := config.NewConfig()
@@ -54,21 +53,21 @@ var _ = Describe("CNF VRF", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Select host interface for mac-vlan")
+		var macVlanInterfaces []nodes.NodeInterface
 		nodeInterfaceList, err := nodes.GetPhysicalNodeInterfaces(generalHelper.Apiclient, nodesList[0].Name)
 		Expect(err).ToNot(HaveOccurred())
 		for _, oneInterface := range nodeInterfaceList {
 			if !oneInterface.Bridge && !oneInterface.DefRoute && oneInterface.Physical && oneInterface.UP {
-				masterMacVlanInterfaceName = oneInterface.Name
+				macVlanInterfaces = append(macVlanInterfaces, oneInterface)
 			}
 		}
-		if masterMacVlanInterfaceName == "" {
-			Skip("There is not valid interface on Node for VRF tests")
-		}
+
+		validMacVlanInterfaces, err := helper.GetNodeInterfaces(config, macVlanInterfaces, 1)
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Adding NADs")
-		vrfBlue = helper.AddVRFNad(generalHelper.Apiclient, "test-vrf-blue", masterMacVlanInterfaceName, parameters.VRFBlueName)
-		vrfRed = helper.AddVRFNad(generalHelper.Apiclient, "test-vrf-red", masterMacVlanInterfaceName, parameters.VRFRedName)
+		vrfBlue = helper.AddVRFNad(generalHelper.Apiclient, "test-vrf-blue", validMacVlanInterfaces[0].Name, parameters.VRFBlueName)
+		vrfRed = helper.AddVRFNad(generalHelper.Apiclient, "test-vrf-red", validMacVlanInterfaces[0].Name, parameters.VRFRedName)
 	})
 
 	BeforeEach(func() {

@@ -62,11 +62,14 @@ var _ = Describe("CNF VRF", func() {
 		sriovInterfaces, err := sriovInfos.FindSriovDevices(sriovInfos.Nodes[0])
 		Expect(err).ToNot(HaveOccurred())
 
+		validSriovInterfaces, err := config.GetSriovInterfaces(sriovInterfaces, 1)
+		Expect(err).ToNot(HaveOccurred())
+
 		By("Define SRIOV Policy")
 		usualSriovPolicyConfig := generalHelper.DefineSriovPolicy(
 			parameters.SriovPolicyName,
 			generalParam.SriovOperatorNamespace,
-			sriovInterfaces[0],
+			validSriovInterfaces[0],
 			5,
 			"#0-4",
 			1500,
@@ -78,11 +81,11 @@ var _ = Describe("CNF VRF", func() {
 
 		By("Define SRIOV Networks")
 		ipam := `{"type": "static"}`
-		err = networkHelper.CreateSriovNetwork(generalHelper.Apiclient, sriovInterfaces[0], parameters.TestSriovNetworkRed, parameters.TestNamespace,
+		err = networkHelper.CreateSriovNetwork(generalHelper.Apiclient, validSriovInterfaces[0], parameters.TestSriovNetworkRed, parameters.TestNamespace,
 			generalParam.SriovOperatorNamespace, parameters.ResourceNameVRF, ipam, helper.DefineSriovNetworkMetaPluginsVRFConfig(parameters.VRFRedName))
 		Expect(err).ToNot(HaveOccurred())
 
-		err = networkHelper.CreateSriovNetwork(generalHelper.Apiclient, sriovInterfaces[0], parameters.TestSriovNetworkBlue, parameters.TestNamespace,
+		err = networkHelper.CreateSriovNetwork(generalHelper.Apiclient, validSriovInterfaces[0], parameters.TestSriovNetworkBlue, parameters.TestNamespace,
 			generalParam.SriovOperatorNamespace, parameters.ResourceNameVRF, ipam, helper.DefineSriovNetworkMetaPluginsVRFConfig(parameters.VRFBlueName))
 		Expect(err).ToNot(HaveOccurred())
 

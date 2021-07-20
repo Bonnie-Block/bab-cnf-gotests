@@ -57,10 +57,11 @@ The list of available features:
 * `NETWORK_TEST_CONTAINER_IMAGE` - path where to download the container image
   of [testcmd](https://gitlab.cee.redhat.com/cnf/cnf-gotests/-/tree/master/cnf-gotests) (
   default `docker-registry.upshift.redhat.com/cnf-gotests/cnf-gotests-client:latest`)
-* `CNF_INTERFACES_LIST` - select the SR-IOV interfaces used in the tests. Multiple interfaces can be selected as
+* `CNF_INTERFACES_LIST` - select the interfaces used in the tests. Multiple interfaces can be selected as
   needed: 
     * SR-IOV suite requires 2 interfaces
     * CNF-TESTS suite requires 1 interface
+    * VRF suite requires 2 interfaces
 
 ##### SR-IOV suite environment variables:
 * `SRIOV_OPERATOR_NAMESPACE` - select the namespace were sriov-network-operator installed. Default openshift-sriov-network-operator
@@ -95,7 +96,7 @@ Below is an e2e flow example:
 
 4. Download and install needed dependencies - `make install`
 
-5. Select SR-IOV supported interfaces - `export CNF_INTERFACES_LIST=ens1f0,ens1f1`
+5. Select interfaces - `export CNF_INTERFACES_LIST=ens1f0,ens1f1`
 
 6. Run all tests - `make test-all`
 

@@ -4,13 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 
-	generalHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
 	netattdefv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
+	generalHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
+
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/vrf/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/vrf/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
@@ -34,10 +34,8 @@ var _ = Describe("CNF VRF", func() {
 
 		return fmt.Sprintf("%s", string(params))
 	}
-	
+
 	var nodeListString []string
-	var masterMacVlanInterfaceName string
-	var secondMacVlanInterfaceName string
 	var vrfBlue netattdefv1.NetworkAttachmentDefinition
 	var vrfRed netattdefv1.NetworkAttachmentDefinition
 	config, err := config.NewConfig()
@@ -54,35 +52,23 @@ var _ = Describe("CNF VRF", func() {
 		By(fmt.Sprintf("Create %s namespace", parameters.TestNamespace))
 		err = namespaces.Create(parameters.TestNamespace, generalHelper.Apiclient)
 		Expect(err).ToNot(HaveOccurred())
-		for i := range nodesList {
-			By("Select host interface for mac-vlan")
-			nodeInterfaceList, err := nodes.GetPhysicalNodeInterfaces(generalHelper.Apiclient, nodesList[i].Name)
-			Expect(err).ToNot(HaveOccurred())
-			for _, oneInterface := range nodeInterfaceList {
-				if !oneInterface.Bridge && !oneInterface.DefRoute && oneInterface.Physical && oneInterface.UP {
-					masterMacVlanInterfaceName = oneInterface.Name
-				}
-			}
-			if masterMacVlanInterfaceName == "" {
-				Skip("There is not valid interface on Node for VRF tests")
-			}
-			Expect(err).ToNot(HaveOccurred())
-			
-			By("Select host dual interface for mac-vlan")
-			nodeInterfaceList, err = nodes.GetPhysicalNodeInterfaces(generalHelper.Apiclient, nodesList[i].Name)
-			Expect(err).ToNot(HaveOccurred())
-			for _, secondInterface := range nodeInterfaceList {
-				if !secondInterface.Bridge && !secondInterface.DefRoute && secondInterface.Name != masterMacVlanInterfaceName && secondInterface.Physical && secondInterface.UP {
-					secondMacVlanInterfaceName = secondInterface.Name
-				}
-			}
-			if secondMacVlanInterfaceName == "" {
-				Skip("There is not two valid interfaces on Node for VRF tests")
+
+		By("Select host interfaces for mac-vlan")
+		var macVlanInterfaces []nodes.NodeInterface
+		nodeInterfaceList, err := nodes.GetPhysicalNodeInterfaces(generalHelper.Apiclient, nodesList[0].Name)
+		Expect(err).ToNot(HaveOccurred())
+		for _, oneInterface := range nodeInterfaceList {
+			if !oneInterface.Bridge && !oneInterface.DefRoute && oneInterface.Physical && oneInterface.UP {
+				macVlanInterfaces = append(macVlanInterfaces, oneInterface)
 			}
 		}
+
+		validMacVlanInterfaces, err := helper.GetNodeInterfaces(config, macVlanInterfaces, 2)
+		Expect(err).ToNot(HaveOccurred())
+
 		By("Adding NADs")
-		vrfBlue = helper.AddVRFNad(generalHelper.Apiclient, "vrf-blue", masterMacVlanInterfaceName, parameters.VRFBlueName)
-		vrfRed = helper.AddVRFNad(generalHelper.Apiclient, "vrf-red", secondMacVlanInterfaceName, parameters.VRFRedName)
+		vrfBlue = helper.AddVRFNad(generalHelper.Apiclient, "vrf-blue", validMacVlanInterfaces[0].Name, parameters.VRFBlueName)
+		vrfRed = helper.AddVRFNad(generalHelper.Apiclient, "vrf-red", validMacVlanInterfaces[1].Name, parameters.VRFRedName)
 	})
 
 	BeforeEach(func() {

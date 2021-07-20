@@ -50,13 +50,15 @@ var _ = Describe("CNF VRF", func() {
 
 	execute.BeforeAll(func() {
 		By("Discover SRIOV Node Interfaces")
-		sriovInfos, err = cluster.DiscoverSriov(generalHelper.Apiclient, generalParameters.SriovOperatorNamespace)
+		sriovInfos, err = cluster.DiscoverSriov(
+			generalHelper.Apiclient,
+			generalParameters.SriovOperatorNamespace)
+		Expect(err).ToNot(HaveOccurred())
+		sriovInterfaces, err := sriovInfos.FindSriovDevices(sriovInfos.Nodes[0])
 		Expect(err).ToNot(HaveOccurred())
 
-		numInterfaces := sriovInfos.States
-		if len(numInterfaces) < 2 {
-			Skip(fmt.Sprintf("There is not enough sriov interfaces to run this test"))
-		}
+		validSriovInterfaces, err := config.GetSriovInterfaces(sriovInterfaces, 2)
+		Expect(err).ToNot(HaveOccurred())
 
 		By(fmt.Sprintf("Clean test namespace %s", parameters.TestNamespace))
 		namespaces.Clean(generalParameters.SriovOperatorNamespace, parameters.TestNamespace, generalHelper.Apiclient, false)
@@ -69,12 +71,10 @@ var _ = Describe("CNF VRF", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Define SRIOV Policies")
-		sriovInterfaces, err := sriovInfos.FindSriovDevices(sriovInfos.Nodes[0])
-		Expect(err).ToNot(HaveOccurred())
 
-		usualSriovPolicyConfig1 := generalHelper.DefineSriovPolicy(parameters.SriovPolicyName, generalParam.SriovOperatorNamespace, sriovInterfaces[0],
+		usualSriovPolicyConfig1 := generalHelper.DefineSriovPolicy(parameters.SriovPolicyName, generalParam.SriovOperatorNamespace, validSriovInterfaces[0],
 			5, "#0-4", 1500, parameters.ResourceNameVRFVf1, "netdevice")
-		usualSriovPolicyConfig2 := generalHelper.DefineSriovPolicy(parameters.SriovPolicyName, generalParam.SriovOperatorNamespace, sriovInterfaces[1],
+		usualSriovPolicyConfig2 := generalHelper.DefineSriovPolicy(parameters.SriovPolicyName, generalParam.SriovOperatorNamespace, validSriovInterfaces[1],
 			5, "#0-4", 1500, parameters.ResourceNameVRFVf2, "netdevice")
 
 		err = generalHelper.Apiclient.Create(context.Background(), usualSriovPolicyConfig1)

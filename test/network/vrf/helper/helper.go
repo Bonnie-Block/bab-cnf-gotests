@@ -20,6 +20,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/vrf/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 )
 
@@ -43,7 +44,7 @@ func TestVRFScenario(apiclient *client.ClientSet, node string, ipStack string, i
 	if VRFParameters.Node == parameters.DiffNode && len(nodes) < 2 {
 		Skip(fmt.Sprintf("There is not enough nodes to run test with following parameter %s", node))
 	}
-	
+
 	By("Validating test parameters")
 	if VRFParameters.Node == parameters.SameNode {
 		podClientNodeLabel = nodes[0]
@@ -258,4 +259,28 @@ func DefineSriovNetworkMetaPluginsVRFConfig(VRFName string) func(network *sriovv
 	return func(network *sriovv1.SriovNetwork) {
 		network.Spec.MetaPluginsConfig = fmt.Sprintf(`{"type": "vrf", "vrfname": "%s"}`, VRFName)
 	}
+}
+
+// GetNodeInterfaces returns list of requested interfaces
+func GetNodeInterfaces(c *config.Config, nodeInterfaceList []nodes.NodeInterface, requestedNumber int) ([]nodes.NodeInterface, error) {
+	var validNodeIntefaceList []nodes.NodeInterface
+	if c.Network.SriovInterfaces == "" {
+		return nil, fmt.Errorf("Environment variable CNF_INTERFACES_LIST is not set")
+	}
+	requestedNodeInterfaceList := strings.Split(c.Network.SriovInterfaces, ",")
+	if len(requestedNodeInterfaceList) < requestedNumber {
+		return nil, fmt.Errorf("CNF_INTERFACES_LIST has less interfaces than requested by test suite")
+	}
+
+	for _, availableNodeInterface := range nodeInterfaceList {
+		for _, requestedNodeInterface := range requestedNodeInterfaceList {
+			if availableNodeInterface.Name == requestedNodeInterface {
+				validNodeIntefaceList = append(validNodeIntefaceList, availableNodeInterface)
+			}
+		}
+	}
+	if len(validNodeIntefaceList) < requestedNumber {
+		return nil, fmt.Errorf("Requested interfaces %v are not present on cluster node", requestedNodeInterfaceList)
+	}
+	return validNodeIntefaceList, nil
 }
