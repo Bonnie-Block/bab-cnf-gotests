@@ -129,10 +129,10 @@ var _ = Describe("CNF VRF", func() {
 
 		}, 3*time.Minute, 10*time.Second).Should(BeTrue())
 	})
-
+	//36304
 	DescribeTable("Integration: SRIOV, IPAM: static, Interfaces: 2, Scheme: 2 Pods 2 VRFs 2 VFs",
 		func(node string, ipStack string) {
-			helper.TestVRFScenario(generalHelper.Apiclient, node, ipStack, false, config, sriovInfos.Nodes,
+			helper.TestVRFScenario(generalHelper.Apiclient, node, ipStack, "overLapToVRF", config, sriovInfos.Nodes,
 				parameters.TestSriovNetworkBlue, parameters.TestSriovNetworkRed)
 		},
 		Entry(describe, parameters.SameNode, parameters.IPStackIPv4),

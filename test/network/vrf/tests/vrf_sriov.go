@@ -120,10 +120,10 @@ var _ = Describe("CNF VRF", func() {
 
 		}, 3*time.Minute, 10*time.Second).Should(BeTrue())
 	})
-
+	//36303
 	DescribeTable("Integration: SRIOV, IPAM: static, Interfaces: 1, Scheme: 2 Pods 2 VRFs OCP Primary network overlap",
 		func(node string, ipStack string) {
-			helper.TestVRFScenario(generalHelper.Apiclient, node, ipStack, true, config, sriovInfos.Nodes,
+			helper.TestVRFScenario(generalHelper.Apiclient, node, ipStack, "overLapToSDN", config, sriovInfos.Nodes,
 				parameters.TestSriovNetworkBlue, parameters.TestSriovNetworkRed)
 		},
 		Entry(describe, parameters.SameNode, parameters.IPStackIPv4),
@@ -132,7 +132,7 @@ var _ = Describe("CNF VRF", func() {
 
 	DescribeTable("Integration: SRIOV, IPAM: static, Interfaces: 1, Scheme: 2 Pods 2 VRFs ip network overlap",
 		func(node string, ipStack string) {
-			helper.TestVRFScenario(generalHelper.Apiclient, node, ipStack, false, config, sriovInfos.Nodes,
+			helper.TestVRFScenario(generalHelper.Apiclient, node, ipStack, "overLapToVRF", config, sriovInfos.Nodes,
 				parameters.TestSriovNetworkBlue, parameters.TestSriovNetworkRed)
 		},
 		Entry(describe, parameters.SameNode, parameters.IPStackIPv4),

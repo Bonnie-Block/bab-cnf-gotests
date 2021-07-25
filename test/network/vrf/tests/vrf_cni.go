@@ -77,17 +77,30 @@ var _ = Describe("CNF VRF", func() {
 		Expect(err).ToNot(HaveOccurred())
 	})
 
+	//36305
 	DescribeTable("Integration: NAD, IPAM: static, Interfaces: 1, Scheme: 2 Pods 2 VRFs OCP Primary network overlap",
 		func(node string, ipStack string) {
-			helper.TestVRFScenario(generalHelper.Apiclient, node, ipStack, true, config, nodeListString, vrfBlue.Name, vrfRed.Name)
+			helper.TestVRFScenario(generalHelper.Apiclient, node, ipStack, "overLapToSDN", config, nodeListString, vrfBlue.Name, vrfRed.Name)
 		},
 		Entry(describe, parameters.SameNode, parameters.IPStackIPv4),
 		Entry(describe, parameters.DiffNode, parameters.IPStackIPv4),
 	)
 
+	//36313
 	DescribeTable("Integration: NAD, IPAM: static, Interfaces: 1, Scheme: 2 Pods 2 VRFs ip network overlap",
 		func(node string, ipStack string) {
-			helper.TestVRFScenario(generalHelper.Apiclient, node, ipStack, false, config, nodeListString, vrfBlue.Name, vrfRed.Name)
+			helper.TestVRFScenario(generalHelper.Apiclient, node, ipStack, "overLapToVRF", config, nodeListString, vrfBlue.Name, vrfRed.Name)
+		},
+		Entry(describe, parameters.SameNode, parameters.IPStackIPv4),
+		Entry(describe, parameters.DiffNode, parameters.IPStackIPv4),
+		Entry(describe, parameters.SameNode, parameters.IPStackIPv6),
+		Entry(describe, parameters.DiffNode, parameters.IPStackIPv6),
+	)
+
+	//36320
+	DescribeTable("Integration: NAD, IPAM: static, Interfaces: 1, Scheme: 2 Pods 2 VRFs Different IP networks",
+		func(node string, ipStack string) {		
+			helper.TestVRFScenario(generalHelper.Apiclient, node, ipStack, "nonOverLap", config, nodeListString, vrfBlue.Name, vrfRed.Name)
 		},
 		Entry(describe, parameters.SameNode, parameters.IPStackIPv4),
 		Entry(describe, parameters.DiffNode, parameters.IPStackIPv4),

@@ -24,16 +24,18 @@ import (
 )
 
 // TestVRFScenario verifies that VRF feature works as expected
-func TestVRFScenario(apiclient *client.ClientSet, node string, ipStack string, overLapToSDN bool, config *config.Config, nodes []string,
+func TestVRFScenario(apiclient *client.ClientSet, node string, ipStack string, ipOverLap string, config *config.Config, nodes []string,
 	VRFNetworkBlue string, VRFNetworkRed string) {
-	var podClientNodeLabel string
-	var podServerNodeLabel string
-	var redVRFNetworkPrefix string
-	var blueVRFNetworkPrefix string
-	var podClientVRFRedIPAddress string
-	var podServerVRFRedIPAddress string
-	var podClientVRFBlueIPAddress string
-	var podServerVRFBlueIPAddress string
+	var (
+		podClientNodeLabel        string
+		podServerNodeLabel        string
+		redVRFNetworkPrefix       string
+		blueVRFNetworkPrefix      string
+		podClientVRFRedIPAddress  string
+		podServerVRFRedIPAddress  string
+		podClientVRFBlueIPAddress string
+		podServerVRFBlueIPAddress string
+	)
 
 	VRFParameters, err := parameters.NewVRFTestParameters(node, ipStack)
 	Expect(err).ToNot(HaveOccurred())
@@ -41,23 +43,26 @@ func TestVRFScenario(apiclient *client.ClientSet, node string, ipStack string, o
 	if VRFParameters.Node == parameters.DiffNode && len(nodes) < 2 {
 		Skip(fmt.Sprintf("There is not enough nodes to run test with following parameter %s", node))
 	}
+	
+	By("Validating test parameters")
+	if VRFParameters.Node == parameters.SameNode {
+		podClientNodeLabel = nodes[0]
+		podServerNodeLabel = nodes[0]
+	} else if VRFParameters.Node == parameters.DiffNode {
+		podClientNodeLabel = nodes[0]
+		podServerNodeLabel = nodes[1]
+	}
 
-	switch {
+	switch ipOverLap {
 
-	case overLapToSDN == true:
+	case "overLapToSDN":
 
 		if ipStack == parameters.IPStackIPv6 {
 			Skip("Skipping SDN IPv6 is not currently tested")
 		}
-
-		By("Validating test parameters")
 		if VRFParameters.Node == parameters.SameNode {
-			podClientNodeLabel = nodes[0]
-			podServerNodeLabel = nodes[0]
 			redVRFNetworkPrefix = "24"
 		} else if VRFParameters.Node == parameters.DiffNode {
-			podClientNodeLabel = nodes[0]
-			podServerNodeLabel = nodes[1]
 			redVRFNetworkPrefix = "8"
 		}
 
@@ -74,18 +79,7 @@ func TestVRFScenario(apiclient *client.ClientSet, node string, ipStack string, o
 		podServerVRFBlueIPAddress = "10.255.255.2"
 		blueVRFNetworkPrefix = "24"
 
-	case overLapToSDN == false:
-
-		By("Validating test parameters")
-		VRFParameters, err := parameters.NewVRFTestParameters(node, ipStack)
-		Expect(err).ToNot(HaveOccurred())
-		if VRFParameters.Node == parameters.SameNode {
-			podClientNodeLabel = nodes[0]
-			podServerNodeLabel = nodes[0]
-		} else if VRFParameters.Node == parameters.DiffNode {
-			podClientNodeLabel = nodes[0]
-			podServerNodeLabel = nodes[1]
-		}
+	case "overLapToVRF":
 
 		if ipStack == parameters.IPStackIPv4 {
 			By("Setting overlapping non-SDN IP Addresses for VRF Red")
@@ -102,6 +96,29 @@ func TestVRFScenario(apiclient *client.ClientSet, node string, ipStack string, o
 			podServerVRFRedIPAddress = "2001:100::4"
 			redVRFNetworkPrefix = "64"
 			blueVRFNetworkPrefix = "64"
+		}
+
+	case "nonOverLap":
+
+		if ipStack == parameters.IPStackIPv4 {
+			By("Setting overlapping non-SDN IP Addresses for VRF Red")
+			podClientVRFBlueIPAddress = "10.255.255.1"
+			podServerVRFBlueIPAddress = "10.255.255.2"
+			podClientVRFRedIPAddress = "192.168.255.3"
+			podServerVRFRedIPAddress = "192.168.255.4"
+			blueVRFNetworkPrefix = "24"
+			redVRFNetworkPrefix = "24"
+		} else {
+			podClientVRFBlueIPAddress = "2201:100::1"
+			podServerVRFBlueIPAddress = "2201:100::2"
+			podClientVRFRedIPAddress = "2201:200::3"
+			podServerVRFRedIPAddress = "2201:200::4"
+			redVRFNetworkPrefix = "64"
+			blueVRFNetworkPrefix = "64"
+		}
+	default:
+		{
+			Fail(fmt.Sprintf("%v scenario doesn't exsit", ipOverLap))
 		}
 	}
 
@@ -147,7 +164,7 @@ func TestVRFScenario(apiclient *client.ClientSet, node string, ipStack string, o
 	Expect(err).To(HaveOccurred())
 	err = pingIPViaVRF(apiclient, *runningClientPod, parameters.VRFRedName, podServerVRFRedIPAddress)
 	Expect(err).To(HaveOccurred())
-	if overLapToSDN == true {
+	if ipOverLap == "overLapToSDN" {
 		err = pingIPViaVRF(apiclient, *runningClientPod, "eth0", podServerVRFRedIPAddress)
 		Expect(err).ToNot(HaveOccurred())
 	}
@@ -236,7 +253,7 @@ func AddVRFNad(cs *client.ClientSet, NadName string, ifName string, vrfName stri
 	return vrfDefinition
 }
 
-//DefineSriovNetworkMetaPluginsVRFConfig
+//DefineSriovNetworkMetaPluginsVRFConfig  plugin for discovering and advertising SR-IOV VFs
 func DefineSriovNetworkMetaPluginsVRFConfig(VRFName string) func(network *sriovv1.SriovNetwork) {
 	return func(network *sriovv1.SriovNetwork) {
 		network.Spec.MetaPluginsConfig = fmt.Sprintf(`{"type": "vrf", "vrfname": "%s"}`, VRFName)

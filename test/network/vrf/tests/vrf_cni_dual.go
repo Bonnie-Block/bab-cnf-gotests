@@ -34,7 +34,7 @@ var _ = Describe("CNF VRF", func() {
 
 		return fmt.Sprintf("%s", string(params))
 	}
-
+	
 	var nodeListString []string
 	var masterMacVlanInterfaceName string
 	var secondMacVlanInterfaceName string
@@ -54,32 +54,32 @@ var _ = Describe("CNF VRF", func() {
 		By(fmt.Sprintf("Create %s namespace", parameters.TestNamespace))
 		err = namespaces.Create(parameters.TestNamespace, generalHelper.Apiclient)
 		Expect(err).ToNot(HaveOccurred())
-
-		By("Select host interface for mac-vlan")
-		nodeInterfaceList, err := nodes.GetPhysicalNodeInterfaces(generalHelper.Apiclient, nodesList[0].Name)
-		Expect(err).ToNot(HaveOccurred())
-		for _, oneInterface := range nodeInterfaceList {
-			if !oneInterface.Bridge && !oneInterface.DefRoute && oneInterface.Physical && oneInterface.UP {
-				masterMacVlanInterfaceName = oneInterface.Name
+		for i := range nodesList {
+			By("Select host interface for mac-vlan")
+			nodeInterfaceList, err := nodes.GetPhysicalNodeInterfaces(generalHelper.Apiclient, nodesList[i].Name)
+			Expect(err).ToNot(HaveOccurred())
+			for _, oneInterface := range nodeInterfaceList {
+				if !oneInterface.Bridge && !oneInterface.DefRoute && oneInterface.Physical && oneInterface.UP {
+					masterMacVlanInterfaceName = oneInterface.Name
+				}
+			}
+			if masterMacVlanInterfaceName == "" {
+				Skip("There is not valid interface on Node for VRF tests")
+			}
+			Expect(err).ToNot(HaveOccurred())
+			
+			By("Select host dual interface for mac-vlan")
+			nodeInterfaceList, err = nodes.GetPhysicalNodeInterfaces(generalHelper.Apiclient, nodesList[i].Name)
+			Expect(err).ToNot(HaveOccurred())
+			for _, secondInterface := range nodeInterfaceList {
+				if !secondInterface.Bridge && !secondInterface.DefRoute && secondInterface.Name != masterMacVlanInterfaceName && secondInterface.Physical && secondInterface.UP {
+					secondMacVlanInterfaceName = secondInterface.Name
+				}
+			}
+			if secondMacVlanInterfaceName == "" {
+				Skip("There is not two valid interfaces on Node for VRF tests")
 			}
 		}
-		if masterMacVlanInterfaceName == "" {
-			Skip("There is not valid interface on Node for VRF tests")
-		}
-		Expect(err).ToNot(HaveOccurred())
-
-		By("Select host dual interface for mac-vlan")
-		nodeInterfaceList, err = nodes.GetPhysicalNodeInterfaces(generalHelper.Apiclient, nodesList[0].Name)
-		Expect(err).ToNot(HaveOccurred())
-		for _, secondInterface := range nodeInterfaceList {
-			if !secondInterface.Bridge && !secondInterface.DefRoute && secondInterface.Name != masterMacVlanInterfaceName && secondInterface.Physical && secondInterface.UP {
-				secondMacVlanInterfaceName = secondInterface.Name
-			}
-		}
-		if secondMacVlanInterfaceName == "" {
-			Skip("There is not two valid interfaces on Node for VRF tests")
-		}
-
 		By("Adding NADs")
 		vrfBlue = helper.AddVRFNad(generalHelper.Apiclient, "vrf-blue", masterMacVlanInterfaceName, parameters.VRFBlueName)
 		vrfRed = helper.AddVRFNad(generalHelper.Apiclient, "vrf-red", secondMacVlanInterfaceName, parameters.VRFRedName)
@@ -93,7 +93,7 @@ var _ = Describe("CNF VRF", func() {
 
 	DescribeTable("Integration: NAD, IPAM: static, Interfaces: 2, Scheme: 2 Pods 2 VRFs network overlap",
 		func(node string, ipStack string) {
-			helper.TestVRFScenario(generalHelper.Apiclient, node, ipStack, false, config, nodeListString, vrfBlue.Name, vrfRed.Name)
+			helper.TestVRFScenario(generalHelper.Apiclient, node, ipStack, "overLapToVRF", config, nodeListString, vrfBlue.Name, vrfRed.Name)
 		},
 		Entry(describe, parameters.SameNode, parameters.IPStackIPv4),
 		Entry(describe, parameters.DiffNode, parameters.IPStackIPv4),
@@ -103,7 +103,7 @@ var _ = Describe("CNF VRF", func() {
 
 	DescribeTable("Integration: NAD, IPAM: static, Interfaces: 2, Scheme: 2 Pods 2 VRFs OCP Primary network overlap",
 		func(node string, ipStack string) {
-			helper.TestVRFScenario(generalHelper.Apiclient, node, ipStack, true, config, nodeListString, vrfBlue.Name, vrfRed.Name)
+			helper.TestVRFScenario(generalHelper.Apiclient, node, ipStack, "overLapToSDN", config, nodeListString, vrfBlue.Name, vrfRed.Name)
 		},
 		Entry(describe, parameters.SameNode, parameters.IPStackIPv4),
 		Entry(describe, parameters.DiffNode, parameters.IPStackIPv4),
