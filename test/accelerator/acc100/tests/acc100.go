@@ -39,11 +39,11 @@ var _ = Describe("Intel ACC100", func() {
 			testSkip = "Cluster doesn't have intel easic acc100 card"
 			Skip(testSkip)
 		}
-		Expect(err).ToNot(HaveOccurred())
-		if len(sriovFecNodeList.Items) < 1 {
+		if sriovFecNodeList == nil || len(sriovFecNodeList.Items) < 1 {
 			testSkip = "No sriov-fec capable node was detected"
 			Skip(testSkip)
 		}
+		Expect(err).ToNot(HaveOccurred())
 
 		_, _, err = acc100helper.GetSriovFecNodeForAcc100(generalHelper.Apiclient)
 		if err != nil {
