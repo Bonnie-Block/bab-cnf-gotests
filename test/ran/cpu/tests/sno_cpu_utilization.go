@@ -4,7 +4,10 @@ import (
 	"fmt"
 	"log"
 	"reflect"
+	"regexp"
+	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -194,11 +197,7 @@ func checkCpuUsage(duration time.Duration, mgmtCpuLimit int, scenario string) {
 	Expect(err).ToNot(HaveOccurred())
 
 	log.Println("Query max over time cpu usage for OS daemon")
-	offset := " offset " + (time.Duration(int(time.Since(timestamp).Seconds())) * time.Second).String()
-	if offset == " offset 0s" {
-		offset = ""
-	}
-	query = fmt.Sprintf("max_over_time(sum(%s)[%s:30s]%s)", cpuOverheadStat, duration.String(), offset)
+	query = fmt.Sprintf("max_over_time(sum(%s)[%s:30s]%s)", cpuOverheadStat, duration.String(), getOffset(timestamp))
 	nonPodResult, err := ranhelper.ExecPromQuery(query, true)
 	Expect(err).ShouldNot(HaveOccurred())
 	nonPodCpuUsage := nonPodResult[0].Value[1]
@@ -206,11 +205,7 @@ func checkCpuUsage(duration time.Duration, mgmtCpuLimit int, scenario string) {
 	Expect(err).ToNot(HaveOccurred())
 
 	log.Println("Query max over time cpu usage for infra pods")
-	offset = " offset " + (time.Duration(int(time.Since(timestamp).Seconds())) * time.Second).String()
-	if offset == " offset 0s" {
-		offset = ""
-	}
-	query = fmt.Sprintf("max_over_time(sum(%s)[%s:30s]%s)", cpuInfraPodsStat, duration.String(), offset)
+	query = fmt.Sprintf("max_over_time(sum(%s)[%s:30s]%s)", cpuInfraPodsStat, duration.String(), getOffset(timestamp))
 	podResult, err := ranhelper.ExecPromQuery(query, true)
 	Expect(err).ShouldNot(HaveOccurred())
 	podCpuUsage := podResult[0].Value[1]
@@ -220,9 +215,23 @@ func checkCpuUsage(duration time.Duration, mgmtCpuLimit int, scenario string) {
 	log.Printf("Mgmt CPU usage for the last %s - Non-pod mgmt overhead, mgmt pods, total: %.4f,%.4f,%.4f\n",
 		duration.String(), resOS, resPods, resTotal)
 	// Add cpu util values to ginkgo report for further processing in pipeline.
-	fmt.Fprintf(GinkgoWriter, "%s_%s_%s: %.4F\n", rancpuparameters.RanCpuMetricTotal, scenario, "max", resTotal)
-	fmt.Fprintf(GinkgoWriter, "%s_%s_%s: %.4F\n", rancpuparameters.RanCpuMetricOsDaemon, scenario, "max", resOS)
-	fmt.Fprintf(GinkgoWriter, "%s_%s_%s: %.4F\n", rancpuparameters.RanCpuMetricInfraPods, scenario, "max", resPods)
+	fmt.Fprintf(GinkgoWriter, "%s_%s_%s: %.7F\n", rancpuparameters.RanCpuMetricTotal, scenario, "max", resTotal)
+	fmt.Fprintf(GinkgoWriter, "%s_%s_%s: %.7F\n", rancpuparameters.RanCpuMetricOsDaemon, scenario, "max", resOS)
+	fmt.Fprintf(GinkgoWriter, "%s_%s_%s: %.7F\n", rancpuparameters.RanCpuMetricInfraPods, scenario, "max", resPods)
+
+	if scenario == "steadyworkload" {
+		log.Println("Query avg over time cpu usage for each infra pod")
+		query = fmt.Sprintf("avg_over_time(%s[%s:30s]%s)", cpuInfraPodsStat, duration.String(), getOffset(timestamp))
+		podBreakdown, err := ranhelper.ExecPromQuery(query, true)
+		Expect(err).ShouldNot(HaveOccurred())
+		sortAndWriteToReport(rancpuparameters.RanCpuMetricInfraPods, podBreakdown, "avg", scenario)
+
+		log.Println("Query avg over time cpu usage for each os daemon")
+		query = fmt.Sprintf("avg_over_time(%s[%s:30s]%s)", cpuOverheadStat, duration.String(), getOffset(timestamp))
+		osBreakdown, err := ranhelper.ExecPromQuery(query, true)
+		Expect(err).ShouldNot(HaveOccurred())
+		sortAndWriteToReport(rancpuparameters.RanCpuMetricOsDaemon, osBreakdown, "avg", scenario)
+	}
 
 	// Defer the check until top 5 consumers were printed in case of failure.
 	defer Expect(resTotal).ToNot(BeNumerically(">", float64(mgmtCpuLimit)))
@@ -249,4 +258,59 @@ func repeatPromQuery(duration time.Duration) (startTime time.Time, err error) {
 		_, err = ranhelper.ExecPromQuery(query, false)
 	}
 	return startTime, err
+}
+
+// getOffset returns offset string if it's more than 1s, otherwise returns empty string. The offset will be added to prom query.
+func getOffset(starTime time.Time) string {
+	offset := " offset " + (time.Duration(int(time.Since(starTime).Seconds())) * time.Second).String()
+	if offset == " offset 0s" {
+		offset = ""
+	}
+	return offset
+}
+
+// parseTag parses a prom Metric map to a string in this format: key1="val1",key2="val2",...
+func parseTag(tag map[string]string) (string, string) {
+	tagString := ""
+	component := ""
+	for key, value := range tag {
+		// Do not include node name (key=instance) in tag string
+		if key != "instance" {
+			if key == "pod" {
+				// use <namespace>-<fullpodname> as component
+				component = fmt.Sprintf("%s %s", tag["namespace"], value)
+				// use parsed pod name as value without randomly generated string
+				re := regexp.MustCompile(`-[a-f0-9]{8,10}-[a-z0-9]{5}\z`)
+				value = re.ReplaceAllString(value, "-")
+				re = regexp.MustCompile(`-[a-z0-9]{5}\z`)
+				value = re.ReplaceAllString(value, "-")
+			} else if key == "groupname" {
+				component = value
+			}
+			tagString += fmt.Sprintf("%s=\"%s\",", key, value)
+		}
+	}
+	tagString = strings.TrimRight(tagString, ",")
+	return component, tagString
+}
+
+// sortAndWriteToReport sorts the metrics by podname or groupname, and write them to ginkgo report.
+func sortAndWriteToReport(metricName string, metricVals []ranhelper.PromMetric, metricType string, scenario string) {
+	compMap := make(map[string]string)
+	var components []string
+	for _, item := range metricVals {
+		component, tag := parseTag(item.Metric)
+		Expect(component).ToNot(Equal(""))
+		resPod, err := strconv.ParseFloat(reflect.ValueOf(item.Value[1]).String(), 64)
+		Expect(err).ToNot(HaveOccurred())
+		metricString := fmt.Sprintf("%s_%s_%s(%s): %.7F", metricName, scenario, metricType, tag, resPod)
+		compMap[component] = metricString
+		components = append(components, component)
+	}
+
+	// Sort the metrics by component: "<namespace> <podname>" for mgmt pods or <groupname> for os daemon
+	sort.Strings(components)
+	for _, comp := range components {
+		fmt.Fprintln(GinkgoWriter, compMap[comp])
+	}
 }
