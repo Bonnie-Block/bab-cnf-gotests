@@ -16,7 +16,7 @@ import (
 
 	netattdefv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	sriovv1 "github.com/k8snetworkplumbingwg/sriov-network-operator/api/v1"
-	networkHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/helper"
+	globalHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/vrf/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
@@ -135,8 +135,8 @@ func TestVRFScenario(apiclient *client.ClientSet, node string, ipStack string, i
 	podServer := pod.RedefineAsPrivileged(
 		pod.RedefinePodWithNetwork(pod.DefinePodOnNode(parameters.TestNamespace, config.Network.TestContainerImage, podServerNodeLabel), podServerIpamConfig))
 	By("Running client/server pods")
-	runningClientPod := networkHelper.WaitUntilPodCreatedAndRunning(apiclient, podClient, parameters.TestNamespace, parameters.PodWaitingTime)
-	networkHelper.WaitUntilPodCreatedAndRunning(apiclient, podServer, parameters.TestNamespace, parameters.PodWaitingTime)
+	runningClientPod := globalHelper.WaitUntilPodCreatedAndRunning(podClient, parameters.PodWaitingTime)
+	globalHelper.WaitUntilPodCreatedAndRunning(podServer, parameters.PodWaitingTime)
 
 	By("Validating client/server VRFs configuration")
 	podHasCorrectVrfConfig(apiclient, podClient.Name,

@@ -19,7 +19,7 @@ import (
 
 	fecv1 "github.com/open-ness/openshift-operator/sriov-fec/api/v1"
 
-	networkHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/helper"
+	globalHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
@@ -207,7 +207,7 @@ func matchingOptionalSelectorSriovFec(cs *client.ClientSet, toFilter []fecv1.Sri
 // CreateBbdevPod creates bbdev pod
 func CreateBbdevPod(cs *client.ClientSet, namespace, acceleratorResourceName string, config *config.Config) *corev1.Pod {
 	podBbdevDefinition := getBbdevPodDefinition(namespace, acceleratorResourceName, config)
-	pod := networkHelper.WaitUntilPodCreatedAndRunning(cs, podBbdevDefinition, TestNamespace, 5*time.Minute)
+	pod := globalHelper.WaitUntilPodCreatedAndRunning(podBbdevDefinition, 5*time.Minute)
 	return pod
 }
 

@@ -52,3 +52,26 @@ func CountLinesByMatches(str string, stringsToGrep ...string) int {
 	}
 	return count
 }
+
+// WaitUntilPodCreatedAndRunning waits until pod created and running. Returns running pod
+func WaitUntilPodCreatedAndRunning(podStruct *k8sv1.Pod, waitingTime time.Duration) *k8sv1.Pod {
+	return waitUntilPodCreatedAndInPhase(podStruct, waitingTime, k8sv1.PodRunning)
+}
+
+func waitUntilPodCreatedAndInPhase(podStruct *k8sv1.Pod, waitingTime time.Duration, status k8sv1.PodPhase) *k8sv1.Pod {
+	err := Apiclient.Create(context.Background(), podStruct)
+	Expect(err).ToNot(HaveOccurred())
+	Eventually(func() k8sv1.PodPhase {
+		tempPod, _ := Apiclient.Pods(podStruct.Namespace).Get(
+			context.Background(),
+			podStruct.Name,
+			metav1.GetOptions{})
+		return tempPod.Status.Phase
+	}, waitingTime, time.Second).Should(Equal(status))
+	runningPod, err := Apiclient.Pods(podStruct.Namespace).Get(
+		context.Background(),
+		podStruct.Name,
+		metav1.GetOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	return runningPod
+}
