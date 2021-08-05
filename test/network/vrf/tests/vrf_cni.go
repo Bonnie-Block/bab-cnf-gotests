@@ -1,7 +1,6 @@
 package tests
 
 import (
-	"encoding/json"
 	"fmt"
 
 	. "github.com/onsi/ginkgo"
@@ -10,7 +9,7 @@ import (
 
 	netattdefv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	generalHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/vrf/helper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/vrf/networkvrfhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/vrf/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
@@ -19,20 +18,7 @@ import (
 )
 
 var _ = Describe("CNF VRF", func() {
-
-	describe := func(node string, ipStack string) string {
-
-		VRFParameters, err := parameters.NewVRFTestParameters(node, ipStack)
-		if err != nil {
-			return fmt.Sprintf("error in parameters: node=%s, ipStack=%s", node, ipStack)
-		}
-		params, err := json.Marshal(VRFParameters)
-		if err != nil {
-			return fmt.Sprintf("error in parameters: node=%s, ipStack=%s", node, ipStack)
-		}
-
-		return fmt.Sprintf("%s", string(params))
-	}
+	describe := networkvrfhelper.DescribeParameters
 
 	var nodeListString []string
 	var vrfBlue netattdefv1.NetworkAttachmentDefinition
@@ -62,12 +48,20 @@ var _ = Describe("CNF VRF", func() {
 			}
 		}
 
-		validMacVlanInterfaces, err := helper.GetNodeInterfaces(config, macVlanInterfaces, 1)
+		validMacVlanInterfaces, err := networkvrfhelper.GetNodeInterfaces(config, macVlanInterfaces, 1)
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Adding NADs")
-		vrfBlue = helper.AddVRFNad(generalHelper.Apiclient, "test-vrf-blue", validMacVlanInterfaces[0].Name, parameters.VRFBlueName)
-		vrfRed = helper.AddVRFNad(generalHelper.Apiclient, "test-vrf-red", validMacVlanInterfaces[0].Name, parameters.VRFRedName)
+		vrfBlue = networkvrfhelper.AddVRFNad(
+			generalHelper.Apiclient,
+			"test-vrf-blue",
+			validMacVlanInterfaces[0].Name,
+			parameters.VRFBlueName)
+		vrfRed = networkvrfhelper.AddVRFNad(
+			generalHelper.Apiclient,
+			"test-vrf-red",
+			validMacVlanInterfaces[0].Name,
+			parameters.VRFRedName)
 	})
 
 	BeforeEach(func() {
@@ -79,7 +73,15 @@ var _ = Describe("CNF VRF", func() {
 	//36305
 	DescribeTable("Integration: NAD, IPAM: static, Interfaces: 1, Scheme: 2 Pods 2 VRFs OCP Primary network overlap",
 		func(node string, ipStack string) {
-			helper.TestVRFScenario(generalHelper.Apiclient, node, ipStack, "overLapToSDN", config, nodeListString, vrfBlue.Name, vrfRed.Name)
+			networkvrfhelper.TestVRFScenario(
+				generalHelper.Apiclient,
+				node,
+				ipStack,
+				"overLapToSDN",
+				config,
+				nodeListString,
+				vrfBlue.Name,
+				vrfRed.Name)
 		},
 		Entry(describe, parameters.SameNode, parameters.IPStackIPv4),
 		Entry(describe, parameters.DiffNode, parameters.IPStackIPv4),
@@ -88,7 +90,15 @@ var _ = Describe("CNF VRF", func() {
 	//36313
 	DescribeTable("Integration: NAD, IPAM: static, Interfaces: 1, Scheme: 2 Pods 2 VRFs ip network overlap",
 		func(node string, ipStack string) {
-			helper.TestVRFScenario(generalHelper.Apiclient, node, ipStack, "overLapToVRF", config, nodeListString, vrfBlue.Name, vrfRed.Name)
+			networkvrfhelper.TestVRFScenario(
+				generalHelper.Apiclient,
+				node,
+				ipStack,
+				"overLapToVRF",
+				config,
+				nodeListString,
+				vrfBlue.Name,
+				vrfRed.Name)
 		},
 		Entry(describe, parameters.SameNode, parameters.IPStackIPv4),
 		Entry(describe, parameters.DiffNode, parameters.IPStackIPv4),
@@ -98,8 +108,16 @@ var _ = Describe("CNF VRF", func() {
 
 	//36320
 	DescribeTable("Integration: NAD, IPAM: static, Interfaces: 1, Scheme: 2 Pods 2 VRFs Different IP networks",
-		func(node string, ipStack string) {		
-			helper.TestVRFScenario(generalHelper.Apiclient, node, ipStack, "nonOverLap", config, nodeListString, vrfBlue.Name, vrfRed.Name)
+		func(node string, ipStack string) {
+			networkvrfhelper.TestVRFScenario(
+				generalHelper.Apiclient,
+				node,
+				ipStack,
+				"nonOverLap",
+				config,
+				nodeListString,
+				vrfBlue.Name,
+				vrfRed.Name)
 		},
 		Entry(describe, parameters.SameNode, parameters.IPStackIPv4),
 		Entry(describe, parameters.DiffNode, parameters.IPStackIPv4),

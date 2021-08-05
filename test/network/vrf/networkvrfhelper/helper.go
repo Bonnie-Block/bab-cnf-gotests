@@ -1,7 +1,8 @@
-package helper
+package networkvrfhelper
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net"
 	"strings"
@@ -259,6 +260,19 @@ func DefineSriovNetworkMetaPluginsVRFConfig(VRFName string) func(network *sriovv
 	return func(network *sriovv1.SriovNetwork) {
 		network.Spec.MetaPluginsConfig = fmt.Sprintf(`{"type": "vrf", "vrfname": "%s"}`, VRFName)
 	}
+}
+
+// DescribeParameters validates given parameters and returns json formatted string
+func DescribeParameters(node string, ipStack string) string {
+	VRFParameters, err := parameters.NewVRFTestParameters(node, ipStack)
+	if err != nil {
+		return fmt.Sprintf("error in parameters: node=%s, ipStack=%s", node, ipStack)
+	}
+	params, err := json.Marshal(VRFParameters)
+	if err != nil {
+		return fmt.Sprintf("error in parameters: node=%s, ipStack=%s", node, ipStack)
+	}
+	return fmt.Sprintf("%s", string(params))
 }
 
 // GetNodeInterfaces returns list of requested interfaces
