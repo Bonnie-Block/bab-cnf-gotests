@@ -14,10 +14,10 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 )
 
 var _ = Describe("CNF VRF", func() {
+
 	describe := networkvrfhelper.DescribeParameters
 
 	var nodeListString []string
@@ -27,38 +27,19 @@ var _ = Describe("CNF VRF", func() {
 	Expect(err).ToNot(HaveOccurred())
 
 	execute.BeforeAll(func() {
-		By(fmt.Sprintf("Select nodes by label %s ", parameters.LabelNodeRole))
-		nodesList, err := nodes.GetByRole(generalHelper.Apiclient, parameters.LabelNodeRole)
-		Expect(err).ToNot(HaveOccurred())
-		for _, node := range nodesList {
-			nodeListString = append(nodeListString, node.Name)
-		}
+		nodeListString = networkvrfhelper.GetNodeListStringByLabel()
 
 		By(fmt.Sprintf("Create %s namespace", parameters.TestNamespace))
 		err = namespaces.Create(parameters.TestNamespace, generalHelper.Apiclient)
 		Expect(err).ToNot(HaveOccurred())
-
-		By("Select host interface for mac-vlan")
-		var macVlanInterfaces []nodes.NodeInterface
-		nodeInterfaceList, err := nodes.GetPhysicalNodeInterfaces(generalHelper.Apiclient, nodesList[0].Name)
-		Expect(err).ToNot(HaveOccurred())
-		for _, oneInterface := range nodeInterfaceList {
-			if !oneInterface.Bridge && !oneInterface.DefRoute && oneInterface.Physical && oneInterface.UP {
-				macVlanInterfaces = append(macVlanInterfaces, oneInterface)
-			}
-		}
-
-		validMacVlanInterfaces, err := networkvrfhelper.GetNodeInterfaces(config, macVlanInterfaces, 1)
-		Expect(err).ToNot(HaveOccurred())
+		validMacVlanInterfaces := networkvrfhelper.GetNodeValidMacVlanInterface(nodeListString[0], config, 1)
 
 		By("Adding NADs")
 		vrfBlue = networkvrfhelper.AddVRFNad(
-			generalHelper.Apiclient,
 			"test-vrf-blue",
 			validMacVlanInterfaces[0].Name,
 			parameters.VRFBlueName)
 		vrfRed = networkvrfhelper.AddVRFNad(
-			generalHelper.Apiclient,
 			"test-vrf-red",
 			validMacVlanInterfaces[0].Name,
 			parameters.VRFRedName)
@@ -74,7 +55,6 @@ var _ = Describe("CNF VRF", func() {
 	DescribeTable("Integration: NAD, IPAM: static, Interfaces: 1, Scheme: 2 Pods 2 VRFs OCP Primary network overlap",
 		func(node string, ipStack string) {
 			networkvrfhelper.TestVRFScenario(
-				generalHelper.Apiclient,
 				node,
 				ipStack,
 				"overLapToSDN",
@@ -91,7 +71,6 @@ var _ = Describe("CNF VRF", func() {
 	DescribeTable("Integration: NAD, IPAM: static, Interfaces: 1, Scheme: 2 Pods 2 VRFs ip network overlap",
 		func(node string, ipStack string) {
 			networkvrfhelper.TestVRFScenario(
-				generalHelper.Apiclient,
 				node,
 				ipStack,
 				"overLapToVRF",
@@ -110,7 +89,6 @@ var _ = Describe("CNF VRF", func() {
 	DescribeTable("Integration: NAD, IPAM: static, Interfaces: 1, Scheme: 2 Pods 2 VRFs Different IP networks",
 		func(node string, ipStack string) {
 			networkvrfhelper.TestVRFScenario(
-				generalHelper.Apiclient,
 				node,
 				ipStack,
 				"nonOverLap",
