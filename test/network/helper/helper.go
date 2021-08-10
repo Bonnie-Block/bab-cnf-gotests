@@ -10,15 +10,14 @@ import (
 
 	sriovv1 "github.com/k8snetworkplumbingwg/sriov-network-operator/api/v1"
 	. "github.com/onsi/gomega"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/cluster"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 )
 
 var podWaitingTime time.Duration = 5 * time.Minute
@@ -134,3 +133,4 @@ func appendIfMissing(slice []string, element string) []string {
 	}
 	return append(slice, element)
 }
+

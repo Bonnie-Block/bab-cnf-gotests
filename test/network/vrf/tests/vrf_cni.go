@@ -2,6 +2,7 @@ package tests
 
 import (
 	"fmt"
+	"strings"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
@@ -20,14 +21,16 @@ var _ = Describe("CNF VRF", func() {
 
 	describe := networkvrfhelper.DescribeParameters
 
-	var nodeListString []string
-	var vrfBlue netattdefv1.NetworkAttachmentDefinition
-	var vrfRed netattdefv1.NetworkAttachmentDefinition
+	var (
+		nodeListString []string
+		vrfBlue        netattdefv1.NetworkAttachmentDefinition
+		vrfRed         netattdefv1.NetworkAttachmentDefinition
+	)
 	config, err := config.NewConfig()
 	Expect(err).ToNot(HaveOccurred())
 
 	execute.BeforeAll(func() {
-		nodeListString = networkvrfhelper.GetNodeListStringByLabel()
+		nodeListString = networkvrfhelper.GetNodeListStringByLabel(strings.Split(config.General.CnfNodeLabel, "/")[1])
 
 		By(fmt.Sprintf("Create %s namespace", parameters.TestNamespace))
 		err = namespaces.Create(parameters.TestNamespace, generalHelper.Apiclient)

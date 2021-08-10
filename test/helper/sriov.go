@@ -10,15 +10,24 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+var ChangedNodeDrainState bool
+
+func RestoreNodeDrainState(operatorNamespace string) {
+	if ChangedNodeDrainState {
+		SetDisableNodeDrainState(false, operatorNamespace)
+	}
+}
+
 // WaitForSRIOVStable waits until sriov stable
-func WaitForSRIOVStable(operatorNamespace string, waitingTime time.Duration) {
+func WaitForSRIOVStable(operatorNamespace string, waitingTime time.Duration, snoTimeoutMultiplier time.Duration) {
 	// This used to be to check for sriov not to be stable first,
 	// then stable. The issue is that if no configuration is applied, then
 	// the status won't never go to not stable and the test will fail.
 	// TODO: find a better way to handle this scenario
-	time.Sleep(10 * time.Second)
+	time.Sleep((10 + snoTimeoutMultiplier*10)*time.Second)
 	Eventually(func() bool {
 		res, err := cluster.SriovStable(operatorNamespace, Apiclient)
 		Expect(err).ToNot(HaveOccurred())
@@ -85,4 +94,20 @@ func validateSriovVFsNodeAllocatedResources(node string, SriovNetworkPolicies []
 			return allocatable
 		}, 20*time.Minute, time.Second).Should(Equal(int64(VfNumber)))
 	}
+}
+
+func GetNodeDrainState(operatorNamespace string) (bool) {
+	sriovOperatorConfg := &sriovv1.SriovOperatorConfig{}
+	err := Apiclient.Get(context.TODO(), runtimeclient.ObjectKey{Name: "default", Namespace: operatorNamespace}, sriovOperatorConfg)
+	Expect(err).ToNot(HaveOccurred())
+	return sriovOperatorConfg.Spec.DisableDrain
+}
+
+func SetDisableNodeDrainState(state bool, operatorNamespace string) {
+	sriovOperatorConfg := &sriovv1.SriovOperatorConfig{}
+	err := Apiclient.Get(context.TODO(), runtimeclient.ObjectKey{Name: "default", Namespace: operatorNamespace}, sriovOperatorConfg)
+	Expect(err).ToNot(HaveOccurred())
+	sriovOperatorConfg.Spec.DisableDrain = state
+	err = Apiclient.Update(context.TODO(), sriovOperatorConfg)
+	Expect(err).ToNot(HaveOccurred())
 }

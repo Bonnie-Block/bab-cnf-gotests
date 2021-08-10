@@ -5,6 +5,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/reporters"
@@ -15,6 +16,7 @@ import (
 	. "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	generalParameters "gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 )
 
 func TestDiscovery(t *testing.T) {
@@ -33,13 +35,20 @@ func TestDiscovery(t *testing.T) {
 
 var _ = BeforeSuite(func() {
 	By("Clean all Sriov Policy")
-	err := helper.CleanAllSriovPolicy()
+	var snoTimeoutMultiplier time.Duration = 1
+	isSingleNode, err := nodes.IsSingleNodeCluster(Apiclient)
+	Expect(err).ToNot(HaveOccurred())
+	if isSingleNode {
+		snoTimeoutMultiplier = 2
+	}
+	err = helper.CleanAllSriovPolicy(snoTimeoutMultiplier)
 	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error removing all sriov policy: %s", err))
 
 	By("Clean All Performance profiles")
 	config, err := config.NewConfig()
 	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error loading config: %s", err))
-	err = helper.CleanAllPerformanceProfile(strings.Split(config.General.CnfNodeLabel, "/")[1])
+
+	err = helper.CleanAllPerformanceProfile(strings.Split(config.General.CnfNodeLabel, "/")[1], snoTimeoutMultiplier)
 	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error removing all Performance profiles: %s", err))
 
 	By("Clean All PTP config")
@@ -51,8 +60,15 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = AfterSuite(func() {
+	var snoTimeoutMultiplier time.Duration = 1
+	isSingleNode, err := nodes.IsSingleNodeCluster(Apiclient)
+	Expect(err).ToNot(HaveOccurred())
+	if isSingleNode {
+		snoTimeoutMultiplier = 2
+		RestoreNodeDrainState(generalParameters.SriovOperatorNamespace)
+	}
 	By("Clean all Sriov Policy")
-	err := helper.CleanAllSriovPolicy()
+	err = helper.CleanAllSriovPolicy(snoTimeoutMultiplier)
 	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error removing all sriov policy: %s", err))
 	By("Clean all PtpConfig Policy")
 	err = CleanAllPtpConfig(
@@ -63,6 +79,6 @@ var _ = AfterSuite(func() {
 	config, err := config.NewConfig()
 	Expect(err).ToNot(HaveOccurred())
 	By("Clean all PerformanceProfile Policy")
-	err = helper.CleanAllPerformanceProfile(strings.Split(config.General.CnfNodeLabel, "/")[1])
+	err = helper.CleanAllPerformanceProfile(strings.Split(config.General.CnfNodeLabel, "/")[1], snoTimeoutMultiplier)
 	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error removing all Performance profiles: %s", err))
 })

@@ -20,6 +20,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -45,9 +46,11 @@ const (
 )
 
 var (
-	waitingTime                time.Duration = 35 * time.Minute
-	podWaitingTime             time.Duration = 1 * time.Minute
-	dualPodWaitingTime         time.Duration = 3 * time.Minute
+	waitingTime          time.Duration = 35 * time.Minute
+	podWaitingTime       time.Duration = 1 * time.Minute
+	dualPodWaitingTime   time.Duration = 3 * time.Minute
+	isSingleNode         bool
+	snoTimeoutMultiplier time.Duration = 1
 )
 
 var _ = Describe("CNF SRIOV", func() {
@@ -70,6 +73,17 @@ var _ = Describe("CNF SRIOV", func() {
 	Expect(err).ToNot(HaveOccurred())
 
 	execute.BeforeAll(func() {
+		isSingleNode, err = nodes.IsSingleNodeCluster(generalHelper.Apiclient)
+		Expect(err).ToNot(HaveOccurred())
+		if isSingleNode {
+			snoTimeoutMultiplier = 2
+			disableDrainState := generalHelper.GetNodeDrainState(parameters.OperatorNamespace)
+			if !disableDrainState {
+				generalHelper.SetDisableNodeDrainState(true, parameters.OperatorNamespace)
+				generalHelper.ChangedNodeDrainState = true
+			}
+		}
+
 		if sriovSmokeTestMode {
 			By("Run sriov tests in smoke mode")
 		}
@@ -92,10 +106,11 @@ var _ = Describe("CNF SRIOV", func() {
 			false)
 
 		By("Waiting until SRIOV become stable")
-		generalHelper.WaitForSRIOVStable(generalParameters.SriovOperatorNamespace, waitingTime)
+		generalHelper.WaitForSRIOVStable(generalParameters.SriovOperatorNamespace, waitingTime, snoTimeoutMultiplier)
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Configuring SriovPolicy resources")
+
 		err = namespaces.Create(parameters.OperatorTestNamespace, generalHelper.Apiclient)
 		Expect(err).ToNot(HaveOccurred())
 		usualSriovPolicyConfig := generalHelper.DefineSriovPolicy(
@@ -200,7 +215,7 @@ var _ = Describe("CNF SRIOV", func() {
 		}
 
 		By("Waiting until SRIOV become stable")
-		generalHelper.WaitForSRIOVStable(generalParameters.SriovOperatorNamespace, waitingTime)
+		generalHelper.WaitForSRIOVStable(generalParameters.SriovOperatorNamespace, waitingTime, snoTimeoutMultiplier)
 
 		By("Waiting until SRIOV resources become available")
 		generalHelper.ValidateSriovVFsAvailableOnNodes(

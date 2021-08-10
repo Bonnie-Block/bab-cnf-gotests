@@ -35,6 +35,12 @@ var _ = Describe("PTP", func() {
 		var masterNodeLabel, slaveNodeLabel string
 
 		BeforeEach(func() {
+			isSingleNode, err := nodes.IsSingleNodeCluster(Apiclient)
+			Expect(err).ToNot(HaveOccurred())
+			if isSingleNode {
+				Skip("At least two nodes are required to configure ptp tests.")
+			}
+
 			By("Configure PTP")
 			configurePTP()
 

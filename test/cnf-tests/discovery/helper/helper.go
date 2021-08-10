@@ -81,8 +81,9 @@ func CreatePerformanceProfile(performanceProfileName string, mcpPoolName string)
 }
 
 // WaitForClusterToBeStable validates if MCP is stable
-func WaitForClusterToBeStable(machineConfigPoolName string) error {
+func WaitForClusterToBeStable(machineConfigPoolName string, snoTimeoutMultiplier time.Duration) error {
 	mcp := &mcv1.MachineConfigPool{}
+
 	err := Apiclient.Client.Get(context.TODO(), goclient.ObjectKey{Name: machineConfigPoolName}, mcp)
 	if err != nil {
 		return err
@@ -104,7 +105,7 @@ func WaitForClusterToBeStable(machineConfigPoolName string) error {
 		&mcv1.MachineConfigPool{ObjectMeta: metav1.ObjectMeta{Name: machineConfigPoolName}},
 		mcv1.MachineConfigPoolUpdated,
 		corev1.ConditionTrue,
-		time.Duration(20*mcp.Status.MachineCount)*time.Minute)
+		time.Duration(20*mcp.Status.MachineCount)*time.Minute*snoTimeoutMultiplier)
 
 	return err
 }
@@ -176,7 +177,7 @@ func DecodeMCYaml(mcyaml string) (*mcov1.MachineConfig, error) {
 }
 
 // CleanAllSriovPolicy removes all SriovNetworkNodePolicyList except default
-func CleanAllSriovPolicy() error {
+func CleanAllSriovPolicy(snoTimeoutMultiplier time.Duration) error {
 	sriovNodePolicyList := &sriovv1.SriovNetworkNodePolicyList{}
 	err := Apiclient.Client.List(context.TODO(), sriovNodePolicyList)
 	if err != nil {
@@ -193,13 +194,13 @@ func CleanAllSriovPolicy() error {
 				}
 			}
 		}
-		WaitForSRIOVStable(generalParameters.SriovOperatorNamespace, parameters.SriovWaitingTime)
+		WaitForSRIOVStable(generalParameters.SriovOperatorNamespace, parameters.SriovWaitingTime, snoTimeoutMultiplier)
 	}
 	return nil
 }
 
 // CleanAllPerformanceProfile removes all PerformanceProfile from cluster
-func CleanAllPerformanceProfile(cnfNodeLabel string) error {
+func CleanAllPerformanceProfile(cnfNodeLabel string, snoTimeoutMultiplier time.Duration) error {
 	performanceProfileList := &performance.PerformanceProfileList{}
 	err := Apiclient.Client.List(context.TODO(), performanceProfileList)
 	if err != nil {
@@ -214,10 +215,11 @@ func CleanAllPerformanceProfile(cnfNodeLabel string) error {
 				return err
 			}
 		}
-		err = WaitForClusterToBeStable(cnfNodeLabel)
+		err = WaitForClusterToBeStable(cnfNodeLabel, snoTimeoutMultiplier)
 		if err != nil {
 			return err
 		}
+
 	}
 	return nil
 }

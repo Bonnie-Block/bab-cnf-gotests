@@ -46,15 +46,19 @@ type (
 )
 
 const (
-	DiscoverySriovPolicy             = "discovery-policy"
-	DiscoverySriovPolicyIntel        = "discovery-policy-intel"
-	DiscoveryPerformanceProfile      = "discovery-mode-profile"
-	DiscoveryPtpSlaveNodeLabel       = "ptp/discovery-slave"
-	DiscoveryPtpGrandmasterNodeLabel = "ptp/discovery-grandmaster"
-	DiscoveryPtpGrandmasterProfile   = "discovery-master-profile"
-	DiscoveryPtpWorkerProfile        = "discovery-worker-profile"
-	JUnitCNFTestsReportName          = "cnftests-junit.xml"
-	SriovWaitingTime                 = 35 * time.Minute
+	DiscoverySriovPolicy                       = "discovery-policy"
+	DiscoverySriovPolicyIntel                  = "discovery-policy-intel"
+	DiscoveryPerformanceProfile                = "discovery-mode-profile"
+	DiscoveryPtpSlaveNodeLabel                 = "ptp/discovery-slave"
+	DiscoveryPtpGrandmasterNodeLabel           = "ptp/discovery-grandmaster"
+	DiscoveryPtpGrandmasterProfile             = "discovery-master-profile"
+	DiscoveryPtpWorkerProfile                  = "discovery-worker-profile"
+	JUnitCNFTestsReportName                    = "cnftests-junit.xml"
+	SriovWaitingTime                           = 35 * time.Minute
+	DiscoveryAllFeaturesScenario               = "discoveryAllFeatures"
+	DiscoveryExceptSriovScenario               = "discoveryExceptSriov"
+	DiscoveryExceptSriovPtpScenario            = "discoveryExceptSriovPtp"
+	DiscoveryExceptSriovPtpPerformanceScenario = "discoveryExceptSriovPtpPerformance"
 )
 
 const (
@@ -86,5 +90,34 @@ const (
 	DiscoveryExceptSriovPtpPerformancePassedTest = 18
 	// DiscoveryExceptSriovPtpPerformancePassedTestSkippedTest expected number of skipped tests with
 	// sctp machine config, xt_u32 machine config resources configured
-	DiscoveryExceptSriovPtpPerformancePassedTestSkippedTest = 71
+	DiscoveryExceptSriovPtpPerformancetSkippedTest = 71
+
+	// SNODiscoveryAllFeaturesPassedTest expected number of passed tests with
+	// SriovNetworkNodePolicy, sctp machine config, xt_u32 machine config, PerformanceProfile
+	// resources configured
+	// for SNO
+	SNODiscoveryAllFeaturesPassedTest = 63
+	// SNODiscoveryAllFeaturesSkippedTest expected number of skipped tests with
+	// SriovNetworkNodePolicy, sctp machine config, xt_u32 machine config, PerformanceProfile
+	// resources configured
+	// for SNO
+	SNODiscoveryAllFeaturesSkippedTest = 71
+
+	// SNODiscoveryExceptSriovPassedTest expected number of passed tests with:
+	// sctp machine config, xt_u32 machine config, PerformanceProfile resources configured
+	// for SNO
+	SNODiscoveryExceptSriovPassedTest = 43
+	// SNODiscoveryExceptSriovSkippedTest expected number of skipped tests with
+	// sctp machine config, xt_u32 machine config, PerformanceProfile resources configured
+	// for SNO
+	SNODiscoveryExceptSriovSkippedTest = 91
+
+	// SNODiscoveryExceptSriovPerformancePassedTest expected number of passed tests with
+	// sctp machine config, xt_u32 machine config  resources configured
+	// for SNO
+	SNODiscoveryExceptSriovPerformancePassedTest = 17
+	// SNODiscoveryExceptSriovPerformancePassedTestSkippedTest expected number of skipped tests with
+	// sctp machine config, xt_u32 machine config resources configured
+	// for SNO
+	SNODiscoveryExceptSriovPerformanceSkippedTest = 117
 )

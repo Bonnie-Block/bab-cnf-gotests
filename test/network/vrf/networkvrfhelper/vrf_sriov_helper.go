@@ -2,14 +2,14 @@ package networkvrfhelper
 
 import (
 	"context"
+	"fmt"
+	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-
-	"fmt"
-	"time"
 
 	netattdefv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	sriovv1 "github.com/k8snetworkplumbingwg/sriov-network-operator/api/v1"
@@ -18,10 +18,9 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/vrf/parameters"
 	generalParam "gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/cluster"
-	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
-
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 )
 
 // DefineSriovNetworkMetaPluginsVRFConfig  plugin for discovering and advertising SR-IOV VFs
@@ -50,7 +49,10 @@ func CleanResources() {
 
 // SetupSriovBeforeAll prepare env before test
 func SetupSriovBeforeAll(config *config.Config, sriovInfos *cluster.EnabledNodes, dual bool) {
-	var resourceNameRange []string
+	var (
+		resourceNameRange    []string
+		snoTimeoutMultiplier time.Duration = 1
+	)
 	requestedIntefcace := 1
 	resourceNameRange = []string{parameters.ResourceNameVRF}
 	resourceNameVrfRed := parameters.ResourceNameVRF
@@ -66,6 +68,17 @@ func SetupSriovBeforeAll(config *config.Config, sriovInfos *cluster.EnabledNodes
 		sriovNetworkInterfaceIndexRed = 0
 		sriovNetworkInterfaceIndexBlue = 1
 	}
+	isSingleNode, err := nodes.IsSingleNodeCluster(generalHelper.Apiclient)
+	Expect(err).ToNot(HaveOccurred())
+
+	if isSingleNode {
+		snoTimeoutMultiplier = 2
+		disableDrainState := generalHelper.GetNodeDrainState(generalParam.SriovOperatorNamespace)
+		if !disableDrainState {
+			generalHelper.SetDisableNodeDrainState(true, generalParam.SriovOperatorNamespace)
+			generalHelper.ChangedNodeDrainState = true
+		}
+	}
 
 	sriovInterfaces, err := sriovInfos.FindSriovDevices(sriovInfos.Nodes[0])
 	Expect(err).ToNot(HaveOccurred())
@@ -80,7 +93,7 @@ func SetupSriovBeforeAll(config *config.Config, sriovInfos *cluster.EnabledNodes
 		false)
 
 	By("Waiting until SRIOV become stable")
-	generalHelper.WaitForSRIOVStable(generalParam.SriovOperatorNamespace, parameters.WaitingTime)
+	generalHelper.WaitForSRIOVStable(generalParam.SriovOperatorNamespace, parameters.WaitingTime, snoTimeoutMultiplier)
 
 	By("Verify Node Interface Naming Convention")
 	err = networkHelper.CompareNodeSriovInterfaces(sriovInfos)
@@ -129,7 +142,7 @@ func SetupSriovBeforeAll(config *config.Config, sriovInfos *cluster.EnabledNodes
 	Expect(err).ToNot(HaveOccurred())
 
 	By("Waiting until SRIOV become stable")
-	generalHelper.WaitForSRIOVStable(generalParam.SriovOperatorNamespace, parameters.WaitingTime)
+	generalHelper.WaitForSRIOVStable(generalParam.SriovOperatorNamespace, parameters.WaitingTime, snoTimeoutMultiplier)
 
 	By("Waiting until SRIOV resources become available")
 	generalHelper.ValidateSriovVFsAvailableOnNodes(

@@ -16,6 +16,7 @@ import (
 	generalParameters "gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 	testutils "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/utils"
 )
 
@@ -59,7 +60,14 @@ var _ = BeforeSuite(func() {
 
 var _ = AfterSuite(func() {
 	By(fmt.Sprintf("Clean test namespace %s", parameters.TestNamespace))
-	err := namespaces.Clean(
+	var snoTimeoutMultiplier time.Duration = 1
+	isSingleNode, err := nodes.IsSingleNodeCluster(generalHelper.Apiclient)
+	Expect(err).ToNot(HaveOccurred())
+	if isSingleNode {
+		snoTimeoutMultiplier = 2
+		generalHelper.RestoreNodeDrainState(generalParameters.SriovOperatorNamespace)
+	}
+	err = namespaces.Clean(
 		generalParameters.SriovOperatorNamespace,
 		parameters.TestNamespace,
 		generalHelper.Apiclient, false)
@@ -67,5 +75,5 @@ var _ = AfterSuite(func() {
 	err = namespaces.DeleteAndWait(generalHelper.Apiclient, parameters.TestNamespace, timeout)
 	Expect(err).ToNot(HaveOccurred())
 	By("Waiting until SRIOV become stable")
-	generalHelper.WaitForSRIOVStable(generalParameters.SriovOperatorNamespace, waitingTime)
+	generalHelper.WaitForSRIOVStable(generalParameters.SriovOperatorNamespace, waitingTime, snoTimeoutMultiplier)
 })

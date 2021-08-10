@@ -36,15 +36,29 @@ import (
 var _ = Describe("Discovery mode with all ", func() {
 	config, err := config.NewConfig()
 	Expect(err).ToNot(HaveOccurred())
-	var cnfTestEnv *parameters.EnvironmentConfig
-	var containerEngine *exec.Cmd
-	var machineConfigPoolName string
-	var discoverySriovPolicyList []*sriovv1.SriovNetworkNodePolicy
+	var (
+		cnfTestEnv               *parameters.EnvironmentConfig
+		containerEngine          *exec.Cmd
+		machineConfigPoolName    string
+		discoverySriovPolicyList []*sriovv1.SriovNetworkNodePolicy
+		isSingleNode             bool
+		snoTimeoutMultiplier     time.Duration = 1
+	)
 
 	execute.BeforeAll(func() {
 		By("Validate env vars")
 		cnfTestEnv, err = helper.NewConfig()
 		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error to collect cnfTestEnv: %s", err))
+		isSingleNode, err = nodes.IsSingleNodeCluster(Apiclient)
+		Expect(err).ToNot(HaveOccurred())
+		if isSingleNode {
+			snoTimeoutMultiplier = 2
+			disableDrainState := GetNodeDrainState(generalParam.SriovOperatorNamespace)
+			if !disableDrainState {
+				SetDisableNodeDrainState(true, generalParam.SriovOperatorNamespace)
+				ChangedNodeDrainState = true
+			}
+		}
 		containerEngine, err = container.SelectEngine()
 		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error to determine container engine: %s", err))
 		machineConfigPoolName = strings.Split(config.General.CnfNodeLabel, "/")[1]
@@ -72,7 +86,8 @@ var _ = Describe("Discovery mode with all ", func() {
 			By("Deploy load-sctp-module machine-config")
 			err := helper.DeployMC(helper.DefineSCTPMC(machineConfigPoolName))
 			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error to deploy sctp MachineConfig: %s", err))
-			err = helper.WaitForClusterToBeStable(machineConfigPoolName)
+
+			err = helper.WaitForClusterToBeStable(machineConfigPoolName, snoTimeoutMultiplier)
 			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error in wait for cluster to be stable: %s", err))
 		}
 
@@ -80,7 +95,7 @@ var _ = Describe("Discovery mode with all ", func() {
 			By("Deploy load-xt-u32-module machine-config")
 			err := helper.DeployMC(helper.DefineXtu32MC(machineConfigPoolName))
 			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error to deploy xt_u32 MachineConfig: %s", err))
-			err = helper.WaitForClusterToBeStable(machineConfigPoolName)
+			err = helper.WaitForClusterToBeStable(machineConfigPoolName, snoTimeoutMultiplier)
 			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error in wait for cluster to be stable: %s", err))
 		}
 
@@ -90,134 +105,13 @@ var _ = Describe("Discovery mode with all ", func() {
 			config.General.CnfNodeLabel,
 			config.Network.TestContainerImage)
 
-		By("Configure PTP")
-		ptpNodes, err := PtpEnabled(generalParam.PtpOperatorNamespace)
-		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error to determine ptp enable nodes: %s", err))
-		Expect(len(ptpNodes)).To(
-			BeNumerically(">", 1),
-			"need at least two nodes with ptp capable nics")
-
-		By("Labeling the grandmaster node")
-		ptpGrandMasterNode := ptpNodes[0]
-		ptpGrandMasterNode.NodeObject, err = nodes.LabelNode(
-			Apiclient,
-			ptpGrandMasterNode.NodeName,
-			parameters.DiscoveryPtpGrandmasterNodeLabel,
-			"")
-		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error to label grandmaster ptp node: %s", err))
-
-		By("Labeling the slave node")
-		ptpSlaveNode := ptpNodes[1]
-		ptpSlaveNode.NodeObject, err = nodes.LabelNode(
-			Apiclient,
-			ptpSlaveNode.NodeName,
-			parameters.DiscoveryPtpSlaveNodeLabel,
-			"")
-		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error to label slave ptp node: %s", err))
-
-		By("Creating the policy for the grandmaster node")
-		var validPtpInterfaces []string
-		Eventually(func() error {
-			validPtpInterfaces, err = GetPtpInterfaces(
-				config,
-				1,
-				generalParam.SriovOperatorNamespace)
-			return err
-		}, 5*time.Minute, 2*time.Second).ShouldNot(
-			HaveOccurred(),
-			"Error to collect ptp supported interfaces")
-		Expect(len(validPtpInterfaces)).To(
-			Equal(1),
-			"Expect 2 ptp supported interfaces")
-
-		err = helper.CreatePTPConfig(
-			parameters.DiscoveryPtpGrandmasterProfile,
-			generalParam.PtpOperatorNamespace,
-			validPtpInterfaces[0],
-			"-2",
-			"-a -r -r",
-			parameters.DiscoveryPtpGrandmasterNodeLabel,
-			pointer.Int64Ptr(5))
-		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error to create PtpConfig grandmaster: %s", err))
-
-		By("Creating the policy for the worker node")
-		err = helper.CreatePTPConfig(
-			parameters.DiscoveryPtpWorkerProfile,
-			generalParam.PtpOperatorNamespace,
-			validPtpInterfaces[0],
-			"-s -2",
-			"-a -r",
-			parameters.DiscoveryPtpSlaveNodeLabel,
-			pointer.Int64Ptr(5))
-		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error to create PtpConfig slave: %s", err))
-
-		By("Restart the linuxptp-daemon pods")
-		ptpPods, err := Apiclient.Pods(generalParam.PtpOperatorNamespace).List(
-			context.Background(),
-			metav1.ListOptions{LabelSelector: "app=linuxptp-daemon"})
-		Expect(err).ToNot(HaveOccurred())
-		for _, pod := range ptpPods.Items {
-			err = Apiclient.Pods(generalParam.PtpOperatorNamespace).Delete(
-				context.Background(),
-				pod.Name,
-				metav1.DeleteOptions{GracePeriodSeconds: pointer.Int64Ptr(0)})
-			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error to remove ptp pod: %s, %s", pod.Name, err))
+		if !isSingleNode {
+			By("Setup PTP discovery mode policy")
+			definePTPDiscoveryModePolicy(config)
+		} else {
+			By("Skip discovery mode policy configuration on SNO")
 		}
-		daemonset, err := Apiclient.DaemonSets(generalParam.PtpOperatorNamespace).Get(
-			context.Background(),
-			generalParam.PtpDaemonsetName,
-			metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error to collect ptp daemonSet info: %s", err))
-		expectedNumber := daemonset.Status.DesiredNumberScheduled
-		Eventually(func() int32 {
-			daemonset, err = Apiclient.DaemonSets(generalParam.PtpOperatorNamespace).Get(
-				context.Background(),
-				generalParam.PtpDaemonsetName,
-				metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			return daemonset.Status.NumberReady
-		}, 2*time.Minute, 2*time.Second).Should(
-			Equal(expectedNumber),
-			fmt.Sprintf("Waiting interval expired during ptp daemonSet Eventually loop : %s", err))
 
-		Eventually(func() int {
-			ptpPods, err := Apiclient.Pods(generalParam.PtpOperatorNamespace).List(
-				context.Background(),
-				metav1.ListOptions{LabelSelector: "app=linuxptp-daemon"})
-			Expect(err).ToNot(HaveOccurred())
-			return len(ptpPods.Items)
-		}, 2*time.Minute, 2*time.Second).Should(
-			Equal(int(expectedNumber)),
-			fmt.Sprintf("Waiting interval expired trying to check that all ptp pods are running: %s", err))
-
-		err = wait.PollImmediate(
-			1*time.Second,
-			600*time.Second,
-			func() (done bool, err error) {
-				ptpPods, err := Apiclient.Pods(generalParam.PtpOperatorNamespace).List(
-					context.Background(),
-					metav1.ListOptions{
-						LabelSelector: "app=linuxptp-daemon",
-						FieldSelector: fmt.Sprintf(
-							"spec.nodeName=%s",
-							ptpSlaveNode.NodeName)})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(len(ptpPods.Items)).To(Equal(1))
-				logs, err := pod.GetLog(
-					Apiclient,
-					&ptpPods.Items[0],
-					2*time.Second,
-					generalParam.PtpContainerName)
-				Expect(err).ToNot(HaveOccurred())
-				if strings.Contains(logs, "new foreign master") {
-					fmt.Printf(
-						"Found valid PTP Configuration, using %s for master and slave\n",
-						validPtpInterfaces[0])
-					return true, nil
-				}
-				return false, nil
-			})
-		Expect(err).ToNot(HaveOccurred(), "Did not found valid PTP Configuration")
 		By("Discover SRIOV interfaces")
 		sriovInfos, err := cluster.DiscoverSriov(Apiclient, generalParam.SriovOperatorNamespace)
 		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error discover SRIOV node info: %s", err))
@@ -233,7 +127,7 @@ var _ = Describe("Discovery mode with all ", func() {
 			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error Create SRIOV policy: %s", err))
 		}
 		By("Waiting until SRIOV become stable")
-		WaitForSRIOVStable(generalParam.SriovOperatorNamespace, parameters.SriovWaitingTime)
+		WaitForSRIOVStable(generalParam.SriovOperatorNamespace, parameters.SriovWaitingTime, snoTimeoutMultiplier)
 
 		By("Waiting until SRIOV resources become available")
 		ValidateSriovVFsAvailableOnNodes(
@@ -246,67 +140,54 @@ var _ = Describe("Discovery mode with all ", func() {
 			parameters.DiscoveryPerformanceProfile,
 			config.General.CnfNodeLabel)
 		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error Create PerformanceProfile policy: %s", err))
-		err = helper.WaitForClusterToBeStable(machineConfigPoolName)
+
+		err = helper.WaitForClusterToBeStable(machineConfigPoolName, snoTimeoutMultiplier)
 		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error waiting for cluster to be stable: %s", err))
+
 	})
 
 	BeforeEach(func() {
-		if fileExists(fmt.Sprintf(path.Join(config.General.ReportDirAbsPath, parameters.JUnitCNFTestsReportName))) {
-			By("Remove existing cnftests junit report")
-			err := os.Remove(
-				fmt.Sprintf(path.Join(config.General.ReportDirAbsPath, parameters.JUnitCNFTestsReportName)))
-			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error removing cnf-tests report file: %s", err))
-		}
+		By("Remove all existing cnftests  reports")
+		removeAllFromDir(config.General.ReportDirAbsPath)
 	})
 
 	It("features configured", func() {
-
 		// Skip test due to the Intel bug in discovery mode
 		if discoverySriovPolicyList[0].Spec.DeviceType == "vfio-pci" {
 			Skip("Skip test on top of intel card due to the BZ: https://bugzilla.redhat.com/show_bug.cgi?id=1971274")
 		}
-
-		runCNFTests(config.General.ReportDirAbsPath, cnfTestEnv, containerEngine)
-		reportIsValid(
-			config.General.ReportDirAbsPath,
-			parameters.DiscoveryAllFeaturesPassedTest,
-			parameters.DiscoveryAllFeaturesSkippedTest)
+		runCNFTests(config, cnfTestEnv, containerEngine)
+		reportIsValid(config.General.ReportDirAbsPath, definePassedSkipTestsNumber(parameters.DiscoveryAllFeaturesScenario, isSingleNode))
 	})
 
 	It("features configured(Except for SriovNetworkNodePolicy)", func() {
 		By("Remove Sriov Policy")
-		err := helper.CleanAllSriovPolicy()
+		err := helper.CleanAllSriovPolicy(snoTimeoutMultiplier)
 		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error removing all sriov policy: %s", err))
-		runCNFTests(config.General.ReportDirAbsPath, cnfTestEnv, containerEngine)
-		reportIsValid(
-			config.General.ReportDirAbsPath,
-			parameters.DiscoveryExceptSriovPassedTest,
-			parameters.DiscoveryExceptSriovSkippedTest)
+		runCNFTests(config, cnfTestEnv, containerEngine)
+		reportIsValid(config.General.ReportDirAbsPath, definePassedSkipTestsNumber(parameters.DiscoveryExceptSriovScenario, isSingleNode))
 	})
 
 	It("features configured(Except for SriovNetworkNodePolicy and Ptpconfig)", func() {
+		if isSingleNode {
+			Skip("PTP is not supported on Single node cluster")
+		}
 		By("Remove PTP policy")
 		err := CleanAllPtpConfig(
 			generalParam.PtpOperatorNamespace,
 			parameters.DiscoveryPtpGrandmasterNodeLabel,
 			parameters.DiscoveryPtpSlaveNodeLabel)
 		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error removing all ptp configuration: %s", err))
-		runCNFTests(config.General.ReportDirAbsPath, cnfTestEnv, containerEngine)
-		reportIsValid(
-			config.General.ReportDirAbsPath,
-			parameters.DiscoveryExceptSriovPtpPassedTest,
-			parameters.DiscoveryExceptSriovPtpSkippedTest)
+		runCNFTests(config, cnfTestEnv, containerEngine)
+		reportIsValid(config.General.ReportDirAbsPath, definePassedSkipTestsNumber(parameters.DiscoveryExceptSriovPtpScenario, isSingleNode))
 	})
 
 	It("features configured(Except for SriovNetworkNodePolicy, Ptpconfig and PerformanceProfile)", func() {
 		By("Remove Performance policy")
-		err := helper.CleanAllPerformanceProfile(machineConfigPoolName)
+		err := helper.CleanAllPerformanceProfile(machineConfigPoolName, snoTimeoutMultiplier)
 		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error removing all Performance profiles: %s", err))
-		runCNFTests(config.General.ReportDirAbsPath, cnfTestEnv, containerEngine)
-		reportIsValid(
-			config.General.ReportDirAbsPath,
-			parameters.DiscoveryExceptSriovPtpPerformancePassedTest,
-			parameters.DiscoveryExceptSriovPtpPerformancePassedTestSkippedTest)
+		runCNFTests(config, cnfTestEnv, containerEngine)
+		reportIsValid(config.General.ReportDirAbsPath, definePassedSkipTestsNumber(parameters.DiscoveryExceptSriovPtpPerformanceScenario, isSingleNode))
 	})
 })
 
@@ -382,7 +263,7 @@ func jobForNode(name, node, app string, cmd []string, args []string, image strin
 }
 
 func runCNFTests(
-	reportDirAbsPath string,
+	config *config.Config,
 	cnfTestEnv *parameters.EnvironmentConfig,
 	containerEngine *exec.Cmd) {
 
@@ -392,20 +273,20 @@ func runCNFTests(
 		fmt.Sprintf("KUBECONFIG var is empty. Please set KUBECONFIG"))
 	_, err := os.Stat(kubeconfigFile)
 	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("KUBECONFIG file doesn't exists"))
-
 	cnfTest := exec.Command(
 		containerEngine.Path, "run", "-v", fmt.Sprintf(
 			"%s:/kubefiles", filepath.Dir(kubeconfigFile)),
-		"-v", fmt.Sprintf("%s:/%s", reportDirAbsPath, filepath.Base(reportDirAbsPath)),
+		"-v", fmt.Sprintf("%s:/%s", config.General.ReportDirAbsPath, filepath.Base(config.General.ReportDirAbsPath)),
 		"-e", "DISCOVERY_MODE=true",
 		"-e", "KUBECONFIG=/kubefiles/kubeconfig",
+		"-e", fmt.Sprintf("ROLE_WORKER_CNF=%s", strings.Split(config.General.CnfNodeLabel, "/")[1]),
 		"-e", fmt.Sprintf("IMAGE_REGISTRY=%s", cnfTestEnv.TestImageRegistry),
 		"-e", fmt.Sprintf("CNF_TESTS_IMAGE=%s", cnfTestEnv.CnfTestImage),
 		"-e", fmt.Sprintf("DPDK_TESTS_IMAGE=%s", cnfTestEnv.DpdkTestImage),
 		fmt.Sprintf("%s/%s", cnfTestEnv.TestImageRegistry, cnfTestEnv.CnfTestImage),
 		"/usr/bin/test-run.sh", "-ginkgo.focus=sriov|sctp|dpdk|performance|ptp|vrf|xt_u32",
-		fmt.Sprintf("--report=/%s", filepath.Base(reportDirAbsPath)),
-		fmt.Sprintf("--junit=/%s", filepath.Base(reportDirAbsPath)))
+		fmt.Sprintf("--report=/%s", filepath.Base(config.General.ReportDirAbsPath)),
+		fmt.Sprintf("--junit=/%s", filepath.Base(config.General.ReportDirAbsPath)))
 	cnfTest.Stdout = os.Stdout
 	cnfTest.Stderr = os.Stderr
 	By("Start discovery mode testing")
@@ -413,16 +294,9 @@ func runCNFTests(
 	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error running cnfTests: %s", err))
 }
 
-func fileExists(name string) bool {
-	if _, err := os.Stat(name); err != nil {
-		if os.IsNotExist(err) {
-			return false
-		}
-	}
-	return true
-}
-
-func reportIsValid(reportPath string, passedTestNumber int, skippedTestNumber int) {
+func reportIsValid(reportPath string, expectedTestNumbers []int) {
+	passedTestNumber := expectedTestNumbers[0]
+	skippedTestNumber := expectedTestNumbers[1]
 	data, err := os.Open(fmt.Sprintf(path.Join(reportPath, parameters.JUnitCNFTestsReportName)))
 	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error opening cnf-tests report file: %s", err))
 	byteValue, err := ioutil.ReadAll(data)
@@ -444,4 +318,184 @@ func reportIsValid(reportPath string, passedTestNumber int, skippedTestNumber in
 	Expect(skipCount).To(BeEquivalentTo(
 		skippedTestNumber),
 		fmt.Sprintf("Invalid Skip test number"))
+}
+
+func removeAllFromDir(dir string) {
+	openDir, err := os.Open(dir)
+	Expect(err).ToNot(HaveOccurred())
+	defer openDir.Close()
+	names, err := openDir.Readdirnames(-1)
+	Expect(err).ToNot(HaveOccurred())
+	for _, name := range names {
+		err = os.RemoveAll(filepath.Join(dir, name))
+	}
+}
+
+func definePTPDiscoveryModePolicy(config *config.Config) {
+	ptpNodes, err := PtpEnabled(generalParam.PtpOperatorNamespace)
+	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error to determine ptp enable nodes: %s", err))
+	Expect(len(ptpNodes)).To(
+		BeNumerically(">", 1),
+		"need at least two nodes with ptp capable nics")
+
+	By("Labeling the grandmaster node")
+	ptpGrandMasterNode := ptpNodes[0]
+	ptpGrandMasterNode.NodeObject, err = nodes.LabelNode(
+		Apiclient,
+		ptpGrandMasterNode.NodeName,
+		parameters.DiscoveryPtpGrandmasterNodeLabel,
+		"")
+	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error to label grandmaster ptp node: %s", err))
+
+	By("Labeling the slave node")
+	ptpSlaveNode := ptpNodes[1]
+	ptpSlaveNode.NodeObject, err = nodes.LabelNode(
+		Apiclient,
+		ptpSlaveNode.NodeName,
+		parameters.DiscoveryPtpSlaveNodeLabel,
+		"")
+	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error to label slave ptp node: %s", err))
+
+	By("Creating the policy for the grandmaster node")
+	var validPtpInterfaces []string
+	Eventually(func() error {
+		validPtpInterfaces, err = GetPtpInterfaces(
+			config,
+			1,
+			generalParam.SriovOperatorNamespace)
+		return err
+	}, 5*time.Minute, 2*time.Second).ShouldNot(
+		HaveOccurred(),
+		"Error to collect ptp supported interfaces")
+	Expect(len(validPtpInterfaces)).To(
+		Equal(1),
+		"Expect 2 ptp supported interfaces")
+
+	err = helper.CreatePTPConfig(
+		parameters.DiscoveryPtpGrandmasterProfile,
+		generalParam.PtpOperatorNamespace,
+		validPtpInterfaces[0],
+		"-2",
+		"-a -r -r",
+		parameters.DiscoveryPtpGrandmasterNodeLabel,
+		pointer.Int64Ptr(5))
+	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error to create PtpConfig grandmaster: %s", err))
+
+	By("Creating the policy for the worker node")
+	err = helper.CreatePTPConfig(
+		parameters.DiscoveryPtpWorkerProfile,
+		generalParam.PtpOperatorNamespace,
+		validPtpInterfaces[0],
+		"-s -2",
+		"-a -r",
+		parameters.DiscoveryPtpSlaveNodeLabel,
+		pointer.Int64Ptr(5))
+	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error to create PtpConfig slave: %s", err))
+
+	By("Restart the linuxptp-daemon pods")
+	ptpPods, err := Apiclient.Pods(generalParam.PtpOperatorNamespace).List(
+		context.Background(),
+		metav1.ListOptions{LabelSelector: "app=linuxptp-daemon"})
+	Expect(err).ToNot(HaveOccurred())
+	for _, pod := range ptpPods.Items {
+		err = Apiclient.Pods(generalParam.PtpOperatorNamespace).Delete(
+			context.Background(),
+			pod.Name,
+			metav1.DeleteOptions{GracePeriodSeconds: pointer.Int64Ptr(0)})
+		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error to remove ptp pod: %s, %s", pod.Name, err))
+	}
+	daemonset, err := Apiclient.DaemonSets(generalParam.PtpOperatorNamespace).Get(
+		context.Background(),
+		generalParam.PtpDaemonsetName,
+		metav1.GetOptions{})
+	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error to collect ptp daemonSet info: %s", err))
+	expectedNumber := daemonset.Status.DesiredNumberScheduled
+	Eventually(func() int32 {
+		daemonset, err = Apiclient.DaemonSets(generalParam.PtpOperatorNamespace).Get(
+			context.Background(),
+			generalParam.PtpDaemonsetName,
+			metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		return daemonset.Status.NumberReady
+	}, 2*time.Minute, 2*time.Second).Should(
+		Equal(expectedNumber),
+		fmt.Sprintf("Waiting interval expired during ptp daemonSet Eventually loop : %s", err))
+
+	Eventually(func() int {
+		ptpPods, err := Apiclient.Pods(generalParam.PtpOperatorNamespace).List(
+			context.Background(),
+			metav1.ListOptions{LabelSelector: "app=linuxptp-daemon"})
+		Expect(err).ToNot(HaveOccurred())
+		return len(ptpPods.Items)
+	}, 2*time.Minute, 2*time.Second).Should(
+		Equal(int(expectedNumber)),
+		fmt.Sprintf("Waiting interval expired trying to check that all ptp pods are running: %s", err))
+
+	err = wait.PollImmediate(
+		1*time.Second,
+		600*time.Second,
+		func() (done bool, err error) {
+			ptpPods, err := Apiclient.Pods(generalParam.PtpOperatorNamespace).List(
+				context.Background(),
+				metav1.ListOptions{
+					LabelSelector: "app=linuxptp-daemon",
+					FieldSelector: fmt.Sprintf(
+						"spec.nodeName=%s",
+						ptpSlaveNode.NodeName)})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(ptpPods.Items)).To(Equal(1))
+			logs, err := pod.GetLog(
+				Apiclient,
+				&ptpPods.Items[0],
+				2*time.Second,
+				generalParam.PtpContainerName)
+			Expect(err).ToNot(HaveOccurred())
+			if strings.Contains(logs, "new foreign master") {
+				fmt.Printf(
+					"Found valid PTP Configuration, using %s for master and slave\n",
+					validPtpInterfaces[0])
+				return true, nil
+			}
+			return false, nil
+		})
+	Expect(err).ToNot(HaveOccurred(), "Did not found valid PTP Configuration")
+}
+
+func definePassedSkipTestsNumber(scenario string, isSingleNode bool) [] int {
+	var (
+		passedTestNumber int
+		skippedTestNumber int
+	)
+	switch scenario {
+	case parameters.DiscoveryAllFeaturesScenario:
+		if isSingleNode {
+			passedTestNumber = parameters.SNODiscoveryAllFeaturesPassedTest
+			skippedTestNumber = parameters.SNODiscoveryAllFeaturesSkippedTest
+		} else {
+			passedTestNumber = parameters.DiscoveryAllFeaturesPassedTest
+			skippedTestNumber = parameters.DiscoveryAllFeaturesSkippedTest
+		}
+	case parameters.DiscoveryExceptSriovScenario:
+		if isSingleNode {
+			passedTestNumber = parameters.SNODiscoveryExceptSriovPassedTest
+			skippedTestNumber = parameters.SNODiscoveryExceptSriovSkippedTest
+		} else {
+			passedTestNumber = parameters.DiscoveryExceptSriovPassedTest
+			skippedTestNumber = parameters.DiscoveryExceptSriovSkippedTest
+		}
+	case parameters.DiscoveryExceptSriovPtpScenario:
+		passedTestNumber = parameters.DiscoveryExceptSriovPtpPassedTest
+		skippedTestNumber = parameters.DiscoveryExceptSriovPtpSkippedTest
+	case parameters.DiscoveryExceptSriovPtpPerformanceScenario:
+		if isSingleNode {
+			passedTestNumber = parameters.SNODiscoveryExceptSriovPerformancePassedTest
+			skippedTestNumber = parameters.SNODiscoveryExceptSriovPerformanceSkippedTest
+		} else {
+			passedTestNumber = parameters.DiscoveryExceptSriovPtpPerformancePassedTest
+			skippedTestNumber = parameters.DiscoveryExceptSriovPtpPerformancetSkippedTest
+		}
+	default:
+		Fail(fmt.Sprintf("Unknown scenario %s", scenario))
+	}
+	return []int{passedTestNumber, skippedTestNumber}
 }

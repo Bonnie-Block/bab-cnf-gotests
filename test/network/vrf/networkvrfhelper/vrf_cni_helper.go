@@ -18,10 +18,10 @@ import (
 )
 
 // GetNodeListStringByLabel returns node names in list format
-func GetNodeListStringByLabel() []string {
-	By(fmt.Sprintf("Select nodes by label %s ", parameters.LabelNodeRole))
+func GetNodeListStringByLabel(labelNodeRole string) []string {
+	By(fmt.Sprintf("Select nodes by label %s ", labelNodeRole))
 	var nodeListString []string
-	nodesList, err := nodes.GetByRole(generalHelper.Apiclient, parameters.LabelNodeRole)
+	nodesList, err := nodes.GetByRole(generalHelper.Apiclient, labelNodeRole)
 	Expect(err).ToNot(HaveOccurred())
 
 	for _, node := range nodesList {

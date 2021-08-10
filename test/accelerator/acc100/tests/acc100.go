@@ -27,10 +27,11 @@ var _ = Describe("Intel ACC100", func() {
 	var (
 		sriovFecNodeList = &fpgav1.SriovFecNodeConfigList{}
 		testSkip         = ""
+		isSingleNode bool
 	)
 	config, err := config.NewConfig()
 	Expect(err).ToNot(HaveOccurred())
-	var isSingleNode bool
+
 
 	execute.BeforeAll(func() {
 		var err error
@@ -67,7 +68,7 @@ var _ = Describe("Intel ACC100", func() {
 			"Not all sriov-fec daemonsets are ready")
 
 		isSingleNode, err = nodes.IsSingleNodeCluster(generalHelper.Apiclient)
-
+		Expect(err).NotTo(HaveOccurred())
 	})
 
 	Context("sriov-fec", func() {

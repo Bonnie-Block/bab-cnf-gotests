@@ -10,6 +10,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/reporters"
 	. "github.com/onsi/gomega"
+
 	. "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	networkHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/sriov/parameters"
@@ -17,6 +18,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/cluster"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 	testutils "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/utils"
 )
 
@@ -49,6 +51,12 @@ func TestSriov(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
+	var snoTimeoutMultiplier time.Duration = 1
+	isSingleNode, err := nodes.IsSingleNodeCluster(Apiclient)
+	Expect(err).ToNot(HaveOccurred())
+	if isSingleNode {
+		snoTimeoutMultiplier = 2
+	}
 	configuration, err := config.NewConfig()
 	Expect(err).ToNot(HaveOccurred())
 	PullTestImage(configuration.General.CnfNodeLabel, configuration.Network.TestContainerImage)
@@ -57,12 +65,19 @@ var _ = BeforeSuite(func() {
 	err = networkHelper.CompareNodeSriovInterfaces(sriovInfos)
 	Expect(err).ToNot(HaveOccurred())
 	namespaces.Clean(parameters.OperatorNamespace, parameters.OperatorTestNamespace, Apiclient, false)
-	WaitForSRIOVStable(parameters.OperatorNamespace, timeout)
+	WaitForSRIOVStable(parameters.OperatorNamespace, timeout, snoTimeoutMultiplier)
 })
 
 var _ = AfterSuite(func() {
-	namespaces.Clean(parameters.OperatorNamespace, parameters.OperatorTestNamespace, Apiclient, false)
-	err := namespaces.DeleteAndWait(Apiclient, parameters.OperatorTestNamespace, timeout)
+	var snoTimeoutMultiplier time.Duration = 1
+	isSingleNode, err := nodes.IsSingleNodeCluster(Apiclient)
 	Expect(err).ToNot(HaveOccurred())
-	WaitForSRIOVStable(parameters.OperatorNamespace, timeout)
+	if isSingleNode {
+		snoTimeoutMultiplier = 2
+		RestoreNodeDrainState(parameters.OperatorNamespace)
+	}
+	namespaces.Clean(parameters.OperatorNamespace, parameters.OperatorTestNamespace, Apiclient, false)
+	err = namespaces.DeleteAndWait(Apiclient, parameters.OperatorTestNamespace, timeout)
+	Expect(err).ToNot(HaveOccurred())
+	WaitForSRIOVStable(parameters.OperatorNamespace, timeout, snoTimeoutMultiplier)
 })
