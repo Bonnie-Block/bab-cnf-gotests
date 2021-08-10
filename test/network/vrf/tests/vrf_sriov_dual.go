@@ -33,25 +33,8 @@ var _ = Describe("CNF VRF", func() {
 		networkvrfhelper.CleanResources()
 	})
 
-	//36304
-	DescribeTable("Integration: SRIOV, IPAM: static, Interfaces: 2, Scheme: 2 Pods 2 VRFs 2 VFs",
-		func(node string, ipStack string) {
-			networkvrfhelper.TestVRFScenario(
-				node,
-				ipStack,
-				"overLapToVRF",
-				config,
-				sriovInfos.Nodes,
-				parameters.TestSriovNetworkBlue,
-				parameters.TestSriovNetworkRed)
-		},
-		Entry(describe, parameters.SameNode, parameters.IPStackIPv4),
-		Entry(describe, parameters.DiffNode, parameters.IPStackIPv4),
-		Entry(describe, parameters.SameNode, parameters.IPStackIPv6),
-		Entry(describe, parameters.DiffNode, parameters.IPStackIPv6),
-	)
 	//36299
-	DescribeTable("CNF Vrf: Integration: SriovNetwork, IPAM: static, Interfaces: 2, Scheme: 2 Pods 2 VRFs OCP Primary network overlap",
+	DescribeTable("CNF Vrf: Integration: SRIOV, IPAM: static, Interfaces: 2, Scheme: 2 Pods 2 VRFs OCP Primary network overlap",
 		func(node string, ipStack string) {
 			networkvrfhelper.TestVRFScenario(
 				node,
@@ -65,8 +48,9 @@ var _ = Describe("CNF VRF", func() {
 		Entry(describe, parameters.SameNode, parameters.IPStackIPv4),
 		Entry(describe, parameters.DiffNode, parameters.IPStackIPv4),
 	)
+
 	//36308
-	DescribeTable("CNF Vrf: Integration: SriovNetwork, IPAM: static, Interfaces: 2, Scheme: 2 Pods 2 VRFs ip network overlap",
+	DescribeTable("CNF Vrf: Integration: SRIOV, IPAM: static, Interfaces: 2, Scheme: 2 Pods 2 VRFs ip network overlap",
 		func(node string, ipStack string) {
 			networkvrfhelper.TestVRFScenario(
 				node,
@@ -83,7 +67,7 @@ var _ = Describe("CNF VRF", func() {
 		Entry(describe, parameters.DiffNode, parameters.IPStackIPv6),
 	)
 	//36312
-	DescribeTable("CNF Vrf: Integration: SriovNetwork, IPAM: static, Interfaces: 2, Scheme: 2 Pods 2 VRFs Different IP networks",
+	DescribeTable("CNF Vrf: Integration: SRIOV, IPAM: static, Interfaces: 2, Scheme: 2 Pods 2 VRFs Different IP networks",
 		func(node string, ipStack string) {
 			networkvrfhelper.TestVRFScenario(
 				node,
