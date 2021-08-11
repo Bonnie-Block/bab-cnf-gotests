@@ -34,7 +34,7 @@ var _ = Describe("CNF VRF", func() {
 	})
 
 	//36299
-	DescribeTable("CNF Vrf: Integration: SRIOV, IPAM: static, Interfaces: 2, Scheme: 2 Pods 2 VRFs OCP Primary network overlap",
+	DescribeTable("Integration: SRIOV, IPAM: static, Interfaces: 2, Scheme: 2 Pods 2 VRFs OCP Primary network overlap",
 		func(node string, ipStack string) {
 			networkvrfhelper.TestVRFScenario(
 				node,
@@ -50,7 +50,7 @@ var _ = Describe("CNF VRF", func() {
 	)
 
 	//36308
-	DescribeTable("CNF Vrf: Integration: SRIOV, IPAM: static, Interfaces: 2, Scheme: 2 Pods 2 VRFs ip network overlap",
+	DescribeTable("Integration: SRIOV, IPAM: static, Interfaces: 2, Scheme: 2 Pods 2 VRFs ip network overlap",
 		func(node string, ipStack string) {
 			networkvrfhelper.TestVRFScenario(
 				node,
@@ -67,7 +67,7 @@ var _ = Describe("CNF VRF", func() {
 		Entry(describe, parameters.DiffNode, parameters.IPStackIPv6),
 	)
 	//36312
-	DescribeTable("CNF Vrf: Integration: SRIOV, IPAM: static, Interfaces: 2, Scheme: 2 Pods 2 VRFs Different IP networks",
+	DescribeTable("Integration: SRIOV, IPAM: static, Interfaces: 2, Scheme: 2 Pods 2 VRFs Different IP networks",
 		func(node string, ipStack string) {
 			networkvrfhelper.TestVRFScenario(
 				node,

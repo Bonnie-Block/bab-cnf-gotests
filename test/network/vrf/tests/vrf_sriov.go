@@ -68,7 +68,7 @@ var _ = Describe("CNF VRF", func() {
 	)
 
 	// 36319
-	DescribeTable("CNF Vrf: Integration: SRIOV, IPAM: static, Interfaces: 1, Scheme: 2 Pods 2 VRFs Different IP networks",
+	DescribeTable("Integration: SRIOV, IPAM: static, Interfaces: 1, Scheme: 2 Pods 2 VRFs Different IP networks",
 		func(node string, ipStack string) {
 			networkvrfhelper.TestVRFScenario(
 				node,
