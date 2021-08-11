@@ -30,6 +30,12 @@ type Config struct {
 		TestContainerImage string `yaml:"test_container_image" envconfig:"NETWORK_TEST_CONTAINER_IMAGE"`
 		SriovInterfaces    string `envconfig:"CNF_INTERFACES_LIST"`
 	} `yaml:"network"`
+	Ran struct {
+		CnfTestImage              string `yaml:"cnf_test_image" envconfig:"CNF_TEST_IMAGE"`
+		StressngTestImage         string `yaml:"stressng_test_image" envconfig:"STRESSNG_TEST_IMAGE"`
+		OslatTestImage            string `yaml:"oslat_test_image" envconfig:"OSLAT_TEST_IMAGE"`
+		ProcessExporterConfigsDir string `yaml:"process_exporter_resources"`
+	} `yaml:"ran"`
 }
 
 // NewConfig returs instance Config type
@@ -43,6 +49,7 @@ func NewConfig() (*Config, error) {
 		return nil, err
 	}
 	c.General.ReportDirAbsPath = filepath.Join(baseDir, c.General.ReportDirAbsPath)
+	c.Ran.ProcessExporterConfigsDir = filepath.Join(baseDir, c.Ran.ProcessExporterConfigsDir)
 	err = readEnv(&c)
 	if err != nil {
 		return nil, err

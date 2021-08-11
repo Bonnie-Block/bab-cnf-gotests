@@ -15,10 +15,9 @@ import (
 	"k8s.io/client-go/tools/remotecommand"
 	"k8s.io/utils/pointer"
 
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	testclient "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
 )
-
-const hostnameLabel = "kubernetes.io/hostname"
 
 func getDefinition(namespace string, image string) *corev1.Pod {
 	podObject := &corev1.Pod{
@@ -47,7 +46,7 @@ func DefineWithNodeNetworks(nodeName string, networks []string, namespace string
 	podObject := getDefinition(namespace, image)
 	podObject.Annotations = map[string]string{"k8s.v1.cni.cncf.io/networks": strings.Join(networks, ",")}
 	podObject.Spec.NodeSelector = map[string]string{
-		"kubernetes.io/hostname": nodeName,
+		parameters.LabelHostname: nodeName,
 	}
 	return podObject
 }
@@ -57,7 +56,7 @@ func DefineWithHostNetwork(nodeName string, namespace string, image string) *cor
 	podObject := getDefinition(namespace, image)
 	podObject.Spec.HostNetwork = true
 	podObject.Spec.NodeSelector = map[string]string{
-		"kubernetes.io/hostname": nodeName,
+		parameters.LabelHostname: nodeName,
 	}
 
 	return podObject
@@ -80,7 +79,7 @@ func RedefineWithHostNetwork(pod *corev1.Pod) *corev1.Pod {
 // RedefineWithNodeSelector uppdates the pod definition with a node selector
 func RedefineWithNodeSelector(pod *corev1.Pod, node string) *corev1.Pod {
 	pod.Spec.NodeSelector = map[string]string{
-		hostnameLabel: node,
+		parameters.LabelHostname: node,
 	}
 	return pod
 }
@@ -163,7 +162,7 @@ func RedefinePodWithNetwork(pod *corev1.Pod, networksSpec string) *corev1.Pod {
 // DefinePodOnNode creates the pod defintion with a node selector
 func DefinePodOnNode(namespace string, image string, nodeName string) *corev1.Pod {
 	pod := getDefinition(namespace, image)
-	pod.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
+	pod.Spec.NodeSelector = map[string]string{parameters.LabelHostname: nodeName}
 	return pod
 }
 

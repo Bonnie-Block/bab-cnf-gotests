@@ -330,7 +330,7 @@ func checkForSctpReady(cs *client.ClientSet, sctpNodeSelector string, image stri
 	for _, n := range filtered {
 		job := jobForNode(
 			"testsctp-check",
-			n.ObjectMeta.Labels[parameters.HostnameLabel],
+			n.ObjectMeta.Labels[generalParam.LabelHostname],
 			"checksctp",
 			[]string{"/bin/bash", "-c"},
 			args,
@@ -373,7 +373,7 @@ func jobForNode(name, node, app string, cmd []string, args []string, image strin
 				},
 			},
 			NodeSelector: map[string]string{
-				parameters.HostnameLabel: node,
+				generalParam.LabelHostname: node,
 			},
 		},
 	}

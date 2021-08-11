@@ -5,8 +5,10 @@ import (
 )
 
 var (
-	SriovOperatorNamespace string
-	PtpOperatorNamespace   string
+	SriovOperatorNamespace            string
+	PtpOperatorNamespace              string
+	MachineConfigOperatorNamespace    string
+	PerformanceAddonOperatorNamespace string
 )
 
 func init() {
@@ -17,5 +19,13 @@ func init() {
 	SriovOperatorNamespace = os.Getenv("SRIOV_OPERATOR_NAMESPACE")
 	if SriovOperatorNamespace == "" {
 		SriovOperatorNamespace = sriovOperatorNamespace
+	}
+	MachineConfigOperatorNamespace = os.Getenv("MACHINE_CONFIG_OPERATOR_NAMESPACE")
+	if MachineConfigOperatorNamespace == "" {
+		MachineConfigOperatorNamespace = machineConfigOperatorNamespace
+	}
+	PerformanceAddonOperatorNamespace = os.Getenv("PERFORMANCE_ADDON_OPERATOR_NAMESPACE")
+	if MachineConfigOperatorNamespace == "" {
+		MachineConfigOperatorNamespace = performanceAddonOperatorNamespace
 	}
 }

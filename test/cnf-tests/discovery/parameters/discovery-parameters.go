@@ -54,7 +54,6 @@ const (
 	DiscoveryPtpGrandmasterProfile   = "discovery-master-profile"
 	DiscoveryPtpWorkerProfile        = "discovery-worker-profile"
 	JUnitCNFTestsReportName          = "cnftests-junit.xml"
-	HostnameLabel                    = "kubernetes.io/hostname"
 	SriovWaitingTime                 = 35 * time.Minute
 )
 

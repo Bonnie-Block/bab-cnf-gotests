@@ -21,7 +21,6 @@ const (
 	DiffNode                           = "Different Node"
 	IPStackIPv4                        = "ipv4"
 	IPStackIPv6                        = "ipv6"
-	HostnameLabel                      = "kubernetes.io/hostname"
 	TestNamespace                      = "vrf-cni-test"
 	PodWaitingTime       time.Duration = 2 * time.Minute
 	VRFBlueName                        = "blue"
