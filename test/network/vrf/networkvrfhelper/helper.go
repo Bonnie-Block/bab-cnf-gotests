@@ -124,17 +124,15 @@ func TestVRFScenario(node string, ipStack string, ipOverLap string, config *conf
 	podClientIpamConfig := fmt.Sprintf(`[{"name": "%s", "mac": "%s", "ips": ["%s/%s"]}, {"name": "%s", "mac": "%s", "ips": ["%s/%s"]}]`,
 		VRFNetworkBlue, "20:04:0f:f1:88:A1", podClientVRFBlueIPAddress, blueVRFNetworkPrefix, VRFNetworkRed,
 		"20:04:0f:f1:88:B2", podClientVRFRedIPAddress, redVRFNetworkPrefix)
-	podClient := pod.RedefineAsPrivileged(
+	podClient := pod.RedefineAsNetRaw(
 		pod.RedefinePodWithNetwork(pod.DefinePodOnNode(parameters.TestNamespace, config.Network.TestContainerImage, podClientNodeLabel), podClientIpamConfig))
 	podServerIpamConfig := fmt.Sprintf(`[{"name": "%s", "mac": "%s", "ips": ["%s/%s"]}, {"name": "%s", "mac": "%s", "ips": ["%s/%s"]}]`,
 		VRFNetworkBlue, "20:04:0f:f1:88:A3", podServerVRFBlueIPAddress, blueVRFNetworkPrefix, VRFNetworkRed,
 		"20:04:0f:f1:88:B4", podServerVRFRedIPAddress, redVRFNetworkPrefix)
-	podServer := pod.RedefineAsPrivileged(
-		pod.RedefinePodWithNetwork(pod.DefinePodOnNode(parameters.TestNamespace, config.Network.TestContainerImage, podServerNodeLabel), podServerIpamConfig))
+	podServer := defineServerPodMutliHttpContainers(config, podServerNodeLabel, podServerIpamConfig)
 	By("Running client/server pods")
 	runningClientPod := globalHelper.WaitUntilPodCreatedAndRunning(podClient, parameters.PodWaitingTime)
 	globalHelper.WaitUntilPodCreatedAndRunning(podServer, parameters.PodWaitingTime)
-
 	By("Validating client/server VRFs configuration")
 	podHasCorrectVrfConfig(podClient.Name,
 		[]map[string]string{
@@ -145,11 +143,18 @@ func TestVRFScenario(node string, ipStack string, ipOverLap string, config *conf
 			{"vrfName": parameters.VRFBlueName, "vrfClientIP": podServerVRFBlueIPAddress, "vrfInterface": "net1"},
 			{"vrfName": parameters.VRFRedName, "vrfClientIP": podServerVRFRedIPAddress, "vrfInterface": "net2"}})
 
-	By("Validating client/server IP VRF connectivity")
+	By("Validating client/server ICMP VRF connectivity")
 	err = pingIPViaVRF(*runningClientPod, parameters.VRFRedName, podServerVRFRedIPAddress)
 	Expect(err).ToNot(HaveOccurred())
 	err = pingIPViaVRF(*runningClientPod, parameters.VRFBlueName, podServerVRFBlueIPAddress)
 	Expect(err).ToNot(HaveOccurred())
+	// TODO: uncomment lines below
+	// Skip tcp check due to BZ: https://bugzilla.redhat.com/show_bug.cgi?id=1995631
+	//By("Validating client/server TCP VRF connectivity")
+	//err = httpViaVRF(*runningClientPod, parameters.VRFRedName, podServerVRFRedIPAddress, "net2")
+	//Expect(err).ToNot(HaveOccurred())
+	//err = httpViaVRF(*runningClientPod, parameters.VRFBlueName, podServerVRFBlueIPAddress, "net1")
+	//Expect(err).ToNot(HaveOccurred())
 	err = globalHelper.Apiclient.Pods(parameters.TestNamespace).Delete(
 		context.Background(),
 		podServer.Name,
@@ -157,7 +162,7 @@ func TestVRFScenario(node string, ipStack string, ipOverLap string, config *conf
 			GracePeriodSeconds: pointer.Int64Ptr(0)})
 	Expect(err).ToNot(HaveOccurred())
 
-	By("Validating client/server IP negative test")
+	By("Validating client/server ICMP negative test")
 	Eventually(func() error {
 		_, err := globalHelper.Apiclient.Pods(parameters.TestNamespace).Get(
 			context.Background(),
@@ -165,6 +170,13 @@ func TestVRFScenario(node string, ipStack string, ipOverLap string, config *conf
 			metav1.GetOptions{})
 		return err
 	}, parameters.PodWaitingTime, 5*time.Second).Should(HaveOccurred())
+	// TODO: uncomment lines below
+	// Skip tcp check due to BZ: https://bugzilla.redhat.com/show_bug.cgi?id=1995631
+	//By("Validating client/server TCP negative test")
+	//err = httpViaVRF(*runningClientPod, parameters.VRFRedName, podServerVRFRedIPAddress,"net2")
+	//Expect(err).To(HaveOccurred())
+	//err = httpViaVRF(*runningClientPod, parameters.VRFBlueName, podServerVRFBlueIPAddress, "net1")
+	//Expect(err).To(HaveOccurred())
 	err = pingIPViaVRF(*runningClientPod, parameters.VRFBlueName, podServerVRFBlueIPAddress)
 	Expect(err).To(HaveOccurred())
 	err = pingIPViaVRF(*runningClientPod, parameters.VRFRedName, podServerVRFRedIPAddress)
@@ -172,6 +184,10 @@ func TestVRFScenario(node string, ipStack string, ipOverLap string, config *conf
 	if ipOverLap == "overLapToSDN" {
 		err = pingIPViaVRF(*runningClientPod, "eth0", podServerVRFRedIPAddress)
 		Expect(err).ToNot(HaveOccurred())
+		// TODO: uncomment lines below
+		// Skip tcp check due to BZ: https://bugzilla.redhat.com/show_bug.cgi?id=1995631
+		//err = httpViaVRF(*runningClientPod, "", podServerVRFRedIPAddress,"eth0")
+		//Expect(err).ToNot(HaveOccurred())
 	}
 }
 
@@ -228,24 +244,42 @@ func DescribeParameters(node string, ipStack string) string {
 }
 
 func pingIPViaVRF(client k8sv1.Pod, vrfName string, DestIPAddr string) error {
-	var pingCommand []string
-	if net.ParseIP(DestIPAddr).To4() != nil {
-		pingCommand = []string{"ping", "-I", vrfName, "-c5", DestIPAddr}
-	} else if net.ParseIP(DestIPAddr).To4() == nil {
-		pingCommand = []string{"ping6", "-I", vrfName, "-c5", DestIPAddr}
-	}
-	pingStatus, err := pod.ExecCommand(globalHelper.Apiclient, client, pingCommand)
+	// TODO: replace command:
+	// from []string{"testcmd", "-interface", vrfName, "-server", DestIPAddr, "-protocol", "icmp", "-mtu", "100"})
+	// to []string{"ip", "vrf", "exec", "testcmd", "-server", DestIPAddr, "-protocol", "icmp", "-mtu", "100"})
+	// when BZ:  https://bugzilla.redhat.com/show_bug.cgi?id=1995631 will be fixed
+	_, err := pod.ExecCommand(
+		globalHelper.Apiclient,
+		client,
+		[]string{"testcmd", "-interface", vrfName, "-server", DestIPAddr, "-protocol", "icmp", "-mtu", "100"})
 	if err != nil {
 		return err
 	}
-	if strings.Contains(pingStatus.String(), " 0% packet loss") {
-		return nil
+	return nil
+}
+
+func httpViaVRF(client k8sv1.Pod, vrfName string, DestIPAddr string, interfaceName string) error {
+	command := []string{
+		"testcmd", "-interface", interfaceName, "-server", DestIPAddr, "-protocol", "tcp", "-mtu", "100", "-port", "80",
 	}
-	return fmt.Errorf("Connectivity test error")
+	if vrfName != "" {
+		command = append([]string{"ip", "vrf", "exec", vrfName}, command...)
+	}
+	_, err := pod.ExecCommand(
+		globalHelper.Apiclient,
+		client,
+		command)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func getOverlapIP(nodeName string, podImage string) string {
-	tempPodDefinition := pod.RedefineAsPrivileged(pod.DefinePodOnNode(parameters.TestNamespace, podImage, nodeName))
+	tempPodDefinition := pod.RedefineWithCommand(
+		pod.RedefineAsNetRaw(
+			pod.DefinePodOnNode(parameters.TestNamespace, podImage, nodeName)),
+		[]string{"httpd"}, []string{"-X"})
 	err := globalHelper.Apiclient.Create(context.Background(), tempPodDefinition)
 	Expect(err).ToNot(HaveOccurred())
 	Eventually(func() k8sv1.PodPhase {
@@ -262,4 +296,36 @@ func getOverlapIP(nodeName string, podImage string) string {
 		metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	return pod.Status.PodIP
+}
+
+func defineServerPodMutliHttpContainers(
+	config *config.Config, podServerNodeLabel string, podServerIpamConfig string) *k8sv1.Pod {
+	podServer := pod.RedefineWithCommand(
+		pod.RedefineAsNetRaw(
+			pod.RedefinePodWithNetwork(
+				pod.DefinePodOnNode(parameters.TestNamespace, config.Network.TestContainerImage, podServerNodeLabel),
+				podServerIpamConfig)),
+		[]string{"httpd"}, []string{"-X"})
+	podServer.Spec.Containers = append(podServer.Spec.Containers, k8sv1.Container{
+		Name:    fmt.Sprintf("%s%d", podServer.Spec.Containers[0].Name, 1),
+		Image:   podServer.Spec.Containers[0].Image,
+		Command: []string{"ip"},
+		SecurityContext: &k8sv1.SecurityContext{
+			Capabilities: &k8sv1.Capabilities{
+				Add: []k8sv1.Capability{"NET_RAW"},
+			},
+		},
+		Args: []string{"vrf", "exec", parameters.VRFBlueName, "httpd", "-X"},
+	}, k8sv1.Container{
+		Name:    fmt.Sprintf("%s%d", podServer.Spec.Containers[0].Name, 2),
+		Image:   podServer.Spec.Containers[0].Image,
+		Command: []string{"ip"},
+		SecurityContext: &k8sv1.SecurityContext{
+			Capabilities: &k8sv1.Capabilities{
+				Add: []k8sv1.Capability{"NET_RAW"},
+			},
+		},
+		Args: []string{"vrf", "exec", parameters.VRFRedName, "httpd", "-X"},
+	})
+	return podServer
 }

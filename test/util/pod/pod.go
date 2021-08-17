@@ -70,6 +70,14 @@ func RedefineAsPrivileged(pod *corev1.Pod) *corev1.Pod {
 	return pod
 }
 
+func RedefineAsNetRaw(pod *corev1.Pod) *corev1.Pod {
+	pod.Spec.Containers[0].SecurityContext = &corev1.SecurityContext{}
+	pod.Spec.Containers[0].SecurityContext.Capabilities = &corev1.Capabilities{
+		Add: []corev1.Capability{"NET_RAW"},
+	}
+	return pod
+}
+
 // RedefineWithHostNetwork uppdates the pod definition Spec.HostNetwork to true
 func RedefineWithHostNetwork(pod *corev1.Pod) *corev1.Pod {
 	pod.Spec.HostNetwork = true
