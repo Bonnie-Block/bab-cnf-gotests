@@ -20,6 +20,7 @@ Mandatory:
 
 Optional:
 * Sriov-fec operator
+* RAN DU profile
 
 NOTICE: The [cnf-gotests](https://gitlab.cee.redhat.com/cnf/cnf-gotests) removes existing configuration such as
 PtpConfig, SR-IOV, SriovFecClusterConfig configs .
@@ -38,30 +39,45 @@ PtpConfig, SR-IOV, SriovFecClusterConfig configs .
 * Switch
 * Jumbo frame support and configuration
 
+#### RAN suite:
+* Bare metal server
+* Real-time kernel
+
 #### Available features
 
 The list of available features:
 
+##### Available features for Network suite
 * *SR-IOV*
 * *PTP*
 * *VRF*
 * *ACC100*
 * *CNF-TESTS*
 
+##### Available features for RAN suite
+* *CPU*
+
 #### Environment variables
 
-##### Common environment variables:
+##### Common environment variables
 * `FEATURES` - select the feature you are going to test
 * `REPORT_DIR_NAME` - path to general report (default `report/`)
 * `REPORTER_ERROR_OUTPUT` - path to test failure report for troubleshooting (default `failed_tests.logs.txt`)
+
+##### Common network environment variables
 * `NETWORK_TEST_CONTAINER_IMAGE` - path where to download the container image
   of [testcmd](https://gitlab.cee.redhat.com/cnf/cnf-gotests/-/tree/master/cnf-gotests) (
   default `docker-registry.upshift.redhat.com/cnf-gotests/cnf-gotests-client:latest`)
 * `CNF_INTERFACES_LIST` - select the interfaces used in the tests. Multiple interfaces can be selected as
-  needed: 
-    * SR-IOV suite requires 2 interfaces
-    * CNF-TESTS suite requires 1 interface
-    * VRF suite requires 2 interfaces
+  needed:
+  * SR-IOV suite requires 2 interfaces
+  * CNF-TESTS suite requires 1 interface
+  * VRF suite requires 2 interfaces
+
+##### Common RAN environment variables
+* `CNF_TEST_IMAGE` - path to generic container image used in RAN tests
+* `STRESSNG_TEST_IMAGE` - path to StressNg container image
+* `OSLAT_TEST_IMAGE` - path to Oslat container image
 
 ##### SR-IOV suite environment variables:
 * `SRIOV_OPERATOR_NAMESPACE` - select the namespace were sriov-network-operator installed. Default openshift-sriov-network-operator
@@ -71,6 +87,9 @@ The list of available features:
 * `DPDK_IMAGE_VERSION` - select the name of dpdk image.
 * `CNF_IMAGE_VERSION` - select the name of cnf-tests container image. 
 * `CONTAINER_REPO` - select the image registry
+
+##### CPU suite environment variables:
+* `RAN_WORKLOAD_DURATION` - duration for RAN CPU workload test. e.g., 10m, 12h
 
 #### Pre-configuration
 
@@ -115,6 +134,26 @@ Below is an e2e flow example of testing cnf-tests image:
 5. Select dpdk-tests image version - `export DPDK_IMAGE_VERSION="dpdk-base:v4.7.2-1"`
 
 6. Export cnf-tests feature - `export FEATURES="cnf-tests"`
+
+7. Export KUBECONFIG - `export KUBECONFIG=/path/to/kubeconfig`
+
+8. Run feature tests - `make test-features`
+
+## How to run RAN tests
+
+Below is an e2e flow example for RAN cpu test:
+
+1. Make sure oc is installed
+
+2. Set default test image - `export CNF_TEST_IMAGE=docker-registry.upshift.redhat.com/cnf-gotests/cnf-gotests-client:latest`
+
+3. Set stress-ng test image - `STRESSNG_TEST_IMAGE=docker-registry.upshift.redhat.com/cnf-gotests/stress-ng:2.0`
+
+4. Set oslat test image - `export OSLAT_TEST_IMAGE=docker-registry.upshift.redhat.com/cnf-gotests/oslat:latest`
+
+5. Set workload test duration - `export RAN_WORKLOAD_DURATION=12h`
+
+6. Set ran tests feature - `export FEATURES=cpu`
 
 7. Export KUBECONFIG - `export KUBECONFIG=/path/to/kubeconfig`
 
