@@ -114,7 +114,7 @@ func (c *Config) GetDumpFailedTestReportLocation(file string) string {
 	if c.General.DumpFailedTestsReportLocation == "true" {
 
 		if _, err := os.Stat(c.General.ReportDirAbsPath); os.IsNotExist(err) {
-			os.Mkdir(c.General.ReportDirAbsPath, 0744)
+			os.MkdirAll(c.General.ReportDirAbsPath, 0744)
 		}
 
 		dumpFileName := strings.TrimSuffix(filepath.Base(file), filepath.Ext(filepath.Base(file)))
