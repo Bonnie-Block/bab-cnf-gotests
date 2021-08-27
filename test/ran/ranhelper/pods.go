@@ -59,30 +59,38 @@ func WaitForCondition(pod *corev1.Pod, conditionType corev1.PodConditionType, co
 	}, timeout, 5*time.Second).ShouldNot(HaveOccurred())
 }
 
-// WaitForPhase waits until the pod will be in specified phase
-func WaitForPhase(pod *corev1.Pod, phaseType corev1.PodPhase, timeout time.Duration) {
-	log.Printf("Waiting for pod %s to be %v", pod.Name, phaseType)
+// WaitForPhases waits until the pod is in any of the specified phases
+// Returns actual phase of the pod
+func WaitForPhases(pod *corev1.Pod, phaseTypes []corev1.PodPhase, timeout time.Duration) corev1.PodPhase {
+	log.Printf("Waiting for pod %s to be in any of these phases: %v", pod.Name, phaseTypes)
+	var podPhase corev1.PodPhase
 	Eventually(func() error {
 		updatePod, err := helper.Apiclient.Pods(pod.Namespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
 		if err != nil {
 			log.Println("Failed to retrieve pod phase for pod: ", pod.Name)
 			return err
 		}
-		if updatePod.Status.Phase == phaseType {
-			log.Printf("Pod %s reached %v phase\n", pod.Name, phaseType)
-			return nil
-		} else {
-			return fmt.Errorf("Pod %s did not reach %s phase. It is in %s phase", pod.Name, phaseType, updatePod.Status.Phase)
+		podPhase = updatePod.Status.Phase
+		for _, expectedPhase := range phaseTypes {
+			if podPhase == expectedPhase {
+				log.Printf("Pod %s reached %v phase\n", pod.Name, expectedPhase)
+				return nil
+			}
 		}
+		return fmt.Errorf("Pod %s did not reach phase(s): %s. It is in %s phase", pod.Name, phaseTypes, updatePod.Status.Phase)
 	}, timeout, 5*time.Second).ShouldNot(HaveOccurred())
+	return podPhase
 }
 
-// WaitForPodHealthy waits until the pod is Running and Ready
+// WaitForPodHealthy waits until the pod is Completed or Running & Ready
 func WaitForPodHealthy(pod *corev1.Pod, timeout time.Duration) {
-	// First wait for pod to be Running
-	WaitForPhase(pod, corev1.PodRunning, timeout)
-	// Then wait for pod to be Ready
-	WaitForCondition(pod, corev1.PodReady, corev1.ConditionTrue, timeout)
+	// First wait for pod to be Running or Succeeded
+	podPhase := WaitForPhases(pod, []corev1.PodPhase{corev1.PodRunning, corev1.PodSucceeded}, timeout)
+
+	// Then wait for Running pod to be Ready
+	if podPhase == corev1.PodRunning {
+		WaitForCondition(pod, corev1.PodReady, corev1.ConditionTrue, timeout)
+	}
 }
 
 // RedefineContainerResources redefines a pod with CPU and Memory resources in first container
@@ -276,11 +284,16 @@ func CreatePrivilegedPods(image string) map[string]*corev1.Pod {
 	nodes, err := helper.Apiclient.Nodes().List(context.Background(), metav1.ListOptions{})
 	Expect(err).ShouldNot(HaveOccurred())
 	privPods := make(map[string]*corev1.Pod)
+	volumeType := corev1.HostPathUnset
+	volSource := corev1.VolumeSource{
+		HostPath: &corev1.HostPathVolumeSource{Path: "/", Type: &volumeType}}
+
 	for _, node := range nodes.Items {
 		podName := fmt.Sprintf("%s-%s", ran.PrivPodNamespace, node.Name)
 		privilegedPod, err := helper.Apiclient.Pods(ran.PrivPodNamespace).Get(context.Background(), podName, metav1.GetOptions{})
 		if err != nil {
 			privilegedPod = podhelper.RedefineAsPrivileged(podhelper.DefinePodOnNode(ran.PrivPodNamespace, image, node.Name))
+			privilegedPod = RedefineWithVolume(privilegedPod, "rootfs", "/rootfs", "rootfs", volSource)
 			privilegedPod = helper.WaitUntilPodCreatedAndRunning(RedefineWithObjectMeta(privilegedPod, podName, "", nil), 10*time.Minute)
 		}
 		privPods[node.Name] = privilegedPod

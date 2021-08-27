@@ -3,6 +3,7 @@ package tests
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -79,7 +80,8 @@ var _ = Describe("Intel ACC100", func() {
 
 			By("Creating SriovFecClusterConfig")
 			fecConfig = acc100helper.GetSriovFecAcc100ClusterConfigDefinition(generalHelper.Apiclient, false, isSingleNode)
-			helper.InstallSriovFecClusterNodeConfig(generalHelper.Apiclient, fecConfig, isSingleNode)
+			cnfNodelabel := strings.Split(config.General.CnfNodeLabel, "/")[1]
+			helper.InstallSriovFecClusterNodeConfig(generalHelper.Apiclient, fecConfig, isSingleNode, cnfNodelabel)
 		})
 
 		AfterEach(func() {
@@ -88,7 +90,8 @@ var _ = Describe("Intel ACC100", func() {
 			if isSriovFecDeploymentReady {
 				By("Cleaning up resources after sriov-fec tests")
 				fecConfig := acc100helper.GetSriovFecAcc100ClusterConfigDefinition(generalHelper.Apiclient, true, isSingleNode)
-				helper.InstallSriovFecClusterNodeConfig(generalHelper.Apiclient, fecConfig, isSingleNode)
+				cnfNodelabel := strings.Split(config.General.CnfNodeLabel, "/")[1]
+				helper.InstallSriovFecClusterNodeConfig(generalHelper.Apiclient, fecConfig, isSingleNode, cnfNodelabel)
 
 				Eventually(func() int64 {
 					testedNode, err := generalHelper.Apiclient.CoreV1Interface.Nodes().Get(context.TODO(), fecConfig.Spec.Nodes[0].NodeName, metav1.GetOptions{})

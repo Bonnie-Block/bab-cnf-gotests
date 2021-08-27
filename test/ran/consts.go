@@ -5,23 +5,16 @@ const (
 )
 
 const (
-	// RoleWorker contains the worker role
-	RoleWorker = "worker"
-	// RoleMaster contains the master role
-	RoleMaster = "master"
-)
-
-const (
 	// NamespaceTesting contains the name of the testing namespace
 	NamespaceTesting = "ran-test"
 )
 
 const (
-	ProcessExporterPodName    = "process-exporter"
-	PromNamespace             = "openshift-monitoring"
-	PromPodName               = "prometheus-k8s-0"
-	PromContainer             = "prometheus"
-	PromLocalUrl              = "http://localhost:9090/api/v1/"
+	ProcessExporterPodName = "process-exporter"
+	PromNamespace          = "openshift-monitoring"
+	PromPodName            = "prometheus-k8s-0"
+	PromContainer          = "prometheus"
+	PromLocalUrl           = "http://localhost:9090/api/v1/"
 )
 
 const (

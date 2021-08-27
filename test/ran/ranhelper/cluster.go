@@ -6,24 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"time"
-
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 )
-
-func IsSno() (bool, error) {
-	// Check if cluster contains one node only which has both master and worker roles.
-	masters, err := nodes.GetByRole(helper.Apiclient, ran.RoleMaster)
-	if err != nil || len(masters) != 1 {
-		return false, err
-	}
-	workers, err := nodes.GetByRole(helper.Apiclient, ran.RoleWorker)
-	if err != nil || len(workers) != 1 || workers[0].Name != masters[0].Name {
-		return false, err
-	}
-	return true, nil
-}
 
 // RunMustGather runs must-gather and returns the dir the cmd gets executed from, must-gather output, and error if any.
 func RunMustGather() (mustGatherExecDir string, mustGatherOutput []byte, err error) {

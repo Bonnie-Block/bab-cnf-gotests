@@ -18,6 +18,7 @@ import (
 	"k8s.io/kubernetes/pkg/kubelet/cm/cpuset"
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/cpu/rancpuhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/cpu/rancpuparameters"
@@ -30,7 +31,7 @@ const (
 	// Prom query statistic representation for management cpu overhead
 	cpuOverheadStat = "namedprocess_namegroup_cpu_rate{groupname!~\"conmon\"}"
 	// Prom query statistic representation for infra pods. Assuming only oslat and stress-ng user pods are running
-	cpuInfraPodsStat = "pod:container_cpu_usage:sum{pod!~\"process-exp.*\",pod!~\"oslat.*\",pod!~\"stress.*\",pod!~\"ranpriv.*\"}"
+	cpuInfraPodsStat      = "pod:container_cpu_usage:sum{pod!~\"process-exp.*\",pod!~\"oslat.*\",pod!~\"stress.*\",pod!~\"ranpriv.*\"}"
 	testCountWithWorkload = 4
 )
 
@@ -44,10 +45,10 @@ var _ = Describe("SNO core reduction", func() {
 	)
 
 	execute.BeforeAll(func() {
-		isSNO, _ = ranhelper.IsSno()
+		isSNO, _ = nodes.IsSingleNodeCluster(helper.Apiclient)
 		rtProfile, _ = rancpuhelper.GetRTPerformanceProfile()
 		// Get node for testing
-		workers, err := nodes.GetByRole(helper.Apiclient, ran.RoleWorker)
+		workers, err := nodes.GetByRole(helper.Apiclient, parameters.RoleWorker)
 		Expect(err).ToNot(HaveOccurred())
 		node = &workers[0]
 	})

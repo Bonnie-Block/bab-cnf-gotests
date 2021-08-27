@@ -2,6 +2,8 @@ package machineconfigpool
 
 import (
 	"context"
+	"fmt"
+	"log"
 	"time"
 
 	performancev2 "github.com/openshift-kni/performance-addon-operators/api/v2"
@@ -52,12 +54,7 @@ func WaitForCondition(
 			return false, nil
 		}
 
-		for _, c := range mcpUpdated.Status.Conditions {
-			if c.Type == conditionType && c.Status == conditionStatus {
-				return true, nil
-			}
-		}
-		return false, nil
+		return isMcpInCondition(mcpUpdated, conditionType), nil
 	})
 }
 
@@ -105,4 +102,79 @@ func GetByProfile(cs *testclient.ClientSet, performanceProfile *performancev2.Pe
 		return nil, err
 	}
 	return &mcpsByLabel[0], nil
+}
+
+// WaitForMcpUpdate waits for a mcp to be updating and then updated
+func WaitForMcpUpdate(cs *testclient.ClientSet, nodeLabel string) error {
+	mcp := &mcov1.MachineConfigPool{}
+	err := cs.Get(context.TODO(), client.ObjectKey{Name: nodeLabel}, mcp)
+	if err != nil {
+		return err
+	}
+
+	err = WaitForCondition(
+		cs,
+		&mcov1.MachineConfigPool{ObjectMeta: metav1.ObjectMeta{Name: nodeLabel}},
+		mcov1.MachineConfigPoolUpdating,
+		corev1.ConditionTrue,
+		2*time.Minute)
+	if err != nil {
+		return err
+	}
+
+	// We need to wait a long time here for the node to reboot
+	err = WaitForCondition(
+		cs,
+		&mcov1.MachineConfigPool{ObjectMeta: metav1.ObjectMeta{Name: nodeLabel}},
+		mcov1.MachineConfigPoolUpdated,
+		corev1.ConditionTrue,
+		time.Duration(45*mcp.Status.MachineCount)*time.Minute)
+
+	return err
+}
+
+// WaitForClusterStable waits for all machine config pools to stay in updated state for given stableDuration
+// Set stableDuration to 0 to return immediately when all mcps are updated.
+func WaitForClusterStable(cs *testclient.ClientSet, timeout, interval, stableDuration time.Duration) error {
+	startTime := time.Now()
+	err_ := wait.PollImmediate(interval, timeout, func() (bool, error) {
+		mcpList, err := cs.MachineConfigPools().List(context.Background(), metav1.ListOptions{})
+		if err != nil {
+			return false, nil
+		}
+		for _, mcp := range mcpList.Items {
+			if err != nil {
+				return false, nil
+			}
+			if !isMcpInCondition(&mcp, mcov1.MachineConfigPoolUpdated) {
+				// Reset timer for stable duration if mcp is not in expected state
+				startTime = time.Now()
+				return false, nil
+			}
+		}
+
+		// All given MCPs are in expected state. Check for stable duration if it's larger than zero.
+		extraMsg := ""
+		if stableDuration > 0 {
+			actualStableDuration := time.Since(startTime)
+			// Add an interval because the timer started before mcp became updated
+			if actualStableDuration < stableDuration+interval {
+				return false, nil
+			}
+			extraMsg = fmt.Sprintf("for at least %s", stableDuration.String())
+		}
+		log.Println("All mcps are updated", extraMsg)
+		return true, nil
+	})
+	return err_
+}
+
+// isMcpInCondition parses MCP conditions. Returns true if given MCP is in given condition, otherwise false.
+func isMcpInCondition(mcp *mcov1.MachineConfigPool, condition mcov1.MachineConfigPoolConditionType) bool {
+	for _, c := range mcp.Status.Conditions {
+		if c.Type == condition && c.Status == corev1.ConditionTrue {
+			return true
+		}
+	}
+	return false
 }

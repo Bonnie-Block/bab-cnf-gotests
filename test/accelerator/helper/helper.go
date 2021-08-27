@@ -22,6 +22,7 @@ import (
 	globalHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/machineconfigpool"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 )
@@ -56,12 +57,12 @@ func IsSriovFecDeploymentInstalled(cs *client.ClientSet, operatorNamespace strin
 }
 
 // InstallSriovFecClusterNodeConfig creates a new SriovFecClusterConfig and waits for the cluster to become stable
-func InstallSriovFecClusterNodeConfig(cs *client.ClientSet, fecConfig *fecv1.SriovFecClusterConfig, isSingleNode bool) {
+func InstallSriovFecClusterNodeConfig(cs *client.ClientSet, fecConfig *fecv1.SriovFecClusterConfig, isSingleNode bool, cnfNodeLabel string) {
 	CleanAllSriovFecClusterConfig(cs)
 	createSriovFecClusterConfig(cs, fecConfig)
 	fmt.Println("Waiting for the cluster to become stable")
 	if !isSingleNode {
-		err := nodes.WaitForClusterToBeStable(cs)
+		err := machineconfigpool.WaitForMcpUpdate(cs, cnfNodeLabel)
 		Expect(err).NotTo(HaveOccurred())
 	}
 

@@ -3,18 +3,16 @@ package nodes
 import (
 	"context"
 	"fmt"
-
 	"log"
 	"strings"
 	"time"
 
 	sriovv1 "github.com/k8snetworkplumbingwg/sriov-network-operator/api/v1"
-	mcv1 "github.com/openshift/machine-config-operator/pkg/apis/machineconfiguration.openshift.io/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
-	goclient "sigs.k8s.io/controller-runtime/pkg/client"
 
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
@@ -221,64 +219,42 @@ func GetByLabel(cs *client.ClientSet, label string) (*corev1.NodeList, error) {
 	return nodeList, nil
 }
 
-// WaitForClusterToBeStable waits until cluster become stable
-func WaitForClusterToBeStable(cs *client.ClientSet) error {
-	mcp := &mcv1.MachineConfigPool{}
-	config, _ := config.NewConfig()
-	cnfNodelabel := strings.Split(config.General.CnfNodeLabel, "/")[1]
-	err := cs.Get(context.TODO(), goclient.ObjectKey{Name: cnfNodelabel}, mcp)
-	if err != nil {
-		return err
+func IsSingleNodeCluster(cs *client.ClientSet) (bool, error) {
+	// Check if cluster contains one node only which has both master and worker roles.
+	masters, err := GetByRole(cs, parameters.RoleMaster)
+	if err != nil || len(masters) != 1 {
+		return false, err
 	}
-
-	err = WaitForCondition(
-		cs,
-		&mcv1.MachineConfigPool{ObjectMeta: metav1.ObjectMeta{Name: cnfNodelabel}},
-		mcv1.MachineConfigPoolUpdating,
-		corev1.ConditionTrue,
-		2*time.Minute)
-	if err != nil {
-		return err
+	workers, err := GetByRole(cs, parameters.RoleWorker)
+	if err != nil || len(workers) != 1 || workers[0].Name != masters[0].Name {
+		return false, err
 	}
-
-	// We need to wait a long time here for the node to reboot
-	err = WaitForCondition(
-		cs,
-		&mcv1.MachineConfigPool{ObjectMeta: metav1.ObjectMeta{Name: cnfNodelabel}},
-		mcv1.MachineConfigPoolUpdated,
-		corev1.ConditionTrue,
-		time.Duration(45*mcp.Status.MachineCount)*time.Minute)
-
-	return err
+	return true, nil
 }
 
-// WaitForCondition waits expected condition
-func WaitForCondition(
-	cs *client.ClientSet,
-	mcp *mcv1.MachineConfigPool,
-	conditionType mcv1.MachineConfigPoolConditionType,
-	conditionStatus corev1.ConditionStatus,
-	timeout time.Duration,
-) error {
-	return wait.PollImmediate(10*time.Second, timeout, func() (bool, error) {
-		mcpUpdated, err := cs.MachineConfigPools().Get(context.Background(), mcp.Name, metav1.GetOptions{})
+// WaitForNodesReady waits for all nodes become ready
+func WaitForNodesReady(cs *client.ClientSet, timeout, interval time.Duration) error {
+	return wait.PollImmediate(interval, timeout, func() (bool, error) {
+		nodes_, err := cs.Nodes().List(context.Background(), metav1.ListOptions{})
 		if err != nil {
 			return false, nil
 		}
-
-		for _, c := range mcpUpdated.Status.Conditions {
-			if c.Type == conditionType && c.Status == conditionStatus {
-				return true, nil
+		for _, node := range nodes_.Items {
+			if !IsNodeInCondition(&node, corev1.NodeReady) {
+				return false, nil
 			}
 		}
-		return false, nil
+		log.Println("All nodes are Ready")
+		return true, nil
 	})
 }
 
-func IsSingleNodeCluster(cs *client.ClientSet) (bool, error) {
-	nodes, err := cs.Nodes().List(context.Background(), metav1.ListOptions{})
-	if err != nil {
-		return false, err
+// IsNodeInCondition parses node conditions. Returns true if node is in given condition, otherwise false.
+func IsNodeInCondition(node *corev1.Node, condition corev1.NodeConditionType) bool {
+	for _, c := range node.Status.Conditions {
+		if c.Type == condition && c.Status == corev1.ConditionTrue {
+			return true
+		}
 	}
-	return len(nodes.Items) == 1, nil
+	return false
 }
