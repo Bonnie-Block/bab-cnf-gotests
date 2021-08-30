@@ -100,7 +100,7 @@ var _ = Describe("PTP", func() {
 						ptpProcessesAndMetrics, err := amountPtpProcessesAndMetrics("slave", podEntry)
 						Expect(err).NotTo(HaveOccurred())
 						return ptpProcessesAndMetrics
-					}, 1*time.Minute, 5*time.Second).Should(Equal(map[string]int{"ptp4lMetric": 2, "phc2sysMetric": 2, "ptp4lProc": 2, "phc2sysProc": 2}), "Wrong amount of ptp4l or phc2sys  on a Slave")
+					}, 1*time.Minute, 5*time.Second).Should(Equal(map[string]int{"ptp4lMetric": 2, "ptp4lProc": 2, "phc2sysProc": 2}), "Wrong amount of ptp4l or phc2sys  on a Slave")
 
 				}
 
@@ -297,16 +297,15 @@ func amountPtpProcessesAndMetrics(role string, podEntry v1core.Pod) (map[string]
 	psOutput, _ := pod.ExecCommand(Apiclient, podEntry, []string{"ps", "-C", "ptp4l", "-C", "phc2sys"})
 
 	if role == "master" {
-		phc2sysMetric := CountLinesByMatches(ptpMetrics.String(), "openshift_ptp_offset_from_master", "phc2sys")
+		phc2sysMetric := CountLinesByMatches(ptpMetrics.String(), "openshift_ptp_offset_from_system", "phc2sys")
 		ptp4lProc := CountLinesByMatches(psOutput.String(), "ptp4l")
 		phc2sysProc := CountLinesByMatches(psOutput.String(), "phc2sys")
 		return map[string]int{"phc2sysMetric": phc2sysMetric, "ptp4lProc": ptp4lProc, "phc2sysProc": phc2sysProc}, nil
 	} else if role == "slave" {
-		ptp4lMetric := CountLinesByMatches(ptpMetrics.String(), "openshift_ptp_offset_from_master", "ptp4l")
-		phc2sysMetric := CountLinesByMatches(ptpMetrics.String(), "openshift_ptp_offset_from_master", "phc2sys")
+		ptp4lMetric := CountLinesByMatches(ptpMetrics.String(), "penshift_ptp_ptp_interface_role", "ptp4l")
 		ptp4lProc := CountLinesByMatches(psOutput.String(), "ptp4l")
 		phc2sysProc := CountLinesByMatches(psOutput.String(), "phc2sys")
-		return map[string]int{"ptp4lMetric": ptp4lMetric, "phc2sysMetric": phc2sysMetric, "ptp4lProc": ptp4lProc, "phc2sysProc": phc2sysProc}, nil
+		return map[string]int{"ptp4lMetric": ptp4lMetric, "ptp4lProc": ptp4lProc, "phc2sysProc": phc2sysProc}, nil
 	}
 	return nil, fmt.Errorf("Wrong PTP role: %s  of Pod", role)
 }

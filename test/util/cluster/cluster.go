@@ -164,7 +164,7 @@ func CheckReadyGeneration(clients *testclient.ClientSet, operatorNamespace strin
 		return false, nil
 	}
 
-	logs, err := pods.GetLog(clients, podObj, 5*time.Minute, "")
+	logs, err := pods.GetLog(clients, podObj, 5*time.Minute, "sriov-network-config-daemon")
 	if err != nil {
 		return false, err
 	}
