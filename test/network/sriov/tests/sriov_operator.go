@@ -382,7 +382,6 @@ var _ = Describe("CNF SRIOV", func() {
 				parameters.ConnectivitySameNodeDiffPF,
 				parameters.ConnectivitySameNodeSamePF,
 			},
-
 			[]string{
 				parameters.CommunicationProtocolUnicastICMP,
 				parameters.CommunicationProtocolUnicastTCP,
@@ -417,7 +416,6 @@ func runServerPod(
 
 	serverCommand, err := serverCommandFor(protocol, mtu, serverIP, negative, testPort)
 	Expect(err).ToNot(HaveOccurred())
-
 	serverPodDefinition := defineServerPod(
 		protocol,
 		nodeSelector,
@@ -467,8 +465,7 @@ func runDualServerPod(
 	Expect(err).ToNot(HaveOccurred())
 
 	// IPv6 can't be used for udp-broadcast. tcp-unicast running for ipv4 and ipv6 by default
-	if protocol == parameters.CommunicationProtocolBroadcastUDP ||
-		protocol == parameters.CommunicationProtocolUnicastTCP {
+	if protocol == parameters.CommunicationProtocolBroadcastUDP {
 		serverIPv6Command = []string{"sleep", "INF"}
 	}
 	serverPodDefinition := defineDualServerPod(
@@ -507,7 +504,14 @@ func serverCommandFor(
 		testCommand = []string{"sleep", "INF"}
 
 	case parameters.CommunicationProtocolUnicastTCP:
-		testCommand = []string{"httpd", "-X"}
+		testCommand = []string{
+			"testcmd",
+			"--listen",
+			fmt.Sprintf("-interface=%s", testInterfaceName),
+			"--protocol=tcp",
+			fmt.Sprintf("--mtu=%d", mtu),
+			fmt.Sprintf("-port=%d", testPort),
+		}
 
 	case parameters.CommunicationProtocolUnicastSCTP:
 		testCommand = []string{
@@ -604,7 +608,7 @@ func defineTestCommandParameters(
 		protocolOption = "icmp"
 	case parameters.CommunicationProtocolUnicastTCP:
 		protocolOption = "tcp"
-		testCommand = append(testCommand, fmt.Sprintf("-port=%d", 80), fmt.Sprintf("-interface=%s", testInterfaceName))
+		testCommand = append(testCommand, fmt.Sprintf("-port=%d", testPort), fmt.Sprintf("-interface=%s", testInterfaceName))
 	case parameters.CommunicationProtocolUnicastSCTP:
 		protocolOption = "sctp"
 		testCommand = append(testCommand, fmt.Sprintf("-server=%s", serverIP),
@@ -727,7 +731,8 @@ func defineServerPod(
 
 	if strings.Contains(ipaddress, ":") {
 		podDefinition = redefinePodWithInitCommandPolicy(podDefinition, podImage,
-			fmt.Sprintf("for i in {1..10}; do sleep 1; if ping6 -c 3 -w 3 %s ; then ip -6 route add %s/128 dev net1 "+
+			fmt.Sprintf(
+				"for i in {1..10}; do sleep 1; if ping6 -c 3 -w 3 %s ; then ip -6 route add %s/128 dev net1 "+
 				"&& ip -6 route add %s/128 dev net1 table local && exit 0; fi; done; exit 1",
 				serverPodIpv6, clientPodIPv6, multicastIPv6Address))
 	}
@@ -766,7 +771,8 @@ func defineDualServerPod(protocol string,
 		podIPv6Command)
 
 	podDefinition = redefinePodWithInitCommandPolicy(podDefinition, podImage,
-		fmt.Sprintf("for i in {1..10}; do sleep 1; if ping6 -c 3 -w 3 %s; then ip -6 route add %s/128 dev net1"+
+		fmt.Sprintf(
+			"for i in {1..10}; do sleep 1; if ping6 -c 3 -w 3 %s; then ip -6 route add %s/128 dev net1"+
 			" && ip -6 route add %s/128 dev net1 table local && exit 0; fi; done; exit 1",
 			serverPodIpv6, clientPodIPv6, multicastIPv6Address))
 
@@ -805,19 +811,6 @@ func defineClientPod(
 	}
 
 	podDefinition = DefinePodCommandWithIpamAndMac(podDefinition, networkName, ipaddress, macAddress, podCommand)
-
-	if strings.Contains(ipaddress, ":") {
-		var validateHttpdCommand string
-		if protocol == parameters.CommunicationProtocolUnicastTCP {
-			validateHttpdCommand = fmt.Sprintf(
-				" && for i in {1..60}; do sleep 1; if curl --max-time 3 -6 -g http://[%s]:80; then exit 0; fi; done; exit 1",
-				serverPodIpv6)
-		}
-		podDefinition = redefinePodWithInitCommandPolicy(podDefinition, podImage,
-			fmt.Sprintf("for i in {1..10}; do sleep 2; if ping6 -c 3 -w 3 %s ; then ip -6 route add %s/128 dev net1 "+
-				"&& ip -6 route add %s/128 dev net1 table local%s && exit 0; fi; done; exit 1",
-				serverPodIpv6, serverPodIpv6, multicastIPv6Address, validateHttpdCommand))
-	}
 
 	return redefinePodWithInitDebugCommands(podDefinition, podImage)
 }
@@ -860,18 +853,6 @@ func defineDualClientPod(
 		ip6address,
 		macAddress,
 		podCommand)
-
-	var validateHttpdCommand string
-	if protocol == parameters.CommunicationProtocolUnicastTCP {
-		validateHttpdCommand = fmt.Sprintf(
-			" && for i in {1..60}; do sleep 1; if curl --max-time 3 -6 -g http://[%s]:80; then exit 0; fi; done; exit 1", serverPodIpv6)
-	}
-	podDefinition = redefinePodWithInitCommandPolicy(
-		podDefinition, podImage,
-		fmt.Sprintf("for i in {1..10}; do sleep 1; if ping6 -c 3 -w 3 %s ; then ip -6 route add %s/128 dev net1 "+
-			"&& ip -6 route add %s/128 dev net1 table local%s && exit 0; fi; done; exit 1",
-			serverPodIpv6, serverPodIpv6, multicastIPv6Address, validateHttpdCommand),
-	)
 
 	return redefinePodWithInitDebugCommands(podDefinition, podImage)
 }
@@ -955,7 +936,8 @@ func redefinePodWithInitDebugCommands(podObject *corev1.Pod, initImage string) *
 }
 
 func serverNeedsPrivilege(protocol string) bool {
-	return protocol == parameters.CommunicationProtocolUnicastSCTP
+	return protocol == parameters.CommunicationProtocolUnicastSCTP ||
+		protocol == parameters.CommunicationProtocolUnicastTCP
 }
 
 func clientNeedsPrivilege(protocol string) bool {
@@ -1039,6 +1021,11 @@ func buildDescribeTable(
 		metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	waitUntilPodInStatus(clientPod, "Client", clientTestCommand, corev1.PodSucceeded, podWaitingTime)
+
+	if protocol == parameters.CommunicationProtocolUnicastTCP {
+		By("Positive test flow - success")
+		return
+	}
 
 	By("Positive test flow - success. Running negative flow")
 	negativeFlag = true
@@ -1152,8 +1139,8 @@ func buildDescribeTable6(
 		corev1.PodSucceeded,
 		podWaitingTime)
 
-	// TODO: Remove this return and add negative support to IPv6 TCP test
 	if protocol == parameters.CommunicationProtocolUnicastTCP {
+		By("Positive test flow - success")
 		return
 	}
 
@@ -1290,8 +1277,8 @@ func buildDescribeTableDual(
 	Expect(err).ToNot(HaveOccurred())
 	waitUntilPodInStatus(clientPod, "Client", ClientTestCommand, corev1.PodSucceeded, dualPodWaitingTime)
 
-	// TODO: Remove this return and add negative support to IPv6 TCP test
 	if protocol == parameters.CommunicationProtocolUnicastTCP {
+		By("Positive test flow - success")
 		return
 	}
 

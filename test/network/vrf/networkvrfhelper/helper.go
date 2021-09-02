@@ -144,17 +144,15 @@ func TestVRFScenario(node string, ipStack string, ipOverLap string, config *conf
 			{"vrfName": parameters.VRFRedName, "vrfClientIP": podServerVRFRedIPAddress, "vrfInterface": "net2"}})
 
 	By("Validating client/server ICMP VRF connectivity")
-	err = pingIPViaVRF(*runningClientPod, parameters.VRFRedName, podServerVRFRedIPAddress)
+	err = pingIPViaVRF(*runningClientPod, parameters.VRFRedName, podServerVRFRedIPAddress, false)
 	Expect(err).ToNot(HaveOccurred())
-	err = pingIPViaVRF(*runningClientPod, parameters.VRFBlueName, podServerVRFBlueIPAddress)
+	err = pingIPViaVRF(*runningClientPod, parameters.VRFBlueName, podServerVRFBlueIPAddress, false)
 	Expect(err).ToNot(HaveOccurred())
-	// TODO: uncomment lines below
-	// Skip tcp check due to BZ: https://bugzilla.redhat.com/show_bug.cgi?id=1995631
-	//By("Validating client/server TCP VRF connectivity")
-	//err = httpViaVRF(*runningClientPod, parameters.VRFRedName, podServerVRFRedIPAddress, "net2")
-	//Expect(err).ToNot(HaveOccurred())
-	//err = httpViaVRF(*runningClientPod, parameters.VRFBlueName, podServerVRFBlueIPAddress, "net1")
-	//Expect(err).ToNot(HaveOccurred())
+	By("Validating client/server TCP VRF connectivity")
+	err = httpViaVRF(*runningClientPod, podServerVRFRedIPAddress, parameters.VRFRedName, false)
+	Expect(err).ToNot(HaveOccurred())
+	err = httpViaVRF(*runningClientPod, podServerVRFBlueIPAddress, parameters.VRFBlueName, false)
+	Expect(err).ToNot(HaveOccurred())
 	err = globalHelper.Apiclient.Pods(parameters.TestNamespace).Delete(
 		context.Background(),
 		podServer.Name,
@@ -170,24 +168,20 @@ func TestVRFScenario(node string, ipStack string, ipOverLap string, config *conf
 			metav1.GetOptions{})
 		return err
 	}, parameters.PodWaitingTime, 5*time.Second).Should(HaveOccurred())
-	// TODO: uncomment lines below
-	// Skip tcp check due to BZ: https://bugzilla.redhat.com/show_bug.cgi?id=1995631
-	//By("Validating client/server TCP negative test")
-	//err = httpViaVRF(*runningClientPod, parameters.VRFRedName, podServerVRFRedIPAddress,"net2")
-	//Expect(err).To(HaveOccurred())
-	//err = httpViaVRF(*runningClientPod, parameters.VRFBlueName, podServerVRFBlueIPAddress, "net1")
-	//Expect(err).To(HaveOccurred())
-	err = pingIPViaVRF(*runningClientPod, parameters.VRFBlueName, podServerVRFBlueIPAddress)
-	Expect(err).To(HaveOccurred())
-	err = pingIPViaVRF(*runningClientPod, parameters.VRFRedName, podServerVRFRedIPAddress)
-	Expect(err).To(HaveOccurred())
+	err = pingIPViaVRF(*runningClientPod, parameters.VRFBlueName, podServerVRFBlueIPAddress, true)
+	Expect(err).ToNot(HaveOccurred())
+	err = pingIPViaVRF(*runningClientPod, parameters.VRFRedName, podServerVRFRedIPAddress, true)
+	Expect(err).ToNot(HaveOccurred())
+	By("Validating client/server TCP negative test")
+	err = httpViaVRF(*runningClientPod, podServerVRFRedIPAddress, parameters.VRFRedName, true)
+	Expect(err).ToNot(HaveOccurred())
+	err = httpViaVRF(*runningClientPod, podServerVRFBlueIPAddress, parameters.VRFBlueName, true)
+	Expect(err).ToNot(HaveOccurred())
 	if ipOverLap == "overLapToSDN" {
-		err = pingIPViaVRF(*runningClientPod, "eth0", podServerVRFRedIPAddress)
+		err = pingIPViaVRF(*runningClientPod, "eth0", podServerVRFRedIPAddress, false)
 		Expect(err).ToNot(HaveOccurred())
-		// TODO: uncomment lines below
-		// Skip tcp check due to BZ: https://bugzilla.redhat.com/show_bug.cgi?id=1995631
-		//err = httpViaVRF(*runningClientPod, "", podServerVRFRedIPAddress,"eth0")
-		//Expect(err).ToNot(HaveOccurred())
+		err = httpViaVRF(*runningClientPod, podServerVRFRedIPAddress, "eth0", false)
+		Expect(err).ToNot(HaveOccurred())
 	}
 }
 
@@ -243,43 +237,48 @@ func DescribeParameters(node string, ipStack string) string {
 	return fmt.Sprintf("%s", string(params))
 }
 
-func pingIPViaVRF(client k8sv1.Pod, vrfName string, DestIPAddr string) error {
-	// TODO: replace command:
-	// from []string{"testcmd", "-interface", vrfName, "-server", DestIPAddr, "-protocol", "icmp", "-mtu", "100"})
-	// to []string{"ip", "vrf", "exec", "testcmd", "-server", DestIPAddr, "-protocol", "icmp", "-mtu", "100"})
-	// when BZ:  https://bugzilla.redhat.com/show_bug.cgi?id=1995631 will be fixed
-	_, err := pod.ExecCommand(
-		globalHelper.Apiclient,
-		client,
-		[]string{"testcmd", "-interface", vrfName, "-server", DestIPAddr, "-protocol", "icmp", "-mtu", "100"})
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func httpViaVRF(client k8sv1.Pod, vrfName string, DestIPAddr string, interfaceName string) error {
-	command := []string{
-		"testcmd", "-interface", interfaceName, "-server", DestIPAddr, "-protocol", "tcp", "-mtu", "100", "-port", "80",
-	}
-	if vrfName != "" {
-		command = append([]string{"ip", "vrf", "exec", vrfName}, command...)
+func pingIPViaVRF(client k8sv1.Pod, vrfName string, DestIPAddr string, negative bool) error {
+	command := []string{"testcmd", "-interface", vrfName, "-server", DestIPAddr, "-protocol", "icmp", "-mtu", "100"}
+	if negative {
+		command = append(command, "--negative")
 	}
 	_, err := pod.ExecCommand(
 		globalHelper.Apiclient,
 		client,
 		command)
-	if err != nil {
-		return err
+	return err
+}
+
+func httpViaVRF(client k8sv1.Pod, DestIPAddr string, interfaceName string, negative bool) error {
+	command := []string{
+		"testcmd",
+		fmt.Sprintf("--interface=%s", interfaceName),
+		fmt.Sprintf("--server=%s", DestIPAddr),
+		"--protocol=tcp",
+		"--mtu=100",
+		fmt.Sprintf("--port=%d", parameters.TCPPort),
 	}
-	return nil
+	if negative {
+		command = append(command, "--negative")
+	}
+	_, err := pod.ExecCommand(
+		globalHelper.Apiclient,
+		client,
+		command)
+	return err
 }
 
 func getOverlapIP(nodeName string, podImage string) string {
 	tempPodDefinition := pod.RedefineWithCommand(
 		pod.RedefineAsNetRaw(
 			pod.DefinePodOnNode(parameters.TestNamespace, podImage, nodeName)),
-		[]string{"httpd"}, []string{"-X"})
+		[]string{"testcmd"},
+		[]string{
+			"--protocol=tcp",
+			"--interface=eth0",
+			"--listen",
+			"--mtu=100",
+			fmt.Sprintf("--port=%d", parameters.TCPPort)})
 	err := globalHelper.Apiclient.Create(context.Background(), tempPodDefinition)
 	Expect(err).ToNot(HaveOccurred())
 	Eventually(func() k8sv1.PodPhase {
@@ -305,27 +304,43 @@ func defineServerPodMutliHttpContainers(
 			pod.RedefinePodWithNetwork(
 				pod.DefinePodOnNode(parameters.TestNamespace, config.Network.TestContainerImage, podServerNodeLabel),
 				podServerIpamConfig)),
-		[]string{"httpd"}, []string{"-X"})
+		[]string{"testcmd"},
+		[]string{
+			"--protocol=tcp",
+			"--interface=eth0",
+			"--listen",
+			"--mtu=100",
+			fmt.Sprintf("--port=%d", parameters.TCPPort)})
 	podServer.Spec.Containers = append(podServer.Spec.Containers, k8sv1.Container{
 		Name:    fmt.Sprintf("%s%d", podServer.Spec.Containers[0].Name, 1),
 		Image:   podServer.Spec.Containers[0].Image,
-		Command: []string{"ip"},
+		Command: []string{"testcmd"},
 		SecurityContext: &k8sv1.SecurityContext{
 			Capabilities: &k8sv1.Capabilities{
 				Add: []k8sv1.Capability{"NET_RAW"},
 			},
 		},
-		Args: []string{"vrf", "exec", parameters.VRFBlueName, "httpd", "-X"},
+		Args: []string{
+			"--protocol=tcp",
+			"--interface=net1",
+			"--listen",
+			"--mtu=100",
+			fmt.Sprintf("--port=%d", parameters.TCPPort)},
 	}, k8sv1.Container{
 		Name:    fmt.Sprintf("%s%d", podServer.Spec.Containers[0].Name, 2),
 		Image:   podServer.Spec.Containers[0].Image,
-		Command: []string{"ip"},
+		Command: []string{"testcmd"},
 		SecurityContext: &k8sv1.SecurityContext{
 			Capabilities: &k8sv1.Capabilities{
 				Add: []k8sv1.Capability{"NET_RAW"},
 			},
 		},
-		Args: []string{"vrf", "exec", parameters.VRFRedName, "httpd", "-X"},
+		Args: []string{
+			"--protocol=tcp",
+			"--interface=net2",
+			"--listen",
+			"--mtu=100",
+			fmt.Sprintf("--port=%d", parameters.TCPPort)},
 	})
 	return podServer
 }

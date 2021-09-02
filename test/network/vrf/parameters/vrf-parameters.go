@@ -26,6 +26,7 @@ const (
 	VRFBlueName                        = "blue"
 	VRFRedName                         = "red"
 	WaitingTime          time.Duration = 20 * time.Minute
+	TCPPort                            = 8080
 )
 
 var (
