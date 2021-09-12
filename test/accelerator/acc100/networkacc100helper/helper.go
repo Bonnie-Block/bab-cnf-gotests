@@ -8,7 +8,7 @@ import (
 
 	fecv2 "github.com/smart-edge-open/openshift-operator/sriov-fec/api/v2"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/accelerator/acc100/parameters"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/accelerator/helper"
+	helper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/accelerator/networkacceleratorhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )

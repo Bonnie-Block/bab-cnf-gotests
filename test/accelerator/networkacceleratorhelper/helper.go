@@ -31,34 +31,11 @@ import (
 )
 
 const (
-	DeploymentSriovFecName        = "sriov-fec-controller-manager"
-	TestNamespace                 = "vran-acceleration-operators-test"
 	AcceleratorDiscoveryDaemonset = "accelerator-discovery"
 	SriovDevicePlugin             = "sriov-device-plugin"
 	SriovFecDaemonset             = "sriov-fec-daemonset"
 	PerformanceProfileName        = "performance"
 )
-
-// IsSriovFecDeploymentReady checks if Sriov Fec deployment is ready
-func IsSriovFecDeploymentReady(cs *client.ClientSet, operatorNamespace string) (bool, error) {
-	deploymentSriovFec, err := cs.Deployments(operatorNamespace).Get(context.Background(), DeploymentSriovFecName, metav1.GetOptions{})
-	if err != nil {
-		return false, err
-	}
-	if deploymentSriovFec.Status.ReadyReplicas > 0 {
-		return true, nil
-	}
-	return false, nil
-}
-
-//IsSriovFecDeploymentInstalled checks if Sriov Fec deployment is installed
-func IsSriovFecDeploymentInstalled(cs *client.ClientSet, operatorNamespace string) (bool, error) {
-	_, err := cs.Deployments(operatorNamespace).Get(context.Background(), DeploymentSriovFecName, metav1.GetOptions{})
-	if err != nil {
-		return false, err
-	}
-	return true, nil
-}
 
 // InstallSriovFecClusterNodeConfig creates a new SriovFecClusterConfig and waits for the cluster to become stable
 func InstallSriovFecClusterNodeConfig(cs *client.ClientSet, fecConfig *fecv2.SriovFecClusterConfig, isSingleNode bool, cnfNodeLabel string) {

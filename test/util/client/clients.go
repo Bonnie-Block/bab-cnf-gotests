@@ -16,10 +16,15 @@ import (
 	fecv2 "github.com/smart-edge-open/openshift-operator/sriov-fec/api/v2"
 	"k8s.io/apimachinery/pkg/runtime"
 	discovery "k8s.io/client-go/discovery"
+	"k8s.io/client-go/kubernetes/scheme"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	appsv1client "k8s.io/client-go/kubernetes/typed/apps/v1"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	networkv1client "k8s.io/client-go/kubernetes/typed/networking/v1"
+
+	metallbv1alpha1 "github.com/metallb/metallb-operator/api/v1alpha1"
+	metallbv1beta1 "github.com/metallb/metallb-operator/api/v1beta1"
+	apiext "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -76,9 +81,23 @@ func New(kubeconfig string) *ClientSet {
 	crScheme := runtime.NewScheme()
 	clientgoscheme.AddToScheme(crScheme)
 	netattdefv1.SchemeBuilder.AddToScheme(crScheme)
+	scheme.AddToScheme(crScheme)
 	sriovv1.AddToScheme(crScheme)
 	mcv1.AddToScheme(crScheme)
+<<<<<<< HEAD
 	fecv2.AddToScheme(crScheme)
+=======
+	fecv1.AddToScheme(crScheme)
+	if err := apiext.AddToScheme(crScheme); err != nil {
+		panic(err)
+	}
+	if err := metallbv1alpha1.AddToScheme(crScheme); err != nil {
+		panic(err)
+	}
+	if err := metallbv1beta1.AddToScheme(crScheme); err != nil {
+		panic(err)
+	}
+>>>>>>> b38cd40... Add MetalLB Test 43936
 	if err := performancev2.AddToScheme(crScheme); err != nil {
 		panic(err)
 	}
@@ -87,4 +106,5 @@ func New(kubeconfig string) *ClientSet {
 		Scheme: crScheme,
 	})
 	return clientSet
+
 }

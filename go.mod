@@ -7,8 +7,14 @@ require (
 	github.com/k8snetworkplumbingwg/sriov-network-operator v0.0.0-20201204053545-49045c36efb9
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/kennygrant/sanitize v1.2.4
+<<<<<<< HEAD
 	github.com/onsi/ginkgo v1.16.4
 	github.com/onsi/gomega v1.16.0
+=======
+	github.com/metallb/metallb-operator v0.10.2
+	github.com/onsi/ginkgo v1.14.2
+	github.com/onsi/gomega v1.10.3
+>>>>>>> b38cd40... Add MetalLB Test 43936
 	github.com/open-ness/openshift-operator/sriov-fec v0.0.0-20210331183103-74dc4d717390
 	github.com/openshift-kni/performance-addon-operators v0.0.0-20210114132708-bcf9e53ff354
 	github.com/openshift/client-go v0.0.0-20210112165513-ebc401615f47
@@ -16,14 +22,23 @@ require (
 	github.com/openshift/ptp-operator v0.0.0-20210110151302-58d8ffd4a37e
 	github.com/opentracing/opentracing-go v1.2.0
 	github.com/pkg/errors v0.9.1
+<<<<<<< HEAD
 	github.com/smart-edge-open/openshift-operator/sriov-fec v0.0.0-20210929104519-4a309763e614
 	golang.org/x/lint v0.0.0-20210508222113-6edffad5e616 // indirect
 	golang.org/x/tools v0.1.7 // indirect
 	gopkg.in/yaml.v2 v2.4.0
+=======
+	gopkg.in/yaml.v2 v2.3.0
+>>>>>>> b38cd40... Add MetalLB Test 43936
 	k8s.io/api v0.20.4
+	k8s.io/apiextensions-apiserver v0.20.4
 	k8s.io/apimachinery v0.20.4
 	k8s.io/client-go v12.0.0+incompatible
+<<<<<<< HEAD
 	k8s.io/kubernetes v1.18.3
+=======
+	k8s.io/kubernetes v1.21.1
+>>>>>>> b38cd40... Add MetalLB Test 43936
 	k8s.io/utils v0.0.0-20201110183641-67b214c5f920
 	sigs.k8s.io/controller-runtime v0.8.3
 )

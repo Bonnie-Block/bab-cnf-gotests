@@ -27,8 +27,9 @@ type Config struct {
 		DumpFailedTestsReportLocation string `envconfig:"REPORTER_ERROR_OUTPUT"`
 	} `yaml:"general"`
 	Network struct {
-		TestContainerImage string `yaml:"test_container_image" envconfig:"NETWORK_TEST_CONTAINER_IMAGE"`
-		SriovInterfaces    string `envconfig:"CNF_INTERFACES_LIST"`
+		TestContainerImage   string `yaml:"test_container_image" envconfig:"NETWORK_TEST_CONTAINER_IMAGE"`
+		SriovInterfaces      string `envconfig:"CNF_INTERFACES_LIST"`
+		MetalLBAddressPoolIP string `envconfig:"METALLB_ADDR_LIST"`
 	} `yaml:"network"`
 	Ran struct {
 		CnfTestImage              string `yaml:"cnf_test_image" envconfig:"CNF_TEST_IMAGE"`
@@ -135,4 +136,10 @@ func DefineClients() (*testclient.ClientSet, error) {
 		return nil, fmt.Errorf("client is not set please check KUBECONFIG env variable")
 	}
 	return clients, nil
+}
+
+// GetMetallbEnvVar checks the environmental variable and returns the value in []string
+func (c *Config) GetMetallbEnvVar() []string {
+	envValue := strings.Split(c.Network.MetalLBAddressPoolIP, ",")
+	return envValue
 }

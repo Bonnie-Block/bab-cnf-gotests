@@ -3,7 +3,7 @@ github.com/Azure/go-ansiterm
 github.com/Azure/go-ansiterm/winterm
 # github.com/BurntSushi/toml v0.3.1
 github.com/BurntSushi/toml
-# github.com/Masterminds/goutils v1.1.0
+# github.com/Masterminds/goutils v1.1.1
 github.com/Masterminds/goutils
 # github.com/Masterminds/semver v1.5.0
 github.com/Masterminds/semver
@@ -487,11 +487,15 @@ github.com/mattn/go-runewidth
 github.com/mattn/go-shellwords
 # github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369
 github.com/matttproud/golang_protobuf_extensions/pbutil
+# github.com/metallb/metallb-operator v0.10.2
+## explicit
+github.com/metallb/metallb-operator/api/v1alpha1
+github.com/metallb/metallb-operator/api/v1beta1
 # github.com/mistifyio/go-zfs v2.1.2-0.20190413222219-f784269be439+incompatible
 github.com/mistifyio/go-zfs
-# github.com/mitchellh/copystructure v1.0.0
+# github.com/mitchellh/copystructure v1.2.0
 github.com/mitchellh/copystructure
-# github.com/mitchellh/reflectwalk v1.0.0
+# github.com/mitchellh/reflectwalk v1.0.2
 github.com/mitchellh/reflectwalk
 # github.com/moby/sys/mount v0.1.1
 github.com/moby/sys/mount
@@ -906,7 +910,8 @@ k8s.io/api/settings/v1alpha1
 k8s.io/api/storage/v1
 k8s.io/api/storage/v1alpha1
 k8s.io/api/storage/v1beta1
-# k8s.io/apiextensions-apiserver v0.20.0 => k8s.io/apiextensions-apiserver v0.19.3
+# k8s.io/apiextensions-apiserver v0.20.4 => k8s.io/apiextensions-apiserver v0.19.3
+## explicit
 k8s.io/apiextensions-apiserver/pkg/apis/apiextensions
 k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1
 k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1
@@ -1155,7 +1160,11 @@ k8s.io/kube-openapi/pkg/common
 k8s.io/kube-openapi/pkg/util/proto
 # k8s.io/kubelet v0.20.0 => k8s.io/kubelet v0.20.4
 k8s.io/kubelet/config/v1beta1
+<<<<<<< HEAD
 # k8s.io/kubernetes v1.18.3 => k8s.io/kubernetes v1.19.3
+=======
+# k8s.io/kubernetes v1.21.1 => k8s.io/kubernetes v1.19.3
+>>>>>>> b38cd40... Add MetalLB Test 43936
 ## explicit
 k8s.io/kubernetes/pkg/kubelet/cm/cpuset
 # k8s.io/utils v0.0.0-20201110183641-67b214c5f920

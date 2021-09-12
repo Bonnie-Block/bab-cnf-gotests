@@ -12,10 +12,15 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+<<<<<<< HEAD
 	fpgav2 "github.com/smart-edge-open/openshift-operator/sriov-fec/api/v2"
 	acc100helper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/accelerator/acc100/helper"
+=======
+	fpgav1 "github.com/open-ness/openshift-operator/sriov-fec/api/v1"
+	acc100helper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/accelerator/acc100/networkacc100helper"
+>>>>>>> b38cd40... Add MetalLB Test 43936
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/accelerator/acc100/parameters"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/accelerator/helper"
+	helper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/accelerator/networkacceleratorhelper"
 	generalHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
@@ -54,12 +59,12 @@ var _ = Describe("Intel ACC100", func() {
 			Skip(testSkip)
 		}
 
-		IsSriovFecDeploymentInstalled, _ := helper.IsSriovFecDeploymentInstalled(generalHelper.Apiclient, parameters.OperatorNamespace)
+		IsSriovFecDeploymentInstalled, _ := generalHelper.IsDeploymentInstalled(generalHelper.Apiclient, parameters.OperatorNamespace, parameters.DeploymentSriovFecName)
 		if !IsSriovFecDeploymentInstalled {
 			testSkip = "Sriov-fec operator is not installed"
 			Skip(testSkip)
 		}
-		isSriovFecDeploymentReady, err := helper.IsSriovFecDeploymentReady(generalHelper.Apiclient, parameters.OperatorNamespace)
+		isSriovFecDeploymentReady, err := generalHelper.IsDeploymentReady(generalHelper.Apiclient, parameters.OperatorNamespace, parameters.DeploymentSriovFecName)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(isSriovFecDeploymentReady).To(Equal(true), "Sriov-fec operator is not ready")
 
@@ -90,6 +95,32 @@ var _ = Describe("Intel ACC100", func() {
 				Skip(testSkip)
 			}
 
+<<<<<<< HEAD
+=======
+			By("Creating SriovFecClusterConfig")
+			fecConfig = acc100helper.GetSriovFecAcc100ClusterConfigDefinition(generalHelper.Apiclient, false, isSingleNode)
+			cnfNodelabel := strings.Split(config.General.CnfNodeLabel, "/")[1]
+			helper.InstallSriovFecClusterNodeConfig(generalHelper.Apiclient, fecConfig, isSingleNode, cnfNodelabel)
+		})
+
+		AfterEach(func() {
+			isSriovFecDeploymentReady, err := generalHelper.IsDeploymentReady(generalHelper.Apiclient, parameters.OperatorNamespace, parameters.DeploymentSriovFecName)
+			Expect(err).NotTo(HaveOccurred())
+			if isSriovFecDeploymentReady {
+				By("Cleaning up resources after sriov-fec tests")
+				fecConfig := acc100helper.GetSriovFecAcc100ClusterConfigDefinition(generalHelper.Apiclient, true, isSingleNode)
+				cnfNodelabel := strings.Split(config.General.CnfNodeLabel, "/")[1]
+				helper.InstallSriovFecClusterNodeConfig(generalHelper.Apiclient, fecConfig, isSingleNode, cnfNodelabel)
+
+				Eventually(func() int64 {
+					testedNode, err := generalHelper.Apiclient.CoreV1Interface.Nodes().Get(context.TODO(), fecConfig.Spec.Nodes[0].NodeName, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					resNum, _ := testedNode.Status.Allocatable[corev1.ResourceName(parameters.Acc100ResourceName)]
+					allocatable, _ := resNum.AsInt64()
+					return allocatable
+				}, 10*time.Minute, time.Second).Should(Equal(int64(0)))
+			}
+>>>>>>> b38cd40... Add MetalLB Test 43936
 		})
 
 		It("configuration", func() {
@@ -113,7 +144,7 @@ var _ = Describe("Intel ACC100", func() {
 			}, 10*time.Minute, time.Second).Should(Equal(int64(2)))
 
 			By("Creating bbdev test pod")
-			bbdevPod := helper.CreateBbdevPod(generalHelper.Apiclient, helper.TestNamespace, parameters.Acc100ResourceName, config)
+			bbdevPod := helper.CreateBbdevPod(generalHelper.Apiclient, parameters.TestNamespace, parameters.Acc100ResourceName, config)
 			By("Running bbdev tests")
 			bbdevTestResults := helper.RunBbdevTests(generalHelper.Apiclient, bbdevPod)
 			countOfTests := generalHelper.CountLinesByMatches(bbdevTestResults, "Starting Test Suite :")

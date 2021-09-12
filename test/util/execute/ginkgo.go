@@ -13,3 +13,15 @@ func BeforeAll(fn func()) {
 		}
 	})
 }
+
+// AfterAll gets executed before all the entries of
+// the scope it's getting executed in.
+func AfterAll(fn func()) {
+	first := true
+	ginkgo.AfterEach(func() {
+		if first {
+			first = false
+			fn()
+		}
+	})
+}

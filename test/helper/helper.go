@@ -7,7 +7,9 @@ import (
 	"time"
 
 	. "github.com/onsi/gomega"
-	"github.com/openshift/machine-config-operator/pkg/apis/machineconfiguration.openshift.io/v1"
+	v1 "github.com/openshift/machine-config-operator/pkg/apis/machineconfiguration.openshift.io/v1"
+
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/machineconfigpool"
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
@@ -15,7 +17,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	sigClient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var podWaitingTime time.Duration = 5 * time.Minute
@@ -80,11 +82,43 @@ func waitUntilPodCreatedAndInPhase(podStruct *k8sv1.Pod, waitingTime time.Durati
 	return runningPod
 }
 
+// IsDeploymentInstalled checks if deployment is installed
+func IsDeploymentInstalled(cs *client.ClientSet, operatorNamespace string, operatorDeploymentName string) (bool, error) {
+	_, err := cs.Deployments(operatorNamespace).Get(context.Background(), operatorDeploymentName, metav1.GetOptions{})
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+// IsDeploymentReady checks if deployment is ready
+func IsDeploymentReady(cs *client.ClientSet, operatorNamespace string, deploymentName string) (bool, error) {
+	deployment, err := cs.Deployments(operatorNamespace).Get(context.Background(), deploymentName, metav1.GetOptions{})
+	if err != nil {
+		return false, err
+	}
+	if deployment.Status.ReadyReplicas > 0 {
+		if deployment.Status.Replicas == deployment.Status.ReadyReplicas {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// CountDaemonsets counts total number of Ready and Desired daemonsets and returns int count
+func CountDaemonsets(cs *client.ClientSet, operatorNamespace string, daemonsetName string) (countRunningDaemonsets int32, countDesiredDaemonsets int32) {
+	daemonSetDiscovery, err := cs.DaemonSets(operatorNamespace).Get(context.Background(), daemonsetName, metav1.GetOptions{})
+	Expect(err).NotTo(HaveOccurred())
+	countRunningDaemonsets = daemonSetDiscovery.Status.NumberReady
+	countDesiredDaemonsets = daemonSetDiscovery.Status.DesiredNumberScheduled
+	return countRunningDaemonsets, countDesiredDaemonsets
+}
+
 // WaitForClusterToBeStable validates if MCP is stable
 func WaitForClusterToBeStable(machineConfigPoolName string, snoTimeoutMultiplier time.Duration) error {
 	mcp := &v1.MachineConfigPool{}
 
-	err := Apiclient.Client.Get(context.TODO(), client.ObjectKey{Name: machineConfigPoolName}, mcp)
+	err := Apiclient.Client.Get(context.TODO(), sigClient.ObjectKey{Name: machineConfigPoolName}, mcp)
 	if err != nil {
 		return err
 	}
@@ -109,4 +143,3 @@ func WaitForClusterToBeStable(machineConfigPoolName string, snoTimeoutMultiplier
 
 	return err
 }
-
