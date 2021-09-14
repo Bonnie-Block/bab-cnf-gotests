@@ -35,6 +35,9 @@ type Config struct {
 		StressngTestImage         string `yaml:"stressng_test_image" envconfig:"STRESSNG_TEST_IMAGE"`
 		OslatTestImage            string `yaml:"oslat_test_image" envconfig:"OSLAT_TEST_IMAGE"`
 		ProcessExporterConfigsDir string `yaml:"process_exporter_resources"`
+		BmcHosts                  string `envconfig:"BMC_HOSTS"`
+		BmcUser                   string `yaml:"bmc_user" envconfig:"BMC_USER"`
+		BmcPassword               string `yaml:"bmc_password" envconfig:"BMC_PASSWORD"`
 	} `yaml:"ran"`
 }
 

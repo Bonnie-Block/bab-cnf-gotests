@@ -117,7 +117,7 @@ func GetEnv(key, fallback string) string {
 
 // ExecAndLogCommand Execute a command locally.
 // Usage: This can be used to issue any bash cmd or oc command assuming KUBECONFIG is set properly.
-func ExecAndLogCommand(timeout time.Duration, name string, arg ...string) ([]byte, error) {
+func ExecAndLogCommand(logCommand bool, timeout time.Duration, name string, arg ...string) ([]byte, error) {
 	// Create a new context and add a timeout to it
 	if timeout <= 0 {
 		timeout = 2 * time.Minute
@@ -125,7 +125,9 @@ func ExecAndLogCommand(timeout time.Duration, name string, arg ...string) ([]byt
 	ctx, cancel := context.WithTimeout(context.TODO(), timeout)
 	defer cancel() // The cancel should be deferred so resources are cleaned up
 
-	log.Printf("run command '%s %v'", name, arg)
+	if logCommand {
+		log.Printf("run command '%s %v'", name, arg)
+	}
 	out, err := exec.CommandContext(ctx, name, arg...).Output()
 
 	// We want to check the context error to see if the timeout was executed.
@@ -135,8 +137,10 @@ func ExecAndLogCommand(timeout time.Duration, name string, arg ...string) ([]byt
 		return nil, fmt.Errorf("command '%s %v' failed because of the timeout", name, arg)
 	}
 
-	if exitError, ok := err.(*exec.ExitError); ok {
-		log.Printf("run command '%s %v' (err=%v):\n  stderr=%s\n", name, arg, err, exitError.Stderr)
+	if logCommand {
+		if exitError, ok := err.(*exec.ExitError); ok {
+			log.Printf("err=%v:\n  stderr=%s\n  output=%s\n", err, exitError.Stderr, string(out))
+		}
 	}
 	return out, err
 }
@@ -216,6 +220,6 @@ func ExecPromQuery(query string, logCommand bool) ([]PromMetric, error) {
 }
 
 func IsOcExist() bool {
-	_, err := ExecAndLogCommand(10*time.Second, "oc", "version")
+	_, err := ExecAndLogCommand(true, 10*time.Second, "oc", "version")
 	return err == nil
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"math"
 	"strconv"
 	"time"
 
@@ -24,73 +25,69 @@ import (
 	podhelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 )
 
-// DeletePodAndWaitForRemoval deletes given pod and waits until it is removed from the cluster
-func DeletePodAndWaitForRemoval(pod *corev1.Pod, timeout time.Duration) {
-	log.Println("Delete pod and waiting for it to be removed:", pod.Name)
-	err := helper.Apiclient.Pods(pod.Namespace).Delete(context.Background(), pod.Name,
-		metav1.DeleteOptions{})
-	Expect(err).ToNot(HaveOccurred())
-
-	Eventually(func() error {
-		_, err := helper.Apiclient.Pods(pod.Namespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
-		if errors.IsNotFound(err) {
-			log.Println("Pod is deleted:", pod.Name)
-			return nil
-		}
-		return fmt.Errorf("Pod is still on system: %s", pod.Name)
-	}, timeout, 5*time.Second).ShouldNot(HaveOccurred())
-}
-
-// WaitForCondition waits until the pod will have specified condition type with the expected status
-func WaitForCondition(pod *corev1.Pod, conditionType corev1.PodConditionType, conditionStatus corev1.ConditionStatus, timeout time.Duration) {
-	Eventually(func() error {
-		updatePod, err := helper.Apiclient.Pods(pod.Namespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
-		if err != nil {
-			log.Println("Failed to retrieve pod conditions for pod: ", pod.Name)
-			return err
-		}
-		for _, c := range updatePod.Status.Conditions {
-			if c.Type == conditionType && c.Status == conditionStatus {
-				log.Printf("Pod %s reached %v condition\n", pod.Name, conditionType)
-				return nil
-			}
-		}
-		return fmt.Errorf("Pod %s did not reach %v condition", pod.Name, conditionType)
-	}, timeout, 5*time.Second).ShouldNot(HaveOccurred())
-}
-
-// WaitForPhases waits until the pod is in any of the specified phases
-// Returns actual phase of the pod
-func WaitForPhases(pod *corev1.Pod, phaseTypes []corev1.PodPhase, timeout time.Duration) corev1.PodPhase {
-	log.Printf("Waiting for pod %s to be in any of these phases: %v", pod.Name, phaseTypes)
-	var podPhase corev1.PodPhase
-	Eventually(func() error {
-		updatePod, err := helper.Apiclient.Pods(pod.Namespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
-		if err != nil {
-			log.Println("Failed to retrieve pod phase for pod: ", pod.Name)
-			return err
-		}
-		podPhase = updatePod.Status.Phase
-		for _, expectedPhase := range phaseTypes {
-			if podPhase == expectedPhase {
-				log.Printf("Pod %s reached %v phase\n", pod.Name, expectedPhase)
-				return nil
-			}
-		}
-		return fmt.Errorf("Pod %s did not reach phase(s): %s. It is in %s phase", pod.Name, phaseTypes, updatePod.Status.Phase)
-	}, timeout, 5*time.Second).ShouldNot(HaveOccurred())
-	return podPhase
-}
-
-// WaitForPodHealthy waits until the pod is Completed or Running & Ready
-func WaitForPodHealthy(pod *corev1.Pod, timeout time.Duration) {
-	// First wait for pod to be Running or Succeeded
-	podPhase := WaitForPhases(pod, []corev1.PodPhase{corev1.PodRunning, corev1.PodSucceeded}, timeout)
-
-	// Then wait for Running pod to be Ready
-	if podPhase == corev1.PodRunning {
-		WaitForCondition(pod, corev1.PodReady, corev1.ConditionTrue, timeout)
+// DeletePodsAndWaitForRemoval deletes given pods and waits until they are removed from the cluster
+func DeletePodsAndWaitForRemoval(pods []*corev1.Pod, timeout time.Duration) {
+	log.Println("Delete and wait for pods to be removed")
+	for _, pod := range pods {
+		err := helper.Apiclient.Pods(pod.Namespace).Delete(context.Background(), pod.Name,
+			metav1.DeleteOptions{})
+		Expect(err).ToNot(HaveOccurred())
 	}
+
+	Eventually(func() error {
+		for _, pod := range pods {
+			_, err := helper.Apiclient.Pods(pod.Namespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
+			if !errors.IsNotFound(err) {
+				return fmt.Errorf("Pod is still on system: %s", pod.Name)
+			}
+			log.Println("Pod is deleted:", pod.Name)
+		}
+		return nil
+	}, timeout, 5*time.Second).ShouldNot(HaveOccurred())
+}
+
+// waitForPodsHealthy waits for given pods to appear and healthy
+func waitForPodsHealthy(pods []*corev1.Pod, timeout time.Duration) {
+	Eventually(func() error {
+		for _, pod := range pods {
+			tempPod, err := helper.Apiclient.Pods(pod.Namespace).Get(
+				context.Background(),
+				pod.Name,
+				metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			err = IsPodHealthy(tempPod)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	}, timeout, 3*time.Second).ShouldNot(HaveOccurred())
+}
+
+// IsPodHealthy returns nil if given pod is healthy, otherwise an error.
+func IsPodHealthy(pod *corev1.Pod) error {
+	if pod.Status.Phase == corev1.PodRunning {
+		// Check if running pod is ready
+		if !isPodInCondition(pod, corev1.PodReady) {
+			return fmt.Errorf("Pod condition is not Ready. Message: %s", pod.Status.Message)
+		}
+	} else if pod.Status.Phase != corev1.PodSucceeded {
+		// Add pods that are not running or succeeded to unhealthy list
+		return fmt.Errorf("Pod phase is %s. Message: %s", pod.Status.Phase, pod.Status.Message)
+	}
+	return nil
+}
+
+// isPodInCondition returns true if given pod is in expected condition, otherwise false.
+func isPodInCondition(pod *corev1.Pod, condition corev1.PodConditionType) bool {
+	for _, c := range pod.Status.Conditions {
+		if c.Type == condition && c.Status == corev1.ConditionTrue {
+			return true
+		}
+	}
+	return false
 }
 
 // RedefineContainerResources redefines a pod with CPU and Memory resources in first container
@@ -163,18 +160,26 @@ func RedefineWithRuntimeClass(pod *corev1.Pod, runtimeClass string) *corev1.Pod 
 }
 
 // DefineStressPod returns stress-ng pod definition.
-func DefineStressPod(nodeName string, cpus int) *corev1.Pod {
+func DefineStressPod(nodeName string, cpus int, guaranteed bool) *corev1.Pod {
 	// TODO: Use config.Ran.StressngTestImage after CNF-2570 is done.
 	// config_, err := config.NewConfig()
 	// Expect(err).ShouldNot(HaveOccurred())
 	// stressngImage := config_.Ran.StressngTestImage
 	stressngImage := "quay.io/imiller/stress-ng:2.0"
-
+	envVars := []corev1.EnvVar{{Name: "INITIAL_DELAY_SEC", Value: "60"}}
+	cpuLimit := strconv.Itoa(cpus)
+	memoryLimit := "100M"
+	if !guaranteed {
+		// Override CMDLINE for non-guaranteed pod to avoid specifying taskset
+		envVars = append(envVars, corev1.EnvVar{Name: "CMDLINE", Value: fmt.Sprintf("--cpu %d --cpu-load 50", cpus)})
+		cpuLimit = fmt.Sprintf("%dm", cpus*1200)
+		memoryLimit = "200M"
+	}
 	pod := podhelper.DefinePodOnNode(ran.NamespaceTesting, stressngImage, nodeName)
 	RedefineWithObjectMeta(pod, "", "stress-ng-", nil)
 	podhelper.RedefineWithCommand(RedefineContainer(pod, "stress-ng", "", corev1.PullIfNotPresent), nil, nil)
-	RedefineContainerResources(pod, strconv.Itoa(cpus), strconv.Itoa(cpus), "100M", "100M")
-	RedefineContainerEnvVars(pod, []corev1.EnvVar{{Name: "INITIAL_DELAY_SEC", Value: "60"}})
+	RedefineContainerEnvVars(pod, envVars)
+	RedefineContainerResources(pod, cpuLimit, strconv.Itoa(cpus), memoryLimit, "100M")
 	return pod
 }
 
@@ -192,7 +197,7 @@ func DefineOslatPod(profile *performancev2.PerformanceProfile, nodeName string, 
 	RedefineWithRuntimeClass(pod, components.GetComponentName(profile.Name, components.ComponentNamePrefix))
 	RedefineWithObjectMeta(pod, "", "oslat-", map[string]string{"cpu-load-balancing.crio.io": "true", "cpu-quota.crio.io": "true"})
 	RedefineContainer(podhelper.RedefineWithCommand(pod, nil, nil), "container-perf-tools", "", corev1.PullAlways)
-	RedefineContainerResources(pod, strconv.Itoa(cpus), strconv.Itoa(cpus), "2Gi", "2Gi")
+	RedefineContainerResources(pod, strconv.Itoa(cpus), strconv.Itoa(cpus), "1Gi", "1Gi")
 	RedefineWithVolume(pod, "cstate", "/dev/cpu_dma_latency", "cstate", corev1.VolumeSource{
 		HostPath: &corev1.HostPathVolumeSource{Path: "/dev/cpu_dma_latency", Type: &volumeType}})
 	RedefineContainerEnvVars(pod, []corev1.EnvVar{
@@ -239,32 +244,53 @@ func DeployProcessExporter() *appsv1.DaemonSet {
 // DeployWorkloadPods deploy oslat and stress-ng pods to fill up isolated cpus
 // stressNg pod will be pinned to roughly 1/3.5 of total isolated cores
 func DeployWorkloadPods(rtProfile *performancev2.PerformanceProfile, node *corev1.Node) []*corev1.Pod {
-	var worklodPods = []*corev1.Pod{nil, nil}
-
 	// Determine cpu requests for oslat and stress-ng pods.
 	// stressNg cpu count is roughly 1/3.5 of total isolated cores
 	isolatedCpuSet := cpuset.MustParse(string(*rtProfile.Spec.CPU.Isolated))
-	// 1 cpu will be used by other consumer pods, such as process-exporter
+	// 1 cpu will be used by other consumer pods, such as process-exporter, ranpriv
 	workloadCpuCount := isolatedCpuSet.Size() - 1
-	stressNgCpuCount := workloadCpuCount * 100 / 350
-	if stressNgCpuCount%2 != 0 {
-		stressNgCpuCount -= 1
-	}
-	oslatCpuCount := workloadCpuCount - stressNgCpuCount
+	oslatCpuCount := workloadCpuCount * 100 / 300
+	stressNgCpuCount := workloadCpuCount - oslatCpuCount
+	oslatMaxPodCount, stressngMaxPodCount := 2, 40
+	oslatPodsCpus := parsePodCountAndCpus(oslatMaxPodCount, oslatCpuCount)
+	stressngPodsCpus := parsePodCountAndCpus(stressngMaxPodCount, stressNgCpuCount)
 
+	var err error
 	// Create and wait for oslat pod to be Ready
-	log.Printf("Creating oslat pod with %d cpus requested", oslatCpuCount)
+	log.Printf("Creating up to %d oslat pods with total %d cpus", oslatMaxPodCount, oslatCpuCount)
 	// Pick a large duration to ensure workload pod is always running during test
-	oslatPod := helper.WaitUntilPodCreatedAndRunning(DefineOslatPod(rtProfile, node.Name, oslatCpuCount, "1440m"), 10*time.Minute)
-	worklodPods[0] = oslatPod
-	WaitForPodHealthy(oslatPod, 10*time.Minute)
+	workloadPods := []*corev1.Pod{}
+	for _, cpuReq := range oslatPodsCpus {
+		pod := DefineOslatPod(rtProfile, node.Name, cpuReq, "1440m")
+		err = helper.Apiclient.Create(context.Background(), pod)
+		Expect(err).ToNot(HaveOccurred())
+		workloadPods = append(workloadPods, pod)
+	}
+	waitForPodsHealthy(workloadPods, 10*time.Minute)
+	log.Printf("%d oslat pods with total %d cpus are created and running", len(workloadPods), oslatCpuCount)
 
-	// Create and wait for stress-ng pod to be Ready
-	log.Printf("Creating stress-ng pod with %d cpus requested", stressNgCpuCount)
-	stressNgPod := helper.WaitUntilPodCreatedAndRunning(DefineStressPod(node.Name, stressNgCpuCount), 10*time.Minute)
-	worklodPods[1] = stressNgPod
-	WaitForPodHealthy(stressNgPod, 10*time.Minute)
-	return worklodPods
+	log.Printf("Creating up to %d stress-ng pods with total %d cpus", stressngMaxPodCount, stressNgCpuCount)
+	stressngPods := []*corev1.Pod{}
+	for _, cpuReq := range stressngPodsCpus {
+		pod := DefineStressPod(node.Name, cpuReq, false)
+		err = helper.Apiclient.Create(context.Background(), pod)
+		Expect(err).ToNot(HaveOccurred())
+		stressngPods = append(stressngPods, pod)
+	}
+	waitForPodsHealthy(stressngPods, 10*time.Minute)
+	log.Printf("%d stress-ng pods with total %d cpus are created and running", len(stressngPods), stressNgCpuCount)
+	return append(workloadPods, stressngPods...)
+}
+
+func parsePodCountAndCpus(maxPodCount, cpuCount int) []int {
+	podCount := int(math.Min(float64(cpuCount), float64(maxPodCount)))
+	cpuPerPod := int(cpuCount / podCount)
+	cpus := []int{}
+	for i := 1; i <= podCount-1; i++ {
+		cpus = append(cpus, cpuPerPod)
+	}
+	cpus = append(cpus, cpuCount-cpuPerPod*(podCount-1))
+	return cpus
 }
 
 // CreatePrivilegedPods creates privileged test pods on all nodes to assist testing
@@ -297,7 +323,7 @@ func CreatePrivilegedPods(image string) map[string]*corev1.Pod {
 			privilegedPod = helper.WaitUntilPodCreatedAndRunning(RedefineWithObjectMeta(privilegedPod, podName, "", nil), 10*time.Minute)
 		}
 		privPods[node.Name] = privilegedPod
-		WaitForPodHealthy(privilegedPod, 5*time.Minute)
+		waitForPodsHealthy([]*corev1.Pod{privilegedPod}, 5*time.Minute)
 	}
 	return privPods
 }

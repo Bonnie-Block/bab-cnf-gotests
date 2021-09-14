@@ -14,7 +14,7 @@ func RunMustGather() (mustGatherExecDir string, mustGatherOutput []byte, err err
 	if err != nil {
 		return "", nil, err
 	}
-	output, err := ExecAndLogCommand(45*time.Minute, "oc", "adm", "must-gather")
+	output, err := ExecAndLogCommand(true, 45*time.Minute, "oc", "adm", "must-gather")
 	return dir, output, err
 }
 

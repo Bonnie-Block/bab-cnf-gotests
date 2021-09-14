@@ -56,7 +56,7 @@ func TestReboot(t *testing.T) {
 
 var _ = BeforeSuite(func() {
 	// Check nodes status before running reboot test
-	nodeErr := nodes.WaitForNodesReady(helper.Apiclient, 1 * time.Minute, 3 * time.Second)
+	nodeErr := nodes.WaitForNodesReady(helper.Apiclient, 1*time.Minute, 3*time.Second)
 	Expect(nodeErr).ToNot(HaveOccurred())
 	// Create privileged pods for ran testing if not already exist, and leave them on system.
 	ranhelper.CreatePrivilegedPods("")

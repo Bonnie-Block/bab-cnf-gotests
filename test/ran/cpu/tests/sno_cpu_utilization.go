@@ -87,24 +87,20 @@ var _ = Describe("SNO core reduction", func() {
 
 	Context("Management CPU utilization with workload pods running", func() {
 		var (
-			oslatPod          *corev1.Pod
-			stressNgPod       *corev1.Pod
+			workloadPods []*corev1.Pod
 			testExecCount     = 0
-			workloadPodsErr   = fmt.Errorf("workload pods failed to launch")
 			workloadStartTime time.Time
 		)
 
 		BeforeEach(func() {
 			// Create pod before first test under workload context is started.
-			if testExecCount == 0 || oslatPod == nil || stressNgPod == nil {
+			if testExecCount == 0 || workloadPods == nil || len(workloadPods) == 0 {
 				workloadStartTime = time.Now().UTC()
 				time.Sleep(20 * time.Second)
 				// stressNg cpu count is roughly 1/3.5 of total isolated cores
-				workloadPods := ranhelper.DeployWorkloadPods(rtProfile, node)
-				oslatPod, stressNgPod = workloadPods[0], workloadPods[1]
-				workloadPodsErr = nil
+				workloadPods = ranhelper.DeployWorkloadPods(rtProfile, node)
 			} else {
-				Expect(workloadPodsErr).ToNot(HaveOccurred())
+				Expect(workloadPods).ToNot(BeEmpty())
 			}
 			testExecCount += 1
 		})
@@ -114,11 +110,8 @@ var _ = Describe("SNO core reduction", func() {
 			// In case less than testCountWithWorkload tests are executed, cleanup will still be done at suite level.
 			if testExecCount >= testCountWithWorkload {
 				// Delete oslat pod and wait for deletion completes
-				for _, pod := range []*corev1.Pod{stressNgPod, oslatPod} {
-					if pod != nil {
-						ranhelper.DeletePodAndWaitForRemoval(pod, 5*time.Minute)
-						pod = nil
-					}
+				if workloadPods != nil && len(workloadPods) > 0 {
+					ranhelper.DeletePodsAndWaitForRemoval(workloadPods, 5*time.Minute)
 				}
 			}
 		})
