@@ -9,6 +9,9 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/util/wait"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -204,9 +207,32 @@ func GetPodDefinitionWithPort(namespace string, image string, port int32) *corev
 	return podObject
 }
 
-// GetPodDefinitionWithPort retrieves pod with port configuration
+// GetPodDefinitionWithPortAndLabel retrieves pod with port configuration
 func GetPodDefinitionWithPortAndLabel(namespace string, image string, port int32, labels map[string]string) *corev1.Pod {
 	podObject := GetPodDefinitionWithPort(namespace, image, port)
 	podObject.Labels = labels
 	return podObject
+}
+
+// WaitForDeletion waits until the pod will be removed from the cluster
+func WaitForDeletion(cs *testclient.ClientSet, pod *corev1.Pod, timeout time.Duration) error {
+	return wait.PollImmediate(time.Second, timeout, func() (bool, error) {
+		_, err := cs.Pods(pod.Namespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
+		if errors.IsNotFound(err) {
+			return true, nil
+		}
+		return false, nil
+	})
+}
+
+// DeletePodAndWait removes given pods and waits until it's fully removed
+func DeletePodAndWait(apiClient *testclient.ClientSet, podToDelete *corev1.Pod) error {
+	err := apiClient.Pods(podToDelete.Namespace).Delete(
+		context.Background(),
+		podToDelete.Name,
+		metav1.DeleteOptions{GracePeriodSeconds: pointer.Int64Ptr(0)})
+	if err != nil {
+		return err
+	}
+	return WaitForDeletion(apiClient, podToDelete, 3*time.Minute)
 }

@@ -46,9 +46,9 @@ const (
 )
 
 var (
-	waitingTime          time.Duration = 35 * time.Minute
-	podWaitingTime       time.Duration = 1 * time.Minute
-	dualPodWaitingTime   time.Duration = 3 * time.Minute
+	waitingTime          = 35 * time.Minute
+	podWaitingTime       = 1 * time.Minute
+	dualPodWaitingTime   = 3 * time.Minute
 	isSingleNode         bool
 	snoTimeoutMultiplier time.Duration = 1
 )
@@ -732,9 +732,8 @@ func defineServerPod(
 	if strings.Contains(ipaddress, ":") {
 		podDefinition = redefinePodWithInitCommandPolicy(podDefinition, podImage,
 			fmt.Sprintf(
-				"for i in {1..10}; do sleep 1; if ping6 -c 3 -w 3 %s ; then ip -6 route add %s/128 dev net1 "+
-				"&& ip -6 route add %s/128 dev net1 table local && exit 0; fi; done; exit 1",
-				serverPodIpv6, clientPodIPv6, multicastIPv6Address))
+				"ping6 -c 3 -w 30 %s && ip -6 route add %s/128 dev net1 table local",
+				serverPodIpv6, multicastIPv6Address))
 	}
 
 	return redefinePodWithInitDebugCommands(podDefinition, podImage)
@@ -772,9 +771,8 @@ func defineDualServerPod(protocol string,
 
 	podDefinition = redefinePodWithInitCommandPolicy(podDefinition, podImage,
 		fmt.Sprintf(
-			"for i in {1..10}; do sleep 1; if ping6 -c 3 -w 3 %s; then ip -6 route add %s/128 dev net1"+
-			" && ip -6 route add %s/128 dev net1 table local && exit 0; fi; done; exit 1",
-			serverPodIpv6, clientPodIPv6, multicastIPv6Address))
+			"ping6 -c 3 -w 30 %s && ip -6 route add %s/128 dev net1 table local",
+			serverPodIpv6, multicastIPv6Address))
 
 	return redefinePodWithInitDebugCommands(podDefinition, podImage)
 }
@@ -811,8 +809,15 @@ func defineClientPod(
 	}
 
 	podDefinition = DefinePodCommandWithIpamAndMac(podDefinition, networkName, ipaddress, macAddress, podCommand)
+	serverIP := serverPodIP
+	if strings.Contains(ipaddress, ":") {
+		serverIP = serverPodIpv6
+	}
+	return redefinePodWithInitCommandPolicy(
+		podDefinition,
+		podImage,
+		fmt.Sprintf("ping %s -c 3 -w 30", serverIP))
 
-	return redefinePodWithInitDebugCommands(podDefinition, podImage)
 }
 
 func defineDualClientPod(
@@ -1026,7 +1031,8 @@ func buildDescribeTable(
 		By("Positive test flow - success")
 		return
 	}
-
+	err = pod.DeletePodAndWait(generalHelper.Apiclient, clientPod)
+	Expect(err).ToNot(HaveOccurred())
 	By("Positive test flow - success. Running negative flow")
 	negativeFlag = true
 	if protocol == parameters.CommunicationProtocolUnicastSCTP {
@@ -1143,7 +1149,8 @@ func buildDescribeTable6(
 		By("Positive test flow - success")
 		return
 	}
-
+	err = pod.DeletePodAndWait(generalHelper.Apiclient, clientPod)
+	Expect(err).ToNot(HaveOccurred())
 	By("Positive test flow - success. Running negative flow")
 	negativeFlag = true
 	if protocol == parameters.CommunicationProtocolUnicastSCTP {
@@ -1281,6 +1288,8 @@ func buildDescribeTableDual(
 		By("Positive test flow - success")
 		return
 	}
+	err = pod.DeletePodAndWait(generalHelper.Apiclient, clientPod)
+	Expect(err).ToNot(HaveOccurred())
 
 	By("Positive test flow - success. Running negative flow")
 	negativeFlag = true

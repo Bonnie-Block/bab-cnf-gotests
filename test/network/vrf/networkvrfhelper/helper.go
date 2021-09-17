@@ -11,14 +11,12 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	k8sv1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
-
 	globalHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/vrf/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
+	k8sv1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // TestVRFScenario verifies that VRF feature works as expected
@@ -153,11 +151,7 @@ func TestVRFScenario(node string, ipStack string, ipOverLap string, config *conf
 	Expect(err).ToNot(HaveOccurred())
 	err = httpViaVRF(*runningClientPod, podServerVRFBlueIPAddress, parameters.VRFBlueName, false)
 	Expect(err).ToNot(HaveOccurred())
-	err = globalHelper.Apiclient.Pods(parameters.TestNamespace).Delete(
-		context.Background(),
-		podServer.Name,
-		metav1.DeleteOptions{
-			GracePeriodSeconds: pointer.Int64Ptr(0)})
+	err = pod.DeletePodAndWait(globalHelper.Apiclient, podServer)
 	Expect(err).ToNot(HaveOccurred())
 
 	By("Validating client/server ICMP negative test")
