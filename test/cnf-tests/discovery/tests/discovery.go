@@ -87,7 +87,7 @@ var _ = Describe("Discovery mode with all ", func() {
 			err := helper.DeployMC(helper.DefineSCTPMC(machineConfigPoolName))
 			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error to deploy sctp MachineConfig: %s", err))
 
-			err = helper.WaitForClusterToBeStable(machineConfigPoolName, snoTimeoutMultiplier)
+			err = WaitForClusterToBeStable(machineConfigPoolName, snoTimeoutMultiplier)
 			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error in wait for cluster to be stable: %s", err))
 		}
 
@@ -95,7 +95,7 @@ var _ = Describe("Discovery mode with all ", func() {
 			By("Deploy load-xt-u32-module machine-config")
 			err := helper.DeployMC(helper.DefineXtu32MC(machineConfigPoolName))
 			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error to deploy xt_u32 MachineConfig: %s", err))
-			err = helper.WaitForClusterToBeStable(machineConfigPoolName, snoTimeoutMultiplier)
+			err = WaitForClusterToBeStable(machineConfigPoolName, snoTimeoutMultiplier)
 			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error in wait for cluster to be stable: %s", err))
 		}
 
@@ -136,12 +136,12 @@ var _ = Describe("Discovery mode with all ", func() {
 			5)
 
 		By("Create Performance Profile")
-		err = helper.CreatePerformanceProfile(
+		err = CreatePerformanceProfile(
 			parameters.DiscoveryPerformanceProfile,
 			config.General.CnfNodeLabel)
 		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error Create PerformanceProfile policy: %s", err))
 
-		err = helper.WaitForClusterToBeStable(machineConfigPoolName, snoTimeoutMultiplier)
+		err = WaitForClusterToBeStable(machineConfigPoolName, snoTimeoutMultiplier)
 		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error waiting for cluster to be stable: %s", err))
 
 	})
@@ -184,7 +184,7 @@ var _ = Describe("Discovery mode with all ", func() {
 
 	It("features configured(Except for SriovNetworkNodePolicy, Ptpconfig and PerformanceProfile)", func() {
 		By("Remove Performance policy")
-		err := helper.CleanAllPerformanceProfile(machineConfigPoolName, snoTimeoutMultiplier)
+		err := CleanAllPerformanceProfile(machineConfigPoolName, snoTimeoutMultiplier)
 		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error removing all Performance profiles: %s", err))
 		runCNFTests(config, cnfTestEnv, containerEngine)
 		reportIsValid(config.General.ReportDirAbsPath, definePassedSkipTestsNumber(parameters.DiscoveryExceptSriovPtpPerformanceScenario, isSingleNode))
@@ -461,9 +461,9 @@ func definePTPDiscoveryModePolicy(config *config.Config) {
 	Expect(err).ToNot(HaveOccurred(), "Did not found valid PTP Configuration")
 }
 
-func definePassedSkipTestsNumber(scenario string, isSingleNode bool) [] int {
+func definePassedSkipTestsNumber(scenario string, isSingleNode bool) []int {
 	var (
-		passedTestNumber int
+		passedTestNumber  int
 		skippedTestNumber int
 	)
 	switch scenario {

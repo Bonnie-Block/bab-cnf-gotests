@@ -25,13 +25,13 @@ import (
 var _ = Describe("Intel ACC100", func() {
 
 	var (
-		sriovFecNodeList = &fpgav1.SriovFecNodeConfigList{}
-		testSkip         = ""
-		isSingleNode bool
+		sriovFecNodeList     = &fpgav1.SriovFecNodeConfigList{}
+		testSkip             = ""
+		isSingleNode         bool
+		snoTimeoutMultiplier time.Duration = 1
 	)
 	config, err := config.NewConfig()
 	Expect(err).ToNot(HaveOccurred())
-
 
 	execute.BeforeAll(func() {
 		var err error
@@ -69,6 +69,12 @@ var _ = Describe("Intel ACC100", func() {
 
 		isSingleNode, err = nodes.IsSingleNodeCluster(generalHelper.Apiclient)
 		Expect(err).NotTo(HaveOccurred())
+		if isSingleNode {
+			snoTimeoutMultiplier = 2
+		}
+
+		By("Validating performance profile")
+		helper.FindAndValidateOrOverridePerformanceProfile(generalHelper.Apiclient, config.General.CnfNodeLabel, snoTimeoutMultiplier)
 	})
 
 	Context("sriov-fec", func() {

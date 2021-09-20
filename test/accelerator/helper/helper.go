@@ -10,14 +10,17 @@ import (
 	. "github.com/onsi/gomega"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/kubernetes/pkg/kubelet/cm/cpuset"
 	"k8s.io/utils/pointer"
 	k8s "sigs.k8s.io/controller-runtime/pkg/client"
 
 	fecv1 "github.com/open-ness/openshift-operator/sriov-fec/api/v1"
+	performancev2 "github.com/openshift-kni/performance-addon-operators/api/v2"
 
 	globalHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
@@ -33,6 +36,7 @@ const (
 	AcceleratorDiscoveryDaemonset = "accelerator-discovery"
 	SriovDevicePlugin             = "sriov-device-plugin"
 	SriovFecDaemonset             = "sriov-fec-daemonset"
+	PerformanceProfileName        = "performance"
 )
 
 // IsSriovFecDeploymentReady checks if Sriov Fec deployment is ready
@@ -286,4 +290,74 @@ func IsBbdevFailedTests(str string) bool {
 		}
 	}
 	return false
+}
+
+func FindAndValidateOrOverridePerformanceProfile(cs *client.ClientSet, nodeLabel string, snoTimeoutMultiplier time.Duration) {
+	var valid = true
+	performanceProfile := &performancev2.PerformanceProfile{}
+	machineConfigPoolName := strings.Split(nodeLabel, "/")[1]
+
+	err := cs.Get(context.TODO(), k8s.ObjectKey{Name: PerformanceProfileName}, performanceProfile)
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			Expect(err).ToNot(HaveOccurred())
+		}
+		valid = false
+		performanceProfile = nil
+	}
+	if valid {
+		valid, err = validatePerformanceProfile(performanceProfile)
+		Expect(err).ToNot(HaveOccurred())
+	}
+	if !valid {
+		if performanceProfile != nil {
+			fmt.Println("Installed Performance Profile is not suitable for the test\n" +
+				"Deleting profiles")
+			err = globalHelper.CleanAllPerformanceProfile(machineConfigPoolName, snoTimeoutMultiplier)
+			Expect(err).ToNot(HaveOccurred())
+		}
+		fmt.Println("Creating Performance Profile")
+		err = globalHelper.CreatePerformanceProfile(PerformanceProfileName, nodeLabel)
+		Expect(err).ToNot(HaveOccurred())
+		err = globalHelper.WaitForClusterToBeStable(machineConfigPoolName, snoTimeoutMultiplier)
+		Expect(err).ToNot(HaveOccurred())
+	}
+}
+
+func validatePerformanceProfile(performanceProfile *performancev2.PerformanceProfile) (bool, error) {
+	cpuSet, err := cpuset.Parse(string(*performanceProfile.Spec.CPU.Isolated))
+	if err != nil {
+		return false, err
+	}
+
+	cpuSetSlice := cpuSet.ToSlice()
+	if len(cpuSetSlice) < 6 {
+		return false, nil
+	}
+
+	if performanceProfile.Spec.HugePages == nil {
+		return false, nil
+	}
+
+	if *performanceProfile.Spec.HugePages.DefaultHugePagesSize != "1G" {
+		return false, nil
+	}
+
+	if len(performanceProfile.Spec.HugePages.Pages) == 0 {
+		return false, nil
+	}
+
+	if performanceProfile.Spec.HugePages.Pages[0].Count < 10 {
+		return false, nil
+	}
+
+	if performanceProfile.Spec.HugePages.Pages[0].Size != "1G" {
+		return false, nil
+	}
+
+	if performanceProfile.Spec.HugePages.Pages[0].Node != nil {
+		return false, nil
+	}
+
+	return true, nil
 }

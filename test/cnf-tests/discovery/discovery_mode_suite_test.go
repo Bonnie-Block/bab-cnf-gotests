@@ -48,7 +48,7 @@ var _ = BeforeSuite(func() {
 	config, err := config.NewConfig()
 	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error loading config: %s", err))
 
-	err = helper.CleanAllPerformanceProfile(strings.Split(config.General.CnfNodeLabel, "/")[1], snoTimeoutMultiplier)
+	err = CleanAllPerformanceProfile(strings.Split(config.General.CnfNodeLabel, "/")[1], snoTimeoutMultiplier)
 	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error removing all Performance profiles: %s", err))
 
 	By("Clean All PTP config")
@@ -79,6 +79,6 @@ var _ = AfterSuite(func() {
 	config, err := config.NewConfig()
 	Expect(err).ToNot(HaveOccurred())
 	By("Clean all PerformanceProfile Policy")
-	err = helper.CleanAllPerformanceProfile(strings.Split(config.General.CnfNodeLabel, "/")[1], snoTimeoutMultiplier)
+	err = CleanAllPerformanceProfile(strings.Split(config.General.CnfNodeLabel, "/")[1], snoTimeoutMultiplier)
 	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error removing all Performance profiles: %s", err))
 })

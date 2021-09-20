@@ -7,19 +7,13 @@ import (
 
 	sriovv1 "github.com/k8snetworkplumbingwg/sriov-network-operator/api/v1"
 	"github.com/kelseyhightower/envconfig"
-	performance "github.com/openshift-kni/performance-addon-operators/api/v2"
-	performancev2 "github.com/openshift-kni/performance-addon-operators/api/v2"
 	mcov1 "github.com/openshift/machine-config-operator/pkg/apis/machineconfiguration.openshift.io/v1"
-	mcv1 "github.com/openshift/machine-config-operator/pkg/apis/machineconfiguration.openshift.io/v1"
 	mcoScheme "github.com/openshift/machine-config-operator/pkg/generated/clientset/versioned/scheme"
 	ptpv1 "github.com/openshift/ptp-operator/pkg/apis/ptp/v1"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/cnf-tests/discovery/parameters"
 	. "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	generalParameters "gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/machineconfigpool"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	goclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func envVarErrorString(envVarName string) error {
@@ -47,67 +41,6 @@ func NewConfig() (*parameters.EnvironmentConfig, error) {
 	}
 
 	return &environmentConfiguration, nil
-}
-
-// CreatePerformanceProfile creates performance profile
-func CreatePerformanceProfile(performanceProfileName string, mcpPoolName string) error {
-	isolatedCPUSet := performancev2.CPUSet("8-15")
-	reservedCPUSet := performancev2.CPUSet("0-7")
-	hugepageSize := performancev2.HugePageSize("1G")
-	performanceProfile := &performancev2.PerformanceProfile{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: performanceProfileName,
-		},
-		Spec: performancev2.PerformanceProfileSpec{
-			CPU: &performancev2.CPU{
-				Isolated: &isolatedCPUSet,
-				Reserved: &reservedCPUSet,
-			},
-			HugePages: &performancev2.HugePages{
-				DefaultHugePagesSize: &hugepageSize,
-				Pages: []performancev2.HugePage{
-					{
-						Count: 10,
-						Size:  hugepageSize,
-					},
-				},
-			},
-			NodeSelector: map[string]string{
-				fmt.Sprintf("%s", mcpPoolName): "",
-			},
-		},
-	}
-	return Apiclient.Client.Create(context.TODO(), performanceProfile)
-}
-
-// WaitForClusterToBeStable validates if MCP is stable
-func WaitForClusterToBeStable(machineConfigPoolName string, snoTimeoutMultiplier time.Duration) error {
-	mcp := &mcv1.MachineConfigPool{}
-
-	err := Apiclient.Client.Get(context.TODO(), goclient.ObjectKey{Name: machineConfigPoolName}, mcp)
-	if err != nil {
-		return err
-	}
-
-	err = machineconfigpool.WaitForCondition(
-		Apiclient,
-		&mcv1.MachineConfigPool{ObjectMeta: metav1.ObjectMeta{Name: machineConfigPoolName}},
-		mcv1.MachineConfigPoolUpdating,
-		corev1.ConditionTrue,
-		2*time.Minute)
-	if err != nil {
-		return err
-	}
-
-	// We need to wait a long time here for the node to reboot
-	err = machineconfigpool.WaitForCondition(
-		Apiclient,
-		&mcv1.MachineConfigPool{ObjectMeta: metav1.ObjectMeta{Name: machineConfigPoolName}},
-		mcv1.MachineConfigPoolUpdated,
-		corev1.ConditionTrue,
-		time.Duration(20*mcp.Status.MachineCount)*time.Minute*snoTimeoutMultiplier)
-
-	return err
 }
 
 // CreatePTPConfig creates PtpConfig based on provided resource
@@ -195,31 +128,6 @@ func CleanAllSriovPolicy(snoTimeoutMultiplier time.Duration) error {
 			}
 		}
 		WaitForSRIOVStable(generalParameters.SriovOperatorNamespace, parameters.SriovWaitingTime, snoTimeoutMultiplier)
-	}
-	return nil
-}
-
-// CleanAllPerformanceProfile removes all PerformanceProfile from cluster
-func CleanAllPerformanceProfile(cnfNodeLabel string, snoTimeoutMultiplier time.Duration) error {
-	performanceProfileList := &performance.PerformanceProfileList{}
-	err := Apiclient.Client.List(context.TODO(), performanceProfileList)
-	if err != nil {
-		return err
-	}
-	if len(performanceProfileList.Items) > 0 {
-		for _, performanceProfile := range performanceProfileList.Items {
-			err := Apiclient.Client.Delete(
-				context.TODO(),
-				&performanceProfile)
-			if err != nil {
-				return err
-			}
-		}
-		err = WaitForClusterToBeStable(cnfNodeLabel, snoTimeoutMultiplier)
-		if err != nil {
-			return err
-		}
-
 	}
 	return nil
 }

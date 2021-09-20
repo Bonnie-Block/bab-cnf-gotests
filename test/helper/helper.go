@@ -7,11 +7,15 @@ import (
 	"time"
 
 	. "github.com/onsi/gomega"
+	"github.com/openshift/machine-config-operator/pkg/apis/machineconfiguration.openshift.io/v1"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/machineconfigpool"
+
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var podWaitingTime time.Duration = 5 * time.Minute
@@ -75,3 +79,34 @@ func waitUntilPodCreatedAndInPhase(podStruct *k8sv1.Pod, waitingTime time.Durati
 	Expect(err).ToNot(HaveOccurred())
 	return runningPod
 }
+
+// WaitForClusterToBeStable validates if MCP is stable
+func WaitForClusterToBeStable(machineConfigPoolName string, snoTimeoutMultiplier time.Duration) error {
+	mcp := &v1.MachineConfigPool{}
+
+	err := Apiclient.Client.Get(context.TODO(), client.ObjectKey{Name: machineConfigPoolName}, mcp)
+	if err != nil {
+		return err
+	}
+
+	err = machineconfigpool.WaitForCondition(
+		Apiclient,
+		&v1.MachineConfigPool{ObjectMeta: metav1.ObjectMeta{Name: machineConfigPoolName}},
+		v1.MachineConfigPoolUpdating,
+		k8sv1.ConditionTrue,
+		2*time.Minute)
+	if err != nil {
+		return err
+	}
+
+	// We need to wait a long time here for the node to reboot
+	err = machineconfigpool.WaitForCondition(
+		Apiclient,
+		&v1.MachineConfigPool{ObjectMeta: metav1.ObjectMeta{Name: machineConfigPoolName}},
+		v1.MachineConfigPoolUpdated,
+		k8sv1.ConditionTrue,
+		time.Duration(20*mcp.Status.MachineCount)*time.Minute*snoTimeoutMultiplier)
+
+	return err
+}
+
