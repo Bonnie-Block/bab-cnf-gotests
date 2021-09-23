@@ -1,6 +1,8 @@
 package tests
 
 import (
+	"fmt"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -18,18 +20,27 @@ var _ = Describe("CNF VRF", func() {
 
 	describe := networkvrfhelper.DescribeParameters
 
-	var sriovInfos *cluster.EnabledNodes
+	var (
+		sriovInfos *cluster.EnabledNodes
+		testFail   = ""
+	)
 	config, err := config.NewConfig()
 	Expect(err).ToNot(HaveOccurred())
 
 	execute.BeforeAll(func() {
 		By("Discover SRIOV Node Interfaces")
 		sriovInfos, err = cluster.DiscoverSriov(generalHelper.Apiclient, generalParam.SriovOperatorNamespace)
-		Expect(err).ToNot(HaveOccurred())
+		if err != nil {
+			testFail = fmt.Sprintf("Error discover SRIOV node info: %s", err)
+			Expect(err).ToNot(HaveOccurred(), testFail)
+		}
 		networkvrfhelper.SetupSriovBeforeAll(config, sriovInfos, false)
 	})
 
 	BeforeEach(func() {
+		if testFail != "" {
+			Fail(testFail)
+		}
 		networkvrfhelper.CleanResources()
 	})
 

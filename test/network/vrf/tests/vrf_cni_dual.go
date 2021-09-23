@@ -26,6 +26,7 @@ var _ = Describe("CNF VRF", func() {
 		nodeListString []string
 		vrfBlue        netattdefv1.NetworkAttachmentDefinition
 		vrfRed         netattdefv1.NetworkAttachmentDefinition
+		testFail       = ""
 	)
 	config, err := config.NewConfig()
 	Expect(err).ToNot(HaveOccurred())
@@ -35,7 +36,10 @@ var _ = Describe("CNF VRF", func() {
 
 		By(fmt.Sprintf("Create %s namespace", parameters.TestNamespace))
 		err = namespaces.Create(parameters.TestNamespace, generalHelper.Apiclient)
-		Expect(err).ToNot(HaveOccurred())
+		if err != nil {
+			testFail = fmt.Sprintf("Error to create namespace %s: %s", parameters.TestNamespace, err)
+			Expect(err).ToNot(HaveOccurred(), testFail)
+		}
 		validMacVlanInterfaces := networkvrfhelper.GetNodeValidMacVlanInterface(nodeListString[0], config, 2)
 
 		By("Adding NADs")
@@ -50,6 +54,9 @@ var _ = Describe("CNF VRF", func() {
 	})
 
 	BeforeEach(func() {
+		if testFail != "" {
+			Fail(testFail)
+		}
 		By("Cleaning up resources before test")
 		err := namespaces.CleanPods(parameters.TestNamespace, generalHelper.Apiclient)
 		Expect(err).ToNot(HaveOccurred())

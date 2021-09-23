@@ -43,14 +43,21 @@ var _ = Describe("Discovery mode with all ", func() {
 		discoverySriovPolicyList []*sriovv1.SriovNetworkNodePolicy
 		isSingleNode             bool
 		snoTimeoutMultiplier     time.Duration = 1
+		testFail                               = ""
 	)
 
 	execute.BeforeAll(func() {
 		By("Validate env vars")
 		cnfTestEnv, err = helper.NewConfig()
-		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error to collect cnfTestEnv: %s", err))
+		if err != nil {
+			testFail = fmt.Sprintf("Error to collect cnfTestEnv: %s", err)
+			Expect(err).ToNot(HaveOccurred(), testFail)
+		}
 		isSingleNode, err = nodes.IsSingleNodeCluster(Apiclient)
-		Expect(err).ToNot(HaveOccurred())
+		if err != nil {
+			testFail = fmt.Sprintf("Error to check if the cluster is single node: %s", err)
+			Expect(err).ToNot(HaveOccurred(), testFail)
+		}
 		if isSingleNode {
 			snoTimeoutMultiplier = 2
 			disableDrainState := GetNodeDrainState(generalParam.SriovOperatorNamespace)
@@ -60,19 +67,31 @@ var _ = Describe("Discovery mode with all ", func() {
 			}
 		}
 		containerEngine, err = container.SelectEngine()
-		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error to determine container engine: %s", err))
+		if err != nil {
+			testFail = fmt.Sprintf("Error to determine container engine: %s", err)
+			Expect(err).ToNot(HaveOccurred(), testFail)
+		}
 		machineConfigPoolName = strings.Split(config.General.CnfNodeLabel, "/")[1]
 		By("Pull cnf-test images")
 		err = container.PullImage(cnfTestEnv.TestImageRegistry, cnfTestEnv.CnfTestImage)
-		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error pulling cnf-tests image: %s", err))
+		if err != nil {
+			testFail = fmt.Sprintf("Error pulling cnf-tests image: %s", err)
+			Expect(err).ToNot(HaveOccurred(), testFail)
+		}
 
 		By("Pull dpdk-based images")
 		err = container.PullImage(cnfTestEnv.TestImageRegistry, cnfTestEnv.DpdkTestImage)
-		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error pulling dpdk-base image: %s", err))
+		if err != nil {
+			testFail = fmt.Sprintf("Error pulling dpdk-base image: %s", err)
+			Expect(err).ToNot(HaveOccurred(), testFail)
+		}
 
 		By("Validate load-sctp-module and load-xt-u32-module Machine Configs Installed")
 		mcList, err := Apiclient.MachineConfigs().List(context.TODO(), metav1.ListOptions{})
-		Expect(err).ToNot(HaveOccurred(), "Error to collect machine config list: %s", err)
+		if err != nil {
+			testFail = fmt.Sprintf("Error to collect machine config list: %s", err)
+			Expect(err).ToNot(HaveOccurred(), testFail)
+		}
 		mcXU32Ready, mcSCTPReady := false, false
 		for _, mc := range mcList.Items {
 			if mc.Name == "load-sctp-module" {
@@ -84,19 +103,31 @@ var _ = Describe("Discovery mode with all ", func() {
 		}
 		if !mcSCTPReady {
 			By("Deploy load-sctp-module machine-config")
-			err := helper.DeployMC(helper.DefineSCTPMC(machineConfigPoolName))
-			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error to deploy sctp MachineConfig: %s", err))
+			err = helper.DeployMC(helper.DefineSCTPMC(machineConfigPoolName))
+			if err != nil {
+				testFail = fmt.Sprintf("Error to deploy sctp MachineConfig: %s", err)
+				Expect(err).ToNot(HaveOccurred(), testFail)
+			}
 
 			err = WaitForClusterToBeStable(machineConfigPoolName, snoTimeoutMultiplier)
-			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error in wait for cluster to be stable: %s", err))
+			if err != nil {
+				testFail = fmt.Sprintf("Error in wait for cluster to be stable: %s", err)
+				Expect(err).ToNot(HaveOccurred(), testFail)
+			}
 		}
 
 		if !mcXU32Ready {
 			By("Deploy load-xt-u32-module machine-config")
-			err := helper.DeployMC(helper.DefineXtu32MC(machineConfigPoolName))
-			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error to deploy xt_u32 MachineConfig: %s", err))
+			err = helper.DeployMC(helper.DefineXtu32MC(machineConfigPoolName))
+			if err != nil {
+				testFail = fmt.Sprintf("Error to deploy xt_u32 MachineConfig: %s", err)
+				Expect(err).ToNot(HaveOccurred(), testFail)
+			}
 			err = WaitForClusterToBeStable(machineConfigPoolName, snoTimeoutMultiplier)
-			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error in wait for cluster to be stable: %s", err))
+			if err != nil {
+				testFail = fmt.Sprintf("Error in wait for cluster to be stable: %s", err)
+				Expect(err).ToNot(HaveOccurred(), testFail)
+			}
 		}
 
 		By("Validate sctp kernel module is Loaded")
@@ -114,17 +145,29 @@ var _ = Describe("Discovery mode with all ", func() {
 
 		By("Discover SRIOV interfaces")
 		sriovInfos, err := cluster.DiscoverSriov(Apiclient, generalParam.SriovOperatorNamespace)
-		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error discover SRIOV node info: %s", err))
+		if err != nil {
+			testFail = fmt.Sprintf("Error discover SRIOV node info: %s", err)
+			Expect(err).ToNot(HaveOccurred(), testFail)
+		}
 		sriovInterfaces, err := sriovInfos.FindSriovDevices(sriovInfos.Nodes[0])
-		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error discover SRIOV interfaces: %s", err))
+		if err != nil {
+			testFail = fmt.Sprintf("Error discover SRIOV interfaces: %s", err)
+			Expect(err).ToNot(HaveOccurred(), testFail)
+		}
 		validSriovInterfaces, err := config.GetSriovInterfaces(sriovInterfaces, 1)
-		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error determine SRIOV interfaces: %s", err))
+		if err != nil {
+			testFail = fmt.Sprintf("Error determine SRIOV interfaces: %s", err)
+			Expect(err).ToNot(HaveOccurred(), testFail)
+		}
 
 		By("Create SRIOV Policy")
 		discoverySriovPolicyList = helper.DefineDiscoverySriovPolicyList(validSriovInterfaces[0])
 		for _, networkPolicy := range discoverySriovPolicyList {
 			err = Apiclient.Create(context.Background(), networkPolicy)
-			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error Create SRIOV policy: %s", err))
+			if err != nil {
+				testFail = fmt.Sprintf("Error Create SRIOV policy: %s", err)
+				Expect(err).ToNot(HaveOccurred(), testFail)
+			}
 		}
 		By("Waiting until SRIOV become stable")
 		WaitForSRIOVStable(generalParam.SriovOperatorNamespace, parameters.SriovWaitingTime, snoTimeoutMultiplier)
@@ -139,14 +182,22 @@ var _ = Describe("Discovery mode with all ", func() {
 		err = CreatePerformanceProfile(
 			parameters.DiscoveryPerformanceProfile,
 			config.General.CnfNodeLabel)
-		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error Create PerformanceProfile policy: %s", err))
+		if err != nil {
+			testFail = fmt.Sprintf("Error Create PerformanceProfile policy: %s", err)
+			Expect(err).ToNot(HaveOccurred(), testFail)
+		}
 
 		err = WaitForClusterToBeStable(machineConfigPoolName, snoTimeoutMultiplier)
-		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error waiting for cluster to be stable: %s", err))
-
+		if err != nil {
+			testFail = fmt.Sprintf("Error waiting for cluster to be stable: %s", err)
+			Expect(err).ToNot(HaveOccurred(), testFail)
+		}
 	})
 
 	BeforeEach(func() {
+		if testFail != "" {
+			Fail(testFail)
+		}
 		By("Remove all existing cnftests  reports")
 		removeAllFromDir(config.General.ReportDirAbsPath)
 	})

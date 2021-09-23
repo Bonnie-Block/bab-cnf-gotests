@@ -51,6 +51,7 @@ var (
 	dualPodWaitingTime   = 3 * time.Minute
 	isSingleNode         bool
 	snoTimeoutMultiplier time.Duration = 1
+	testFail                           = ""
 )
 
 var _ = Describe("CNF SRIOV", func() {
@@ -74,7 +75,10 @@ var _ = Describe("CNF SRIOV", func() {
 
 	execute.BeforeAll(func() {
 		isSingleNode, err = nodes.IsSingleNodeCluster(generalHelper.Apiclient)
-		Expect(err).ToNot(HaveOccurred())
+		if err != nil {
+			testFail = fmt.Sprintf("Error to check if the cluster is single node: %s", err)
+			Expect(err).ToNot(HaveOccurred(), testFail)
+		}
 		if isSingleNode {
 			snoTimeoutMultiplier = 2
 			disableDrainState := generalHelper.GetNodeDrainState(parameters.OperatorNamespace)
@@ -91,12 +95,21 @@ var _ = Describe("CNF SRIOV", func() {
 		sriovInfos, err = cluster.DiscoverSriov(
 			generalHelper.Apiclient,
 			generalParameters.SriovOperatorNamespace)
-		Expect(err).ToNot(HaveOccurred())
+		if err != nil {
+			testFail = fmt.Sprintf("Error discover SRIOV node info: %s", err)
+			Expect(err).ToNot(HaveOccurred(), testFail)
+		}
 		sriovInterfaces, err := sriovInfos.FindSriovDevices(sriovInfos.Nodes[0])
-		Expect(err).ToNot(HaveOccurred())
+		if err != nil {
+			testFail = fmt.Sprintf("Error discover SRIOV interfaces: %s", err)
+			Expect(err).ToNot(HaveOccurred(), testFail)
+		}
 
 		validSriovInterfaces, err := config.GetSriovInterfaces(sriovInterfaces, 2)
-		Expect(err).ToNot(HaveOccurred())
+		if err != nil {
+			testFail = fmt.Sprintf("Error determine SRIOV interfaces: %s", err)
+			Expect(err).ToNot(HaveOccurred(), testFail)
+		}
 
 		By(fmt.Sprintf("Clean test namespace %s", parameters.OperatorTestNamespace))
 		namespaces.Clean(
@@ -107,12 +120,13 @@ var _ = Describe("CNF SRIOV", func() {
 
 		By("Waiting until SRIOV become stable")
 		generalHelper.WaitForSRIOVStable(generalParameters.SriovOperatorNamespace, waitingTime, snoTimeoutMultiplier)
-		Expect(err).ToNot(HaveOccurred())
 
 		By("Configuring SriovPolicy resources")
-
 		err = namespaces.Create(parameters.OperatorTestNamespace, generalHelper.Apiclient)
-		Expect(err).ToNot(HaveOccurred())
+		if err != nil {
+			testFail = fmt.Sprintf("Error to create namespace %s: %s", parameters.OperatorNamespace, err)
+			Expect(err).ToNot(HaveOccurred(), testFail)
+		}
 		usualSriovPolicyConfig := generalHelper.DefineSriovPolicy(
 			"test-policy-usual",
 			generalParameters.SriovOperatorNamespace,
@@ -175,7 +189,10 @@ var _ = Describe("CNF SRIOV", func() {
 			jumboSriovPolicyConfigDiffPF,
 			usualSriovPolicyConfigDiffPF} {
 			err = generalHelper.Apiclient.Create(context.Background(), networkPolicy)
-			Expect(err).ToNot(HaveOccurred())
+			if err != nil {
+				testFail = fmt.Sprintf("Error to create SR-IOV networkPolicy %s: %s", networkPolicy, err)
+				Expect(err).ToNot(HaveOccurred(), testFail)
+			}
 		}
 
 		By("Configuring SriovNetwork resources")
@@ -211,7 +228,10 @@ var _ = Describe("CNF SRIOV", func() {
 			jumboSriovNetworkConfigDiff,
 			usualSriovNetworkConfigDiff} {
 			err = generalHelper.Apiclient.Create(context.Background(), network)
-			Expect(err).ToNot(HaveOccurred())
+			if err != nil {
+				testFail = fmt.Sprintf("Error to create SR-IOV network %s: %s", network, err)
+				Expect(err).ToNot(HaveOccurred(), testFail)
+			}
 		}
 
 		By("Waiting until SRIOV become stable")
@@ -234,6 +254,9 @@ var _ = Describe("CNF SRIOV", func() {
 	})
 
 	BeforeEach(func() {
+		if testFail != "" {
+			Fail(testFail)
+		}
 		By("Cleaning up resources before test")
 		err = namespaces.CleanPods(parameters.OperatorTestNamespace, generalHelper.Apiclient)
 		Expect(err).ToNot(HaveOccurred())
@@ -584,7 +607,7 @@ func serverCommandFor(
 				fmt.Sprintf("-mtu=%d", mtu-40)}
 		}
 	default:
-		return nil, fmt.Errorf(fmt.Sprint(parameters.SriovErrorProtocolMessage, testProtocol))
+		return nil, fmt.Errorf(parameters.SriovErrorProtocolMessage, testProtocol)
 	}
 	return testCommand, nil
 }
@@ -636,7 +659,7 @@ func defineTestCommandParameters(
 			"-broadcast",
 			fmt.Sprintf("-interface=%s", testInterfaceName))
 	default:
-		return nil, fmt.Errorf(fmt.Sprint(parameters.SriovErrorProtocolMessage, protocol))
+		return nil, fmt.Errorf(parameters.SriovErrorProtocolMessage, protocol)
 	}
 	switch {
 	case negative:
