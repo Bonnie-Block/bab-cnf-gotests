@@ -9,6 +9,7 @@ ran:
   cnf_test_image: quay.io/openshift-kni/cnf-tests:4.8
   stressng_test_image: docker-registry.upshift.redhat.com/cnf-gotests/stress-ng:2.0
   oslat_test_image: docker-registry.upshift.redhat.com/cnf-gotests/oslat:1.0
+  process_exporter_image: docker-registry.upshift.redhat.com/cnf-gotests/process-exporter:ppid-2
   process_exporter_resources: test/ran/resources/process-exporter/
   bmc_user: root
   bmc_password: calvin

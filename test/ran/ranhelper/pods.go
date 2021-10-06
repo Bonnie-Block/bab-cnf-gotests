@@ -161,11 +161,9 @@ func RedefineWithRuntimeClass(pod *corev1.Pod, runtimeClass string) *corev1.Pod 
 
 // DefineStressPod returns stress-ng pod definition.
 func DefineStressPod(nodeName string, cpus int, guaranteed bool) *corev1.Pod {
-	// TODO: Use config.Ran.StressngTestImage after CNF-2570 is done.
-	// config_, err := config.NewConfig()
-	// Expect(err).ShouldNot(HaveOccurred())
-	// stressngImage := config_.Ran.StressngTestImage
-	stressngImage := "quay.io/imiller/stress-ng:2.0"
+	config_, err := config.NewConfig()
+	Expect(err).ShouldNot(HaveOccurred())
+	stressngImage := config_.Ran.StressngTestImage
 	envVars := []corev1.EnvVar{{Name: "INITIAL_DELAY_SEC", Value: "60"}}
 	cpuLimit := strconv.Itoa(cpus)
 	memoryLimit := "100M"
@@ -185,12 +183,9 @@ func DefineStressPod(nodeName string, cpus int, guaranteed bool) *corev1.Pod {
 
 // DefineOslatPod returns oslat pod definition on given node with given cpu requests
 func DefineOslatPod(profile *performancev2.PerformanceProfile, nodeName string, cpus int, duration string) *corev1.Pod {
-
-	// TODO: Use config.Ran.OslatTestImage after CNF-2570 is done.
-	// config_, err := config.NewConfig()
-	// Expect(err).ShouldNot(HaveOccurred())
-	// oslatImage := config_.Ran.OslatTestImage
-	oslatImage := "quay.io/jianzzha/oslat"
+	config_, err := config.NewConfig()
+	Expect(err).ShouldNot(HaveOccurred())
+	oslatImage := config_.Ran.OslatTestImage
 
 	volumeType := corev1.HostPathCharDev
 	pod := podhelper.RedefineAsPrivileged(podhelper.DefinePodOnNode(ran.NamespaceTesting, oslatImage, nodeName))
@@ -215,6 +210,7 @@ func DeployProcessExporter() *appsv1.DaemonSet {
 	config_, err := config.NewConfig()
 	Expect(err).ShouldNot(HaveOccurred())
 	configsDir := config_.Ran.ProcessExporterConfigsDir
+	image := config_.Ran.ProcessExporterImage
 
 	daemonset, err := helper.Apiclient.DaemonSets(ran.PromNamespace).Get(context.Background(), ran.ProcessExporterPodName, metav1.GetOptions{})
 	if err != nil {
@@ -223,12 +219,17 @@ func DeployProcessExporter() *appsv1.DaemonSet {
 		err = UpdateObjects(configsDir)
 	}
 	Expect(err).ShouldNot(HaveOccurred())
-
 	Eventually(func() error {
 		daemonset, err = helper.Apiclient.DaemonSets(ran.PromNamespace).Get(context.Background(), ran.ProcessExporterPodName, metav1.GetOptions{})
 		if err != nil {
 			log.Println("Failed to retrieve status for daemonset: ", daemonset.Name)
 			return err
+		}
+		if daemonset.Spec.Template.Spec.Containers[0].Image != image {
+			// Update dummy image to configured value
+			daemonset.Spec.Template.Spec.Containers[0].Image = image
+			helper.Apiclient.DaemonSets(ran.PromNamespace).Update(context.Background(), daemonset, metav1.UpdateOptions{})
+			return fmt.Errorf("image updated, retrieve updated daemonset in next round")
 		}
 		if daemonset.Status.NumberReady == daemonset.Status.DesiredNumberScheduled {
 			log.Printf("All pods are ready in daemonset: %s\n", daemonset.Name)

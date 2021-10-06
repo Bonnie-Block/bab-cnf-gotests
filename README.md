@@ -151,10 +151,12 @@ Below is an e2e flow example for RAN cpu test:
 
 4. Set oslat test image - `export OSLAT_TEST_IMAGE=docker-registry.upshift.redhat.com/cnf-gotests/oslat:latest`
 
-5. Set workload test duration - `export RAN_WORKLOAD_DURATION=12h`
+5. Set process-exporter image - `export PROCESS_EXPORTER_IMAGE=docker-registry.upshift.redhat.com/cnf-gotests/process-exporter:ppid-2`
 
-6. Set ran tests feature - `export FEATURES=cpu`
+6. Set workload test duration - `export RAN_WORKLOAD_DURATION=12h`
 
-7. Export KUBECONFIG - `export KUBECONFIG=/path/to/kubeconfig`
+7. Set ran tests feature - `export FEATURES=cpu`
 
-8. Run feature tests - `make test-features`
+8. Export KUBECONFIG - `export KUBECONFIG=/path/to/kubeconfig`
+
+9. Run feature tests - `make test-features`
