@@ -267,7 +267,7 @@ func DeployWorkloadPods(rtProfile *performancev2.PerformanceProfile, node *corev
 		Expect(err).ToNot(HaveOccurred())
 		workloadPods = append(workloadPods, pod)
 	}
-	waitForPodsHealthy(workloadPods, 10*time.Minute)
+	waitForPodsHealthy(workloadPods, 15*time.Minute)
 	log.Printf("%d oslat pods with total %d cpus are created and running", len(workloadPods), oslatCpuCount)
 
 	log.Printf("Creating up to %d stress-ng pods with total %d cpus", stressngMaxPodCount, stressNgCpuCount)
