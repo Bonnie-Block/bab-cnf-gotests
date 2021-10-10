@@ -275,8 +275,8 @@ func runCNFTests(
 	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("KUBECONFIG file doesn't exists"))
 	cnfTest := exec.Command(
 		containerEngine.Path, "run", "-v", fmt.Sprintf(
-			"%s:/kubefiles", filepath.Dir(kubeconfigFile)),
-		"-v", fmt.Sprintf("%s:/%s", config.General.ReportDirAbsPath, filepath.Base(config.General.ReportDirAbsPath)),
+			"%s:/kubefiles:Z", filepath.Dir(kubeconfigFile)),
+		"-v", fmt.Sprintf("%s:/%s:Z", config.General.ReportDirAbsPath, filepath.Base(config.General.ReportDirAbsPath)),
 		"-e", "DISCOVERY_MODE=true",
 		"-e", "KUBECONFIG=/kubefiles/kubeconfig",
 		"-e", fmt.Sprintf("ROLE_WORKER_CNF=%s", strings.Split(config.General.CnfNodeLabel, "/")[1]),
