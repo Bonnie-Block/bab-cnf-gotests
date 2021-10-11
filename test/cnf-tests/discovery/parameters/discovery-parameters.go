@@ -65,32 +65,32 @@ const (
 	// DiscoveryAllFeaturesPassedTest expected number of passed tests with
 	// SriovNetworkNodePolicy, sctp machine config, xt_u32 machine config, PerformanceProfile, PtpConfig
 	// resources configured
-	DiscoveryAllFeaturesPassedTest = 67
+	DiscoveryAllFeaturesPassedTest = 74
 	// DiscoveryAllFeaturesSkippedTest expected number of skipped tests with
 	// SriovNetworkNodePolicy, sctp machine config, xt_u32 machine config, PerformanceProfile, PtpConfig
 	// resources configured
-	DiscoveryAllFeaturesSkippedTest = 22
+	DiscoveryAllFeaturesSkippedTest = 64
 
 	// DiscoveryExceptSriovPassedTest expected number of passed tests with:
 	// sctp machine config, xt_u32 machine config, PerformanceProfile, PtpConfig resources configured
-	DiscoveryExceptSriovPassedTest = 49
+	DiscoveryExceptSriovPassedTest = 54
 	// DiscoveryExceptSriovSkippedTest expected number of skipped tests with
 	// sctp machine config, xt_u32 machine config, PerformanceProfile, PtpConfig resources configured
-	DiscoveryExceptSriovSkippedTest = 40
+	DiscoveryExceptSriovSkippedTest = 84
 
 	// DiscoveryExceptSriovPtpPassedTest expected number of passed tests with
 	// sctp machine config, xt_u32 machine config, PerformanceProfile resources configured
-	DiscoveryExceptSriovPtpPassedTest = 43
+	DiscoveryExceptSriovPtpPassedTest = 48
 	// DiscoveryExceptSriovPtpSkippedTest expected number of skipped tests with
 	// sctp machine config, xt_u32 machine config, PerformanceProfile resources configured
-	DiscoveryExceptSriovPtpSkippedTest = 46
+	DiscoveryExceptSriovPtpSkippedTest = 84
 
 	// DiscoveryExceptSriovPtpPerformancePassedTest expected number of passed tests with
 	// sctp machine config, xt_u32 machine config  resources configured
 	DiscoveryExceptSriovPtpPerformancePassedTest = 18
 	// DiscoveryExceptSriovPtpPerformancePassedTestSkippedTest expected number of skipped tests with
 	// sctp machine config, xt_u32 machine config resources configured
-	DiscoveryExceptSriovPtpPerformancetSkippedTest = 71
+	DiscoveryExceptSriovPtpPerformancetSkippedTest = 120
 
 	// SNODiscoveryAllFeaturesPassedTest expected number of passed tests with
 	// SriovNetworkNodePolicy, sctp machine config, xt_u32 machine config, PerformanceProfile
