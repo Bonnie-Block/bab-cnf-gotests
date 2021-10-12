@@ -126,4 +126,7 @@ func waitForClusterRecoverAndLogTime(rebootStartTime time.Time, node *corev1.Nod
 	Expect(unhealthyPods).To(BeEmpty())
 	writeToGinkgoReport(fmt.Sprintf("%s_%d_cluster_recover", ranmetric, metricCount), time.Since(metricStartTime)-clusterStableDuration)
 	writeToGinkgoReport(fmt.Sprintf("%s_total", ranmetric), time.Since(rebootStartTime)-clusterStableDuration)
+
+	log.Println("Sleep for 5 minutes after reboot - quiet time")
+	time.Sleep(5*time.Minute)
 }
