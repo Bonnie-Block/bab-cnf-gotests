@@ -8,12 +8,12 @@ import (
 	"github.com/golang/glog"
 	sriovv1 "github.com/k8snetworkplumbingwg/sriov-network-operator/api/v1"
 	clientsriovv1 "github.com/k8snetworkplumbingwg/sriov-network-operator/pkg/client/clientset/versioned/typed/sriovnetwork/v1"
-	fecv1 "github.com/open-ness/openshift-operator/sriov-fec/api/v1"
 	performancev2 "github.com/openshift-kni/performance-addon-operators/api/v2"
 	clientconfigv1 "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 	mcv1 "github.com/openshift/machine-config-operator/pkg/apis/machineconfiguration.openshift.io/v1"
 	clientmachineconfigv1 "github.com/openshift/machine-config-operator/pkg/generated/clientset/versioned/typed/machineconfiguration.openshift.io/v1"
 	ptpv1 "github.com/openshift/ptp-operator/pkg/client/clientset/versioned/typed/ptp/v1"
+	fecv2 "github.com/smart-edge-open/openshift-operator/sriov-fec/api/v2"
 	"k8s.io/apimachinery/pkg/runtime"
 	discovery "k8s.io/client-go/discovery"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -78,7 +78,7 @@ func New(kubeconfig string) *ClientSet {
 	netattdefv1.SchemeBuilder.AddToScheme(crScheme)
 	sriovv1.AddToScheme(crScheme)
 	mcv1.AddToScheme(crScheme)
-	fecv1.AddToScheme(crScheme)
+	fecv2.AddToScheme(crScheme)
 	if err := performancev2.AddToScheme(crScheme); err != nil {
 		panic(err)
 	}

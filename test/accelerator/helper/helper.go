@@ -19,8 +19,8 @@ import (
 	"k8s.io/utils/pointer"
 	k8s "sigs.k8s.io/controller-runtime/pkg/client"
 
-	fecv1 "github.com/open-ness/openshift-operator/sriov-fec/api/v1"
 	performancev2 "github.com/openshift-kni/performance-addon-operators/api/v2"
+	fecv2 "github.com/smart-edge-open/openshift-operator/sriov-fec/api/v2"
 
 	globalHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
@@ -61,7 +61,7 @@ func IsSriovFecDeploymentInstalled(cs *client.ClientSet, operatorNamespace strin
 }
 
 // InstallSriovFecClusterNodeConfig creates a new SriovFecClusterConfig and waits for the cluster to become stable
-func InstallSriovFecClusterNodeConfig(cs *client.ClientSet, fecConfig *fecv1.SriovFecClusterConfig, isSingleNode bool, cnfNodeLabel string) {
+func InstallSriovFecClusterNodeConfig(cs *client.ClientSet, fecConfig *fecv2.SriovFecClusterConfig, isSingleNode bool, cnfNodeLabel string) {
 	CleanAllSriovFecClusterConfig(cs)
 	createSriovFecClusterConfig(cs, fecConfig)
 	fmt.Println("Waiting for the cluster to become stable")
@@ -95,8 +95,8 @@ func CountSriovFecDaemonsets(cs *client.ClientSet, operatorNamespace string) (co
 }
 
 // GetSriovFecNodeConfigList retrieves SriovFecNodeList
-func GetSriovFecNodeConfigList(cs *client.ClientSet) (*fecv1.SriovFecNodeConfigList, error) {
-	sriovFecNodeConfigList := &fecv1.SriovFecNodeConfigList{}
+func GetSriovFecNodeConfigList(cs *client.ClientSet) (*fecv2.SriovFecNodeConfigList, error) {
+	sriovFecNodeConfigList := &fecv2.SriovFecNodeConfigList{}
 	err := cs.List(context.Background(), sriovFecNodeConfigList)
 	if err != nil {
 		return nil, err
@@ -109,8 +109,8 @@ func GetSriovFecNodeConfigList(cs *client.ClientSet) (*fecv1.SriovFecNodeConfigL
 }
 
 // GetSriovFecClusterConfigList retrieves SriovFecClusterConfigList
-func GetSriovFecClusterConfigList(cs *client.ClientSet) (*fecv1.SriovFecClusterConfigList, error) {
-	sriovFecClusterConfigList := &fecv1.SriovFecClusterConfigList{}
+func GetSriovFecClusterConfigList(cs *client.ClientSet) (*fecv2.SriovFecClusterConfigList, error) {
+	sriovFecClusterConfigList := &fecv2.SriovFecClusterConfigList{}
 	err := cs.List(context.Background(), sriovFecClusterConfigList)
 	if err != nil {
 		return nil, err
@@ -119,20 +119,14 @@ func GetSriovFecClusterConfigList(cs *client.ClientSet) (*fecv1.SriovFecClusterC
 }
 
 //createSriovFecClusterConfig creates a new SriovFecClusterConfig
-func createSriovFecClusterConfig(cs *client.ClientSet, sriovFecClusterConfig *fecv1.SriovFecClusterConfig) {
+func createSriovFecClusterConfig(cs *client.ClientSet, sriovFecClusterConfig *fecv2.SriovFecClusterConfig) {
 	err := cs.Create(context.Background(), sriovFecClusterConfig)
 	Expect(err).ToNot(HaveOccurred())
-
-	Eventually(func() fecv1.SyncStatus {
-		sriovFecClusterConfigList, err := GetSriovFecClusterConfigList(cs)
-		Expect(err).NotTo(HaveOccurred())
-		return sriovFecClusterConfigList.Items[0].Status.SyncStatus
-	}, 5*time.Minute, 5*time.Second).Should(Equal(fecv1.SucceededSync), "SriovFecClusterConfig resource is not applied")
 }
 
 // CleanAllN3000Cluster removes all N3000Cluster resources
 func CleanAllSriovFecClusterConfig(cs *client.ClientSet) {
-	sriovFecClusterConfigList := &fecv1.SriovFecClusterConfigList{}
+	sriovFecClusterConfigList := &fecv2.SriovFecClusterConfigList{}
 	err := cs.List(context.Background(), sriovFecClusterConfigList)
 	Expect(err).ToNot(HaveOccurred())
 	if len(sriovFecClusterConfigList.Items) > 0 {
@@ -162,7 +156,7 @@ type RemoveStringValue struct {
 // CleanSriovFecNodeSpec use patch to clean the spec section of the sriovFecNode object
 // Not possible with update only patch
 func CleanSriovFecNodeSpec(cs *client.ClientSet, nodeName, operatorNamespace string) {
-	sriovFecNodeConfig := &fecv1.SriovFecNodeConfig{}
+	sriovFecNodeConfig := &fecv2.SriovFecNodeConfig{}
 	err := cs.Get(context.Background(), k8s.ObjectKey{Name: nodeName, Namespace: operatorNamespace}, sriovFecNodeConfig)
 	Expect(err).ToNot(HaveOccurred())
 
@@ -182,7 +176,7 @@ func CleanSriovFecNodeSpec(cs *client.ClientSet, nodeName, operatorNamespace str
 // If no selector is set, it returns the same list.
 // The NODES_SELECTOR must be set with a labelselector expression.
 // For example: NODES_SELECTOR="sctp=true"
-func matchingOptionalSelectorSriovFec(cs *client.ClientSet, toFilter []fecv1.SriovFecNodeConfig) ([]fecv1.SriovFecNodeConfig, error) {
+func matchingOptionalSelectorSriovFec(cs *client.ClientSet, toFilter []fecv2.SriovFecNodeConfig) ([]fecv2.SriovFecNodeConfig, error) {
 	if nodes.NodesSelector == "" {
 		return toFilter, nil
 	}
@@ -194,7 +188,7 @@ func matchingOptionalSelectorSriovFec(cs *client.ClientSet, toFilter []fecv1.Sri
 		return nil, fmt.Errorf("Failed to get nodes matching %s label selector", nodes.NodesSelector)
 	}
 
-	res := make([]fecv1.SriovFecNodeConfig, 0)
+	res := make([]fecv2.SriovFecNodeConfig, 0)
 	for _, n := range toFilter {
 		for _, m := range toMatch.Items {
 			if n.Name == m.Name {

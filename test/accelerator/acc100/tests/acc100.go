@@ -12,7 +12,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	fpgav1 "github.com/open-ness/openshift-operator/sriov-fec/api/v1"
+	fpgav2 "github.com/smart-edge-open/openshift-operator/sriov-fec/api/v2"
 	acc100helper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/accelerator/acc100/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/accelerator/acc100/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/accelerator/helper"
@@ -25,7 +25,8 @@ import (
 var _ = Describe("Intel ACC100", func() {
 
 	var (
-		sriovFecNodeList     = &fpgav1.SriovFecNodeConfigList{}
+		sriovFecNodeList     = &fpgav2.SriovFecNodeConfigList{}
+		fecConfig            *fpgav2.SriovFecClusterConfig
 		testSkip             = ""
 		isSingleNode         bool
 		snoTimeoutMultiplier time.Duration = 1
@@ -75,44 +76,25 @@ var _ = Describe("Intel ACC100", func() {
 
 		By("Validating performance profile")
 		helper.FindAndValidateOrOverridePerformanceProfile(generalHelper.Apiclient, config.General.CnfNodeLabel, snoTimeoutMultiplier)
+
+		By("Creating SriovFecClusterConfig")
+		fecConfig = acc100helper.GetSriovFecAcc100ClusterConfigDefinition(generalHelper.Apiclient, isSingleNode)
+		cnfNodelabel := strings.Split(config.General.CnfNodeLabel, "/")[1]
+		helper.InstallSriovFecClusterNodeConfig(generalHelper.Apiclient, fecConfig, isSingleNode, cnfNodelabel)
 	})
 
 	Context("sriov-fec", func() {
-		var fecConfig *fpgav1.SriovFecClusterConfig
 
 		BeforeEach(func() {
 			if testSkip != "" {
 				Skip(testSkip)
 			}
 
-			By("Creating SriovFecClusterConfig")
-			fecConfig = acc100helper.GetSriovFecAcc100ClusterConfigDefinition(generalHelper.Apiclient, false, isSingleNode)
-			cnfNodelabel := strings.Split(config.General.CnfNodeLabel, "/")[1]
-			helper.InstallSriovFecClusterNodeConfig(generalHelper.Apiclient, fecConfig, isSingleNode, cnfNodelabel)
-		})
-
-		AfterEach(func() {
-			isSriovFecDeploymentReady, err := helper.IsSriovFecDeploymentReady(generalHelper.Apiclient, parameters.OperatorNamespace)
-			Expect(err).NotTo(HaveOccurred())
-			if isSriovFecDeploymentReady {
-				By("Cleaning up resources after sriov-fec tests")
-				fecConfig := acc100helper.GetSriovFecAcc100ClusterConfigDefinition(generalHelper.Apiclient, true, isSingleNode)
-				cnfNodelabel := strings.Split(config.General.CnfNodeLabel, "/")[1]
-				helper.InstallSriovFecClusterNodeConfig(generalHelper.Apiclient, fecConfig, isSingleNode, cnfNodelabel)
-
-				Eventually(func() int64 {
-					testedNode, err := generalHelper.Apiclient.CoreV1Interface.Nodes().Get(context.TODO(), fecConfig.Spec.Nodes[0].NodeName, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					resNum, _ := testedNode.Status.Allocatable[corev1.ResourceName(parameters.Acc100ResourceName)]
-					allocatable, _ := resNum.AsInt64()
-					return allocatable
-				}, 10*time.Minute, time.Second).Should(Equal(int64(0)))
-			}
 		})
 
 		It("configuration", func() {
 			Eventually(func() int64 {
-				testedNode, err := generalHelper.Apiclient.CoreV1Interface.Nodes().Get(context.TODO(), fecConfig.Spec.Nodes[0].NodeName, metav1.GetOptions{})
+				testedNode, err := generalHelper.Apiclient.CoreV1Interface.Nodes().Get(context.TODO(), fecConfig.Spec.NodeSelector["kubernetes.io/hostname"], metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				resNum, _ := testedNode.Status.Allocatable[corev1.ResourceName(parameters.Acc100ResourceName)]
 				allocatable, _ := resNum.AsInt64()
@@ -123,7 +105,7 @@ var _ = Describe("Intel ACC100", func() {
 		It("validation", func() {
 			By("Waiting for resource to reported in the node")
 			Eventually(func() int64 {
-				testedNode, err := generalHelper.Apiclient.CoreV1Interface.Nodes().Get(context.TODO(), fecConfig.Spec.Nodes[0].NodeName, metav1.GetOptions{})
+				testedNode, err := generalHelper.Apiclient.CoreV1Interface.Nodes().Get(context.TODO(), fecConfig.Spec.NodeSelector["kubernetes.io/hostname"], metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				resNum, _ := testedNode.Status.Allocatable[corev1.ResourceName(parameters.Acc100ResourceName)]
 				allocatable, _ := resNum.AsInt64()
