@@ -17,20 +17,6 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 )
 
-// GetNodeListStringByLabel returns node names in list format
-func GetNodeListStringByLabel(labelNodeRole string) []string {
-	By(fmt.Sprintf("Select nodes by label %s ", labelNodeRole))
-	var nodeListString []string
-	nodesList, err := nodes.GetByRole(generalHelper.Apiclient, labelNodeRole)
-	Expect(err).ToNot(HaveOccurred())
-
-	for _, node := range nodesList {
-		nodeListString = append(nodeListString, node.Name)
-	}
-
-	return nodeListString
-}
-
 // GetNodeValidMacVlanInterface returns list of node interfaces that can be used for macvlan
 func GetNodeValidMacVlanInterface(nodeName string, config *config.Config, requestNumber int) []nodes.NodeInterface {
 	By("Select host interface for mac-vlan")

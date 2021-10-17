@@ -31,8 +31,8 @@ var _ = Describe("CNF VRF", func() {
 	Expect(err).ToNot(HaveOccurred())
 
 	execute.BeforeAll(func() {
-		nodeListString = networkvrfhelper.GetNodeListStringByLabel(strings.Split(config.General.CnfNodeLabel, "/")[1])
-
+		nodeListString = generalHelper.GetNodeListStringByLabel(strings.Split(config.General.CnfNodeLabel, "/")[1])
+		fmt.Println(nodeListString)
 		By(fmt.Sprintf("Create %s namespace", parameters.TestNamespace))
 		err = namespaces.Create(parameters.TestNamespace, generalHelper.Apiclient)
 		if err != nil {

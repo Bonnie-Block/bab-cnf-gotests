@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -11,6 +12,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	sriovv1 "github.com/k8snetworkplumbingwg/sriov-network-operator/api/v1"
+
 	testclient "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
 )
 
@@ -35,7 +37,7 @@ type Config struct {
 		CnfTestImage              string `yaml:"cnf_test_image" envconfig:"CNF_TEST_IMAGE"`
 		StressngTestImage         string `yaml:"stressng_test_image" envconfig:"STRESSNG_TEST_IMAGE"`
 		OslatTestImage            string `yaml:"oslat_test_image" envconfig:"OSLAT_TEST_IMAGE"`
-		ProcessExporterImage	  string `yaml:"process_exporter_image" envconfig:"PROCESS_EXPORTER_IMAGE"`
+		ProcessExporterImage      string `yaml:"process_exporter_image" envconfig:"PROCESS_EXPORTER_IMAGE"`
 		ProcessExporterConfigsDir string `yaml:"process_exporter_resources"`
 		BmcHosts                  string `envconfig:"BMC_HOSTS"`
 		BmcUser                   string `yaml:"bmc_user" envconfig:"BMC_USER"`
@@ -138,8 +140,16 @@ func DefineClients() (*testclient.ClientSet, error) {
 	return clients, nil
 }
 
-// GetMetallbEnvVar checks the environmental variable and returns the value in []string
-func (c *Config) GetMetallbEnvVar() []string {
+// GetMetallbVirtIP checks the environmental variable and returns the value in []string
+func (c *Config) GetMetallbVirtIP() ([]string, error) {
 	envValue := strings.Split(c.Network.MetalLBAddressPoolIP, ",")
-	return envValue
+	if len(envValue) < 2 {
+		return nil, nil
+	}
+	for _, v := range envValue {
+		if net.ParseIP(v) == nil {
+			return nil, fmt.Errorf("The environment IP variable is not a valid IP")
+		}
+	}
+	return envValue, nil
 }

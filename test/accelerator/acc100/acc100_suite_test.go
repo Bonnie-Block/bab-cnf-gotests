@@ -13,7 +13,7 @@ import (
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/accelerator/acc100/parameters"
 	_ "gitlab.cee.redhat.com/cnf/cnf-gotests/test/accelerator/acc100/tests"
-	helper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/accelerator/networkacceleratorhelper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/accelerator/networkacceleratorhelper"
 	generalHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
@@ -53,9 +53,9 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = AfterSuite(func() {
-	sriovFecNodeList, err := helper.GetSriovFecNodeConfigList(generalHelper.Apiclient)
+	sriovFecNodeList, err := networkacceleratorhelper.GetSriovFecNodeConfigList(generalHelper.Apiclient)
 	if err == nil && len(sriovFecNodeList.Items) > 0 {
-		helper.CleanAllSriovFecClusterConfig(generalHelper.Apiclient)
+		networkacceleratorhelper.CleanAllSriovFecClusterConfig(generalHelper.Apiclient)
 	}
 	err = namespaces.DeleteAndWait(generalHelper.Apiclient, parameters.TestNamespace, 5*time.Minute)
 	Expect(err).ToNot(HaveOccurred())

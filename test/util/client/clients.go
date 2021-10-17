@@ -84,10 +84,7 @@ func New(kubeconfig string) *ClientSet {
 	scheme.AddToScheme(crScheme)
 	sriovv1.AddToScheme(crScheme)
 	mcv1.AddToScheme(crScheme)
-<<<<<<< HEAD
 	fecv2.AddToScheme(crScheme)
-=======
-	fecv1.AddToScheme(crScheme)
 	if err := apiext.AddToScheme(crScheme); err != nil {
 		panic(err)
 	}
@@ -97,7 +94,6 @@ func New(kubeconfig string) *ClientSet {
 	if err := metallbv1beta1.AddToScheme(crScheme); err != nil {
 		panic(err)
 	}
->>>>>>> b38cd40... Add MetalLB Test 43936
 	if err := performancev2.AddToScheme(crScheme); err != nil {
 		panic(err)
 	}

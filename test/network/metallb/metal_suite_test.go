@@ -12,11 +12,11 @@ import (
 	generalHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/metallb/parameters"
 	_ "gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/metallb/tests"
-	generalParameters "gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 	testutils "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/utils"
 )
+
 func TestLB(t *testing.T) {
 	_, currentFile, _, _ := runtime.Caller(0)
 	configSuite, err := config.NewConfig()
@@ -52,11 +52,6 @@ var _ = BeforeSuite(func() {
 
 var _ = AfterSuite(func() {
 	By(fmt.Sprintf("Clean test namespace %s", parameters.TestNamespace))
-	err := namespaces.Clean(
-		generalParameters.SriovOperatorNamespace,
-		parameters.TestNamespace,
-		generalHelper.Apiclient, false)
-	Expect(err).ToNot(HaveOccurred())
-	err = namespaces.DeleteAndWait(generalHelper.Apiclient, parameters.TestNamespace, parameters.Timeout)
+	err := namespaces.DeleteAndWait(generalHelper.Apiclient, parameters.TestNamespace, parameters.Timeout)
 	Expect(err).ToNot(HaveOccurred())
 })

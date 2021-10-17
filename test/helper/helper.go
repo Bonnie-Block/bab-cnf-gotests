@@ -11,9 +11,9 @@ import (
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/machineconfigpool"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -142,4 +142,16 @@ func WaitForClusterToBeStable(machineConfigPoolName string, snoTimeoutMultiplier
 		time.Duration(20*mcp.Status.MachineCount)*time.Minute*snoTimeoutMultiplier)
 
 	return err
+}
+
+// GetNodeListStringByLabel returns node names in list format
+func GetNodeListStringByLabel(labelNodeRole string) []string {
+	var nodeListString []string
+	nodesList, err := nodes.GetByRole(Apiclient, labelNodeRole)
+	Expect(err).ToNot(HaveOccurred())
+
+	for _, node := range nodesList {
+		nodeListString = append(nodeListString, node.Name)
+	}
+	return nodeListString
 }

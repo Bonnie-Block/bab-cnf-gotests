@@ -10,10 +10,10 @@ import (
 	. "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	globalHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	metallbParameters "gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/metallb/parameters"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/vrf/networkvrfhelper"
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
+
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 
 	metallbv1alpha1 "github.com/metallb/metallb-operator/api/v1alpha1"
@@ -27,29 +27,20 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-// CheckEnvVar validates that the enviromnental IP variable is a valid IP and in the
-// same IP range as the br-ex interface of the cluster under-test.
+// IsEnvVarMetallbIPinNodeExtNetRange validates that the enviromnental IP variable
+// is in the same IP range as the br-ex interface of the cluster under-test.
 // MetallB Down-stream tests will only run on clusters Helix 2,3 and 7.
-func CheckEnvVar() bool {
-	Config, err := config.NewConfig()
-	Expect(err).ToNot(HaveOccurred())
-	metallbEnvIPVar := Config.GetMetallbEnvVar()
-	//Checks that the METALLB_ADDR_LIST is set and has valid IP addresses
-	for _, v := range metallbEnvIPVar {
-		if net.ParseIP(v) == nil {
-			Skip("The environment IP variable is not set or is not a valid IP")
-		}
-	}
+func IsEnvVarMetallbIPinNodeExtNetRange(cnfNodeLabel string, metallbEnvIP string) bool {
 	//Checks that the METALLB_ADDR_LIST is in the range of the cluster br-ex interface
-	node := networkvrfhelper.GetNodeListStringByLabel(strings.Split(Config.General.CnfNodeLabel, "/")[1])
+	node := globalHelper.GetNodeListStringByLabel(cnfNodeLabel)
 	event, _ := globalHelper.Apiclient.Nodes().Get(context.Background(), node[0], metav1.GetOptions{})
-	v, _ := event.Annotations["k8s.ovn.org/node-primary-ifaddr"]
+	v, _ := event.Annotations[metallbParameters.AnnotationPrimaryIfaddr]
 	// Output example {"ipv4":"10.46.56.13/24"} len = 5
 	nodeOutput := strings.Split(v, "\"")
 	Expect(len(nodeOutput)).Should(Equal(5))
 	_, nodeNet, err := net.ParseCIDR(nodeOutput[3])
 	Expect(err).ToNot(HaveOccurred())
-	if !nodeNet.Contains(net.ParseIP(metallbEnvIPVar[0])) {
+	if !nodeNet.Contains(net.ParseIP(metallbEnvIP)) {
 		Skip("The environment IP variable is out of cluster br-ex IP range")
 	}
 	return true
@@ -58,6 +49,8 @@ func CheckEnvVar() bool {
 //DefineMetallbAddressPool defines a MetalLB L2 Address Pool using env IP var METALLB_ADDR_LIST for the IP address range
 func DefineMetallbAddressPool() *metallbv1alpha1.AddressPool {
 	Config, err := config.NewConfig()
+	Expect(err).ToNot(HaveOccurred())
+	metallbIP, err := Config.GetMetallbVirtIP()
 	Expect(err).ToNot(HaveOccurred())
 	ap := &metallbv1alpha1.AddressPool{
 		ObjectMeta: metav1.ObjectMeta{
@@ -71,7 +64,7 @@ func DefineMetallbAddressPool() *metallbv1alpha1.AddressPool {
 			Name:     metallbParameters.AddressPool,
 			Protocol: "layer2",
 			Addresses: []string{
-				fmt.Sprintln(Config.GetMetallbEnvVar()[0], "-", Config.GetMetallbEnvVar()[1]),
+				fmt.Sprintln(metallbIP[0], "-", metallbIP[1]),
 			},
 		},
 	}
@@ -138,7 +131,7 @@ func GetLBServiceEvents() (string, error) {
 func SpeakerNodeMac(metallbNode string) (string, error) {
 	event, err := globalHelper.Apiclient.Nodes().Get(context.Background(), metallbNode, metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
-	v, _ := event.Annotations["k8s.ovn.org/l3-gateway-config"]
+	v, _ := event.Annotations[metallbParameters.AnnotationL3GW]
 	for _, i := range strings.Split(v, ",") {
 		if strings.Contains(string(i), "mac-address") {
 			re := regexp.MustCompile("([0-9a-fA-F]{2}[:]){5}([0-9a-fA-F]{2})")
