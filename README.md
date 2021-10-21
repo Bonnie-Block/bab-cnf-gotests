@@ -17,6 +17,7 @@ Mandatory:
 * SR-IOV operator
 * Performance Addon Operator
 * SCTP via machine config
+* MetalLB operator
 
 Optional:
 * Sriov-fec operator
@@ -53,6 +54,7 @@ The list of available features:
 * *VRF*
 * *ACC100*
 * *CNF-TESTS*
+* *MetalLB*
 
 ##### Available features for RAN suite
 * *CPU*
@@ -82,6 +84,9 @@ The list of available features:
 ##### SR-IOV suite environment variables:
 * `SRIOV_OPERATOR_NAMESPACE` - select the namespace were sriov-network-operator installed. Default openshift-sriov-network-operator
 * `CNF_GOTESTS_SRIOV_SMOKE` - If this variable is set to true then sriov suite will be running in smoke mode. Default value false. Allowed value: `export CNF_GOTESTS_SRIOV_SMOKE="true"`
+
+##### MetalLB suite environment variables:
+* `METALLB_ADDR_LIST` - is used to create the metalLB L2 address pool. These addresses are specific to the Helix TLV lab. If no IP environmental variable is present the MetalLB L2 test cases are skipped.
 
 ##### CNF-TESTS suite environment variables:
 * `DPDK_IMAGE_VERSION` - select the name of dpdk image.
@@ -117,7 +122,12 @@ Below is an e2e flow example:
 
 5. Select interfaces - `export CNF_INTERFACES_LIST=ens1f0,ens1f1`
 
-6. Run all tests - `make test-all`
+6. Select the correct MetalLB IP address list `METALLB_ADDR_LIST` depending on which Helix TLV lab cluster is being used for testing.
+
+  Cluster-2 and Cluster-3: `export METALLB_ADDR_LIST="10.46.55.131,10.46.55.132"`
+  Cluster-7 `export METALLB_ADDR_LIST="10.46.56.131,10.46.56.132"`
+
+7. Run all tests - `make test-all`
 
 ## How to run tests for cnf-tests container:
 
