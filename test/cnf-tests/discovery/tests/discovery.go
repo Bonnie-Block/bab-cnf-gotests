@@ -86,19 +86,25 @@ var _ = Describe("Discovery mode with all ", func() {
 			Expect(err).ToNot(HaveOccurred(), testFail)
 		}
 
-		By("Validate load-sctp-module and load-xt-u32-module Machine Configs Installed")
+		By("Validate Machine Configs Installed")
 		mcList, err := Apiclient.MachineConfigs().List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
 			testFail = fmt.Sprintf("Error to collect machine config list: %s", err)
 			Expect(err).ToNot(HaveOccurred(), testFail)
 		}
-		mcXU32Ready, mcSCTPReady := false, false
+		mcXU32Ready, mcSCTPReady, mcQOSEgressReady, mcQOSIngressReady := false, false, false, false
 		for _, mc := range mcList.Items {
 			if mc.Name == "load-sctp-module" {
 				mcSCTPReady = true
 			}
 			if mc.Name == "load-xt-u32-module" {
 				mcXU32Ready = true
+			}
+			if mc.Name == parameters.DiscoveryOVSQOSEgressMCName {
+				mcQOSEgressReady = true
+			}
+			if mc.Name == parameters.DiscoveryOVSQOSIngressMCName {
+				mcQOSIngressReady = true
 			}
 		}
 		if !mcSCTPReady {
@@ -121,6 +127,34 @@ var _ = Describe("Discovery mode with all ", func() {
 			err = helper.DeployMC(helper.DefineXtu32MC(machineConfigPoolName))
 			if err != nil {
 				testFail = fmt.Sprintf("Error to deploy xt_u32 MachineConfig: %s", err)
+				Expect(err).ToNot(HaveOccurred(), testFail)
+			}
+			err = WaitForClusterToBeStable(machineConfigPoolName, snoTimeoutMultiplier)
+			if err != nil {
+				testFail = fmt.Sprintf("Error in wait for cluster to be stable: %s", err)
+				Expect(err).ToNot(HaveOccurred(), testFail)
+			}
+		}
+
+		if !mcQOSEgressReady && !isSingleNode {
+			By("Deploy egress-limit machine-config")
+			err = helper.DeployMC(helper.DefineQOSEgressMC(machineConfigPoolName))
+			if err != nil {
+				testFail = fmt.Sprintf("Error to deploy egress-limit MachineConfig: %s", err)
+				Expect(err).ToNot(HaveOccurred(), testFail)
+			}
+			err = WaitForClusterToBeStable(machineConfigPoolName, snoTimeoutMultiplier)
+			if err != nil {
+				testFail = fmt.Sprintf("Error in wait for cluster to be stable: %s", err)
+				Expect(err).ToNot(HaveOccurred(), testFail)
+			}
+		}
+
+		if !mcQOSIngressReady && !isSingleNode {
+			By("Deploy ingress-limit machine-config")
+			err = helper.DeployMC(helper.DefineQOSIngressMC(machineConfigPoolName))
+			if err != nil {
+				testFail = fmt.Sprintf("Error to deploy ingress-limit MachineConfig: %s", err)
 				Expect(err).ToNot(HaveOccurred(), testFail)
 			}
 			err = WaitForClusterToBeStable(machineConfigPoolName, snoTimeoutMultiplier)
@@ -240,6 +274,17 @@ var _ = Describe("Discovery mode with all ", func() {
 		runCNFTests(config, cnfTestEnv, containerEngine)
 		reportIsValid(config.General.ReportDirAbsPath, definePassedSkipTestsNumber(parameters.DiscoveryExceptSriovPtpPerformanceScenario, isSingleNode))
 	})
+
+	It("features configured(Except for SriovNetworkNodePolicy, Ptpconfig, PerformanceProfile and ovs_qos)", func() {
+		if isSingleNode {
+			Skip("OVS_QOS is not supported on Single node cluster")
+		}
+		By("Remove egress and ingress ovs_qos MCs")
+		err := helper.DeleteOVSQOSMCs(machineConfigPoolName)
+		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error removing all OVS_QOS MCs: %s", err))
+		runCNFTests(config, cnfTestEnv, containerEngine)
+		reportIsValid(config.General.ReportDirAbsPath, definePassedSkipTestsNumber(parameters.DiscoveryExceptSriovPtpPerformanceOVSQOSScenario, isSingleNode))
+	})
 })
 
 func checkForSctpReady(cs *client.ClientSet, sctpNodeSelector string, image string) {
@@ -324,6 +369,7 @@ func runCNFTests(
 		fmt.Sprintf("KUBECONFIG var is empty. Please set KUBECONFIG"))
 	_, err := os.Stat(kubeconfigFile)
 	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("KUBECONFIG file doesn't exists"))
+	// TODO Add Gatekeeper as soon as BZ(2015836) is fixed
 	cnfTest := exec.Command(
 		containerEngine.Path, "run", "-v", fmt.Sprintf(
 			"%s:/kubefiles:Z", filepath.Dir(kubeconfigFile)),
@@ -331,11 +377,12 @@ func runCNFTests(
 		"-e", "DISCOVERY_MODE=true",
 		"-e", "KUBECONFIG=/kubefiles/kubeconfig",
 		"-e", fmt.Sprintf("ROLE_WORKER_CNF=%s", strings.Split(config.General.CnfNodeLabel, "/")[1]),
+		"-e", "IS_OPENSHIFT=true",
 		"-e", fmt.Sprintf("IMAGE_REGISTRY=%s", cnfTestEnv.TestImageRegistry),
 		"-e", fmt.Sprintf("CNF_TESTS_IMAGE=%s", cnfTestEnv.CnfTestImage),
 		"-e", fmt.Sprintf("DPDK_TESTS_IMAGE=%s", cnfTestEnv.DpdkTestImage),
 		fmt.Sprintf("%s/%s", cnfTestEnv.TestImageRegistry, cnfTestEnv.CnfTestImage),
-		"/usr/bin/test-run.sh", "-ginkgo.focus=sriov|sctp|dpdk|performance|ptp|vrf|xt_u32",
+		"/usr/bin/test-run.sh", "-ginkgo.focus=sriov|sctp|dpdk|performance|ptp|vrf|xt_u32|ovs_qos|metallb",
 		fmt.Sprintf("--report=/%s", filepath.Base(config.General.ReportDirAbsPath)),
 		fmt.Sprintf("--junit=/%s", filepath.Base(config.General.ReportDirAbsPath)))
 	cnfTest.Stdout = os.Stdout
@@ -468,7 +515,7 @@ func definePTPDiscoveryModePolicy(config *config.Config) {
 			metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		return daemonset.Status.NumberReady
-	}, 2*time.Minute, 2*time.Second).Should(
+	}, 4*time.Minute, 2*time.Second).Should(
 		Equal(expectedNumber),
 		fmt.Sprintf("Waiting interval expired during ptp daemonSet Eventually loop : %s", err))
 
@@ -545,6 +592,10 @@ func definePassedSkipTestsNumber(scenario string, isSingleNode bool) []int {
 			passedTestNumber = parameters.DiscoveryExceptSriovPtpPerformancePassedTest
 			skippedTestNumber = parameters.DiscoveryExceptSriovPtpPerformancetSkippedTest
 		}
+	case parameters.DiscoveryExceptSriovPtpPerformanceOVSQOSScenario:
+		passedTestNumber = parameters.DiscoveryExceptSriovPtpOVSQOSPerformancePassedTest
+		skippedTestNumber = parameters.DiscoveryExceptSriovPtpOVSQOSPerformanceSkippedTest
+
 	default:
 		Fail(fmt.Sprintf("Unknown scenario %s", scenario))
 	}

@@ -182,6 +182,94 @@ spec:
           path: /etc/modules-load.d/xt_u32-load.conf`, roleWorker)
 }
 
+// DefineQOSEgressMC returns egress-limit MachineConfig string
+func DefineQOSEgressMC(roleWorker string) string {
+	return fmt.Sprintf(`apiVersion: machineconfiguration.openshift.io/v1
+kind: MachineConfig
+metadata:
+  labels:
+    machineconfiguration.openshift.io/role: %s
+  name: %s 
+spec:
+  config:
+    ignition:
+      version: 2.2.0
+    systemd:
+      units:
+        - contents: |
+            [Unit]
+            Description=Configure egress bandwidth limiting on br-ex
+            Requires=ovs-configuration.service
+            After=ovs-configuration.service
+            Before=kubelet.service crio.service
+            [Service]
+            Type=oneshot
+            RemainAfterExit=yes
+            ExecStart=/bin/bash -c 'phs=$(/bin/nmcli --get-values GENERAL.DEVICES conn show ovs-if-phys0); \
+                        /bin/ovs-vsctl set port $phs qos=[]; \
+                        existing_qos=$(ovs-vsctl --columns=_uuid find qos other_config={max-rate="610638380"} | head -n1 | awk \'{print $NF}\'); \
+                        if [ "$existing_qos" == "" ]; then \
+                        /bin/ovs-vsctl set port $phs qos=@newqos -- --id=@newqos create qos type=linux-htb other-config:max-rate=610638380; else \
+                        /bin/ovs-vsctl set port $phs qos=$existing_qos; fi'
+            ExecStop=/bin/bash -c 'phs=$(/bin/nmcli --get-values GENERAL.DEVICES conn show ovs-if-phys0); /bin/ovs-vsctl set port $phs qos=[]'
+            [Install]
+            WantedBy=multi-user.target
+          enabled: true
+          name: egress-limit.service`, roleWorker, parameters.DiscoveryOVSQOSEgressMCName)
+}
+
+// DefineQOSIngressMC returns ingress-limit MachineConfig string
+func DefineQOSIngressMC(roleWorker string) string {
+	return fmt.Sprintf(`apiVersion: machineconfiguration.openshift.io/v1
+kind: MachineConfig
+metadata:
+  labels:
+    machineconfiguration.openshift.io/role: %s
+  name: %s
+spec:
+  config:
+    ignition:
+      version: 2.2.0
+    systemd:
+      units:
+        - contents: |
+            [Unit]
+            Description=Configure ingress bandwidth limiting on br-ex
+            Requires=ovs-configuration.service
+            After=ovs-configuration.service
+            Before=kubelet.service crio.service
+            [Service]
+            Type=oneshot
+            RemainAfterExit=yes
+            ExecStart=/bin/bash -c 'phs=$(/bin/nmcli --get-values GENERAL.DEVICES conn show ovs-if-phys0); /bin/ovs-vsctl set interface $phs ingress_policing_rate=528543; /bin/ovs-vsctl set interface $phs ingress_policing_burst=52854'
+            ExecStop=/bin/bash -c 'phs=$(/bin/nmcli --get-values GENERAL.DEVICES conn show ovs-if-phys0); /bin/ovs-vsctl set interface $phs ingress_policing_rate=0; /bin/ovs-vsctl set interface $phs ingress_policing_burst=0'
+            [Install]
+            WantedBy=multi-user.target
+          enabled: true
+          name: ingress-limit.service`, roleWorker, parameters.DiscoveryOVSQOSIngressMCName)
+}
+
+func DeleteOVSQOSMCs(cnfNodeLabel string) error {
+	mcList, err := Apiclient.MachineConfigs().List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		return err
+	}
+
+	for _, mc := range mcList.Items {
+		if mc.Name == parameters.DiscoveryOVSQOSIngressMCName || mc.Name == parameters.DiscoveryOVSQOSEgressMCName {
+			err := Apiclient.Delete(context.Background(), &mc)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	err = WaitForClusterToBeStable(cnfNodeLabel, 2)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func DefineDiscoverySriovPolicyList(sriovInterface *sriovv1.InterfaceExt) []*sriovv1.SriovNetworkNodePolicy {
 	sriovVFNumber := 5
 	if sriovInterface.Vendor == "8086" {

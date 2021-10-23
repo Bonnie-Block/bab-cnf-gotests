@@ -46,51 +46,61 @@ type (
 )
 
 const (
-	DiscoverySriovPolicy                       = "discovery-policy"
-	DiscoverySriovPolicyIntel                  = "discovery-policy-intel"
-	DiscoveryPerformanceProfile                = "discovery-mode-profile"
-	DiscoveryPtpSlaveNodeLabel                 = "ptp/discovery-slave"
-	DiscoveryPtpGrandmasterNodeLabel           = "ptp/discovery-grandmaster"
-	DiscoveryPtpGrandmasterProfile             = "discovery-master-profile"
-	DiscoveryPtpWorkerProfile                  = "discovery-worker-profile"
-	JUnitCNFTestsReportName                    = "cnftests-junit.xml"
-	SriovWaitingTime                           = 35 * time.Minute
-	DiscoveryAllFeaturesScenario               = "discoveryAllFeatures"
-	DiscoveryExceptSriovScenario               = "discoveryExceptSriov"
-	DiscoveryExceptSriovPtpScenario            = "discoveryExceptSriovPtp"
-	DiscoveryExceptSriovPtpPerformanceScenario = "discoveryExceptSriovPtpPerformance"
+	DiscoverySriovPolicy                             = "discovery-policy"
+	DiscoverySriovPolicyIntel                        = "discovery-policy-intel"
+	DiscoveryPerformanceProfile                      = "discovery-mode-profile"
+	DiscoveryPtpSlaveNodeLabel                       = "ptp/discovery-slave"
+	DiscoveryPtpGrandmasterNodeLabel                 = "ptp/discovery-grandmaster"
+	DiscoveryPtpGrandmasterProfile                   = "discovery-master-profile"
+	DiscoveryPtpWorkerProfile                        = "discovery-worker-profile"
+	DiscoveryOVSQOSEgressMCName                      = "egress-limit"
+	DiscoveryOVSQOSIngressMCName                     = "ingress-limit"
+	JUnitCNFTestsReportName                          = "cnftests-junit.xml"
+	SriovWaitingTime                                 = 35 * time.Minute
+	DiscoveryAllFeaturesScenario                     = "discoveryAllFeatures"
+	DiscoveryExceptSriovScenario                     = "discoveryExceptSriov"
+	DiscoveryExceptSriovPtpScenario                  = "discoveryExceptSriovPtp"
+	DiscoveryExceptSriovPtpPerformanceScenario       = "discoveryExceptSriovPtpPerformance"
+	DiscoveryExceptSriovPtpPerformanceOVSQOSScenario = "discoveryExceptSriovPtpPerformanceOVSQOS"
 )
 
 const (
 	// DiscoveryAllFeaturesPassedTest expected number of passed tests with
-	// SriovNetworkNodePolicy, sctp machine config, xt_u32 machine config, PerformanceProfile, PtpConfig
+	// SriovNetworkNodePolicy, sctp machine config, xt_u32 machine config, ovs_qos machine configs, PerformanceProfile, PtpConfig
 	// resources configured
-	DiscoveryAllFeaturesPassedTest = 74
+	DiscoveryAllFeaturesPassedTest = 95
 	// DiscoveryAllFeaturesSkippedTest expected number of skipped tests with
-	// SriovNetworkNodePolicy, sctp machine config, xt_u32 machine config, PerformanceProfile, PtpConfig
+	// SriovNetworkNodePolicy, sctp machine config, xt_u32 machine config, ovs_qos machine configs, PerformanceProfile, PtpConfig
 	// resources configured
-	DiscoveryAllFeaturesSkippedTest = 64
+	DiscoveryAllFeaturesSkippedTest = 77
 
 	// DiscoveryExceptSriovPassedTest expected number of passed tests with:
-	// sctp machine config, xt_u32 machine config, PerformanceProfile, PtpConfig resources configured
-	DiscoveryExceptSriovPassedTest = 54
+	// sctp machine config, xt_u32 machine config, ovs_qos machine configs, PerformanceProfile, PtpConfig resources configured
+	DiscoveryExceptSriovPassedTest = 75
 	// DiscoveryExceptSriovSkippedTest expected number of skipped tests with
-	// sctp machine config, xt_u32 machine config, PerformanceProfile, PtpConfig resources configured
-	DiscoveryExceptSriovSkippedTest = 84
+	// sctp machine config, xt_u32 machine config, ovs_qos machine configs, PerformanceProfile, PtpConfig resources configured
+	DiscoveryExceptSriovSkippedTest = 97
 
 	// DiscoveryExceptSriovPtpPassedTest expected number of passed tests with
-	// sctp machine config, xt_u32 machine config, PerformanceProfile resources configured
-	DiscoveryExceptSriovPtpPassedTest = 48
+	// sctp machine config, xt_u32 machine config, ovs_qos machine configs, PerformanceProfile resources configured
+	DiscoveryExceptSriovPtpPassedTest = 69
 	// DiscoveryExceptSriovPtpSkippedTest expected number of skipped tests with
-	// sctp machine config, xt_u32 machine config, PerformanceProfile resources configured
-	DiscoveryExceptSriovPtpSkippedTest = 84
+	// sctp machine config, xt_u32 machine config, ovs_qos machine configs, PerformanceProfile resources configured
+	DiscoveryExceptSriovPtpSkippedTest = 103
 
 	// DiscoveryExceptSriovPtpPerformancePassedTest expected number of passed tests with
+	// sctp machine config, xt_u32 machine config, ovs_qos machine configs resources configured
+	DiscoveryExceptSriovPtpPerformancePassedTest = 37
+	// DiscoveryExceptSriovPtpPerformancePassedTestSkippedTest expected number of skipped tests with
+	// sctp machine config, xt_u32 machine config, ovs_qos machine configs, resources configured
+	DiscoveryExceptSriovPtpPerformancetSkippedTest = 135
+
+	// DiscoveryExceptSriovPtpOVSQOSPerformancePassedTest expected number of passed tests with
 	// sctp machine config, xt_u32 machine config  resources configured
-	DiscoveryExceptSriovPtpPerformancePassedTest = 18
+	DiscoveryExceptSriovPtpOVSQOSPerformancePassedTest = 25
 	// DiscoveryExceptSriovPtpPerformancePassedTestSkippedTest expected number of skipped tests with
 	// sctp machine config, xt_u32 machine config resources configured
-	DiscoveryExceptSriovPtpPerformancetSkippedTest = 120
+	DiscoveryExceptSriovPtpOVSQOSPerformanceSkippedTest = 147
 
 	// SNODiscoveryAllFeaturesPassedTest expected number of passed tests with
 	// SriovNetworkNodePolicy, sctp machine config, xt_u32 machine config, PerformanceProfile
