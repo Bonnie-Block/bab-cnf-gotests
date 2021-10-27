@@ -135,22 +135,23 @@ func IsDeploymentReady(cs *client.ClientSet, operatorNamespace string, deploymen
 	return false, nil
 }
 
-// CountDaemonsets counts total number of Ready and Desired daemonsets and returns int count.
-func CountDaemonsets(
-	cs *client.ClientSet,
-	operatorNamespace string,
-	daemonsetName string) (countRunningDaemonsets int32, countDesiredDaemonsets int32) {
-	daemonSetDiscovery, err := cs.DaemonSets(operatorNamespace).Get(
+// IsDaemonsetReady checks if the daemonset is ready.
+func IsDaemonsetReady(cs *client.ClientSet, operatorNamespace string, daemonsetName string) error {
+	daemonSet, err := cs.DaemonSets(operatorNamespace).Get(
 		context.Background(),
 		daemonsetName,
 		metav1.GetOptions{},
 	)
-	Expect(err).NotTo(HaveOccurred())
+	if err != nil {
+		return err
+	}
 
-	countRunningDaemonsets = daemonSetDiscovery.Status.NumberReady
-	countDesiredDaemonsets = daemonSetDiscovery.Status.DesiredNumberScheduled
+	if daemonSet.Status.NumberReady != daemonSet.Status.DesiredNumberScheduled ||
+		daemonSet.Status.DesiredNumberScheduled < 1 {
+		return fmt.Errorf("daemonset %s is not ready", daemonsetName)
+	}
 
-	return countRunningDaemonsets, countDesiredDaemonsets
+	return nil
 }
 
 // WaitForClusterToBeStable validates if MCP is stable

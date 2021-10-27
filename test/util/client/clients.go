@@ -20,6 +20,7 @@ import (
 	appsv1client "k8s.io/client-go/kubernetes/typed/apps/v1"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	networkv1client "k8s.io/client-go/kubernetes/typed/networking/v1"
+	rbacv1client "k8s.io/client-go/kubernetes/typed/rbac/v1"
 
 	metallbv1alpha1 "github.com/metallb/metallb-operator/api/v1alpha1"
 	metallbv1beta1 "github.com/metallb/metallb-operator/api/v1beta1"
@@ -38,6 +39,7 @@ type ClientSet struct {
 	networkv1client.NetworkingV1Client
 
 	appsv1client.AppsV1Interface
+	rbacv1client.RbacV1Interface
 	discovery.DiscoveryInterface
 	clientsriovv1.SriovnetworkV1Interface
 	Config *rest.Config
@@ -77,6 +79,7 @@ func New(kubeconfig string) *ClientSet {
 	clientSet.SriovnetworkV1Interface = clientsriovv1.NewForConfigOrDie(config)
 	clientSet.NetworkingV1Client = *networkv1client.NewForConfigOrDie(config)
 	clientSet.PtpV1Interface = ptpv1.NewForConfigOrDie(config)
+	clientSet.RbacV1Interface = rbacv1client.NewForConfigOrDie(config)
 	clientSet.Config = config
 
 	crScheme := runtime.NewScheme()

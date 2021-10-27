@@ -32,6 +32,7 @@ type Config struct {
 		TestContainerImage   string `yaml:"test_container_image" envconfig:"NETWORK_TEST_CONTAINER_IMAGE"`
 		SriovInterfaces      string `envconfig:"CNF_INTERFACES_LIST"`
 		MetalLBAddressPoolIP string `envconfig:"METALLB_ADDR_LIST"`
+		FrrImage             string `yaml:"frr_image" envconfig:"FRR_IMAGE"`
 	} `yaml:"network"`
 	Ran struct {
 		CnfTestImage              string `yaml:"cnf_test_image" envconfig:"CNF_TEST_IMAGE"`

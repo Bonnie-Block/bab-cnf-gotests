@@ -3,10 +3,12 @@ package nethelper
 import (
 	"context"
 	"fmt"
+	"net"
 
 	sriovv1 "github.com/k8snetworkplumbingwg/sriov-network-operator/api/v1"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/cluster"
+	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -85,4 +87,32 @@ func StrParamInListOfParams(param string, paramRange []string) error {
 	}
 
 	return fmt.Errorf("error: wrong parameter %v", param)
+}
+
+// NodeIPsForFamily returns nodes' IP addresses matching the ip family.
+func NodeIPsForFamily(nodes []k8sv1.Node, family string) []string {
+	res := []string{}
+
+	for _, n := range nodes {
+		for _, a := range n.Status.Addresses {
+			if a.Type == k8sv1.NodeInternalIP {
+				if family != "dual" && IPFamilyForAddress(a.Address) != family {
+					continue
+				}
+				res = append(res, a.Address)
+			}
+		}
+	}
+
+	return res
+}
+
+// IPFamilyForAddress get a ip address and returns it's IP family type.
+func IPFamilyForAddress(ip string) string {
+	ipNet := net.ParseIP(ip)
+	if ipNet.To4() == nil {
+		return "ipv6"
+	}
+
+	return "ipv4"
 }

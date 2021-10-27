@@ -104,12 +104,10 @@ var _ = Describe("CNF MetalLB", func() {
 		})
 
 		By("checking MetalLB daemonset is in running state", func() {
-			Eventually(func() bool {
-				daemonSetRunning, daemonSetDesired := helper.CountDaemonsets(helper.Apiclient,
+			Eventually(func() error {
+				return helper.IsDaemonsetReady(helper.Apiclient,
 					netmlbparameters.MetalLBOperatorNameSpace, netmlbparameters.MetalLBDaemonsetName)
-
-				return daemonSetRunning == daemonSetDesired
-			}, netmlbparameters.DeployTimeout, netmlbparameters.Interval).Should(BeTrue())
+			}, netmlbparameters.DeployTimeout, netmlbparameters.Interval).ShouldNot(HaveOccurred())
 		})
 	})
 

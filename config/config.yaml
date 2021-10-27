@@ -5,6 +5,7 @@ general:
   failed_tests_logs: "failed_tests_logs.txt"
 network:
   test_container_image: docker-registry.upshift.redhat.com/cnf-gotests/cnf-gotests-client:v4.8
+  frr_image: docker-registry.upshift.redhat.com/cnf-gotests/frr:stable_7.5
 ran:
   cnf_test_image: quay.io/openshift-kni/cnf-tests:4.8
   stressng_test_image: docker-registry.upshift.redhat.com/cnf-gotests/stress-ng:2.0
