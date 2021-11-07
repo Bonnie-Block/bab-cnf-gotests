@@ -1,8 +1,8 @@
 package parameters
 
 import (
-	fecv1 "github.com/open-ness/openshift-operator/sriov-fec/api/v1"
 	mcfgv1 "github.com/openshift/machine-config-operator/pkg/apis/machineconfiguration.openshift.io/v1"
+	fecv2 "github.com/smart-edge-open/openshift-operator/sriov-fec/api/v2"
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/k8sreporter"
 )
@@ -28,7 +28,7 @@ var (
 	// ReporterCrds tells to reporter what resources to collect
 	ReporterCrds = []k8sreporter.CRData{
 		{Cr: &mcfgv1.MachineConfigPoolList{}},
-		{Cr: &fecv1.SriovFecNodeConfigList{}},
-		{Cr: &fecv1.SriovFecClusterConfigList{}},
+		{Cr: &fecv2.SriovFecNodeConfigList{}},
+		{Cr: &fecv2.SriovFecClusterConfigList{}},
 	}
 )
