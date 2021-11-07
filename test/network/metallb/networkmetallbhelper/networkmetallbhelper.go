@@ -9,7 +9,7 @@ import (
 
 	. "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	globalHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
-	metallbParameters "gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/metallb/parameters"
+	metallbParameters "gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/metallb/networkmlbparameters"
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
@@ -61,7 +61,6 @@ func DefineMetallbAddressPool() *metallbv1alpha1.AddressPool {
 			},
 		},
 		Spec: metallbv1alpha1.AddressPoolSpec{
-			Name:     metallbParameters.AddressPool,
 			Protocol: "layer2",
 			Addresses: []string{
 				fmt.Sprintln(metallbIP[0], "-", metallbIP[1]),

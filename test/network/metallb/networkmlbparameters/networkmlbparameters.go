@@ -1,4 +1,4 @@
-package parameters
+package networkmlbparameters
 
 import (
 	"time"
@@ -11,26 +11,23 @@ import (
 )
 
 const (
-	TestNamespace                         = "cni-test"
-	DefaultNameSpace                      = "default"
-	AddressPool                           = "brexpool"
-	PodWaitingTime          time.Duration = 2 * time.Minute
-	WaitingTime             time.Duration = 20 * time.Minute
-	Timeout                               = 1800 * time.Second
-	TimeoutIntervals                      = time.Minute * 3
-	Interval                              = time.Second * 2
-	AnnotationPrimaryIfaddr               = "k8s.ovn.org/node-primary-ifaddr"
-	AnnotationL3GW                        = "k8s.ovn.org/l3-gateway-config"
-	// MetalLBOperatorDeploymentName contains the name of the MetalLB Operator deployment
-	MetalLBOperatorDeploymentName = "metallb-operator-controller-manager"
-	// MetalLBOperatorDeploymentLabel contains the label of the MetalLB Operator deployment
-	MetalLBOperatorDeploymentLabel = "controller-manager"
-	// MetalLBDaemonsetName contains the name of the MetalLB daemonset
-	MetalLBDaemonsetName = "speaker"
-	// MetalOperatorNameSpace
-	MetalLBOperatorNameSpace = "metallb-system"
-	//MetalLBAddressPool
-	MetalLBAddressPool = "metallb.universe.tf/address-pool"
+	TestNamespace                                = "cni-test"
+	DefaultNameSpace                             = "default"
+	AddressPool                                  = "brexpool"
+	PodWaitingTime                 time.Duration = 2 * time.Minute
+	WaitingTime                    time.Duration = 20 * time.Minute
+	Timeout                                      = 1800 * time.Second
+	TimeoutIntervals                             = time.Minute * 3
+	Interval                                     = time.Second * 2
+	AnnotationPrimaryIfaddr                      = "k8s.ovn.org/node-primary-ifaddr"
+	AnnotationL3GW                               = "k8s.ovn.org/l3-gateway-config"
+	UseMetallbResourcesFromFile                  = false
+	MetalLBOperatorDeploymentName                = "metallb-operator-controller-manager"
+	MetalLBOperatorDeploymentLabel               = "controller-manager"
+	MetalLBDeploymentName                        = "controller"
+	MetalLBDaemonsetName                         = "speaker"
+	MetalLBOperatorNameSpace                     = "metallb-system"
+	MetalLBAddressPool                           = "metallb.universe.tf/address-pool"
 )
 
 var (
