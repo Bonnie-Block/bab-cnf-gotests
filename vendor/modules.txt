@@ -487,10 +487,17 @@ github.com/mattn/go-runewidth
 github.com/mattn/go-shellwords
 # github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369
 github.com/matttproud/golang_protobuf_extensions/pbutil
-# github.com/metallb/metallb-operator v0.10.2
+# github.com/metallb/metallb-operator v0.10.2 => github.com/openshift/metallb-operator v0.0.0-20211102092327-95f19b7e217c
 ## explicit
 github.com/metallb/metallb-operator/api/v1alpha1
 github.com/metallb/metallb-operator/api/v1beta1
+github.com/metallb/metallb-operator/pkg/apply
+github.com/metallb/metallb-operator/pkg/status
+github.com/metallb/metallb-operator/test/consts
+github.com/metallb/metallb-operator/test/e2e/client
+github.com/metallb/metallb-operator/test/e2e/metallb
+# github.com/mikioh/ipaddr v0.0.0-20190404000644-d465c8ab6721
+github.com/mikioh/ipaddr
 # github.com/mistifyio/go-zfs v2.1.2-0.20190413222219-f784269be439+incompatible
 github.com/mistifyio/go-zfs
 # github.com/mitchellh/copystructure v1.2.0
@@ -560,9 +567,6 @@ github.com/onsi/gomega/matchers/support/goraph/edge
 github.com/onsi/gomega/matchers/support/goraph/node
 github.com/onsi/gomega/matchers/support/goraph/util
 github.com/onsi/gomega/types
-# github.com/open-ness/openshift-operator/sriov-fec v0.0.0-20210331183103-74dc4d717390
-## explicit
-github.com/open-ness/openshift-operator/sriov-fec/api/v1
 # github.com/opencontainers/go-digest v1.0.0
 github.com/opencontainers/go-digest
 # github.com/opencontainers/image-spec v1.0.2-0.20190823105129-775207bd45b6
@@ -1160,11 +1164,7 @@ k8s.io/kube-openapi/pkg/common
 k8s.io/kube-openapi/pkg/util/proto
 # k8s.io/kubelet v0.20.0 => k8s.io/kubelet v0.20.4
 k8s.io/kubelet/config/v1beta1
-<<<<<<< HEAD
-# k8s.io/kubernetes v1.18.3 => k8s.io/kubernetes v1.19.3
-=======
 # k8s.io/kubernetes v1.21.1 => k8s.io/kubernetes v1.19.3
->>>>>>> b38cd40... Add MetalLB Test 43936
 ## explicit
 k8s.io/kubernetes/pkg/kubelet/cm/cpuset
 # k8s.io/utils v0.0.0-20201110183641-67b214c5f920
@@ -1240,6 +1240,7 @@ sigs.k8s.io/yaml
 # github.com/Azure/go-autorest => github.com/Azure/go-autorest v13.3.2+incompatible
 # github.com/k8snetworkplumbingwg/sriov-network-operator => github.com/openshift/sriov-network-operator v0.0.0-20210105152551-211d8ee0992e
 # github.com/mattn/go-sqlite3 => github.com/mattn/go-sqlite3 v1.10.0
+# github.com/metallb/metallb-operator => github.com/openshift/metallb-operator v0.0.0-20211102092327-95f19b7e217c
 # github.com/open-ness/openshift-operator => github.com/otcshare/openshift-operator v0.0.0-20210318084613-47ff60d3afe3
 # github.com/openshift-kni/performance-addon-operators => github.com/openshift-kni/performance-addon-operators v0.0.0-20210416124233-c5ee96762702
 # github.com/openshift/api => github.com/openshift/api v0.0.0-20210202165416-a9e731090f5e
