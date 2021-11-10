@@ -23,6 +23,7 @@ const (
 	MetalLBDaemonsetName                        = "speaker"
 	MetalLBOperatorNameSpace                    = "metallb-system"
 	MetalLBAddressPool                          = "metallb.universe.tf/address-pool"
+	MetalLBService                              = "metallb-service"
 )
 
 var (

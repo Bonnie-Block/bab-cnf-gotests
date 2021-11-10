@@ -7,10 +7,11 @@ import (
 	"regexp"
 	"strings"
 
-	. "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/metallb/netmlbparameters"
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
+
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 
 	metallbv1alpha1 "github.com/metallb/metallb-operator/api/v1alpha1"
@@ -28,12 +29,12 @@ import (
 // is in the same IP range as the br-ex interface of the cluster under-test.
 // MetallB Down-stream tests will only run on clusters Helix 2,3 and 7.
 func IsEnvVarMetallbIPinNodeExtNetRange(cnfNodeLabel string, metallbEnvIP string) bool {
-	// Checks that the METALLB_ADDR_LIST is in the range of the cluster br-ex interface
-	node := GetNodeListStringByLabel(cnfNodeLabel)
-	event, _ := Apiclient.Nodes().Get(context.Background(), node[0], metav1.GetOptions{})
-	v := event.Annotations[netmlbparameters.AnnotationPrimaryIfaddr]
+	// Checks that the METALLB_ADDR_LIST is in the range of the cluster br-ex interface.
+	node := helper.GetNodeListStringByLabel(cnfNodeLabel)
+	event, _ := helper.Apiclient.Nodes().Get(context.Background(), node[0], metav1.GetOptions{})
+	val := event.Annotations[netmlbparameters.AnnotationPrimaryIfaddr]
 	// Output example {"ipv4":"10.46.56.13/24"} len = 5
-	nodeOutput := strings.Split(v, "\"")
+	nodeOutput := strings.Split(val, "\"")
 	Expect(len(nodeOutput)).Should(Equal(5))
 	_, nodeNet, err := net.ParseCIDR(nodeOutput[3])
 	Expect(err).ToNot(HaveOccurred())
@@ -45,12 +46,9 @@ func IsEnvVarMetallbIPinNodeExtNetRange(cnfNodeLabel string, metallbEnvIP string
 	return true
 }
 
-// DefineMetallbAddressPool defines a MetalLB L2 Address Pool using env IP var METALLB_ADDR_LIST for the
-// IP address range.
-func DefineMetallbAddressPool() *metallbv1alpha1.AddressPool {
-	metallbIP, err := Config.GetMetallbVirtIP()
-	Expect(err).ToNot(HaveOccurred())
-
+// DefineMetallbAddressPool defines a MetalLB L2 Address Pool using env IP var METALLB_ADDR_LIST
+// for the IP address range.
+func DefineMetallbAddressPool(metallbIP []string) *metallbv1alpha1.AddressPool {
 	return &metallbv1alpha1.AddressPool{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      netmlbparameters.AddressPool,
@@ -70,12 +68,12 @@ func DefineMetallbAddressPool() *metallbv1alpha1.AddressPool {
 
 // CreateAddressPool creates the MetalLB L2 Address Pool using func defineMetallbAddressPool.
 func CreateAddressPool(addresspool *metallbv1alpha1.AddressPool) error {
-	return Apiclient.Create(context.Background(), addresspool)
+	return helper.Apiclient.Create(context.Background(), addresspool)
 }
 
 // DeleteAddressPool from namespace metallb-system using func defineMetallbAddressPool.
 func DeleteAddressPool(addresspool *metallbv1alpha1.AddressPool) error {
-	return Apiclient.Delete(context.Background(), addresspool)
+	return helper.Apiclient.Delete(context.Background(), addresspool)
 }
 
 // CreateLBService create an external service using the MetalLB Address Pool allowing connectivity from network host
@@ -106,42 +104,51 @@ func CreateLBService(clientSet *client.ClientSet, namespace string) *k8sv1.Servi
 			Type: "LoadBalancer",
 		},
 	}
-	activeService, err := clientSet.Services(namespace).Create(context.Background(), &service, metav1.CreateOptions{})
+	activeService, err := clientSet.Services(namespace).Create(context.Background(),
+		&service, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
 	return activeService
 }
 
-// GetLBServiceEvents searches for node name in following string example:
+// GetLBServiceAnnouncingNodeName searches for node name in following string example:
 // "announcing from node "helix13.lab.eng.tlv2.redhat.com".
-func GetLBServiceEvents() (string, error) {
-	serviceEvents, err := Apiclient.Events(netmlbparameters.TestNamespace).List(
-		context.Background(),
-		metav1.ListOptions{FieldSelector: "reason=nodeAssigned"},
-	)
-	re := regexp.MustCompile(`"([^\"]+)"`)
-	node := re.FindAllString(serviceEvents.Items[0].Message, -1)
-	nodeName := strings.Trim(node[0], "\"")
+func GetLBServiceAnnouncingNodeName() (string, error) {
+	var allEvents []string
 
-	return nodeName, err
+	serviceEvents, err := helper.Apiclient.Events(netmlbparameters.TestNamespace).List(context.Background(),
+		metav1.ListOptions{FieldSelector: "reason=nodeAssigned"})
+
+	for _, index := range strings.Split(serviceEvents.String(), "}") {
+		if strings.Contains(index, "announcing from node") {
+			re := regexp.MustCompile(`"([^\"]+)"`)
+			event := re.FindString(index)
+			allEvents = append(allEvents, event)
+		}
+	}
+
+	numOfEvents := len(allEvents)
+	lastEvent := strings.Trim(allEvents[numOfEvents-1], "\"")
+
+	return lastEvent, err
 }
 
-// SpeakerNodeMac locates the MAC address of the node interface br-ex found in func GetLBServiceEvents()
+// SpeakerNodeMac locates the MAC address of the node interface br-ex found in func GetLBServiceNodeName()
 // {"mode":"shared","interface-id":"br-ex_helix13.lab.eng.tlv2.redhat.com","mac-address":"34:48:ed:f3:88:c4",
 // "ip-addresses":["10.46.56.13/24"],"ip-address":"10.46.56.13/24","next-hops":["10.46.56.254"],"next-hop":
 // "10.46.56.254","node-port-enable":"true","vlan-id":"0"}.
 func SpeakerNodeMac(metallbNode string) (string, error) {
-	event, err := Apiclient.Nodes().Get(context.Background(), metallbNode, metav1.GetOptions{})
+	event, err := helper.Apiclient.Nodes().Get(context.Background(), metallbNode, metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
-	v := event.Annotations[netmlbparameters.AnnotationL3GW]
+	val := event.Annotations[netmlbparameters.AnnotationL3GW]
 
-	for _, i := range strings.Split(v, ",") {
-		if strings.Contains(i, "mac-address") {
+	for _, index := range strings.Split(val, ",") {
+		if strings.Contains(index, "mac-address") {
 			re := regexp.MustCompile("([0-9a-fA-F]{2}[:]){5}([0-9a-fA-F]{2})")
-			m := re.FindAllString(i, -1)
+			mFind := re.FindAllString(index, -1)
 
-			return strings.Join(m, ""), err
+			return strings.Join(mFind, ""), err
 		}
 	}
 
@@ -151,7 +158,7 @@ func SpeakerNodeMac(metallbNode string) (string, error) {
 // MLBTestPod creates a pod connected to the host network br-ex interface.
 func MLBTestPod(node string, ns string, image string) *k8sv1.Pod {
 	podDefPrivHostNet := pod.RedefineAsPrivileged(pod.DefineWithHostNetwork(node, ns, image))
-	runningPod := WaitUntilPodCreatedAndRunning(podDefPrivHostNet, netmlbparameters.PodWaitingTime)
+	runningPod := helper.WaitUntilPodCreatedAndRunning(podDefPrivHostNet, netmlbparameters.PodWaitingTime)
 
 	return runningPod
 }
@@ -162,7 +169,7 @@ func MLBClientPod(node string, image string) *k8sv1.Pod {
 	podDefPrivCommand := pod.RedefineAsPrivileged(pod.RedefineWithCommand(podDefNodeLabel,
 		[]string{"/bin/bash", "-c"},
 		[]string{"nginx && sleep INF"}))
-	runningPod := WaitUntilPodCreatedAndRunning(podDefPrivCommand, netmlbparameters.PodWaitingTime)
+	runningPod := helper.WaitUntilPodCreatedAndRunning(podDefPrivCommand, netmlbparameters.PodWaitingTime)
 
 	return runningPod
 }
@@ -175,21 +182,75 @@ func redefineWithLabel(pod *k8sv1.Pod) *k8sv1.Pod {
 }
 
 // Arping verifies only one node replies to arping and that the service node br-ex mac matches the output.
-func Arping(client k8sv1.Pod, destIPAddr string) []string {
-	command := fmt.Sprint("arping -c1 -I br-ex ", destIPAddr)
-	arpStatus, err := pod.ExecCommand(Apiclient, client, []string{"bash", "-c", command})
+func Arping(destIPAddr string, image string, nodeListString []string, node string, reboot bool) error {
+	var indexInt int
+
+	for index, value := range nodeListString {
+		if value == node && reboot {
+			indexInt = index
+		}
+
+		if value == node && index == 0 && !reboot {
+			indexInt = 1
+		}
+	}
+
+	testPod := MLBTestPod(nodeListString[indexInt],
+		netmlbparameters.DefaultNameSpace, image)
+
+	arpStatus, err := pod.ExecCommand(helper.Apiclient, *testPod, []string{"bash", "-c", fmt.Sprint("arping -I br-ex ",
+		destIPAddr, " -c2")})
 	Expect(err).ToNot(HaveOccurred())
 
 	macs := arpStatus.String()
+	output := strings.Split(macs, "\n")
+	lineCount := 0
 
-	return strings.Split(macs, "\n")
+	for _, reply := range output {
+		if strings.Contains(reply, "Unicast") {
+			lineCount++
+		}
+	}
+
+	Expect(lineCount).To(Equal(2), "An incorrect number of arp replies were received")
+	// Verifies the output mac addresses matches the annoucing node mac address
+	nodeMac, err := SpeakerNodeMac(node)
+	Expect(strings.Join(output, "\n")).Should(ContainSubstring(strings.ToUpper(nodeMac)),
+		"ARP request was not received from the announcing node")
+	Expect(err).ToNot(HaveOccurred())
+
+	return err
+}
+
+// Arping verifies only one node replies to arping and that the service node br-ex mac matches the output.
+func IPAddBrEx(client k8sv1.Pod) ([]string, error) {
+	ipAddr, err := pod.ExecCommand(helper.Apiclient, client, []string{"bash", "-c", "ip a show br-ex"})
+	Expect(err).ToNot(HaveOccurred())
+
+	return strings.Split(ipAddr.String(), ","), err
 }
 
 // CurlMlbPod verifies that nginx web service is available via the external service IP.
-func CurlMlbPod(client k8sv1.Pod, destIPAddr string) string {
-	command := fmt.Sprint("curl ", destIPAddr)
-	curlStatus, err := pod.ExecCommand(Apiclient, client, []string{"bash", "-c", command})
+func CurlMlbPod(destIPAddr string, image string, nodeListString []string, node string, reboot bool) error {
+	var indexInt int
+
+	for index, v := range nodeListString {
+		if v == node && reboot {
+			indexInt = index
+		}
+
+		if v == node && index == 0 && !reboot {
+			indexInt = 1
+		}
+	}
+
+	testPod := MLBTestPod(nodeListString[indexInt],
+		netmlbparameters.DefaultNameSpace, image)
+	curlStatus, err := pod.ExecCommand(helper.Apiclient, *testPod, []string{"bash", "-c", fmt.Sprint("curl ", destIPAddr)})
 	Expect(err).ToNot(HaveOccurred())
 
-	return curlStatus.String()
+	Expect(curlStatus.String()).Should(ContainSubstring("html"),
+		"Curl was unable to connect to nginx")
+
+	return err
 }
