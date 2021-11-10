@@ -33,8 +33,3 @@ const (
 	SnoMgmtCoreLimit       = 2
 	ThreadSiblingsListPath = "/sys/devices/system/cpu/cpu%v/topology/thread_siblings_list"
 )
-
-const (
-	// PrivPodNamespace is the namespace for privileged pods in ran test.
-	PrivPodNamespace = "ranpriv"
-)

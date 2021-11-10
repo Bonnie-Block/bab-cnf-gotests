@@ -56,7 +56,7 @@ func TestCpu(t *testing.T) {
 var _ = BeforeSuite(func() {
 	// Create privileged pods for ran testing if not already exist, and leave them on system.
 	ranhelper.CleanupRanTestResources()
-	ranhelper.CreatePrivilegedPods("")
+	helper.CreatePrivilegedPods("")
 	// Cleanup and create test namespace
 	if namespaces.Exists(ran.NamespaceTesting, helper.Apiclient) {
 		log.Println("Deleting test namespace", ran.NamespaceTesting)

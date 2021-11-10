@@ -2,10 +2,11 @@ package tests
 
 import (
 	"fmt"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/machineconfigpool"
 	"log"
 	"time"
+
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/machineconfigpool"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -62,7 +63,7 @@ var _ = Describe("SNO Reboot", func() {
 		It(fmt.Sprintf("cluster and workload pods should be recovered after reboot"), func() {
 			startTime := time.Now()
 			// Trigger soft reboot and wait for cluster and workload pods to recover.
-			ranreboothelper.SoftRebootNodeAndWaitForDisconnect(node)
+			helper.SoftRebootNodeAndWaitForDisconnect(node)
 			// Wait for cluster recover and log soft reboot times to ginkgo report for further processing in pipeline.
 			waitForClusterRecoverAndLogTime(startTime, node, ranrebootparameters.RanMetricSoftReboot)
 		})
@@ -96,7 +97,7 @@ func writeToGinkgoReport(metric string, duration time.Duration) {
 func waitForClusterRecoverAndLogTime(rebootStartTime time.Time, node *corev1.Node, ranmetric string) {
 	// Wait for linux to be reachable via ping and record time
 	metricStartTime, metricCount := rebootStartTime, 1
-	ranreboothelper.WaitForNodeReachable(node)
+	helper.WaitForNodeReachable(node)
 	writeToGinkgoReport(fmt.Sprintf("%s_%d_node_reachable", ranmetric, metricCount), time.Since(metricStartTime))
 
 	// Wait for openshift to be reachable and record time
@@ -128,5 +129,5 @@ func waitForClusterRecoverAndLogTime(rebootStartTime time.Time, node *corev1.Nod
 	writeToGinkgoReport(fmt.Sprintf("%s_total", ranmetric), time.Since(rebootStartTime)-clusterStableDuration)
 
 	log.Println("Sleep for 5 minutes after reboot - quiet time")
-	time.Sleep(5*time.Minute)
+	time.Sleep(5 * time.Minute)
 }

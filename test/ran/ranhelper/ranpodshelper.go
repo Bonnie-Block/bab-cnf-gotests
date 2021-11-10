@@ -23,7 +23,6 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
-	nodeshelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 	podhelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 )
 
@@ -46,52 +45,6 @@ func DeletePodsAndWaitForRemoval(pods []*corev1.Pod, timeout time.Duration) {
 		}
 		return nil
 	}, timeout, 5*time.Second).ShouldNot(HaveOccurred())
-}
-
-// waitForPodsHealthy waits for given pods to appear and healthy
-func waitForPodsHealthy(pods []*corev1.Pod, timeout time.Duration) {
-	Eventually(func() error {
-		for _, pod := range pods {
-			tempPod, err := helper.Apiclient.Pods(pod.Namespace).Get(
-				context.Background(),
-				pod.Name,
-				metav1.GetOptions{})
-			if err != nil {
-				return err
-			}
-			err = IsPodHealthy(tempPod)
-			if err != nil && ! (pod.Status.Phase == corev1.PodFailed && pod.Spec.RestartPolicy == corev1.RestartPolicyNever) {
-				// Ignore failed pod with restart policy never. This could happen in image pruner or installer pods that
-				// will never restart after completed. And could stuck in error in various conditions after initial completion.
-				return err
-			}
-		}
-		return nil
-	}, timeout, 3*time.Second).ShouldNot(HaveOccurred())
-}
-
-// IsPodHealthy returns nil if given pod is healthy, otherwise an error.
-func IsPodHealthy(pod *corev1.Pod) error {
-	if pod.Status.Phase == corev1.PodRunning {
-		// Check if running pod is ready
-		if !isPodInCondition(pod, corev1.PodReady) {
-			return fmt.Errorf("Pod condition is not Ready. Message: %s", pod.Status.Message)
-		}
-	} else if pod.Status.Phase != corev1.PodSucceeded {
-		// Pod is not running or completed.
-		return fmt.Errorf("Pod phase is %s. Message: %s", pod.Status.Phase, pod.Status.Message)
-	}
-	return nil
-}
-
-// isPodInCondition returns true if given pod is in expected condition, otherwise false.
-func isPodInCondition(pod *corev1.Pod, condition corev1.PodConditionType) bool {
-	for _, c := range pod.Status.Conditions {
-		if c.Type == condition && c.Status == corev1.ConditionTrue {
-			return true
-		}
-	}
-	return false
 }
 
 // RedefineContainerResources redefines a pod with CPU and Memory resources in first container
@@ -120,11 +73,6 @@ func RedefineContainerEnvVars(pod *corev1.Pod, EnvVars []corev1.EnvVar) *corev1.
 	return pod
 }
 
-func RedefineWithHostPid(pod *corev1.Pod) *corev1.Pod {
-	pod.Spec.HostPID = true
-	return pod
-}
-
 // RedefineContainer redefines first container in a pod with its name, image, and pull policy.
 // Use empty string to skip a config. e.g., imagePullPolicy=""
 func RedefineContainer(pod *corev1.Pod, name string, image string, imagePullPolicy corev1.PullPolicy) *corev1.Pod {
@@ -136,21 +84,6 @@ func RedefineContainer(pod *corev1.Pod, name string, image string, imagePullPoli
 	}
 	if imagePullPolicy != "" {
 		pod.Spec.Containers[0].ImagePullPolicy = imagePullPolicy
-	}
-	return pod
-}
-
-// RedefineWithObjectMeta updates pod name/generateName and annotations
-// Use empty value "" or nil to skip a config. e.g., annotations=nil
-func RedefineWithObjectMeta(pod *corev1.Pod, name string, generateName string, annotations map[string]string) *corev1.Pod {
-	if name != "" {
-		pod.ObjectMeta.Name = name
-		pod.ObjectMeta.GenerateName = ""
-	} else if generateName != "" {
-		pod.ObjectMeta.GenerateName = generateName
-	}
-	if annotations != nil {
-		pod.ObjectMeta.Annotations = annotations
 	}
 	return pod
 }
@@ -189,7 +122,7 @@ func DefineStressPod(nodeName string, cpus int, guaranteed bool) *corev1.Pod {
 		memoryLimit = "200M"
 	}
 	pod := podhelper.DefinePodOnNode(ran.NamespaceTesting, stressngImage, nodeName)
-	RedefineWithObjectMeta(pod, "", "stress-ng-", nil)
+	podhelper.RedefineWithObjectMeta(pod, "", "stress-ng-", nil)
 	podhelper.RedefineWithCommand(RedefineContainer(pod, "stress-ng", "", corev1.PullIfNotPresent), nil, nil)
 	RedefineContainerEnvVars(pod, envVars)
 	RedefineContainerResources(pod, strconv.Itoa(cpus), cpuLimit, "100M", memoryLimit)
@@ -205,7 +138,7 @@ func DefineOslatPod(profile *performancev2.PerformanceProfile, nodeName string, 
 	volumeType := corev1.HostPathCharDev
 	pod := podhelper.RedefineAsPrivileged(podhelper.DefinePodOnNode(ran.NamespaceTesting, oslatImage, nodeName))
 	RedefineWithRuntimeClass(pod, components.GetComponentName(profile.Name, components.ComponentNamePrefix))
-	RedefineWithObjectMeta(pod, "", "oslat-", map[string]string{"cpu-load-balancing.crio.io": "true", "cpu-quota.crio.io": "true"})
+	podhelper.RedefineWithObjectMeta(pod, "", "oslat-", map[string]string{"cpu-load-balancing.crio.io": "true", "cpu-quota.crio.io": "true"})
 	RedefineContainer(podhelper.RedefineWithCommand(pod, nil, nil), "container-perf-tools", "", corev1.PullAlways)
 	RedefineContainerResources(pod, strconv.Itoa(cpus), strconv.Itoa(cpus), "1Gi", "1Gi")
 	podhelper.RedefineWithVolume(pod, "cstate", "/dev/cpu_dma_latency", corev1.VolumeSource{
@@ -288,7 +221,7 @@ func DeployWorkloadPods(rtProfile *performancev2.PerformanceProfile, node *corev
 	// Determine cpu requests for oslat and stress-ng pods.
 	// stressNg cpu count is roughly 1/3.5 of total isolated cores
 	isolatedCpuSet := cpuset.MustParse(string(*rtProfile.Spec.CPU.Isolated))
-	// 1 cpu will be used by other consumer pods, such as process-exporter, ranpriv
+	// 1 cpu will be used by other consumer pods, such as process-exporter, cnfgotestpriv
 	workloadCpuCount := isolatedCpuSet.Size() - 1
 	oslatCpuCount := workloadCpuCount * 100 / 300
 	stressNgCpuCount := workloadCpuCount - oslatCpuCount
@@ -307,7 +240,7 @@ func DeployWorkloadPods(rtProfile *performancev2.PerformanceProfile, node *corev
 		Expect(err).ToNot(HaveOccurred())
 		workloadPods = append(workloadPods, pod)
 	}
-	waitForPodsHealthy(workloadPods, 15*time.Minute)
+	helper.WaitForPodsHealthy(workloadPods, 15*time.Minute)
 	log.Printf("%d oslat pods with total %d cpus are created and running", len(workloadPods), oslatCpuCount)
 
 	log.Printf("Creating up to %d stress-ng pods with total %d cpus", stressngMaxPodCount, stressNgCpuCount)
@@ -318,7 +251,7 @@ func DeployWorkloadPods(rtProfile *performancev2.PerformanceProfile, node *corev
 		Expect(err).ToNot(HaveOccurred())
 		stressngPods = append(stressngPods, pod)
 	}
-	waitForPodsHealthy(stressngPods, 20*time.Minute)
+	helper.WaitForPodsHealthy(stressngPods, 20*time.Minute)
 	log.Printf("%d stress-ng pods with total %d cpus are created and running", len(stressngPods), stressNgCpuCount)
 	return append(workloadPods, stressngPods...)
 }
@@ -334,48 +267,12 @@ func parsePodCountAndCpus(maxPodCount, cpuCount int) []int {
 	return cpus
 }
 
-// CreatePrivilegedPods creates privileged test pods on all nodes to assist testing
-// Returns a map with nodeName as key and pod pointer as value, and error if occurred.
-func CreatePrivilegedPods(image string) map[string]*corev1.Pod {
-	if image == "" {
-		config_, err := config.NewConfig()
-		Expect(err).ShouldNot(HaveOccurred())
-		image = config_.Ran.CnfTestImage
-	}
-	// Create ranpriv namespace if not alrady created
-	if !namespaces.Exists(ran.PrivPodNamespace, helper.Apiclient) {
-		log.Println("Creating namespace:", ran.PrivPodNamespace)
-		err := namespaces.Create(ran.PrivPodNamespace, helper.Apiclient)
-		Expect(err).ShouldNot(HaveOccurred())
-	}
-	// Launch priv pods on nodes with worker role so it can be successfully scheduled.
-	nodes, err := nodeshelper.GetByRole(helper.Apiclient, parameters.RoleWorker)
-	Expect(err).ShouldNot(HaveOccurred())
-	privPods := make(map[string]*corev1.Pod)
-	volumeType := corev1.HostPathUnset
-	volSource := corev1.VolumeSource{
-		HostPath: &corev1.HostPathVolumeSource{Path: "/", Type: &volumeType}}
-
-	for _, node := range nodes{
-		podName := fmt.Sprintf("%s-%s", ran.PrivPodNamespace, node.Name)
-		privilegedPod, err := helper.Apiclient.Pods(ran.PrivPodNamespace).Get(context.Background(), podName, metav1.GetOptions{})
-		if err != nil {
-			privilegedPod = podhelper.RedefineAsPrivileged(podhelper.DefinePodOnNode(ran.PrivPodNamespace, image, node.Name))
-			privilegedPod = podhelper.RedefineWithVolume(RedefineWithHostPid(privilegedPod), "rootfs", "/rootfs", volSource, false)
-			privilegedPod = helper.WaitUntilPodCreatedAndRunning(RedefineWithObjectMeta(privilegedPod, podName, "", nil), 10*time.Minute)
-		}
-		privPods[node.Name] = privilegedPod
-		waitForPodsHealthy([]*corev1.Pod{privilegedPod}, 5*time.Minute)
-	}
-	return privPods
-}
-
 // CleanupRanTestResources deletes created test resources
 func CleanupRanTestResources() {
 	// Delete process exporter if exists
 	DeleteProcessExporter()
 	// Delete ran-test namespace if exists
-	for _, ns := range []string{ran.NamespaceTesting, ran.PrivPodNamespace} {
+	for _, ns := range []string{ran.NamespaceTesting, parameters.PrivPodNamespace} {
 		if namespaces.Exists(ns, helper.Apiclient) {
 			log.Println("Deleting test namespace", ns)
 			err := namespaces.DeleteAndWait(helper.Apiclient, ns, 10*time.Minute)
@@ -383,4 +280,3 @@ func CleanupRanTestResources() {
 		}
 	}
 }
-

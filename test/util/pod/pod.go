@@ -237,6 +237,12 @@ func DeletePodAndWait(apiClient *testclient.ClientSet, podToDelete *corev1.Pod) 
 	return WaitForDeletion(apiClient, podToDelete, 3*time.Minute)
 }
 
+// RedefineWithHostPid allows a pod to have access to the host process ID namespace.
+func RedefineWithHostPid(pod *corev1.Pod) *corev1.Pod {
+	pod.Spec.HostPID = true
+	return pod
+}
+
 // RedefineWithVolume redefines a pod with a new volume and volume mount. Given volume/volume mount will be appended to existing volumes/volume mounts.
 func RedefineWithVolume(pod *corev1.Pod, volumeMountName string, mountPath string, volumeSource corev1.VolumeSource, readOnly bool) *corev1.Pod {
 	volMount := corev1.VolumeMount{Name: volumeMountName, MountPath: mountPath}
@@ -248,3 +254,17 @@ func RedefineWithVolume(pod *corev1.Pod, volumeMountName string, mountPath strin
 	return pod
 }
 
+// RedefineWithObjectMeta updates pod name/generateName and annotations
+// Use empty value "" or nil to skip a config. e.g., annotations=nil
+func RedefineWithObjectMeta(pod *corev1.Pod, name string, generateName string, annotations map[string]string) *corev1.Pod {
+	if name != "" {
+		pod.ObjectMeta.Name = name
+		pod.ObjectMeta.GenerateName = ""
+	} else if generateName != "" {
+		pod.ObjectMeta.GenerateName = generateName
+	}
+	if annotations != nil {
+		pod.ObjectMeta.Annotations = annotations
+	}
+	return pod
+}

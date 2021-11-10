@@ -14,7 +14,6 @@ import (
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/reboot/ranrebootparameters"
 	_ "gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/reboot/tests"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
@@ -59,7 +58,7 @@ var _ = BeforeSuite(func() {
 	nodeErr := nodes.WaitForNodesReady(helper.Apiclient, 1*time.Minute, 3*time.Second)
 	Expect(nodeErr).ToNot(HaveOccurred())
 	// Create privileged pods for ran testing if not already exist, and leave them on system.
-	ranhelper.CreatePrivilegedPods("")
+	helper.CreatePrivilegedPods("")
 	// Cleanup and create test namespace
 	if namespaces.Exists(ran.NamespaceTesting, helper.Apiclient) {
 		log.Println("Deleting test namespace", ran.NamespaceTesting)

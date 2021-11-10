@@ -13,21 +13,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
 )
-
-// SoftRebootNodeAndWaitForDisconnect soft reboots given node and wait for node to be unreachable
-func SoftRebootNodeAndWaitForDisconnect(node *corev1.Node) {
-	output, err := ranhelper.ExecCommandOnNodeWithHostBinaries(node, []string{"systemctl", "reboot"})
-	if err != nil {
-		// Allows 143 return code. The privileged pod we sent cmd from may have started terminating before cmd returns.
-		if !strings.Contains(err.Error(), "exit code 143") {
-			Expect(err).ShouldNot(HaveOccurred(), output)
-		}
-	}
-	waitForNodeUnreachable(node)
-}
 
 // parseBmcInfo returns bmc username, password, and hosts from environment variables if exist
 func parseBmcInfo(conf *config.Config) (bmcUser, bmcPassword string, bmcHosts []string) {
@@ -80,29 +67,9 @@ func waitForClusterUnreachable() {
 	log.Println("Lost connection to cluster")
 }
 
-// waitForNodeUnreachable waits for ping node to fail
-func waitForNodeUnreachable(node *corev1.Node) {
-	log.Println("Waiting for node to be unreachable via ping")
-	timeout := 5 * time.Minute
-	Eventually(func() bool {
-		return isNodeReachable(node)
-	}, timeout, 3*time.Second).ShouldNot(BeTrue(), fmt.Sprintf("Node %s is still reachable after %s", node.Name, timeout.String()))
-	log.Printf("Node %s is unreachable\n", node.Name)
-}
-
-// WaitForNodeReachable waits for node to be reachable via ping and returns UTC timestamp
-func WaitForNodeReachable(node *corev1.Node) {
-	log.Println("Waiting for node to be reachable via ping")
-	timeout := 15 * time.Minute
-	Eventually(func() bool {
-		return isNodeReachable(node)
-	}, timeout, 3*time.Second).Should(BeTrue(), fmt.Sprintf("Node %s is still unreachable after %s", node.Name, timeout.String()))
-	log.Printf("Node %s is reachable\n", node.Name)
-}
-
 // IsIpmitoolExist returns true if ipmitool is installed on test executor, otherwise false
 func IsIpmitoolExist() bool {
-	_, err := ranhelper.ExecAndLogCommand(true, 10*time.Second, "which", "ipmitool")
+	_, err := helper.ExecAndLogCommand(true, 10*time.Second, "which", "ipmitool")
 	return err == nil
 }
 
@@ -135,12 +102,7 @@ func getHostPowerStatus(host, user, password string) (string, error) {
 func execIpmiCommand(host, user, password string, subcommands []string) ([]byte, error) {
 	args := []string{"-I", "lanplus", "-U", user, "-P", password, "-H", host, "chassis"}
 	args = append(args, subcommands...)
-	return ranhelper.ExecAndLogCommand(true, 1*time.Minute, "ipmitool", args...)
-}
-
-func isNodeReachable(node *corev1.Node) bool {
-	_, err := ranhelper.ExecAndLogCommand(false, 20*time.Second, "ping", "-c", "3", "-W", "10", node.Name)
-	return err == nil
+	return helper.ExecAndLogCommand(true, 1*time.Minute, "ipmitool", args...)
 }
 
 // WaitForAllPodsHealthy waits for all pods on cluster or in given namespaces to be Completed or Running & Ready
@@ -215,8 +177,8 @@ func getUnhealthyPods(namespace string) (map[string]string, error) {
 		return unhealthyPods, err
 	}
 	for _, pod := range pods.Items {
-		err = ranhelper.IsPodHealthy(&pod)
-		if err != nil && ! (pod.Status.Phase == corev1.PodFailed && pod.Spec.RestartPolicy == corev1.RestartPolicyNever) {
+		err = helper.IsPodHealthy(&pod)
+		if err != nil && !(pod.Status.Phase == corev1.PodFailed && pod.Spec.RestartPolicy == corev1.RestartPolicyNever) {
 			// Ignore failed pod with restart policy never. This could happen in image pruner or installer pods that
 			// will never restart after completed. And could stuck in error in various conditions after initial completion.
 			unhealthyPods[pod.Name] = err.Error()

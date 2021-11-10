@@ -7,4 +7,6 @@ const (
 	RoleMaster = "master"
 	// RoleWorker contains the worker role
 	RoleWorker = "worker"
+	// PrivPodNamespace is the namespace for privileged pods in cnf gotests.
+	PrivPodNamespace = "cnfgotestpriv"
 )

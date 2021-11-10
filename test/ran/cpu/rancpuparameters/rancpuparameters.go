@@ -12,7 +12,7 @@ var (
 	// ReporterNamespacesToDump tells to reporter from where to collect logs
 	ReporterNamespacesToDump = map[string]string{
 		parameters.PerformanceAddonOperatorNamespace: "performance",
-		ran.NamespaceTesting: "other",
+		ran.NamespaceTesting:                         "other",
 	}
 	// ReporterCrds tells to reporter what resources to collect
 	ReporterCrds = []k8sreporter.CRData{
@@ -26,3 +26,17 @@ const (
 	RanCpuMetricInfraPods = "ranmetrics_cpu_infra_pods"
 	RanCpuMetricTotal     = "ranmetrics_cpu_total"
 )
+
+type PromQueryResponse struct {
+	Status string
+	Error  string
+	Data   struct {
+		Result []PromMetric
+	}
+}
+
+// PromMetric struct to hold an item in prom query result list
+type PromMetric struct {
+	Metric map[string]string
+	Value  []interface{}
+}

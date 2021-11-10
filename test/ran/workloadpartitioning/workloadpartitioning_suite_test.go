@@ -55,7 +55,7 @@ func TestWorkloadPartitioning(t *testing.T) {
 
 var _ = BeforeSuite(func() {
 	ranhelper.CleanupRanTestResources()
-	ranhelper.CreatePrivilegedPods("")
+	helper.CreatePrivilegedPods("")
 })
 
 var _ = AfterSuite(func() {

@@ -31,7 +31,7 @@ const (
 	// Prom query statistic representation for management cpu overhead
 	cpuOverheadStat = "namedprocess_namegroup_cpu_rate{groupname!~\"conmon\"}"
 	// Prom query statistic representation for infra pods. Assuming only oslat and stress-ng user pods are running
-	cpuInfraPodsStat      = "pod:container_cpu_usage:sum{pod!~\"process-exp.*\",pod!~\"oslat.*\",pod!~\"stress.*\",pod!~\"ranpriv.*\"}"
+	cpuInfraPodsStat      = "pod:container_cpu_usage:sum{pod!~\"process-exp.*\",pod!~\"oslat.*\",pod!~\"stress.*\",pod!~\"cnfgotestpriv.*\"}"
 	testCountWithWorkload = 4
 )
 
@@ -87,7 +87,7 @@ var _ = Describe("SNO core reduction", func() {
 
 	Context("Management CPU utilization with workload pods running", func() {
 		var (
-			workloadPods []*corev1.Pod
+			workloadPods      []*corev1.Pod
 			testExecCount     = 0
 			workloadStartTime time.Time
 		)
@@ -127,7 +127,7 @@ var _ = Describe("SNO core reduction", func() {
 
 		Context("with must-gather running", func() {
 			BeforeEach(func() {
-				if !ranhelper.IsOcExist() {
+				if !rancpuhelper.IsOcExist() {
 					Skip("oc does not exist. Cannot run must-gather command.")
 				}
 			})
@@ -137,8 +137,8 @@ var _ = Describe("SNO core reduction", func() {
 				startTime := time.Now().UTC()
 				// Sleep for 10s to account for the time between each query.
 				time.Sleep(10 * time.Second)
-				mustGatherExecDir, _, err := ranhelper.RunMustGather()
-				defer ranhelper.DeleteMustGathers(mustGatherExecDir)
+				mustGatherExecDir, _, err := rancpuhelper.RunMustGather()
+				defer rancpuhelper.DeleteMustGathers(mustGatherExecDir)
 
 				Expect(err).ToNot(HaveOccurred())
 				// Sleep for 31 seconds to ensure prometheus does not miss the last 1-30 seconds of must-gather run.
@@ -157,7 +157,7 @@ var _ = Describe("SNO core reduction", func() {
 			})
 		})
 
-		workloadDuration := ranhelper.GetEnv(ran.EnvWorkloadDuration, "8h")
+		workloadDuration := rancpuhelper.GetEnv(ran.EnvWorkloadDuration, "8h")
 		Context(fmt.Sprintf("with workload running for %s", workloadDuration), func() {
 			// 40810
 			It(fmt.Sprintf("should use less than %d core(s)", ran.SnoMgmtCoreLimit), func() {
@@ -185,14 +185,14 @@ func checkCpuUsage(duration time.Duration, mgmtCpuLimit int, scenario string) {
 	log.Println("Query max over time total mgmt cpu usage")
 	query := fmt.Sprintf("max_over_time((sum(%s)+sum(%s))[%s:30s])", cpuOverheadStat, cpuInfraPodsStat,
 		duration.String())
-	totalResult, err := ranhelper.ExecPromQuery(query, true)
+	totalResult, err := rancpuhelper.ExecPromQuery(query, true)
 	Expect(err).ShouldNot(HaveOccurred())
 	resTotal, err := strconv.ParseFloat(reflect.ValueOf(totalResult[0].Value[1]).String(), 64)
 	Expect(err).ToNot(HaveOccurred())
 
 	log.Println("Query max over time cpu usage for OS daemon")
 	query = fmt.Sprintf("max_over_time(sum(%s)[%s:30s]%s)", cpuOverheadStat, duration.String(), getOffset(timestamp))
-	nonPodResult, err := ranhelper.ExecPromQuery(query, true)
+	nonPodResult, err := rancpuhelper.ExecPromQuery(query, true)
 	Expect(err).ShouldNot(HaveOccurred())
 	nonPodCpuUsage := nonPodResult[0].Value[1]
 	resOS, err := strconv.ParseFloat(reflect.ValueOf(nonPodCpuUsage).String(), 64)
@@ -200,7 +200,7 @@ func checkCpuUsage(duration time.Duration, mgmtCpuLimit int, scenario string) {
 
 	log.Println("Query max over time cpu usage for infra pods")
 	query = fmt.Sprintf("max_over_time(sum(%s)[%s:30s]%s)", cpuInfraPodsStat, duration.String(), getOffset(timestamp))
-	podResult, err := ranhelper.ExecPromQuery(query, true)
+	podResult, err := rancpuhelper.ExecPromQuery(query, true)
 	Expect(err).ShouldNot(HaveOccurred())
 	podCpuUsage := podResult[0].Value[1]
 	resPods, err := strconv.ParseFloat(reflect.ValueOf(podCpuUsage).String(), 64)
@@ -216,13 +216,13 @@ func checkCpuUsage(duration time.Duration, mgmtCpuLimit int, scenario string) {
 	if scenario == "steadyworkload" {
 		log.Println("Query avg over time cpu usage for each infra pod")
 		query = fmt.Sprintf("avg_over_time(%s[%s:30s]%s)", cpuInfraPodsStat, duration.String(), getOffset(timestamp))
-		podBreakdown, err := ranhelper.ExecPromQuery(query, true)
+		podBreakdown, err := rancpuhelper.ExecPromQuery(query, true)
 		Expect(err).ShouldNot(HaveOccurred())
 		sortAndWriteToReport(rancpuparameters.RanCpuMetricInfraPods, podBreakdown, "avg", scenario)
 
 		log.Println("Query avg over time cpu usage for each os daemon")
 		query = fmt.Sprintf("avg_over_time(%s[%s:30s]%s)", cpuOverheadStat, duration.String(), getOffset(timestamp))
-		osBreakdown, err := ranhelper.ExecPromQuery(query, true)
+		osBreakdown, err := rancpuhelper.ExecPromQuery(query, true)
 		Expect(err).ShouldNot(HaveOccurred())
 		sortAndWriteToReport(rancpuparameters.RanCpuMetricOsDaemon, osBreakdown, "avg", scenario)
 	}
@@ -233,13 +233,13 @@ func checkCpuUsage(duration time.Duration, mgmtCpuLimit int, scenario string) {
 		log.Println("Query top 5 non-pod CPU consumers")
 		query = fmt.Sprintf("topk(5, max_over_time(%s[%s:30s] offset %s))", cpuOverheadStat, duration.String(),
 			(time.Duration(int(time.Since(timestamp).Seconds())) * time.Second).String())
-		_, err = ranhelper.ExecPromQuery(query, true)
+		_, err = rancpuhelper.ExecPromQuery(query, true)
 		Expect(err).ShouldNot(HaveOccurred())
 
 		log.Println("Query top 5 pod CPU consumers")
 		query = fmt.Sprintf("topk(5, max_over_time(%s[%s:30s] offset %s))", cpuInfraPodsStat, duration.String(),
 			(time.Duration(int(time.Since(timestamp).Seconds())) * time.Second).String())
-		_, err = ranhelper.ExecPromQuery(query, true)
+		_, err = rancpuhelper.ExecPromQuery(query, true)
 		Expect(err).ShouldNot(HaveOccurred())
 	}
 }
@@ -249,7 +249,7 @@ func repeatPromQuery(duration time.Duration) (startTime time.Time, err error) {
 	log.Printf("Repeatedly run prom query for %s: %s\n", duration.String(), query)
 	startTime = time.Now().UTC()
 	for time.Since(startTime) < duration {
-		_, err = ranhelper.ExecPromQuery(query, false)
+		_, err = rancpuhelper.ExecPromQuery(query, false)
 	}
 	return startTime, err
 }
@@ -289,7 +289,7 @@ func parseTag(tag map[string]string) (string, string) {
 }
 
 // sortAndWriteToReport sorts the metrics by podname or groupname, and write them to ginkgo report.
-func sortAndWriteToReport(metricName string, metricVals []ranhelper.PromMetric, metricType string, scenario string) {
+func sortAndWriteToReport(metricName string, metricVals []rancpuparameters.PromMetric, metricType string, scenario string) {
 	compMap := make(map[string]string)
 	var components []string
 	for _, item := range metricVals {

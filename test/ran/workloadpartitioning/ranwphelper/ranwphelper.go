@@ -39,7 +39,7 @@ func GetContainersInfo(node *corev1.Node) []ContainerInfo {
 	// Occasionally, the return will contain mal-formatted chars. Retry im case that happens.
 	for i := 1; i <= 3; i++ {
 		// The selected fields needs to match ContainersInfo struct
-		output, err = ranhelper.ExecCommandOnNodeWithHostBinaries(node, []string{"bash", "-c",
+		output, err = helper.ExecCommandOnNodeWithHostBinaries(node, []string{"bash", "-c",
 			`crictl ps --state running --quiet | xargs crictl inspect -o json | jq '. | {
 name: .status.metadata.name,
 podname: .status.labels."io.kubernetes.pod.name",
@@ -82,7 +82,7 @@ func getPids(node *corev1.Node, command string) []int {
 	// ps command via container with long output often causes SIGURG, thus redirect output to a file first.
 	command += " > /tmp/x ; cat /tmp/x"
 	for i := 1; i <= retries; i++ {
-		output, err = ranhelper.ExecCommandOnNodeWithHostBinaries(node, []string{"bash", "-c", command})
+		output, err = helper.ExecCommandOnNodeWithHostBinaries(node, []string{"bash", "-c", command})
 		Expect(err).ToNot(HaveOccurred())
 		if !strings.Contains(output, "Signal 23") {
 			break
@@ -111,7 +111,7 @@ func GetPidsAffinity(node *corev1.Node, pids []int) map[int]string {
 	}
 	pidString := strings.Join(pidStrings, " ")
 	cmd := fmt.Sprintf("pids=\"%s\"; for pid in $pids; do if [ $pid == $$ ]; then continue; fi; taskset -pc $pid; done", pidString)
-	output, _ := ranhelper.ExecCommandOnNodeWithHostBinaries(node, []string{"bash", "-c", cmd})
+	output, _ := helper.ExecCommandOnNodeWithHostBinaries(node, []string{"bash", "-c", cmd})
 	// Allow cmd to fail for transient processes. Check return content instead.
 	Expect(output).To(ContainSubstring("current affinity list"))
 
@@ -137,7 +137,7 @@ func PrintPidInfo(node *corev1.Node, pids []int) {
 		pidStrings = append(pidStrings, strconv.Itoa(pid))
 	}
 	cmd := fmt.Sprintf("ps %s", strings.Join(pidStrings, " "))
-	output, _ := ranhelper.ExecCommandOnNodeWithHostBinaries(node, []string{"bash", "-c", cmd})
+	output, _ := helper.ExecCommandOnNodeWithHostBinaries(node, []string{"bash", "-c", cmd})
 	log.Println(output)
 }
 

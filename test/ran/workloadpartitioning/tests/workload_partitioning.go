@@ -27,7 +27,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 )
 
-var TestNamespaces = sets.NewString(ran.NamespaceTesting, ran.PrivPodNamespace)
+var TestNamespaces = sets.NewString(ran.NamespaceTesting, parameters.PrivPodNamespace)
 
 var _ = Describe("SNO management workload partitioning", func() {
 	var (
@@ -381,7 +381,7 @@ func checkCpuShares(containersInfo []ranwphelper.ContainerInfo) {
 
 // isTestPod checks if a pod is created by automated test. i.e., not a default management pod.
 func isTestPod(podName, namespace string) bool {
-	if TestNamespaces.Has(namespace) || strings.HasPrefix(podName, ran.PrivPodNamespace) ||
+	if TestNamespaces.Has(namespace) || strings.HasPrefix(podName, parameters.PrivPodNamespace) ||
 		strings.HasPrefix(podName, "process-exporter") {
 		return true
 	}

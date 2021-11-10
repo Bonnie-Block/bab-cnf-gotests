@@ -3,18 +3,25 @@ package helper
 import (
 	"context"
 	"fmt"
+	"log"
+	"os/exec"
 	"strings"
 	"time"
 
 	. "github.com/onsi/gomega"
 	v1 "github.com/openshift/machine-config-operator/pkg/apis/machineconfiguration.openshift.io/v1"
 
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/machineconfigpool"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
+	nodeshelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
+	podUtil "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
+	corev1 "k8s.io/api/core/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	sigClient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -154,4 +161,177 @@ func GetNodeListStringByLabel(labelNodeRole string) []string {
 		nodeListString = append(nodeListString, node.Name)
 	}
 	return nodeListString
+}
+
+// ExecAndLogCommand Execute a command locally.
+// Usage: This can be used to issue any bash cmd or oc command assuming KUBECONFIG is set properly.
+func ExecAndLogCommand(logCommand bool, timeout time.Duration, name string, arg ...string) ([]byte, error) {
+	// Create a new context and add a timeout to it
+	if timeout <= 0 {
+		timeout = 2 * time.Minute
+	}
+	ctx, cancel := context.WithTimeout(context.TODO(), timeout)
+	defer cancel() // The cancel should be deferred so resources are cleaned up
+
+	if logCommand {
+		log.Printf("run command '%s %v'", name, arg)
+	}
+	out, err := exec.CommandContext(ctx, name, arg...).Output()
+
+	// We want to check the context error to see if the timeout was executed.
+	// The error returned by cmd.Output() will be OS specific based on what
+	// happens when a process is killed.
+	if ctx.Err() == context.DeadlineExceeded {
+		return nil, fmt.Errorf("command '%s %v' failed because of the timeout", name, arg)
+	}
+
+	if logCommand {
+		if exitError, ok := err.(*exec.ExitError); ok {
+			log.Printf("err=%v:\n  stderr=%s\n  output=%s\n", err, exitError.Stderr, string(out))
+		}
+	}
+	return out, err
+}
+
+// ExecCommandOnNode executes given command on given node and returns the result
+// Usage: This can be used to issue a command on given node
+func ExecCommandOnNode(node *corev1.Node, cmd []string) (string, error) {
+	podName := fmt.Sprintf("%s-%s", parameters.PrivPodNamespace, node.Name)
+	pod, err := Apiclient.Pods(parameters.PrivPodNamespace).Get(context.Background(), podName, metav1.GetOptions{})
+	if err != nil {
+		return "", err
+	}
+	log.Printf("Exec command on %s: %v\n", node.Name, cmd)
+	out, err := podUtil.ExecCommand(Apiclient, *pod, cmd)
+	return strings.Trim(out.String(), "\n"), err
+}
+
+// ExecCommandOnNodeWithHostBinaries executes given command that uses host binaries on given node and returns the result
+// Usage: This can be used to issue a command on given node that requires using host binaries, such as crictl, podman.
+func ExecCommandOnNodeWithHostBinaries(node *corev1.Node, command []string) (string, error) {
+	initialArgs := []string{
+		"chroot",
+		"/rootfs",
+	}
+	initialArgs = append(initialArgs, command...)
+	return ExecCommandOnNode(node, initialArgs)
+}
+
+// SoftRebootNodeAndWaitForDisconnect soft reboots given node and wait for node to be unreachable
+func SoftRebootNodeAndWaitForDisconnect(node *corev1.Node) {
+	output, err := ExecCommandOnNodeWithHostBinaries(node, []string{"systemctl", "reboot"})
+	if err != nil {
+		// Allows 143 return code. The privileged pod we sent cmd from may have started terminating before cmd returns.
+		if !strings.Contains(err.Error(), "exit code 143") {
+			Expect(err).ShouldNot(HaveOccurred(), output)
+		}
+	}
+	waitForNodeUnreachable(node)
+}
+
+// waitForNodeUnreachable waits for ping node to fail
+func waitForNodeUnreachable(node *corev1.Node) {
+	log.Printf("Waiting for node %s to be unreachable via ping", node.Name)
+	timeout := 5 * time.Minute
+	Eventually(func() bool {
+		return isNodeReachable(node)
+	}, timeout, 3*time.Second).ShouldNot(BeTrue(), fmt.Sprintf("Node %s is still reachable after %s", node.Name, timeout.String()))
+	log.Printf("Node %s is unreachable\n", node.Name)
+}
+
+// WaitForNodeReachable waits for node to be reachable via ping and returns UTC timestamp
+func WaitForNodeReachable(node *corev1.Node) {
+	log.Println("Waiting for node to be reachable via ping")
+	timeout := 15 * time.Minute
+	Eventually(func() bool {
+		return isNodeReachable(node)
+	}, timeout, 3*time.Second).Should(BeTrue(), fmt.Sprintf("Node %s is still unreachable after %s", node.Name, timeout.String()))
+	log.Printf("Node %s is reachable\n", node.Name)
+}
+
+func isNodeReachable(node *corev1.Node) bool {
+	_, err := ExecAndLogCommand(false, 20*time.Second, "ping", "-c", "3", "-W", "10", node.Name)
+	return err == nil
+}
+
+// CreatePrivilegedPods creates privileged test pods on all nodes to assist testing
+// Returns a map with nodeName as key and pod pointer as value, and error if occurred.
+func CreatePrivilegedPods(image string) map[string]*corev1.Pod {
+	if image == "" {
+		config_, err := config.NewConfig()
+		Expect(err).ShouldNot(HaveOccurred())
+		image = config_.Ran.CnfTestImage
+	}
+	// Create ranpriv namespace if not alrady created
+	if !namespaces.Exists(parameters.PrivPodNamespace, Apiclient) {
+		log.Println("Creating namespace:", parameters.PrivPodNamespace)
+		err := namespaces.Create(parameters.PrivPodNamespace, Apiclient)
+		Expect(err).ShouldNot(HaveOccurred())
+	}
+	// Launch priv pods on nodes with worker role so it can be successfully scheduled.
+	nodes, err := nodeshelper.GetByRole(Apiclient, parameters.RoleWorker)
+	Expect(err).ShouldNot(HaveOccurred())
+	privPods := make(map[string]*corev1.Pod)
+	volumeType := corev1.HostPathUnset
+	volSource := corev1.VolumeSource{
+		HostPath: &corev1.HostPathVolumeSource{Path: "/", Type: &volumeType}}
+
+	for _, node := range nodes {
+		podName := fmt.Sprintf("%s-%s", parameters.PrivPodNamespace, node.Name)
+		privilegedPod, err := Apiclient.Pods(parameters.PrivPodNamespace).Get(context.Background(), podName, metav1.GetOptions{})
+		if err != nil {
+			privilegedPod = pod.RedefineAsPrivileged(pod.DefinePodOnNode(parameters.PrivPodNamespace, image, node.Name))
+			privilegedPod = pod.RedefineWithVolume(pod.RedefineWithHostPid(privilegedPod), "rootfs", "/rootfs", volSource, false)
+			privilegedPod = WaitUntilPodCreatedAndRunning(pod.RedefineWithObjectMeta(privilegedPod, podName, "", nil), 10*time.Minute)
+		}
+		privPods[node.Name] = privilegedPod
+		WaitForPodsHealthy([]*corev1.Pod{privilegedPod}, 5*time.Minute)
+	}
+	return privPods
+}
+
+// WaitForPodsHealthy waits for given pods to appear and healthy
+func WaitForPodsHealthy(pods []*corev1.Pod, timeout time.Duration) {
+	Eventually(func() error {
+		for _, pod := range pods {
+			tempPod, err := Apiclient.Pods(pod.Namespace).Get(
+				context.Background(),
+				pod.Name,
+				metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			err = IsPodHealthy(tempPod)
+			if err != nil && !(pod.Status.Phase == corev1.PodFailed && pod.Spec.RestartPolicy == corev1.RestartPolicyNever) {
+				// Ignore failed pod with restart policy never. This could happen in image pruner or installer pods that
+				// will never restart after completed. And could stuck in error in various conditions after initial completion.
+				return err
+			}
+		}
+		return nil
+	}, timeout, 3*time.Second).ShouldNot(HaveOccurred())
+}
+
+// IsPodHealthy returns nil if given pod is healthy, otherwise an error.
+func IsPodHealthy(pod *corev1.Pod) error {
+	if pod.Status.Phase == corev1.PodRunning {
+		// Check if running pod is ready
+		if !isPodInCondition(pod, corev1.PodReady) {
+			return fmt.Errorf("Pod condition is not Ready. Message: %s", pod.Status.Message)
+		}
+	} else if pod.Status.Phase != corev1.PodSucceeded {
+		// Pod is not running or completed.
+		return fmt.Errorf("Pod phase is %s. Message: %s", pod.Status.Phase, pod.Status.Message)
+	}
+	return nil
+}
+
+// isPodInCondition returns true if given pod is in expected condition, otherwise false.
+func isPodInCondition(pod *corev1.Pod, condition corev1.PodConditionType) bool {
+	for _, c := range pod.Status.Conditions {
+		if c.Type == condition && c.Status == corev1.ConditionTrue {
+			return true
+		}
+	}
+	return false
 }
