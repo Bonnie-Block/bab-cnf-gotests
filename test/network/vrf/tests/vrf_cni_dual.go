@@ -11,8 +11,8 @@ import (
 	netattdefv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	generalHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/vrf/networkvrfhelper"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/vrf/parameters"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/vrf/netvrfhelper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/vrf/netvrfparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
@@ -20,7 +20,7 @@ import (
 
 var _ = Describe("CNF VRF", func() {
 
-	describe := networkvrfhelper.DescribeParameters
+	describe := netvrfhelper.DescribeParameters
 
 	var (
 		nodeListString []string
@@ -34,23 +34,23 @@ var _ = Describe("CNF VRF", func() {
 	execute.BeforeAll(func() {
 		nodeListString = generalHelper.GetNodeListStringByLabel(strings.Split(config.General.CnfNodeLabel, "/")[1])
 
-		By(fmt.Sprintf("Create %s namespace", parameters.TestNamespace))
-		err = namespaces.Create(parameters.TestNamespace, generalHelper.Apiclient)
+		By(fmt.Sprintf("Create %s namespace", netvrfparameters.TestNamespace))
+		err = namespaces.Create(netvrfparameters.TestNamespace, generalHelper.Apiclient)
 		if err != nil {
-			testFail = fmt.Sprintf("Error to create namespace %s: %s", parameters.TestNamespace, err)
+			testFail = fmt.Sprintf("Error to create namespace %s: %s", netvrfparameters.TestNamespace, err)
 			Expect(err).ToNot(HaveOccurred(), testFail)
 		}
-		validMacVlanInterfaces := networkvrfhelper.GetNodeValidMacVlanInterface(nodeListString[0], config, 2)
+		validMacVlanInterfaces := netvrfhelper.GetNodeValidMacVlanInterface(nodeListString[0], config, 2)
 
 		By("Adding NADs")
-		vrfBlue = networkvrfhelper.AddVRFNad(
+		vrfBlue = netvrfhelper.AddVRFNad(
 			"test-vrf-blue",
 			validMacVlanInterfaces[0].Name,
-			parameters.VRFBlueName)
-		vrfRed = networkvrfhelper.AddVRFNad(
+			netvrfparameters.VRFBlueName)
+		vrfRed = netvrfhelper.AddVRFNad(
 			"test-vrf-red",
 			validMacVlanInterfaces[1].Name,
-			parameters.VRFRedName)
+			netvrfparameters.VRFRedName)
 	})
 
 	BeforeEach(func() {
@@ -58,13 +58,13 @@ var _ = Describe("CNF VRF", func() {
 			Fail(testFail)
 		}
 		By("Cleaning up resources before test")
-		err := namespaces.CleanPods(parameters.TestNamespace, generalHelper.Apiclient)
+		err := namespaces.CleanPods(netvrfparameters.TestNamespace, generalHelper.Apiclient)
 		Expect(err).ToNot(HaveOccurred())
 	})
 	//36306
 	DescribeTable("Integration: NAD, IPAM: static, Interfaces: 2, Scheme: 2 Pods 2 VRFs network overlap",
 		func(node string, ipStack string) {
-			networkvrfhelper.TestVRFScenario(
+			netvrfhelper.TestVRFScenario(
 				node,
 				ipStack,
 				"overLapToVRF",
@@ -73,15 +73,15 @@ var _ = Describe("CNF VRF", func() {
 				vrfBlue.Name,
 				vrfRed.Name)
 		},
-		Entry(describe, parameters.SameNode, parameters.IPStackIPv4),
-		Entry(describe, parameters.DiffNode, parameters.IPStackIPv4),
-		Entry(describe, parameters.SameNode, parameters.IPStackIPv6),
-		Entry(describe, parameters.DiffNode, parameters.IPStackIPv6),
+		Entry(describe, netvrfparameters.SameNode, netvrfparameters.IPStackIPv4),
+		Entry(describe, netvrfparameters.DiffNode, netvrfparameters.IPStackIPv4),
+		Entry(describe, netvrfparameters.SameNode, netvrfparameters.IPStackIPv6),
+		Entry(describe, netvrfparameters.DiffNode, netvrfparameters.IPStackIPv6),
 	)
 	//36314
 	DescribeTable("Integration: NAD, IPAM: static, Interfaces: 2, Scheme: 2 Pods 2 VRFs Different IP networks",
 		func(node string, ipStack string) {
-			networkvrfhelper.TestVRFScenario(
+			netvrfhelper.TestVRFScenario(
 				node,
 				ipStack,
 				"nonOverLap",
@@ -90,15 +90,15 @@ var _ = Describe("CNF VRF", func() {
 				vrfBlue.Name,
 				vrfRed.Name)
 		},
-		Entry(describe, parameters.SameNode, parameters.IPStackIPv4),
-		Entry(describe, parameters.DiffNode, parameters.IPStackIPv4),
-		Entry(describe, parameters.SameNode, parameters.IPStackIPv6),
-		Entry(describe, parameters.DiffNode, parameters.IPStackIPv6),
+		Entry(describe, netvrfparameters.SameNode, netvrfparameters.IPStackIPv4),
+		Entry(describe, netvrfparameters.DiffNode, netvrfparameters.IPStackIPv4),
+		Entry(describe, netvrfparameters.SameNode, netvrfparameters.IPStackIPv6),
+		Entry(describe, netvrfparameters.DiffNode, netvrfparameters.IPStackIPv6),
 	)
 	//36300
 	DescribeTable("Integration: NAD, IPAM: static, Interfaces: 2, Scheme: 2 Pods 2 VRFs OCP Primary network overlap",
 		func(node string, ipStack string) {
-			networkvrfhelper.TestVRFScenario(
+			netvrfhelper.TestVRFScenario(
 				node,
 				ipStack,
 				"overLapToSDN",
@@ -107,7 +107,7 @@ var _ = Describe("CNF VRF", func() {
 				vrfBlue.Name,
 				vrfRed.Name)
 		},
-		Entry(describe, parameters.SameNode, parameters.IPStackIPv4),
-		Entry(describe, parameters.DiffNode, parameters.IPStackIPv4),
+		Entry(describe, netvrfparameters.SameNode, netvrfparameters.IPStackIPv4),
+		Entry(describe, netvrfparameters.DiffNode, netvrfparameters.IPStackIPv4),
 	)
 })

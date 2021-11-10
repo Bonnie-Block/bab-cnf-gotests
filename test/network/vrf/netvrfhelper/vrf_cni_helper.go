@@ -1,4 +1,4 @@
-package networkvrfhelper
+package netvrfhelper
 
 import (
 	"context"
@@ -12,7 +12,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	generalHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/vrf/parameters"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/vrf/netvrfparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 )
@@ -29,7 +29,6 @@ func GetNodeValidMacVlanInterface(nodeName string, config *config.Config, reques
 			macVlanInterfaces = append(macVlanInterfaces, oneInterface)
 		}
 	}
-
 	validMacVlanInterfaces, err := getNodeInterfaces(config, macVlanInterfaces, requestNumber)
 	Expect(err).ToNot(HaveOccurred())
 
@@ -41,7 +40,7 @@ func AddVRFNad(nadName string, ifName string, vrfName string) netattdefv1.Networ
 	vrfDefinition := netattdefv1.NetworkAttachmentDefinition{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: nadName,
-			Namespace:    parameters.TestNamespace,
+			Namespace:    netvrfparameters.TestNamespace,
 		},
 		Spec: netattdefv1.NetworkAttachmentDefinitionSpec{
 			Config: fmt.Sprintf(

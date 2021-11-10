@@ -1,4 +1,4 @@
-package networkvrfhelper
+package netvrfhelper
 
 import (
 	"context"
@@ -15,7 +15,7 @@ import (
 	sriovv1 "github.com/k8snetworkplumbingwg/sriov-network-operator/api/v1"
 	generalHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	networkHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/helper"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/vrf/parameters"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/vrf/netvrfparameters"
 	generalParam "gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/cluster"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
@@ -33,10 +33,10 @@ func DefineSriovNetworkMetaPluginsVRFConfig(VRFName string) func(network *sriovv
 // CleanResources removes all pods from vrf test namespace
 func CleanResources() {
 	By("Cleaning up resources before test")
-	err := namespaces.CleanPods(parameters.TestNamespace, generalHelper.Apiclient)
+	err := namespaces.CleanPods(netvrfparameters.TestNamespace, generalHelper.Apiclient)
 	Expect(err).ToNot(HaveOccurred())
 	Eventually(func() bool {
-		podsList, err := generalHelper.Apiclient.Pods(parameters.TestNamespace).List(
+		podsList, err := generalHelper.Apiclient.Pods(netvrfparameters.TestNamespace).List(
 			context.Background(), metav1.ListOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		if len(podsList.Items) > 0 {
@@ -54,17 +54,17 @@ func SetupSriovBeforeAll(config *config.Config, sriovInfos *cluster.EnabledNodes
 		snoTimeoutMultiplier time.Duration = 1
 	)
 	requestedIntefcace := 1
-	resourceNameRange = []string{parameters.ResourceNameVRF}
-	resourceNameVrfRed := parameters.ResourceNameVRF
-	resourceNameVrfBlue := parameters.ResourceNameVRF
+	resourceNameRange = []string{netvrfparameters.ResourceNameVRF}
+	resourceNameVrfRed := netvrfparameters.ResourceNameVRF
+	resourceNameVrfBlue := netvrfparameters.ResourceNameVRF
 	sriovNetworkInterfaceIndexRed := 0
 	sriovNetworkInterfaceIndexBlue := 0
 
 	if dual {
-		resourceNameRange = []string{parameters.ResourceNameVRFVf1, parameters.ResourceNameVRFVf2}
+		resourceNameRange = []string{netvrfparameters.ResourceNameVRFVf1, netvrfparameters.ResourceNameVRFVf2}
 		requestedIntefcace = 2
-		resourceNameVrfRed = parameters.ResourceNameVRFVf1
-		resourceNameVrfBlue = parameters.ResourceNameVRFVf2
+		resourceNameVrfRed = netvrfparameters.ResourceNameVRFVf1
+		resourceNameVrfBlue = netvrfparameters.ResourceNameVRFVf2
 		sriovNetworkInterfaceIndexRed = 0
 		sriovNetworkInterfaceIndexBlue = 1
 	}
@@ -85,15 +85,15 @@ func SetupSriovBeforeAll(config *config.Config, sriovInfos *cluster.EnabledNodes
 	validSriovInterfaces, err := config.GetSriovInterfaces(sriovInterfaces, requestedIntefcace)
 	Expect(err).ToNot(HaveOccurred())
 
-	By(fmt.Sprintf("Clean test namespace %s", parameters.TestNamespace))
+	By(fmt.Sprintf("Clean test namespace %s", netvrfparameters.TestNamespace))
 	namespaces.Clean(
 		generalParam.SriovOperatorNamespace,
-		parameters.TestNamespace,
+		netvrfparameters.TestNamespace,
 		generalHelper.Apiclient,
 		false)
 
 	By("Waiting until SRIOV become stable")
-	generalHelper.WaitForSRIOVStable(generalParam.SriovOperatorNamespace, parameters.WaitingTime, snoTimeoutMultiplier)
+	generalHelper.WaitForSRIOVStable(generalParam.SriovOperatorNamespace, netvrfparameters.WaitingTime, snoTimeoutMultiplier)
 
 	By("Verify Node Interface Naming Convention")
 	err = networkHelper.CompareNodeSriovInterfaces(sriovInfos)
@@ -103,7 +103,7 @@ func SetupSriovBeforeAll(config *config.Config, sriovInfos *cluster.EnabledNodes
 	var sriovPolicyList []*sriovv1.SriovNetworkNodePolicy
 	for idx, resourceName := range resourceNameRange {
 		sriovPolicyList = append(sriovPolicyList, generalHelper.DefineSriovPolicy(
-			fmt.Sprintf("%s%d", parameters.SriovPolicyName, idx),
+			fmt.Sprintf("%s%d", netvrfparameters.SriovPolicyName, idx),
 			generalParam.SriovOperatorNamespace,
 			validSriovInterfaces[idx],
 			5,
@@ -122,27 +122,27 @@ func SetupSriovBeforeAll(config *config.Config, sriovInfos *cluster.EnabledNodes
 	err = networkHelper.CreateSriovNetwork(
 		generalHelper.Apiclient,
 		sriovInterfaces[sriovNetworkInterfaceIndexRed],
-		parameters.TestSriovNetworkRed,
-		parameters.TestNamespace,
+		netvrfparameters.TestSriovNetworkRed,
+		netvrfparameters.TestNamespace,
 		generalParam.SriovOperatorNamespace,
 		resourceNameVrfRed,
 		ipam,
-		DefineSriovNetworkMetaPluginsVRFConfig(parameters.VRFRedName))
+		DefineSriovNetworkMetaPluginsVRFConfig(netvrfparameters.VRFRedName))
 	Expect(err).ToNot(HaveOccurred())
 
 	err = networkHelper.CreateSriovNetwork(
 		generalHelper.Apiclient,
 		sriovInterfaces[sriovNetworkInterfaceIndexBlue],
-		parameters.TestSriovNetworkBlue,
-		parameters.TestNamespace,
+		netvrfparameters.TestSriovNetworkBlue,
+		netvrfparameters.TestNamespace,
 		generalParam.SriovOperatorNamespace,
 		resourceNameVrfBlue,
 		ipam,
-		DefineSriovNetworkMetaPluginsVRFConfig(parameters.VRFBlueName))
+		DefineSriovNetworkMetaPluginsVRFConfig(netvrfparameters.VRFBlueName))
 	Expect(err).ToNot(HaveOccurred())
 
 	By("Waiting until SRIOV become stable")
-	generalHelper.WaitForSRIOVStable(generalParam.SriovOperatorNamespace, parameters.WaitingTime, snoTimeoutMultiplier)
+	generalHelper.WaitForSRIOVStable(generalParam.SriovOperatorNamespace, netvrfparameters.WaitingTime, snoTimeoutMultiplier)
 
 	By("Waiting until SRIOV resources become available")
 	generalHelper.ValidateSriovVFsAvailableOnNodes(
@@ -151,14 +151,14 @@ func SetupSriovBeforeAll(config *config.Config, sriovInfos *cluster.EnabledNodes
 		5)
 
 	By("Waiting until SRIOV-NAD become available")
-	for _, sriovNetworkName := range []string{parameters.TestSriovNetworkRed, parameters.TestSriovNetworkBlue} {
+	for _, sriovNetworkName := range []string{netvrfparameters.TestSriovNetworkRed, netvrfparameters.TestSriovNetworkBlue} {
 		Eventually(func() error {
 			netAttDef := &netattdefv1.NetworkAttachmentDefinition{}
 			return generalHelper.Apiclient.Get(
 				context.Background(),
 				runtimeclient.ObjectKey{
 					Name:      sriovNetworkName,
-					Namespace: parameters.TestNamespace},
+					Namespace: netvrfparameters.TestNamespace},
 				netAttDef)
 		}, 60*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 	}

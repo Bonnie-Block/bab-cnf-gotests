@@ -8,8 +8,8 @@ import (
 	. "github.com/onsi/gomega"
 
 	generalHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/vrf/networkvrfhelper"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/vrf/parameters"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/vrf/netvrfhelper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/vrf/netvrfparameters"
 	generalParam "gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/cluster"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
@@ -18,7 +18,7 @@ import (
 
 var _ = Describe("CNF VRF", func() {
 
-	describe := networkvrfhelper.DescribeParameters
+	describe := netvrfhelper.DescribeParameters
 
 	var (
 		sriovInfos *cluster.EnabledNodes
@@ -34,65 +34,65 @@ var _ = Describe("CNF VRF", func() {
 			testFail = fmt.Sprintf("Error discover SRIOV node info: %s", err)
 			Expect(err).ToNot(HaveOccurred(), testFail)
 		}
-		networkvrfhelper.SetupSriovBeforeAll(config, sriovInfos, false)
+		netvrfhelper.SetupSriovBeforeAll(config, sriovInfos, false)
 	})
 
 	BeforeEach(func() {
 		if testFail != "" {
 			Fail(testFail)
 		}
-		networkvrfhelper.CleanResources()
+		netvrfhelper.CleanResources()
 	})
 
 	//36303
 	DescribeTable("Integration: SRIOV, IPAM: static, Interfaces: 1, Scheme: 2 Pods 2 VRFs OCP Primary network overlap",
 		func(node string, ipStack string) {
-			networkvrfhelper.TestVRFScenario(
+			netvrfhelper.TestVRFScenario(
 				node,
 				ipStack,
 				"overLapToSDN",
 				config,
 				sriovInfos.Nodes,
-				parameters.TestSriovNetworkBlue,
-				parameters.TestSriovNetworkRed)
+				netvrfparameters.TestSriovNetworkBlue,
+				netvrfparameters.TestSriovNetworkRed)
 		},
-		Entry(describe, parameters.SameNode, parameters.IPStackIPv4),
-		Entry(describe, parameters.DiffNode, parameters.IPStackIPv4),
+		Entry(describe, netvrfparameters.SameNode, netvrfparameters.IPStackIPv4),
+		Entry(describe, netvrfparameters.DiffNode, netvrfparameters.IPStackIPv4),
 	)
 
 	// 36311
 	DescribeTable("Integration: SRIOV, IPAM: static, Interfaces: 1, Scheme: 2 Pods 2 VRFs ip network overlap",
 		func(node string, ipStack string) {
-			networkvrfhelper.TestVRFScenario(
+			netvrfhelper.TestVRFScenario(
 				node,
 				ipStack,
 				"overLapToVRF",
 				config,
 				sriovInfos.Nodes,
-				parameters.TestSriovNetworkBlue,
-				parameters.TestSriovNetworkRed)
+				netvrfparameters.TestSriovNetworkBlue,
+				netvrfparameters.TestSriovNetworkRed)
 		},
-		Entry(describe, parameters.SameNode, parameters.IPStackIPv4),
-		Entry(describe, parameters.DiffNode, parameters.IPStackIPv4),
-		Entry(describe, parameters.SameNode, parameters.IPStackIPv6),
-		Entry(describe, parameters.DiffNode, parameters.IPStackIPv6),
+		Entry(describe, netvrfparameters.SameNode, netvrfparameters.IPStackIPv4),
+		Entry(describe, netvrfparameters.DiffNode, netvrfparameters.IPStackIPv4),
+		Entry(describe, netvrfparameters.SameNode, netvrfparameters.IPStackIPv6),
+		Entry(describe, netvrfparameters.DiffNode, netvrfparameters.IPStackIPv6),
 	)
 
 	// 36319
 	DescribeTable("Integration: SRIOV, IPAM: static, Interfaces: 1, Scheme: 2 Pods 2 VRFs Different IP networks",
 		func(node string, ipStack string) {
-			networkvrfhelper.TestVRFScenario(
+			netvrfhelper.TestVRFScenario(
 				node,
 				ipStack,
 				"nonOverLap",
 				config,
 				sriovInfos.Nodes,
-				parameters.TestSriovNetworkBlue,
-				parameters.TestSriovNetworkRed)
+				netvrfparameters.TestSriovNetworkBlue,
+				netvrfparameters.TestSriovNetworkRed)
 		},
-		Entry(describe, parameters.SameNode, parameters.IPStackIPv4),
-		Entry(describe, parameters.DiffNode, parameters.IPStackIPv4),
-		Entry(describe, parameters.SameNode, parameters.IPStackIPv6),
-		Entry(describe, parameters.DiffNode, parameters.IPStackIPv6),
+		Entry(describe, netvrfparameters.SameNode, netvrfparameters.IPStackIPv4),
+		Entry(describe, netvrfparameters.DiffNode, netvrfparameters.IPStackIPv4),
+		Entry(describe, netvrfparameters.SameNode, netvrfparameters.IPStackIPv6),
+		Entry(describe, netvrfparameters.DiffNode, netvrfparameters.IPStackIPv6),
 	)
 })

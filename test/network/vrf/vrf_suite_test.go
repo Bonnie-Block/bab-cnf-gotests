@@ -11,7 +11,7 @@ import (
 	"github.com/onsi/ginkgo/reporters"
 	. "github.com/onsi/gomega"
 	generalHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/vrf/parameters"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/vrf/netvrfparameters"
 	_ "gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/vrf/tests"
 	generalParameters "gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
@@ -39,8 +39,8 @@ func TestVrf(t *testing.T) {
 	if dumpFile != "" {
 		reporter, err := testutils.NewReporter(
 			dumpFile,
-			parameters.ReporterNamespacesToDump,
-			parameters.ReporterCrds)
+			netvrfparameters.ReporterNamespacesToDump,
+			netvrfparameters.ReporterCrds)
 		if err != nil {
 			log.Fatalf("Failed to create log reporter %s", err)
 		}
@@ -53,13 +53,13 @@ var _ = BeforeSuite(func() {
 	configuration, err := config.NewConfig()
 	Expect(err).ToNot(HaveOccurred())
 	generalHelper.PullTestImage(configuration.General.CnfNodeLabel, configuration.Network.TestContainerImage)
-	By(fmt.Sprintf("Create %s namespace", parameters.TestNamespace))
-	err = namespaces.Create(parameters.TestNamespace, generalHelper.Apiclient)
+	By(fmt.Sprintf("Create %s namespace", netvrfparameters.TestNamespace))
+	err = namespaces.Create(netvrfparameters.TestNamespace, generalHelper.Apiclient)
 	Expect(err).ToNot(HaveOccurred())
 })
 
 var _ = AfterSuite(func() {
-	By(fmt.Sprintf("Clean test namespace %s", parameters.TestNamespace))
+	By(fmt.Sprintf("Clean test namespace %s", netvrfparameters.TestNamespace))
 	var snoTimeoutMultiplier time.Duration = 1
 	isSingleNode, err := nodes.IsSingleNodeCluster(generalHelper.Apiclient)
 	Expect(err).ToNot(HaveOccurred())
@@ -69,10 +69,10 @@ var _ = AfterSuite(func() {
 	}
 	err = namespaces.Clean(
 		generalParameters.SriovOperatorNamespace,
-		parameters.TestNamespace,
+		netvrfparameters.TestNamespace,
 		generalHelper.Apiclient, false)
 	Expect(err).ToNot(HaveOccurred())
-	err = namespaces.DeleteAndWait(generalHelper.Apiclient, parameters.TestNamespace, timeout)
+	err = namespaces.DeleteAndWait(generalHelper.Apiclient, netvrfparameters.TestNamespace, timeout)
 	Expect(err).ToNot(HaveOccurred())
 	By("Waiting until SRIOV become stable")
 	generalHelper.WaitForSRIOVStable(generalParameters.SriovOperatorNamespace, waitingTime, snoTimeoutMultiplier)
