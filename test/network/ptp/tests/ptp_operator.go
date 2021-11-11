@@ -17,7 +17,7 @@ import (
 	ptpv1 "github.com/openshift/ptp-operator/pkg/apis/ptp/v1"
 
 	. "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
-	ptp_parameters "gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/ptp/parameters"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/ptp/netptpparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
@@ -112,7 +112,7 @@ var _ = Describe("PTP", func() {
 })
 
 func configurePTP() {
-	err := CleanAllPtpConfig(parameters.PtpOperatorNamespace, ptp_parameters.PtpGrandmasterNodeLabel, ptp_parameters.PtpSlaveNodeLabel)
+	err := CleanAllPtpConfig(parameters.PtpOperatorNamespace, netptpparameters.PtpGrandmasterNodeLabel, netptpparameters.PtpSlaveNodeLabel)
 	Expect(err).ToNot(HaveOccurred())
 
 	ptpNodes, err := PtpEnabled(parameters.PtpOperatorNamespace)
@@ -121,12 +121,12 @@ func configurePTP() {
 
 	By("Labeling the grandmaster node")
 	ptpGrandMasterNode := ptpNodes[0]
-	ptpGrandMasterNode.NodeObject, err = nodes.LabelNode(Apiclient, ptpGrandMasterNode.NodeName, ptp_parameters.PtpGrandmasterNodeLabel, "")
+	ptpGrandMasterNode.NodeObject, err = nodes.LabelNode(Apiclient, ptpGrandMasterNode.NodeName, netptpparameters.PtpGrandmasterNodeLabel, "")
 	Expect(err).ToNot(HaveOccurred())
 
 	By("Labeling the slave node")
 	ptpSlaveNode := ptpNodes[1]
-	ptpSlaveNode.NodeObject, err = nodes.LabelNode(Apiclient, ptpSlaveNode.NodeName, ptp_parameters.PtpSlaveNodeLabel, "")
+	ptpSlaveNode.NodeObject, err = nodes.LabelNode(Apiclient, ptpSlaveNode.NodeName, netptpparameters.PtpSlaveNodeLabel, "")
 	Expect(err).ToNot(HaveOccurred())
 
 	By("Creating the policy for the grandmaster node")
@@ -140,20 +140,20 @@ func configurePTP() {
 	}, 5*time.Minute, 2*time.Second).ShouldNot(HaveOccurred(), "Error to collect ptp supported interfaces")
 	Expect(len(validPtpInterfaces)).To(Equal(2), "Expect 2 ptp supported interfaces")
 
-	err = createConfigMultipleInterfaces(ptp_parameters.PtpGrandMasterPolicyNameArr,
+	err = createConfigMultipleInterfaces(netptpparameters.PtpGrandMasterPolicyNameArr,
 		validPtpInterfaces,
 		"-2",
 		"-a -r -r",
-		ptp_parameters.PtpGrandmasterNodeLabel,
+		netptpparameters.PtpGrandmasterNodeLabel,
 		pointer.Int64Ptr(5))
 	Expect(err).ToNot(HaveOccurred())
 
 	By("Creating the policy for the slave node")
-	err = createConfigMultipleInterfaces(ptp_parameters.PtpSlavePolicyNameArr,
+	err = createConfigMultipleInterfaces(netptpparameters.PtpSlavePolicyNameArr,
 		validPtpInterfaces,
 		"-s -2",
 		"-a -r",
-		ptp_parameters.PtpSlaveNodeLabel,
+		netptpparameters.PtpSlaveNodeLabel,
 		pointer.Int64Ptr(5))
 	Expect(err).ToNot(HaveOccurred())
 

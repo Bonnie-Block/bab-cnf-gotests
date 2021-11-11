@@ -1,4 +1,4 @@
-package parameters
+package netptpparameters
 
 const (
 	PtpSlaveNodeLabel       = "ptp/test-slave"
