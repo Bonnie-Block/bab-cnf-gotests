@@ -216,7 +216,9 @@ func getUnhealthyPods(namespace string) (map[string]string, error) {
 	}
 	for _, pod := range pods.Items {
 		err = ranhelper.IsPodHealthy(&pod)
-		if err != nil {
+		if err != nil && ! (pod.Status.Phase == corev1.PodFailed && pod.Spec.RestartPolicy == corev1.RestartPolicyNever) {
+			// Ignore failed pod with restart policy never. This could happen in image pruner or installer pods that
+			// will never restart after completed. And could stuck in error in various conditions after initial completion.
 			unhealthyPods[pod.Name] = err.Error()
 		}
 	}

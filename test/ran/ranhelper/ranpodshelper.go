@@ -19,9 +19,11 @@ import (
 
 	"github.com/openshift-kni/performance-addon-operators/pkg/controller/performanceprofile/components"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
+	nodeshelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 	podhelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 )
 
@@ -58,7 +60,9 @@ func waitForPodsHealthy(pods []*corev1.Pod, timeout time.Duration) {
 				return err
 			}
 			err = IsPodHealthy(tempPod)
-			if err != nil {
+			if err != nil && ! (pod.Status.Phase == corev1.PodFailed && pod.Spec.RestartPolicy == corev1.RestartPolicyNever) {
+				// Ignore failed pod with restart policy never. This could happen in image pruner or installer pods that
+				// will never restart after completed. And could stuck in error in various conditions after initial completion.
 				return err
 			}
 		}
@@ -74,7 +78,7 @@ func IsPodHealthy(pod *corev1.Pod) error {
 			return fmt.Errorf("Pod condition is not Ready. Message: %s", pod.Status.Message)
 		}
 	} else if pod.Status.Phase != corev1.PodSucceeded {
-		// Add pods that are not running or succeeded to unhealthy list
+		// Pod is not running or completed.
 		return fmt.Errorf("Pod phase is %s. Message: %s", pod.Status.Phase, pod.Status.Message)
 	}
 	return nil
@@ -92,7 +96,7 @@ func isPodInCondition(pod *corev1.Pod, condition corev1.PodConditionType) bool {
 
 // RedefineContainerResources redefines a pod with CPU and Memory resources in first container
 // Use empty string to skip a resource. e.g., cpuLimit=""
-func RedefineContainerResources(pod *corev1.Pod, cpuLimit string, cpuRequest string, memoryLimit string, memoryRequest string) *corev1.Pod {
+func RedefineContainerResources(pod *corev1.Pod, cpuRequest string, cpuLimit string, memoryRequest string, memoryLimit string) *corev1.Pod {
 	pod.Spec.Containers[0].Resources.Requests = corev1.ResourceList{}
 	pod.Spec.Containers[0].Resources.Limits = corev1.ResourceList{}
 	if cpuLimit != "" {
@@ -116,10 +120,8 @@ func RedefineContainerEnvVars(pod *corev1.Pod, EnvVars []corev1.EnvVar) *corev1.
 	return pod
 }
 
-// RedefineWithVolume redefines a pod with a new volume and volume mount. Given volume/volume mount will be appended to existing volumes/volume mounts.
-func RedefineWithVolume(pod *corev1.Pod, volumeMountName string, mountPath string, volumeName string, volumeSource corev1.VolumeSource) *corev1.Pod {
-	pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, corev1.VolumeMount{Name: volumeMountName, MountPath: mountPath})
-	pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{Name: volumeName, VolumeSource: volumeSource})
+func RedefineWithHostPid(pod *corev1.Pod) *corev1.Pod {
+	pod.Spec.HostPID = true
 	return pod
 }
 
@@ -153,6 +155,19 @@ func RedefineWithObjectMeta(pod *corev1.Pod, name string, generateName string, a
 	return pod
 }
 
+// RedefineWithNewAnnotations appends given annotations to existing pod annotations
+func RedefineWithNewAnnotations(pod *corev1.Pod, annotations map[string]string) *corev1.Pod {
+	podAnnotations := pod.Annotations
+	if podAnnotations == nil {
+		podAnnotations = make(map[string]string)
+	}
+	for k, v := range annotations {
+		podAnnotations[k] = v
+	}
+	pod.Annotations = podAnnotations
+	return pod
+}
+
 // RedefineWithRuntimeClass updates pod definition with specified runtime class name.
 func RedefineWithRuntimeClass(pod *corev1.Pod, runtimeClass string) *corev1.Pod {
 	pod.Spec.RuntimeClassName = &runtimeClass
@@ -177,7 +192,7 @@ func DefineStressPod(nodeName string, cpus int, guaranteed bool) *corev1.Pod {
 	RedefineWithObjectMeta(pod, "", "stress-ng-", nil)
 	podhelper.RedefineWithCommand(RedefineContainer(pod, "stress-ng", "", corev1.PullIfNotPresent), nil, nil)
 	RedefineContainerEnvVars(pod, envVars)
-	RedefineContainerResources(pod, cpuLimit, strconv.Itoa(cpus), memoryLimit, "100M")
+	RedefineContainerResources(pod, strconv.Itoa(cpus), cpuLimit, "100M", memoryLimit)
 	return pod
 }
 
@@ -193,8 +208,8 @@ func DefineOslatPod(profile *performancev2.PerformanceProfile, nodeName string, 
 	RedefineWithObjectMeta(pod, "", "oslat-", map[string]string{"cpu-load-balancing.crio.io": "true", "cpu-quota.crio.io": "true"})
 	RedefineContainer(podhelper.RedefineWithCommand(pod, nil, nil), "container-perf-tools", "", corev1.PullAlways)
 	RedefineContainerResources(pod, strconv.Itoa(cpus), strconv.Itoa(cpus), "1Gi", "1Gi")
-	RedefineWithVolume(pod, "cstate", "/dev/cpu_dma_latency", "cstate", corev1.VolumeSource{
-		HostPath: &corev1.HostPathVolumeSource{Path: "/dev/cpu_dma_latency", Type: &volumeType}})
+	podhelper.RedefineWithVolume(pod, "cstate", "/dev/cpu_dma_latency", corev1.VolumeSource{
+		HostPath: &corev1.HostPathVolumeSource{Path: "/dev/cpu_dma_latency", Type: &volumeType}}, false)
 	RedefineContainerEnvVars(pod, []corev1.EnvVar{
 		{Name: "tool", Value: "oslat"},
 		{Name: "RUNTIME_SECONDS", Value: duration},
@@ -240,6 +255,31 @@ func DeployProcessExporter() *appsv1.DaemonSet {
 	}, 5*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
 
 	return daemonset
+}
+
+// DeleteProcessExporter deletes process exporter daemonset
+func DeleteProcessExporter() {
+	config_, err := config.NewConfig()
+	Expect(err).ShouldNot(HaveOccurred())
+	configsDir := config_.Ran.ProcessExporterConfigsDir
+
+	daemonset, err := helper.Apiclient.DaemonSets(ran.PromNamespace).Get(context.Background(), ran.ProcessExporterPodName, metav1.GetOptions{})
+	if err != nil {
+		return
+	}
+	name := daemonset.Name
+	log.Println("Deleting", name)
+	err = DeleteObjects(configsDir)
+	Expect(err).ShouldNot(HaveOccurred())
+	Eventually(func() error {
+		daemonset, err = helper.Apiclient.DaemonSets(ran.PromNamespace).Get(context.Background(), ran.ProcessExporterPodName, metav1.GetOptions{})
+		if err != nil {
+			log.Printf("Daemonset %s is removed from cluster\n", name)
+			return nil
+		} else {
+			return fmt.Errorf("daemonset %s still exists on cluster", daemonset.Name)
+		}
+	}, 5*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
 }
 
 // DeployWorkloadPods deploy oslat and stress-ng pods to fill up isolated cpus
@@ -308,19 +348,20 @@ func CreatePrivilegedPods(image string) map[string]*corev1.Pod {
 		err := namespaces.Create(ran.PrivPodNamespace, helper.Apiclient)
 		Expect(err).ShouldNot(HaveOccurred())
 	}
-	nodes, err := helper.Apiclient.Nodes().List(context.Background(), metav1.ListOptions{})
+	// Launch priv pods on nodes with worker role so it can be successfully scheduled.
+	nodes, err := nodeshelper.GetByRole(helper.Apiclient, parameters.RoleWorker)
 	Expect(err).ShouldNot(HaveOccurred())
 	privPods := make(map[string]*corev1.Pod)
 	volumeType := corev1.HostPathUnset
 	volSource := corev1.VolumeSource{
 		HostPath: &corev1.HostPathVolumeSource{Path: "/", Type: &volumeType}}
 
-	for _, node := range nodes.Items {
+	for _, node := range nodes{
 		podName := fmt.Sprintf("%s-%s", ran.PrivPodNamespace, node.Name)
 		privilegedPod, err := helper.Apiclient.Pods(ran.PrivPodNamespace).Get(context.Background(), podName, metav1.GetOptions{})
 		if err != nil {
 			privilegedPod = podhelper.RedefineAsPrivileged(podhelper.DefinePodOnNode(ran.PrivPodNamespace, image, node.Name))
-			privilegedPod = RedefineWithVolume(privilegedPod, "rootfs", "/rootfs", "rootfs", volSource)
+			privilegedPod = podhelper.RedefineWithVolume(RedefineWithHostPid(privilegedPod), "rootfs", "/rootfs", volSource, false)
 			privilegedPod = helper.WaitUntilPodCreatedAndRunning(RedefineWithObjectMeta(privilegedPod, podName, "", nil), 10*time.Minute)
 		}
 		privPods[node.Name] = privilegedPod
@@ -328,3 +369,18 @@ func CreatePrivilegedPods(image string) map[string]*corev1.Pod {
 	}
 	return privPods
 }
+
+// CleanupRanTestResources deletes created test resources
+func CleanupRanTestResources() {
+	// Delete process exporter if exists
+	DeleteProcessExporter()
+	// Delete ran-test namespace if exists
+	for _, ns := range []string{ran.NamespaceTesting, ran.PrivPodNamespace} {
+		if namespaces.Exists(ns, helper.Apiclient) {
+			log.Println("Deleting test namespace", ns)
+			err := namespaces.DeleteAndWait(helper.Apiclient, ns, 10*time.Minute)
+			Expect(err).ToNot(HaveOccurred())
+		}
+	}
+}
+

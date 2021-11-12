@@ -155,9 +155,6 @@ func ExecCommandOnNode(node *corev1.Node, cmd []string) (string, error) {
 	}
 	log.Printf("Exec command on %s: %v\n", node.Name, cmd)
 	out, err := podUtil.ExecCommand(helper.Apiclient, *pod, cmd)
-	if err != nil {
-		return "", err
-	}
 	return strings.Trim(out.String(), "\n"), err
 }
 

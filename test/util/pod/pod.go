@@ -236,3 +236,15 @@ func DeletePodAndWait(apiClient *testclient.ClientSet, podToDelete *corev1.Pod) 
 	}
 	return WaitForDeletion(apiClient, podToDelete, 3*time.Minute)
 }
+
+// RedefineWithVolume redefines a pod with a new volume and volume mount. Given volume/volume mount will be appended to existing volumes/volume mounts.
+func RedefineWithVolume(pod *corev1.Pod, volumeMountName string, mountPath string, volumeSource corev1.VolumeSource, readOnly bool) *corev1.Pod {
+	volMount := corev1.VolumeMount{Name: volumeMountName, MountPath: mountPath}
+	if readOnly {
+		volMount.ReadOnly = true
+	}
+	pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, volMount)
+	pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{Name: volumeMountName, VolumeSource: volumeSource})
+	return pod
+}
+
