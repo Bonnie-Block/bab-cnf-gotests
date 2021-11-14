@@ -1,4 +1,4 @@
-package helper
+package netsriovhelper
 
 import (
 	"fmt"
@@ -8,7 +8,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/sriov/parameters"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/sriov/netsriovparameters"
 )
 
 const (
@@ -25,13 +25,13 @@ func DefineSriovNetwork(name string, resourceName string, ipamStatic bool) *srio
 	return &sriovv1.SriovNetwork{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
-			Namespace: parameters.OperatorNamespace,
+			Namespace: netsriovparameters.OperatorNamespace,
 		},
 		Spec: sriovv1.SriovNetworkSpec{
 			ResourceName:     resourceName,
 			IPAM:             ipam,
 			Capabilities:     `{ "mac": true, "ips": true }`,
-			NetworkNamespace: parameters.OperatorTestNamespace,
+			NetworkNamespace: netsriovparameters.OperatorTestNamespace,
 		}}
 }
 

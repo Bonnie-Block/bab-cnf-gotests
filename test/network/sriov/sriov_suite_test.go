@@ -13,7 +13,7 @@ import (
 
 	. "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	networkHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/helper"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/sriov/parameters"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/sriov/netsriovparameters"
 	_ "gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/sriov/tests"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/cluster"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
@@ -40,8 +40,8 @@ func TestSriov(t *testing.T) {
 	if dumpFile != "" {
 		reporter, err := testutils.NewReporter(
 			dumpFile,
-			parameters.ReporterNamespacesToDump,
-			parameters.ReporterCrds)
+			netsriovparameters.ReporterNamespacesToDump,
+			netsriovparameters.ReporterCrds)
 		if err != nil {
 			log.Fatalf("Failed to create log reporter %s", err)
 		}
@@ -60,12 +60,12 @@ var _ = BeforeSuite(func() {
 	configuration, err := config.NewConfig()
 	Expect(err).ToNot(HaveOccurred())
 	PullTestImage(configuration.General.CnfNodeLabel, configuration.Network.TestContainerImage)
-	sriovInfos, err := cluster.DiscoverSriov(Apiclient, parameters.OperatorNamespace)
+	sriovInfos, err := cluster.DiscoverSriov(Apiclient, netsriovparameters.OperatorNamespace)
 	Expect(err).ToNot(HaveOccurred())
 	err = networkHelper.CompareNodeSriovInterfaces(sriovInfos)
 	Expect(err).ToNot(HaveOccurred())
-	namespaces.Clean(parameters.OperatorNamespace, parameters.OperatorTestNamespace, Apiclient, false)
-	WaitForSRIOVStable(parameters.OperatorNamespace, timeout, snoTimeoutMultiplier)
+	namespaces.Clean(netsriovparameters.OperatorNamespace, netsriovparameters.OperatorTestNamespace, Apiclient, false)
+	WaitForSRIOVStable(netsriovparameters.OperatorNamespace, timeout, snoTimeoutMultiplier)
 })
 
 var _ = AfterSuite(func() {
@@ -74,10 +74,10 @@ var _ = AfterSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 	if isSingleNode {
 		snoTimeoutMultiplier = 2
-		RestoreNodeDrainState(parameters.OperatorNamespace)
+		RestoreNodeDrainState(netsriovparameters.OperatorNamespace)
 	}
-	namespaces.Clean(parameters.OperatorNamespace, parameters.OperatorTestNamespace, Apiclient, false)
-	err = namespaces.DeleteAndWait(Apiclient, parameters.OperatorTestNamespace, timeout)
+	namespaces.Clean(netsriovparameters.OperatorNamespace, netsriovparameters.OperatorTestNamespace, Apiclient, false)
+	err = namespaces.DeleteAndWait(Apiclient, netsriovparameters.OperatorTestNamespace, timeout)
 	Expect(err).ToNot(HaveOccurred())
-	WaitForSRIOVStable(parameters.OperatorNamespace, timeout, snoTimeoutMultiplier)
+	WaitForSRIOVStable(netsriovparameters.OperatorNamespace, timeout, snoTimeoutMultiplier)
 })
