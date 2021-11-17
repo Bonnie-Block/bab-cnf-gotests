@@ -5,7 +5,7 @@ import (
 
 	sriovv1 "github.com/k8snetworkplumbingwg/sriov-network-operator/api/v1"
 	mcfgv1 "github.com/openshift/machine-config-operator/pkg/apis/machineconfiguration.openshift.io/v1"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/helper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/nethelper"
 	generalParameters "gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/k8sreporter"
 )
@@ -60,13 +60,13 @@ type VrfTestParameters struct {
 // NewVRFTestParameters constructor for VRFTestParameters
 func NewVRFTestParameters(Node string, IPStack string) (*VrfTestParameters, error) {
 	VRFTestParameters := new(VrfTestParameters)
-	err := helper.StrParamInListOfParams(Node, NodeParameters)
+	err := nethelper.StrParamInListOfParams(Node, NodeParameters)
 	if err != nil {
 		return nil, err
 	}
 	VRFTestParameters.Node = Node
 
-	err = helper.StrParamInListOfParams(IPStack, ipStackParameters)
+	err = nethelper.StrParamInListOfParams(IPStack, ipStackParameters)
 	if err != nil {
 		return nil, err
 	}

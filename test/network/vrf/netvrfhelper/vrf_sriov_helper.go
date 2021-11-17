@@ -13,8 +13,8 @@ import (
 
 	netattdefv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	sriovv1 "github.com/k8snetworkplumbingwg/sriov-network-operator/api/v1"
-	generalHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
-	networkHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/helper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/nethelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/vrf/netvrfparameters"
 	generalParam "gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/cluster"
@@ -33,10 +33,10 @@ func DefineSriovNetworkMetaPluginsVRFConfig(VRFName string) func(network *sriovv
 // CleanResources removes all pods from vrf test namespace
 func CleanResources() {
 	By("Cleaning up resources before test")
-	err := namespaces.CleanPods(netvrfparameters.TestNamespace, generalHelper.Apiclient)
+	err := namespaces.CleanPods(netvrfparameters.TestNamespace, helper.Apiclient)
 	Expect(err).ToNot(HaveOccurred())
 	Eventually(func() bool {
-		podsList, err := generalHelper.Apiclient.Pods(netvrfparameters.TestNamespace).List(
+		podsList, err := helper.Apiclient.Pods(netvrfparameters.TestNamespace).List(
 			context.Background(), metav1.ListOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		if len(podsList.Items) > 0 {
@@ -68,15 +68,15 @@ func SetupSriovBeforeAll(config *config.Config, sriovInfos *cluster.EnabledNodes
 		sriovNetworkInterfaceIndexRed = 0
 		sriovNetworkInterfaceIndexBlue = 1
 	}
-	isSingleNode, err := nodes.IsSingleNodeCluster(generalHelper.Apiclient)
+	isSingleNode, err := nodes.IsSingleNodeCluster(helper.Apiclient)
 	Expect(err).ToNot(HaveOccurred())
 
 	if isSingleNode {
 		snoTimeoutMultiplier = 2
-		disableDrainState := generalHelper.GetNodeDrainState(generalParam.SriovOperatorNamespace)
+		disableDrainState := helper.GetNodeDrainState(generalParam.SriovOperatorNamespace)
 		if !disableDrainState {
-			generalHelper.SetDisableNodeDrainState(true, generalParam.SriovOperatorNamespace)
-			generalHelper.ChangedNodeDrainState = true
+			helper.SetDisableNodeDrainState(true, generalParam.SriovOperatorNamespace)
+			helper.ChangedNodeDrainState = true
 		}
 	}
 
@@ -89,20 +89,20 @@ func SetupSriovBeforeAll(config *config.Config, sriovInfos *cluster.EnabledNodes
 	namespaces.Clean(
 		generalParam.SriovOperatorNamespace,
 		netvrfparameters.TestNamespace,
-		generalHelper.Apiclient,
+		helper.Apiclient,
 		false)
 
 	By("Waiting until SRIOV become stable")
-	generalHelper.WaitForSRIOVStable(generalParam.SriovOperatorNamespace, netvrfparameters.WaitingTime, snoTimeoutMultiplier)
+	helper.WaitForSRIOVStable(generalParam.SriovOperatorNamespace, netvrfparameters.WaitingTime, snoTimeoutMultiplier)
 
 	By("Verify Node Interface Naming Convention")
-	err = networkHelper.CompareNodeSriovInterfaces(sriovInfos)
+	err = nethelper.CompareNodeSriovInterfaces(sriovInfos)
 	Expect(err).ToNot(HaveOccurred())
 
 	By("Define SRIOV Policies")
 	var sriovPolicyList []*sriovv1.SriovNetworkNodePolicy
 	for idx, resourceName := range resourceNameRange {
-		sriovPolicyList = append(sriovPolicyList, generalHelper.DefineSriovPolicy(
+		sriovPolicyList = append(sriovPolicyList, helper.DefineSriovPolicy(
 			fmt.Sprintf("%s%d", netvrfparameters.SriovPolicyName, idx),
 			generalParam.SriovOperatorNamespace,
 			validSriovInterfaces[idx],
@@ -113,14 +113,14 @@ func SetupSriovBeforeAll(config *config.Config, sriovInfos *cluster.EnabledNodes
 			"netdevice"))
 	}
 	for _, sriovPolicy := range sriovPolicyList {
-		err = generalHelper.Apiclient.Create(context.Background(), sriovPolicy)
+		err = helper.Apiclient.Create(context.Background(), sriovPolicy)
 		Expect(err).ToNot(HaveOccurred())
 	}
 
 	By("Define SRIOV Networks")
 	ipam := `{"type": "static"}`
-	err = networkHelper.CreateSriovNetwork(
-		generalHelper.Apiclient,
+	err = nethelper.CreateSriovNetwork(
+		helper.Apiclient,
 		sriovInterfaces[sriovNetworkInterfaceIndexRed],
 		netvrfparameters.TestSriovNetworkRed,
 		netvrfparameters.TestNamespace,
@@ -130,8 +130,8 @@ func SetupSriovBeforeAll(config *config.Config, sriovInfos *cluster.EnabledNodes
 		DefineSriovNetworkMetaPluginsVRFConfig(netvrfparameters.VRFRedName))
 	Expect(err).ToNot(HaveOccurred())
 
-	err = networkHelper.CreateSriovNetwork(
-		generalHelper.Apiclient,
+	err = nethelper.CreateSriovNetwork(
+		helper.Apiclient,
 		sriovInterfaces[sriovNetworkInterfaceIndexBlue],
 		netvrfparameters.TestSriovNetworkBlue,
 		netvrfparameters.TestNamespace,
@@ -142,10 +142,10 @@ func SetupSriovBeforeAll(config *config.Config, sriovInfos *cluster.EnabledNodes
 	Expect(err).ToNot(HaveOccurred())
 
 	By("Waiting until SRIOV become stable")
-	generalHelper.WaitForSRIOVStable(generalParam.SriovOperatorNamespace, netvrfparameters.WaitingTime, snoTimeoutMultiplier)
+	helper.WaitForSRIOVStable(generalParam.SriovOperatorNamespace, netvrfparameters.WaitingTime, snoTimeoutMultiplier)
 
 	By("Waiting until SRIOV resources become available")
-	generalHelper.ValidateSriovVFsAvailableOnNodes(
+	helper.ValidateSriovVFsAvailableOnNodes(
 		sriovInfos.Nodes,
 		sriovPolicyList,
 		5)
@@ -154,7 +154,7 @@ func SetupSriovBeforeAll(config *config.Config, sriovInfos *cluster.EnabledNodes
 	for _, sriovNetworkName := range []string{netvrfparameters.TestSriovNetworkRed, netvrfparameters.TestSriovNetworkBlue} {
 		Eventually(func() error {
 			netAttDef := &netattdefv1.NetworkAttachmentDefinition{}
-			return generalHelper.Apiclient.Get(
+			return helper.Apiclient.Get(
 				context.Background(),
 				runtimeclient.ObjectKey{
 					Name:      sriovNetworkName,

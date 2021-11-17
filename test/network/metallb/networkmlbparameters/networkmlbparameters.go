@@ -6,7 +6,7 @@ import (
 	metallbv1 "github.com/metallb/metallb-operator/api/v1alpha1"
 	mcfgv1 "github.com/openshift/machine-config-operator/pkg/apis/machineconfiguration.openshift.io/v1"
 
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/helper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/nethelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/k8sreporter"
 )
 
@@ -55,7 +55,7 @@ type MlbTestParameters struct {
 // NewMLBTestParameters constructor for MetalLBTestParameters
 func NewMLBTestParameters(Node string) (*MlbTestParameters, error) {
 	MLBTestParameters := new(MlbTestParameters)
-	err := helper.StrParamInListOfParams(Node, NodeParameters)
+	err := nethelper.StrParamInListOfParams(Node, NodeParameters)
 	if err != nil {
 		return nil, err
 	}
