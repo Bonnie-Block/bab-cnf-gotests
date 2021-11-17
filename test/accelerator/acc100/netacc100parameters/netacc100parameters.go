@@ -1,4 +1,4 @@
-package parameters
+package netacc100parameters
 
 import (
 	mcfgv1 "github.com/openshift/machine-config-operator/pkg/apis/machineconfiguration.openshift.io/v1"

@@ -1,4 +1,4 @@
-package networkacceleratorhelper
+package netacceleratorhelper
 
 import (
 	"context"
@@ -22,7 +22,7 @@ import (
 	performancev2 "github.com/openshift-kni/performance-addon-operators/api/v2"
 	fecv2 "github.com/smart-edge-open/openshift-operator/sriov-fec/api/v2"
 
-	globalHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/machineconfigpool"
@@ -183,7 +183,7 @@ func matchingOptionalSelectorSriovFec(cs *client.ClientSet, toFilter []fecv2.Sri
 // CreateBbdevPod creates bbdev pod
 func CreateBbdevPod(cs *client.ClientSet, namespace, acceleratorResourceName string, config *config.Config) *corev1.Pod {
 	podBbdevDefinition := getBbdevPodDefinition(namespace, acceleratorResourceName, config)
-	pod := globalHelper.WaitUntilPodCreatedAndRunning(podBbdevDefinition, 5*time.Minute)
+	pod := helper.WaitUntilPodCreatedAndRunning(podBbdevDefinition, 5*time.Minute)
 	return pod
 }
 
@@ -284,13 +284,13 @@ func FindAndValidateOrOverridePerformanceProfile(cs *client.ClientSet, nodeLabel
 		if performanceProfile != nil {
 			fmt.Println("Installed Performance Profile is not suitable for the test\n" +
 				"Deleting profiles")
-			err = globalHelper.CleanAllPerformanceProfile(machineConfigPoolName, snoTimeoutMultiplier)
+			err = helper.CleanAllPerformanceProfile(machineConfigPoolName, snoTimeoutMultiplier)
 			Expect(err).ToNot(HaveOccurred())
 		}
 		fmt.Println("Creating Performance Profile")
-		err = globalHelper.CreatePerformanceProfile(PerformanceProfileName, nodeLabel)
+		err = helper.CreatePerformanceProfile(PerformanceProfileName, nodeLabel)
 		Expect(err).ToNot(HaveOccurred())
-		err = globalHelper.WaitForClusterToBeStable(machineConfigPoolName, snoTimeoutMultiplier)
+		err = helper.WaitForClusterToBeStable(machineConfigPoolName, snoTimeoutMultiplier)
 		Expect(err).ToNot(HaveOccurred())
 	}
 }

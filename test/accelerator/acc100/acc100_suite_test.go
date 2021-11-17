@@ -11,9 +11,9 @@ import (
 	"github.com/onsi/ginkgo/reporters"
 	. "github.com/onsi/gomega"
 
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/accelerator/acc100/parameters"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/accelerator/acc100/netacc100parameters"
 	_ "gitlab.cee.redhat.com/cnf/cnf-gotests/test/accelerator/acc100/tests"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/accelerator/networkacceleratorhelper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/accelerator/netacceleratorhelper"
 	generalHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
@@ -34,8 +34,8 @@ func TestACC100(t *testing.T) {
 	if dumpFile != "" {
 		reporter, err := testutils.NewReporter(
 			dumpFile,
-			parameters.ReporterNamespacesToDump,
-			parameters.ReporterCrds)
+			netacc100parameters.ReporterNamespacesToDump,
+			netacc100parameters.ReporterCrds)
 		if err != nil {
 			log.Fatalf("Failed to create log reporter %s", err)
 		}
@@ -48,15 +48,15 @@ var _ = BeforeSuite(func() {
 	configuration, err := config.NewConfig()
 	Expect(err).ToNot(HaveOccurred())
 	generalHelper.PullTestImage(configuration.General.CnfNodeLabel, configuration.Network.TestContainerImage)
-	err = namespaces.Create(parameters.TestNamespace, generalHelper.Apiclient)
+	err = namespaces.Create(netacc100parameters.TestNamespace, generalHelper.Apiclient)
 	Expect(err).ToNot(HaveOccurred())
 })
 
 var _ = AfterSuite(func() {
-	sriovFecNodeList, err := networkacceleratorhelper.GetSriovFecNodeConfigList(generalHelper.Apiclient)
+	sriovFecNodeList, err := netacceleratorhelper.GetSriovFecNodeConfigList(generalHelper.Apiclient)
 	if err == nil && len(sriovFecNodeList.Items) > 0 {
-		networkacceleratorhelper.CleanAllSriovFecClusterConfig(generalHelper.Apiclient)
+		netacceleratorhelper.CleanAllSriovFecClusterConfig(generalHelper.Apiclient)
 	}
-	err = namespaces.DeleteAndWait(generalHelper.Apiclient, parameters.TestNamespace, 5*time.Minute)
+	err = namespaces.DeleteAndWait(generalHelper.Apiclient, netacc100parameters.TestNamespace, 5*time.Minute)
 	Expect(err).ToNot(HaveOccurred())
 })

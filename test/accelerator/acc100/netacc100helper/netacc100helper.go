@@ -1,4 +1,4 @@
-package networkacc100helper
+package netacc100helper
 
 import (
 	"fmt"
@@ -7,21 +7,21 @@ import (
 	. "github.com/onsi/gomega"
 
 	fecv2 "github.com/smart-edge-open/openshift-operator/sriov-fec/api/v2"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/accelerator/acc100/parameters"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/accelerator/networkacceleratorhelper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/accelerator/acc100/netacc100parameters"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/accelerator/netacceleratorhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // GetSriovFecNodeForAcc100 retrieves SriovFecNodeConfig
 func GetSriovFecNodeForAcc100(cs *client.ClientSet) (*fecv2.SriovFecNodeConfig, *fecv2.SriovAccelerator, error) {
-	sriovFecNodeConfigList, err := networkacceleratorhelper.GetSriovFecNodeConfigList(cs)
+	sriovFecNodeConfigList, err := netacceleratorhelper.GetSriovFecNodeConfigList(cs)
 	if err != nil {
 		return nil, nil, err
 	}
 	for _, sriovFecNodeConfig := range sriovFecNodeConfigList.Items {
 		for _, accelerators := range sriovFecNodeConfig.Status.Inventory.SriovAccelerators {
-			if accelerators.DeviceID == parameters.Acc100DeviceID {
+			if accelerators.DeviceID == netacc100parameters.Acc100DeviceID {
 				return &sriovFecNodeConfig, &accelerators, nil
 			}
 		}
@@ -50,7 +50,7 @@ func GetSriovFecAcc100ClusterConfigDefinition(cs *client.ClientSet, isSingleNode
 	}
 
 	sriovFecClusterConfig := &fecv2.SriovFecClusterConfig{
-		ObjectMeta: metav1.ObjectMeta{Name: "config", Namespace: parameters.OperatorNamespace},
+		ObjectMeta: metav1.ObjectMeta{Name: "config", Namespace: netacc100parameters.OperatorNamespace},
 		Spec: fecv2.SriovFecClusterConfigSpec{
 			Priority: 1,
 			NodeSelector: map[string]string{
