@@ -15,7 +15,6 @@ import (
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 	podhelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 )
@@ -156,9 +155,7 @@ func CheckPodsAffinity(containersInfo []ContainerInfo, affinedCpuSet cpuset.CPUS
 
 // DefineQoSTestPod defines test pod with given cpu and memory resources
 func DefineQoSTestPod(nodeName, namespace, cpuReq, cpuLimit, memReq, memLimit string) *corev1.Pod {
-	config_, err := config.NewConfig()
-	Expect(err).ShouldNot(HaveOccurred())
-	image := config_.Ran.CnfTestImage
+	image := helper.Config.Ran.CnfTestImage
 	// Create namespace if not alrady created
 	if !namespaces.Exists(namespace, helper.Apiclient) {
 		log.Println("Creating namespace:", namespace)

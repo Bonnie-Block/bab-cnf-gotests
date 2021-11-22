@@ -1,7 +1,6 @@
 package acc100
 
 import (
-	"fmt"
 	"log"
 	"runtime"
 	"testing"
@@ -14,21 +13,15 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/accelerator/acc100/netacc100parameters"
 	_ "gitlab.cee.redhat.com/cnf/cnf-gotests/test/accelerator/acc100/tests"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/accelerator/netacceleratorhelper"
-	generalHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 	testutils "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/utils"
 )
 
 func TestACC100(t *testing.T) {
 	_, currentFile, _, _ := runtime.Caller(0)
-	configSuite, err := config.NewConfig()
-	if err != nil {
-		fmt.Print(err)
-		return
-	}
-	junitPath := configSuite.GetReportPath(currentFile)
-	dumpFile := configSuite.GetDumpFailedTestReportLocation(currentFile)
+	junitPath := helper.Config.GetReportPath(currentFile)
+	dumpFile := helper.Config.GetDumpFailedTestReportLocation(currentFile)
 	RegisterFailHandler(Fail)
 	rr := append([]Reporter{}, reporters.NewJUnitReporter(junitPath))
 	if dumpFile != "" {
@@ -45,18 +38,16 @@ func TestACC100(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	configuration, err := config.NewConfig()
-	Expect(err).ToNot(HaveOccurred())
-	generalHelper.PullTestImage(configuration.General.CnfNodeLabel, configuration.Network.TestContainerImage)
-	err = namespaces.Create(netacc100parameters.TestNamespace, generalHelper.Apiclient)
+	helper.PullTestImage(helper.Config.General.CnfNodeLabel, helper.Config.Network.TestContainerImage)
+	err := namespaces.Create(netacc100parameters.TestNamespace, helper.Apiclient)
 	Expect(err).ToNot(HaveOccurred())
 })
 
 var _ = AfterSuite(func() {
-	sriovFecNodeList, err := netacceleratorhelper.GetSriovFecNodeConfigList(generalHelper.Apiclient)
+	sriovFecNodeList, err := netacceleratorhelper.GetSriovFecNodeConfigList(helper.Apiclient)
 	if err == nil && len(sriovFecNodeList.Items) > 0 {
-		netacceleratorhelper.CleanAllSriovFecClusterConfig(generalHelper.Apiclient)
+		netacceleratorhelper.CleanAllSriovFecClusterConfig(helper.Apiclient)
 	}
-	err = namespaces.DeleteAndWait(generalHelper.Apiclient, netacc100parameters.TestNamespace, 5*time.Minute)
+	err = namespaces.DeleteAndWait(helper.Apiclient, netacc100parameters.TestNamespace, 5*time.Minute)
 	Expect(err).ToNot(HaveOccurred())
 })

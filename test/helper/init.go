@@ -10,6 +10,7 @@ import (
 
 var (
 	Apiclient *testclient.ClientSet
+	Config    *config.Config
 )
 
 func init() {
@@ -17,5 +18,9 @@ func init() {
 	Apiclient, err = config.DefineClients()
 	if err != nil {
 		log.Error(fmt.Errorf("can not load api client. Please check KUBECONFIG env var"))
+	}
+	Config, err = config.NewConfig()
+	if err != nil {
+		log.Error(fmt.Errorf("can not load config."))
 	}
 }

@@ -12,7 +12,6 @@ import (
 	generalHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/vrf/netvrfhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/vrf/netvrfparameters"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 )
@@ -27,19 +26,17 @@ var _ = Describe("CNF VRF", func() {
 		vrfRed         netattdefv1.NetworkAttachmentDefinition
 		testFail       = ""
 	)
-	config, err := config.NewConfig()
-	Expect(err).ToNot(HaveOccurred())
 
 	execute.BeforeAll(func() {
-		nodeListString = generalHelper.GetNodeListStringByLabel(strings.Split(config.General.CnfNodeLabel, "/")[1])
+		nodeListString = generalHelper.GetNodeListStringByLabel(strings.Split(generalHelper.Config.General.CnfNodeLabel, "/")[1])
 		fmt.Println(nodeListString)
 		By(fmt.Sprintf("Create %s namespace", netvrfparameters.TestNamespace))
-		err = namespaces.Create(netvrfparameters.TestNamespace, generalHelper.Apiclient)
+		err := namespaces.Create(netvrfparameters.TestNamespace, generalHelper.Apiclient)
 		if err != nil {
 			testFail = fmt.Sprintf("Error to create namespace %s: %s", netvrfparameters.TestNamespace, err)
 			Expect(err).ToNot(HaveOccurred(), testFail)
 		}
-		validMacVlanInterfaces := netvrfhelper.GetNodeValidMacVlanInterface(nodeListString[0], config, 1)
+		validMacVlanInterfaces := netvrfhelper.GetNodeValidMacVlanInterface(nodeListString[0], generalHelper.Config, 1)
 
 		By("Adding NADs")
 		vrfBlue = netvrfhelper.AddVRFNad(
@@ -68,7 +65,7 @@ var _ = Describe("CNF VRF", func() {
 				node,
 				ipStack,
 				"overLapToSDN",
-				config,
+				generalHelper.Config,
 				nodeListString,
 				vrfBlue.Name,
 				vrfRed.Name)
@@ -84,7 +81,7 @@ var _ = Describe("CNF VRF", func() {
 				node,
 				ipStack,
 				"overLapToVRF",
-				config,
+				generalHelper.Config,
 				nodeListString,
 				vrfBlue.Name,
 				vrfRed.Name)
@@ -102,7 +99,7 @@ var _ = Describe("CNF VRF", func() {
 				node,
 				ipStack,
 				"nonOverLap",
-				config,
+				generalHelper.Config,
 				nodeListString,
 				vrfBlue.Name,
 				vrfRed.Name)

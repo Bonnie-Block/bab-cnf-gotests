@@ -28,9 +28,7 @@ func parseBmcInfo(conf *config.Config) (bmcUser, bmcPassword string, bmcHosts []
 // PowerOffAndOnSno powers off SNO node via BMC and wait for cluster to be unreachable
 // Returns host power on timestamp
 func PowerOffAndOnSno() time.Time {
-	conf, err := config.NewConfig()
-	Expect(err).ToNot(HaveOccurred())
-	user, password, hosts := parseBmcInfo(conf)
+	user, password, hosts := parseBmcInfo(helper.Config)
 	// Always attempt to power on host
 	defer func() {
 		errs := powerControlHosts(true, hosts, user, password)

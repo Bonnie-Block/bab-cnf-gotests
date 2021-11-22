@@ -34,8 +34,6 @@ import (
 )
 
 var _ = Describe("Discovery mode with all ", func() {
-	config, err := config.NewConfig()
-	Expect(err).ToNot(HaveOccurred())
 	var (
 		cnfTestEnv               *parameters.EnvironmentConfig
 		containerEngine          *exec.Cmd
@@ -47,6 +45,7 @@ var _ = Describe("Discovery mode with all ", func() {
 	)
 
 	execute.BeforeAll(func() {
+		var err error
 		By("Validate env vars")
 		cnfTestEnv, err = helper.NewConfig()
 		if err != nil {
@@ -71,7 +70,7 @@ var _ = Describe("Discovery mode with all ", func() {
 			testFail = fmt.Sprintf("Error to determine container engine: %s", err)
 			Expect(err).ToNot(HaveOccurred(), testFail)
 		}
-		machineConfigPoolName = strings.Split(config.General.CnfNodeLabel, "/")[1]
+		machineConfigPoolName = strings.Split(Config.General.CnfNodeLabel, "/")[1]
 		By("Pull cnf-test images")
 		err = container.PullImage(cnfTestEnv.TestImageRegistry, cnfTestEnv.CnfTestImage)
 		if err != nil {
@@ -167,12 +166,12 @@ var _ = Describe("Discovery mode with all ", func() {
 		By("Validate sctp kernel module is Loaded")
 		checkForSctpReady(
 			Apiclient,
-			config.General.CnfNodeLabel,
-			config.Network.TestContainerImage)
+			Config.General.CnfNodeLabel,
+			Config.Network.TestContainerImage)
 
 		if !isSingleNode {
 			By("Setup PTP discovery mode policy")
-			definePTPDiscoveryModePolicy(config)
+			definePTPDiscoveryModePolicy(Config)
 		} else {
 			By("Skip discovery mode policy configuration on SNO")
 		}
@@ -188,7 +187,7 @@ var _ = Describe("Discovery mode with all ", func() {
 			testFail = fmt.Sprintf("Error discover SRIOV interfaces: %s", err)
 			Expect(err).ToNot(HaveOccurred(), testFail)
 		}
-		validSriovInterfaces, err := config.GetSriovInterfaces(sriovInterfaces, 1)
+		validSriovInterfaces, err := Config.GetSriovInterfaces(sriovInterfaces, 1)
 		if err != nil {
 			testFail = fmt.Sprintf("Error determine SRIOV interfaces: %s", err)
 			Expect(err).ToNot(HaveOccurred(), testFail)
@@ -215,7 +214,7 @@ var _ = Describe("Discovery mode with all ", func() {
 		By("Create Performance Profile")
 		err = CreatePerformanceProfile(
 			parameters.DiscoveryPerformanceProfile,
-			config.General.CnfNodeLabel)
+			Config.General.CnfNodeLabel)
 		if err != nil {
 			testFail = fmt.Sprintf("Error Create PerformanceProfile policy: %s", err)
 			Expect(err).ToNot(HaveOccurred(), testFail)
@@ -233,7 +232,7 @@ var _ = Describe("Discovery mode with all ", func() {
 			Fail(testFail)
 		}
 		By("Remove all existing cnftests  reports")
-		removeAllFromDir(config.General.ReportDirAbsPath)
+		removeAllFromDir(Config.General.ReportDirAbsPath)
 	})
 
 	It("features configured", func() {
@@ -241,16 +240,16 @@ var _ = Describe("Discovery mode with all ", func() {
 		if discoverySriovPolicyList[0].Spec.DeviceType == "vfio-pci" {
 			Skip("Skip test on top of intel card due to the BZ: https://bugzilla.redhat.com/show_bug.cgi?id=1971274")
 		}
-		runCNFTests(config, cnfTestEnv, containerEngine)
-		reportIsValid(config.General.ReportDirAbsPath, definePassedSkipTestsNumber(parameters.DiscoveryAllFeaturesScenario, isSingleNode))
+		runCNFTests(Config, cnfTestEnv, containerEngine)
+		reportIsValid(Config.General.ReportDirAbsPath, definePassedSkipTestsNumber(parameters.DiscoveryAllFeaturesScenario, isSingleNode))
 	})
 
 	It("features configured(Except for SriovNetworkNodePolicy)", func() {
 		By("Remove Sriov Policy")
 		err := helper.CleanAllSriovPolicy(snoTimeoutMultiplier)
 		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error removing all sriov policy: %s", err))
-		runCNFTests(config, cnfTestEnv, containerEngine)
-		reportIsValid(config.General.ReportDirAbsPath, definePassedSkipTestsNumber(parameters.DiscoveryExceptSriovScenario, isSingleNode))
+		runCNFTests(Config, cnfTestEnv, containerEngine)
+		reportIsValid(Config.General.ReportDirAbsPath, definePassedSkipTestsNumber(parameters.DiscoveryExceptSriovScenario, isSingleNode))
 	})
 
 	It("features configured(Except for SriovNetworkNodePolicy and Ptpconfig)", func() {
@@ -263,16 +262,16 @@ var _ = Describe("Discovery mode with all ", func() {
 			parameters.DiscoveryPtpGrandmasterNodeLabel,
 			parameters.DiscoveryPtpSlaveNodeLabel)
 		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error removing all ptp configuration: %s", err))
-		runCNFTests(config, cnfTestEnv, containerEngine)
-		reportIsValid(config.General.ReportDirAbsPath, definePassedSkipTestsNumber(parameters.DiscoveryExceptSriovPtpScenario, isSingleNode))
+		runCNFTests(Config, cnfTestEnv, containerEngine)
+		reportIsValid(Config.General.ReportDirAbsPath, definePassedSkipTestsNumber(parameters.DiscoveryExceptSriovPtpScenario, isSingleNode))
 	})
 
 	It("features configured(Except for SriovNetworkNodePolicy, Ptpconfig and PerformanceProfile)", func() {
 		By("Remove Performance policy")
 		err := CleanAllPerformanceProfile(machineConfigPoolName, snoTimeoutMultiplier)
 		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error removing all Performance profiles: %s", err))
-		runCNFTests(config, cnfTestEnv, containerEngine)
-		reportIsValid(config.General.ReportDirAbsPath, definePassedSkipTestsNumber(parameters.DiscoveryExceptSriovPtpPerformanceScenario, isSingleNode))
+		runCNFTests(Config, cnfTestEnv, containerEngine)
+		reportIsValid(Config.General.ReportDirAbsPath, definePassedSkipTestsNumber(parameters.DiscoveryExceptSriovPtpPerformanceScenario, isSingleNode))
 	})
 
 	It("features configured(Except for SriovNetworkNodePolicy, Ptpconfig, PerformanceProfile and ovs_qos)", func() {
@@ -282,8 +281,8 @@ var _ = Describe("Discovery mode with all ", func() {
 		By("Remove egress and ingress ovs_qos MCs")
 		err := helper.DeleteOVSQOSMCs(machineConfigPoolName)
 		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error removing all OVS_QOS MCs: %s", err))
-		runCNFTests(config, cnfTestEnv, containerEngine)
-		reportIsValid(config.General.ReportDirAbsPath, definePassedSkipTestsNumber(parameters.DiscoveryExceptSriovPtpPerformanceOVSQOSScenario, isSingleNode))
+		runCNFTests(Config, cnfTestEnv, containerEngine)
+		reportIsValid(Config.General.ReportDirAbsPath, definePassedSkipTestsNumber(parameters.DiscoveryExceptSriovPtpPerformanceOVSQOSScenario, isSingleNode))
 	})
 })
 

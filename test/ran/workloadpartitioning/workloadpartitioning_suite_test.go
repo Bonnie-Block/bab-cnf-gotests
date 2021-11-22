@@ -1,7 +1,6 @@
 package workloadpartitioning
 
 import (
-	"fmt"
 	"log"
 	"runtime"
 	"testing"
@@ -17,7 +16,6 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/workloadpartitioning/ranwpparameters"
 	_ "gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/workloadpartitioning/tests"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 	testutils "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/utils"
 )
@@ -28,13 +26,8 @@ const (
 
 func TestWorkloadPartitioning(t *testing.T) {
 	_, currentFile, _, _ := runtime.Caller(0)
-	configSuite, err := config.NewConfig()
-	if err != nil {
-		fmt.Print(err)
-		return
-	}
-	junitPath := configSuite.GetReportPath(currentFile)
-	dumpFile := configSuite.GetDumpFailedTestReportLocation(currentFile)
+	junitPath := helper.Config.GetReportPath(currentFile)
+	dumpFile := helper.Config.GetDumpFailedTestReportLocation(currentFile)
 	RegisterFailHandler(Fail)
 	rr := append([]Reporter{}, reporters.NewJUnitReporter(junitPath))
 	if dumpFile != "" {

@@ -17,7 +17,6 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/accelerator/acc100/netacc100parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/accelerator/netacceleratorhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 )
@@ -31,8 +30,6 @@ var _ = Describe("Intel ACC100", func() {
 		isSingleNode         bool
 		snoTimeoutMultiplier time.Duration = 1
 	)
-	config, err := config.NewConfig()
-	Expect(err).ToNot(HaveOccurred())
 
 	execute.BeforeAll(func() {
 		var err error
@@ -78,12 +75,12 @@ var _ = Describe("Intel ACC100", func() {
 
 		By("Validating performance profile")
 		netacceleratorhelper.FindAndValidateOrOverridePerformanceProfile(
-			helper.Apiclient, config.General.CnfNodeLabel, snoTimeoutMultiplier)
+			helper.Apiclient, helper.Config.General.CnfNodeLabel, snoTimeoutMultiplier)
 
 		By("Creating SriovFecClusterConfig")
 		fecConfig = netacc100helper.GetSriovFecAcc100ClusterConfigDefinition(
 			helper.Apiclient, isSingleNode)
-		cnfNodelabel := strings.Split(config.General.CnfNodeLabel, "/")[1]
+		cnfNodelabel := strings.Split(helper.Config.General.CnfNodeLabel, "/")[1]
 		netacceleratorhelper.InstallSriovFecClusterNodeConfig(
 			helper.Apiclient, fecConfig, isSingleNode, cnfNodelabel)
 	})
@@ -119,7 +116,7 @@ var _ = Describe("Intel ACC100", func() {
 
 			By("Creating bbdev test pod")
 			bbdevPod := netacceleratorhelper.CreateBbdevPod(
-				helper.Apiclient, netacc100parameters.TestNamespace, netacc100parameters.Acc100ResourceName, config)
+				helper.Apiclient, netacc100parameters.TestNamespace, netacc100parameters.Acc100ResourceName, helper.Config)
 			By("Running bbdev tests")
 			bbdevTestResults := netacceleratorhelper.RunBbdevTests(helper.Apiclient, bbdevPod)
 			countOfTests := helper.CountLinesByMatches(bbdevTestResults, "Starting Test Suite :")

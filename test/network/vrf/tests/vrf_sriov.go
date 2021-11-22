@@ -12,7 +12,6 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/vrf/netvrfparameters"
 	generalParam "gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/cluster"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
 )
 
@@ -24,17 +23,16 @@ var _ = Describe("CNF VRF", func() {
 		sriovInfos *cluster.EnabledNodes
 		testFail   = ""
 	)
-	config, err := config.NewConfig()
-	Expect(err).ToNot(HaveOccurred())
 
 	execute.BeforeAll(func() {
 		By("Discover SRIOV Node Interfaces")
+		var err error
 		sriovInfos, err = cluster.DiscoverSriov(generalHelper.Apiclient, generalParam.SriovOperatorNamespace)
 		if err != nil {
 			testFail = fmt.Sprintf("Error discover SRIOV node info: %s", err)
 			Expect(err).ToNot(HaveOccurred(), testFail)
 		}
-		netvrfhelper.SetupSriovBeforeAll(config, sriovInfos, false)
+		netvrfhelper.SetupSriovBeforeAll(generalHelper.Config, sriovInfos, false)
 	})
 
 	BeforeEach(func() {
@@ -51,7 +49,7 @@ var _ = Describe("CNF VRF", func() {
 				node,
 				ipStack,
 				"overLapToSDN",
-				config,
+				generalHelper.Config,
 				sriovInfos.Nodes,
 				netvrfparameters.TestSriovNetworkBlue,
 				netvrfparameters.TestSriovNetworkRed)
@@ -67,7 +65,7 @@ var _ = Describe("CNF VRF", func() {
 				node,
 				ipStack,
 				"overLapToVRF",
-				config,
+				generalHelper.Config,
 				sriovInfos.Nodes,
 				netvrfparameters.TestSriovNetworkBlue,
 				netvrfparameters.TestSriovNetworkRed)
@@ -85,7 +83,7 @@ var _ = Describe("CNF VRF", func() {
 				node,
 				ipStack,
 				"nonOverLap",
-				config,
+				generalHelper.Config,
 				sriovInfos.Nodes,
 				netvrfparameters.TestSriovNetworkBlue,
 				netvrfparameters.TestSriovNetworkRed)

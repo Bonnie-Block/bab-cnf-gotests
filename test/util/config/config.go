@@ -45,7 +45,7 @@ type Config struct {
 	} `yaml:"ran"`
 }
 
-// NewConfig returs instance Config type
+// NewConfig returns instance Config type
 func NewConfig() (*Config, error) {
 	var c Config
 	_, filename, _, _ := runtime.Caller(0)

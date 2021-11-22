@@ -17,7 +17,6 @@ import (
 	metallbv1beta1 "github.com/metallb/metallb-operator/api/v1beta1"
 
 	metallbutils "github.com/metallb/metallb-operator/test/e2e/metallb"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
@@ -33,9 +32,6 @@ var _ = Describe("CNF MetalLB", func() {
 	var nodeListString []string
 	var metallbIPList []string
 
-	Config, err := config.NewConfig()
-	Expect(err).ToNot(HaveOccurred())
-
 	execute.BeforeAll(func() {
 		isMetalLBOperatorInstalled, err := generalHelper.IsDeploymentReady(generalHelper.Apiclient,
 			networkmlbparameters.MetalLBOperatorNameSpace, networkmlbparameters.MetalLBOperatorDeploymentName)
@@ -47,16 +43,16 @@ var _ = Describe("CNF MetalLB", func() {
 	})
 
 	BeforeEach(func() {
-
-		metallbIPList, err = Config.GetMetallbVirtIP()
-		Expect(err).ToNot(HaveOccurred())
 		var err error
+
+		metallbIPList, err = generalHelper.Config.GetMetallbVirtIP()
+		Expect(err).ToNot(HaveOccurred())
 
 		if len(metallbIPList) < 2 {
 			Skip("The environment IP variable is not set or less than 2")
 		}
 		Expect(networkmetallbhelper.IsEnvVarMetallbIPinNodeExtNetRange(strings.Split(
-			Config.General.CnfNodeLabel, "/")[1],
+			generalHelper.Config.General.CnfNodeLabel, "/")[1],
 			metallbIPList[0])).Should(BeTrue())
 
 		By(fmt.Sprintf("should select nodes by role %s ", generalParamters.RoleWorker), func() {
@@ -122,13 +118,13 @@ var _ = Describe("CNF MetalLB", func() {
 
 		By("should delete Address Pool and test Pod after test", func() {
 			addresspool := networkmetallbhelper.DefineMetallbAddressPool()
-			err = namespaces.CleanPods(networkmlbparameters.DefaultNameSpace, generalHelper.Apiclient)
+			err := namespaces.CleanPods(networkmlbparameters.DefaultNameSpace, generalHelper.Apiclient)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = namespaces.CleanPods(networkmlbparameters.TestNamespace, generalHelper.Apiclient)
 			Expect(err).ToNot(HaveOccurred())
 
-			err := networkmetallbhelper.DeleteAddressPool(addresspool)
+			err = networkmetallbhelper.DeleteAddressPool(addresspool)
 			Expect(err).ToNot(HaveOccurred())
 		})
 	})
@@ -142,12 +138,12 @@ var _ = Describe("CNF MetalLB", func() {
 				Skip("The environment IP variable is not set or less than 2")
 			}
 			Expect(networkmetallbhelper.IsEnvVarMetallbIPinNodeExtNetRange(strings.Split(
-				Config.General.CnfNodeLabel, "/")[1],
+				generalHelper.Config.General.CnfNodeLabel, "/")[1],
 				metallbIPList[0])).Should(BeTrue())
 		})
 
 		By("should create an Address Pool", func() {
-			err = networkmetallbhelper.CreateAddressPool(addresspool)
+			err := networkmetallbhelper.CreateAddressPool(addresspool)
 			Expect(err).ToNot(HaveOccurred())
 		})
 
@@ -156,13 +152,13 @@ var _ = Describe("CNF MetalLB", func() {
 		})
 
 		By("should create nginx test pods", func() {
-			networkmetallbhelper.MLBClientPod(nodeListString[0], Config.Network.TestContainerImage)
-			networkmetallbhelper.MLBClientPod(nodeListString[1], Config.Network.TestContainerImage)
+			networkmetallbhelper.MLBClientPod(nodeListString[0], generalHelper.Config.Network.TestContainerImage)
+			networkmetallbhelper.MLBClientPod(nodeListString[1], generalHelper.Config.Network.TestContainerImage)
 		})
 
 		By("should validate arping", func() {
 			testPod := networkmetallbhelper.MLBTestPod(nodeListString[0],
-				networkmlbparameters.DefaultNameSpace, Config.Network.TestContainerImage)
+				networkmlbparameters.DefaultNameSpace, generalHelper.Config.Network.TestContainerImage)
 			// https://bugzilla.redhat.com/show_bug.cgi?id=1987445 - fix in 4.10
 			// Verifies that only one node answers the arp request
 			output := networkmetallbhelper.Arping(*testPod, metallbIPList[0])
@@ -183,7 +179,7 @@ var _ = Describe("CNF MetalLB", func() {
 
 		By("should validate curl", func() {
 			testPod := networkmetallbhelper.MLBTestPod(nodeListString[0],
-				networkmlbparameters.DefaultNameSpace, Config.Network.TestContainerImage)
+				networkmlbparameters.DefaultNameSpace, generalHelper.Config.Network.TestContainerImage)
 			Expect(networkmetallbhelper.CurlMlbPod(*testPod, metallbIPList[0])).Should(ContainSubstring("html"),
 				"Curl was unable to connect to nginx")
 		})

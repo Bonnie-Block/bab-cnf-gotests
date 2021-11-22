@@ -21,7 +21,6 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 	podhelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 )
@@ -109,9 +108,7 @@ func RedefineWithRuntimeClass(pod *corev1.Pod, runtimeClass string) *corev1.Pod 
 
 // DefineStressPod returns stress-ng pod definition.
 func DefineStressPod(nodeName string, cpus int, guaranteed bool) *corev1.Pod {
-	config_, err := config.NewConfig()
-	Expect(err).ShouldNot(HaveOccurred())
-	stressngImage := config_.Ran.StressngTestImage
+	stressngImage := helper.Config.Ran.StressngTestImage
 	envVars := []corev1.EnvVar{{Name: "INITIAL_DELAY_SEC", Value: "60"}}
 	cpuLimit := strconv.Itoa(cpus)
 	memoryLimit := "100M"
@@ -131,9 +128,7 @@ func DefineStressPod(nodeName string, cpus int, guaranteed bool) *corev1.Pod {
 
 // DefineOslatPod returns oslat pod definition on given node with given cpu requests
 func DefineOslatPod(profile *performancev2.PerformanceProfile, nodeName string, cpus int, duration string) *corev1.Pod {
-	config_, err := config.NewConfig()
-	Expect(err).ShouldNot(HaveOccurred())
-	oslatImage := config_.Ran.OslatTestImage
+	oslatImage := helper.Config.Ran.OslatTestImage
 
 	volumeType := corev1.HostPathCharDev
 	pod := podhelper.RedefineAsPrivileged(podhelper.DefinePodOnNode(ran.NamespaceTesting, oslatImage, nodeName))
@@ -155,10 +150,8 @@ func DefineOslatPod(profile *performancev2.PerformanceProfile, nodeName string, 
 
 // DeployProcessExporter deploys process exporter and returns the daemonset and error if any
 func DeployProcessExporter() *appsv1.DaemonSet {
-	config_, err := config.NewConfig()
-	Expect(err).ShouldNot(HaveOccurred())
-	configsDir := config_.Ran.ProcessExporterConfigsDir
-	image := config_.Ran.ProcessExporterImage
+	configsDir := helper.Config.Ran.ProcessExporterConfigsDir
+	image := helper.Config.Ran.ProcessExporterImage
 
 	daemonset, err := helper.Apiclient.DaemonSets(ran.PromNamespace).Get(context.Background(), ran.ProcessExporterPodName, metav1.GetOptions{})
 	if err != nil {
@@ -192,9 +185,7 @@ func DeployProcessExporter() *appsv1.DaemonSet {
 
 // DeleteProcessExporter deletes process exporter daemonset
 func DeleteProcessExporter() {
-	config_, err := config.NewConfig()
-	Expect(err).ShouldNot(HaveOccurred())
-	configsDir := config_.Ran.ProcessExporterConfigsDir
+	configsDir := helper.Config.Ran.ProcessExporterConfigsDir
 
 	daemonset, err := helper.Apiclient.DaemonSets(ran.PromNamespace).Get(context.Background(), ran.ProcessExporterPodName, metav1.GetOptions{})
 	if err != nil {

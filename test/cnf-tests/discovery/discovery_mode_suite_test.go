@@ -15,18 +15,13 @@ import (
 	_ "gitlab.cee.redhat.com/cnf/cnf-gotests/test/cnf-tests/discovery/tests"
 	. "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	generalParameters "gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 )
 
 func TestDiscovery(t *testing.T) {
 	_, currentFile, _, _ := runtime.Caller(0)
-	configSuite, err := config.NewConfig()
-	if err != nil {
-		fmt.Print(err)
-		return
-	}
-	junitPath := configSuite.GetReportPath(currentFile)
+
+	junitPath := Config.GetReportPath(currentFile)
 	RegisterFailHandler(Fail)
 	rr := append([]Reporter{}, reporters.NewJUnitReporter(junitPath))
 	RegisterFailHandler(Fail)
@@ -45,10 +40,8 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error removing all sriov policy: %s", err))
 
 	By("Clean All Performance profiles")
-	config, err := config.NewConfig()
-	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error loading config: %s", err))
 
-	err = CleanAllPerformanceProfile(strings.Split(config.General.CnfNodeLabel, "/")[1], snoTimeoutMultiplier)
+	err = CleanAllPerformanceProfile(strings.Split(Config.General.CnfNodeLabel, "/")[1], snoTimeoutMultiplier)
 	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error removing all Performance profiles: %s", err))
 
 	By("Clean All PTP config")
@@ -76,9 +69,8 @@ var _ = AfterSuite(func() {
 		parameters.DiscoveryPtpGrandmasterNodeLabel,
 		parameters.DiscoveryPtpSlaveNodeLabel)
 	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error to remove ptp configuration: %s", err))
-	config, err := config.NewConfig()
-	Expect(err).ToNot(HaveOccurred())
+
 	By("Clean all PerformanceProfile Policy")
-	err = CleanAllPerformanceProfile(strings.Split(config.General.CnfNodeLabel, "/")[1], snoTimeoutMultiplier)
+	err = CleanAllPerformanceProfile(strings.Split(Config.General.CnfNodeLabel, "/")[1], snoTimeoutMultiplier)
 	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error removing all Performance profiles: %s", err))
 })

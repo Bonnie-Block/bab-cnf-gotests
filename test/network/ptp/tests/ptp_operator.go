@@ -19,7 +19,6 @@ import (
 	. "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/ptp/netptpparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
@@ -130,12 +129,9 @@ func configurePTP() {
 	Expect(err).ToNot(HaveOccurred())
 
 	By("Creating the policy for the grandmaster node")
-	config, err := config.NewConfig()
-	Expect(err).ToNot(HaveOccurred())
-
 	var validPtpInterfaces []string
 	Eventually(func() error {
-		validPtpInterfaces, err = GetPtpInterfaces(config, 2, parameters.SriovOperatorNamespace)
+		validPtpInterfaces, err = GetPtpInterfaces(Config, 2, parameters.SriovOperatorNamespace)
 		return err
 	}, 5*time.Minute, 2*time.Second).ShouldNot(HaveOccurred(), "Error to collect ptp supported interfaces")
 	Expect(len(validPtpInterfaces)).To(Equal(2), "Expect 2 ptp supported interfaces")
