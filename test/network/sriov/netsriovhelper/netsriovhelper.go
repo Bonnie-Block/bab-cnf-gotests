@@ -1,14 +1,29 @@
 package netsriovhelper
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
+	"log"
 	"strings"
+	"time"
+
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/extensions/table"
+	. "github.com/onsi/gomega"
+
+	. "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/sriov/netsriovparameters"
+	generalParameters "gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
+
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/cluster"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 
 	sriovv1 "github.com/k8snetworkplumbingwg/sriov-network-operator/api/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/sriov/netsriovparameters"
 )
 
 const (
@@ -16,8 +31,8 @@ const (
 	ipv6Subnet int = 64
 )
 
-// DefineSriovNetwork builds SriovNetwork resource
-func DefineSriovNetwork(name string, resourceName string, ipamStatic bool) *sriovv1.SriovNetwork {
+// defineSriovNetwork builds SriovNetwork resource
+func defineSriovNetwork(name string, resourceName string, ipamStatic bool) *sriovv1.SriovNetwork {
 	ipam := `{ "type": "dhcp" }`
 	if ipamStatic {
 		ipam = `{ "type": "static" }`
@@ -35,8 +50,8 @@ func DefineSriovNetwork(name string, resourceName string, ipamStatic bool) *srio
 		}}
 }
 
-// DefinePodWithStaticMacAndIpam sets pod network with static IPAM config with Static Mac address
-func DefinePodWithStaticMacAndIpam(pod *corev1.Pod, networkName string, ipAddress string, macAddress string) *corev1.Pod {
+// definePodWithStaticMacAndIpam sets pod network with static IPAM config with Static Mac address
+func definePodWithStaticMacAndIpam(pod *corev1.Pod, networkName string, ipAddress string, macAddress string) *corev1.Pod {
 	subnet := ipv4Subnet
 	if strings.Contains(ipAddress, ":") {
 		subnet = ipv6Subnet
@@ -52,33 +67,8 @@ func DefinePodWithStaticMacAndIpam(pod *corev1.Pod, networkName string, ipAddres
 	return pod
 }
 
-// DefinePodWithStaticMacAndDualIpam sets pod network with static IPAM config with Static Mac address
-func DefinePodWithStaticMacAndDualIpam(pod *corev1.Pod, networkName string, ip4address string, ip6address string, macAddress string) *corev1.Pod {
-	pod.Annotations = map[string]string{"k8s.v1.cni.cncf.io/networks": fmt.Sprintf(`[
-		{
-			"name": "%s", 
-			"mac": "%s",
-			"ips": ["%s/%d","%s/%d"]
-		}
-	]`, networkName, macAddress, ip4address, ipv4Subnet, ip6address, ipv6Subnet)}
-
-	return pod
-}
-
-// DefinePodWithStaticDualIpamAndDynamicMac sets pod network with static dual IPAM config with Dynamic Mac address
-func DefinePodWithStaticDualIpamAndDynamicMac(pod *corev1.Pod, networkName string, ip4address string, ip6address string) *corev1.Pod {
-	pod.Annotations = map[string]string{"k8s.v1.cni.cncf.io/networks": fmt.Sprintf(`[
-		{
-			"name": "%s",
-			"ips": ["%s/%d","%s/%d"]
-		}
-	]`, networkName, ip4address, ipv4Subnet, ip6address, ipv6Subnet)}
-
-	return pod
-}
-
-// DefinePodWithStaticIpamAndDynamicMac sets pod network with static IPAM config with Dynamic Mac address
-func DefinePodWithStaticIpamAndDynamicMac(pod *corev1.Pod, networkName string, ipAddress string) *corev1.Pod {
+// definePodWithStaticIpamAndDynamicMac sets pod network with static IPAM config with Dynamic Mac address
+func definePodWithStaticIpamAndDynamicMac(pod *corev1.Pod, networkName string, ipAddress string) *corev1.Pod {
 	subnet := ipv4Subnet
 	if strings.Contains(ipAddress, ":") {
 		subnet = ipv6Subnet
@@ -93,51 +83,629 @@ func DefinePodWithStaticIpamAndDynamicMac(pod *corev1.Pod, networkName string, i
 	return pod
 }
 
-// DefinePodCommand sets pod command
-func DefinePodCommand(pod *corev1.Pod, command []string) *corev1.Pod {
+// definePodCommand sets pod command
+func definePodCommand(pod *corev1.Pod, command []string) *corev1.Pod {
 	pod.Spec.Containers[0].Command = command
 	return pod
 }
 
-// DefinePodCommands sets a container for every command
-func DefinePodCommands(pod *corev1.Pod, commands ...[]string) *corev1.Pod {
-	for index := 0; index < len(commands); index++ {
-		if index == len(pod.Spec.Containers) {
-			pod.Spec.Containers = append(pod.Spec.Containers, *pod.Spec.Containers[0].DeepCopy())
+// definePodCommandWithIpamAndMac checks this  static Mac or dynamic Mac
+func definePodCommandWithIpamAndMac(podDefinition *corev1.Pod, networkName string, ipaddress string, macAddress string, podCommand []string) *corev1.Pod {
+	if macAddress == "" {
+		podDefinition = definePodCommand(
+			definePodWithStaticIpamAndDynamicMac(podDefinition, networkName, ipaddress),
+			podCommand)
+	} else {
+		podDefinition = definePodCommand(
+			definePodWithStaticMacAndIpam(podDefinition, networkName, ipaddress, macAddress),
+			podCommand)
+	}
+
+	return podDefinition
+}
+
+// DescribeSRIOVParameters validates given parameters and returns json formatted string
+func DescribeSRIOVParameters(mtu int, protocol string, connectivity string) string {
+	connectivityParameters, err := netsriovparameters.NewConnectivityTestParameters(mtu, connectivity, protocol)
+	if err != nil {
+		log.Print(err)
+		return fmt.Sprintf("error in parameters: MTU=%d, Connectivity=%s, Protocol=%s", mtu, connectivity, protocol)
+	}
+	myPrams, err := json.Marshal(connectivityParameters)
+	if err != nil {
+		log.Print(err)
+		return fmt.Sprintf("error in parameters: MTU=%d, Connectivity=%s, Protocol=%s", mtu, connectivity, protocol)
+	}
+	return string(myPrams)
+}
+
+func BuildTableEntries(
+	sriovSmokeTestMode bool,
+	describe interface{},
+	mtuParameters []int,
+	connectivityParameters []string,
+	protocolParameters []string) []TableEntry {
+
+	var tableEntries []TableEntry
+	if sriovSmokeTestMode {
+		var protocolIndex int
+		var mtuIndex int
+		var connectivityIndex int
+		lenghtOfParametersArrays := []int{
+			len(mtuParameters),
+			len(connectivityParameters),
+			len(protocolParameters),
 		}
-		pod.Spec.Containers[index].Command = commands[index]
-		pod.Spec.Containers[index].Name = fmt.Sprintf("test-%d", index)
+		max := lenghtOfParametersArrays[0]
+		for _, listLeght := range lenghtOfParametersArrays {
+			if listLeght > max {
+				max = listLeght
+			}
+		}
+		for i := 0; i < max; i++ {
+			if protocolIndex >= len(protocolParameters) {
+				protocolIndex = 0
+			}
+			if mtuIndex >= len(mtuParameters) {
+				mtuIndex = 0
+			}
+			if connectivityIndex >= len(connectivityParameters) {
+				connectivityIndex = 0
+			}
+			tableEntries = append(
+				tableEntries,
+				Entry(
+					describe,
+					mtuParameters[mtuIndex],
+					protocolParameters[protocolIndex],
+					connectivityParameters[connectivityIndex],
+				),
+			)
+			mtuIndex++
+			connectivityIndex++
+			protocolIndex++
+		}
+	} else {
+		for _, protocol := range protocolParameters {
+			for _, mtu := range mtuParameters {
+				for _, connectivity := range connectivityParameters {
+					tableEntries = append(
+						tableEntries,
+						Entry(describe, mtu, protocol, connectivity))
+				}
+			}
+		}
 	}
-
-	return pod
+	return tableEntries
 }
 
-// DefinePodCommandWithIpamAndMac checks this  static Mac or dynamic Mac
-func DefinePodCommandWithIpamAndMac(podDefinition *corev1.Pod, networkName string, ipaddress string, macAddress string, podCommand []string) *corev1.Pod {
-	if macAddress == "" {
-		podDefinition = DefinePodCommand(
-			DefinePodWithStaticIpamAndDynamicMac(podDefinition, networkName, ipaddress),
-			podCommand)
-	} else {
-		podDefinition = DefinePodCommand(
-			DefinePodWithStaticMacAndIpam(podDefinition, networkName, ipaddress, macAddress),
-			podCommand)
-	}
-
-	return podDefinition
+func redefinePodWithInitDebugCommands(podObject *corev1.Pod, initImage string) *corev1.Pod {
+	podObject.Spec.InitContainers = append(podObject.Spec.InitContainers, corev1.Container{Name: "initlogs",
+		Image: initImage,
+		Command: []string{
+			"/bin/bash", "-c", "echo $(date) DEBUG && hostname && ip addr show && ip route && ip -6 route"}})
+	return podObject
 }
 
-// DefinePodCommandsWithDualIpamAndMac returns a pod with 2 ip addresses and 2 containers
-func DefinePodCommandsWithDualIpamAndMac(podDefinition *corev1.Pod, networkName string, ip4address string, ip6address string, macAddress string, podCommands ...[]string) *corev1.Pod {
-	if macAddress == "" {
-		podDefinition = DefinePodCommands(
-			DefinePodWithStaticDualIpamAndDynamicMac(podDefinition, networkName, ip4address, ip6address),
-			podCommands...)
-	} else {
-		podDefinition = DefinePodCommands(
-			DefinePodWithStaticMacAndDualIpam(podDefinition, networkName, ip4address, ip6address, macAddress),
-			podCommands...)
+func serverNeedsPrivilege(protocol string) bool {
+	return protocol == netsriovparameters.CommunicationProtocolUnicastSCTP ||
+		protocol == netsriovparameters.CommunicationProtocolUnicastTCP
+}
+
+func clientNeedsPrivilege(protocol string) bool {
+	return protocol == netsriovparameters.CommunicationProtocolUnicastTCP ||
+		protocol == netsriovparameters.CommunicationProtocolUnicastSCTP
+}
+
+func serverCommandFor(
+	testProtocol string,
+	mtu int,
+	serverIP string,
+	negative bool,
+	testPort int) ([]string, error) {
+
+	testCommand := []string{}
+	switch testProtocol {
+
+	case netsriovparameters.CommunicationProtocolUnicastICMP:
+		testCommand = []string{"sleep", "INF"}
+
+	case netsriovparameters.CommunicationProtocolUnicastTCP:
+		testCommand = []string{
+			"testcmd",
+			"--listen",
+			fmt.Sprintf("-interface=%s", netsriovparameters.TestInterfaceName),
+			"--protocol=tcp",
+			fmt.Sprintf("--mtu=%d", mtu),
+			fmt.Sprintf("-port=%d", testPort),
+		}
+
+	case netsriovparameters.CommunicationProtocolUnicastSCTP:
+		testCommand = []string{
+			"testcmd",
+			"-protocol=sctp",
+			"-listen",
+			fmt.Sprintf("-port=%d", testPort),
+			fmt.Sprintf("-interface=%s", netsriovparameters.TestInterfaceName),
+			fmt.Sprintf("-server=%s", serverIP)}
+
+	case netsriovparameters.CommunicationProtocolUnicastUDP:
+		testCommand = []string{
+			"testcmd",
+			"-listen",
+			"-protocol=udp",
+			fmt.Sprintf("-port=%d", testPort),
+			fmt.Sprintf("-mtu=%d", mtu)}
+
+	case netsriovparameters.CommunicationProtocolMulticastUDP:
+		multicastAddress := netsriovparameters.MulticastIPAddress
+		if strings.Contains(serverIP, ":") {
+			multicastAddress = netsriovparameters.MulticastIPv6Address
+		}
+		testCommand = []string{
+			"testcmd",
+			"-listen",
+			"-protocol=udp",
+			fmt.Sprintf("-port=%d", testPort),
+			"-multicast",
+			fmt.Sprintf("-interface=%s", netsriovparameters.TestInterfaceName),
+			fmt.Sprintf("-server=%s", multicastAddress)}
+		if negative {
+			if mtu < netsriovparameters.MTUJumbo {
+				testCommand = append(testCommand, fmt.Sprintf("-mtu=%d", mtu+50))
+			} else {
+				testCommand = append(testCommand, fmt.Sprintf("-mtu=%d", mtu))
+			}
+		} else {
+			testCommand = append(testCommand, fmt.Sprintf("-mtu=%d", mtu-100))
+		}
+	case netsriovparameters.CommunicationProtocolBroadcastUDP:
+		if negative {
+			if mtu < netsriovparameters.MTUJumbo {
+				testCommand = []string{
+					"testcmd",
+					"-listen",
+					"-protocol=udp",
+					"-port=50000",
+					"-broadcast",
+					fmt.Sprintf("-interface=%s", netsriovparameters.TestInterfaceName),
+					fmt.Sprintf("-mtu=%d", mtu+100)}
+			} else {
+				testCommand = []string{
+					"testcmd",
+					"-listen",
+					"-protocol=udp",
+					"-port=50000",
+					"-broadcast",
+					fmt.Sprintf("-interface=%s", netsriovparameters.TestInterfaceName),
+					fmt.Sprintf("-mtu=%d", mtu)}
+			}
+		} else {
+			testCommand = []string{
+				"testcmd",
+				"-listen",
+				"-protocol=udp",
+				"-port=50000",
+				"-broadcast",
+				fmt.Sprintf("-interface=%s", netsriovparameters.TestInterfaceName),
+				fmt.Sprintf("-mtu=%d", mtu-40)}
+		}
+	default:
+		return nil, fmt.Errorf(netsriovparameters.SriovErrorProtocolMessage, testProtocol)
+	}
+	return testCommand, nil
+}
+
+func runServerPod(
+	protocol string,
+	mtu int,
+	connectivity string,
+	sriovInfos *cluster.EnabledNodes,
+	config *config.Config,
+	networkName string,
+	serverCommand []string,
+	negative bool,
+	serverMacAddress string,
+	serverIP string) {
+
+	nodeSelector := defineNodeSelector(connectivity, sriovInfos)
+
+	if (protocol == netsriovparameters.CommunicationProtocolMulticastUDP ||
+		protocol == netsriovparameters.CommunicationProtocolBroadcastUDP ||
+		protocol == netsriovparameters.CommunicationProtocolUnicastSCTP) && negative == true {
+		namespaces.CleanPods(netsriovparameters.OperatorTestNamespace, Apiclient)
 	}
 
-	return podDefinition
+	serverCommand, err := serverCommandFor(protocol, mtu, serverIP, negative, netsriovparameters.TestPort)
+	Expect(err).ToNot(HaveOccurred())
+	serverPodDefinition := defineServerPod(
+		protocol,
+		nodeSelector,
+		networkName,
+		serverIP,
+		serverMacAddress,
+		config.Network.TestContainerImage,
+		serverCommand)
+
+	serverPod, err := Apiclient.Pods(
+		netsriovparameters.OperatorTestNamespace).Create(
+		context.Background(),
+		serverPodDefinition,
+		metav1.CreateOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	waitUntilPodInStatus(
+		serverPod,
+		"Server",
+		serverCommand,
+		corev1.PodRunning, netsriovparameters.PodWaitingTime)
+}
+
+func defineTestCommandParameters(
+	negative bool,
+	protocol string,
+	mtu int,
+	serverIP string,
+	testPort int) ([]string, error) {
+
+	testCommand := []string{"testcmd"}
+	var protocolOption string
+	protocolVersion := 4
+	if strings.Contains(serverIP, ":") {
+		protocolVersion = 6
+	}
+	switch protocol {
+	case netsriovparameters.CommunicationProtocolUnicastICMP:
+		protocolOption = "icmp"
+	case netsriovparameters.CommunicationProtocolUnicastTCP:
+		protocolOption = "tcp"
+		testCommand = append(testCommand, fmt.Sprintf("-port=%d", testPort), fmt.Sprintf("-interface=%s", netsriovparameters.TestInterfaceName))
+	case netsriovparameters.CommunicationProtocolUnicastSCTP:
+		protocolOption = "sctp"
+		testCommand = append(testCommand, fmt.Sprintf("-server=%s", serverIP),
+			fmt.Sprintf("-port=%d", testPort), fmt.Sprintf("-interface=%s", netsriovparameters.TestInterfaceName))
+	case netsriovparameters.CommunicationProtocolUnicastUDP:
+		protocolOption = "udp"
+		testCommand = append(testCommand, fmt.Sprintf("-port=%d", testPort))
+	case netsriovparameters.CommunicationProtocolMulticastUDP:
+		protocolOption = "udp"
+		serverIP = netsriovparameters.MulticastIPAddress
+		if protocolVersion == 6 {
+			serverIP = netsriovparameters.MulticastIPv6Address
+		}
+		testCommand = append(
+			testCommand,
+			fmt.Sprintf("-port=%d", testPort),
+			"-multicast",
+			fmt.Sprintf("-interface=%s", netsriovparameters.TestInterfaceName))
+	case netsriovparameters.CommunicationProtocolBroadcastUDP:
+		protocolOption = "udp"
+		serverIP = "255.255.255.255"
+		testCommand = append(
+			testCommand,
+			fmt.Sprintf("-port=%d", testPort),
+			"-broadcast",
+			fmt.Sprintf("-interface=%s", netsriovparameters.TestInterfaceName))
+	default:
+		return nil, fmt.Errorf(netsriovparameters.SriovErrorProtocolMessage, protocol)
+	}
+	switch {
+	case negative:
+		var parameterMtu string
+		if mtu < netsriovparameters.MTUJumbo {
+			parameterMtu = fmt.Sprintf("-mtu=%d", mtu+50)
+		} else {
+			parameterMtu = fmt.Sprintf("-mtu=%d", mtu)
+		}
+		testCommand = append(testCommand, "-negative", parameterMtu)
+	default:
+		testCommand = append(testCommand, fmt.Sprintf("-mtu=%d", mtu-100))
+	}
+	testCommand = append(testCommand, fmt.Sprintf("-server=%s", serverIP), fmt.Sprintf("-protocol=%s", protocolOption))
+	return testCommand, nil
+}
+
+func defineServerNetworkName(mtu int) string {
+	return defineNetworkName(mtu)
+}
+
+func defineClientNetworkName(mtu int, connectivity string) string {
+	var networkName string
+	switch connectivity {
+	case netsriovparameters.ConnectivitySameNodeDiffPF:
+		if mtu == netsriovparameters.MTUJumbo {
+			networkName = netsriovparameters.SriovNetworkJumboFrameNameDiff
+		} else if mtu == netsriovparameters.MTUStandart {
+			networkName = netsriovparameters.SriovNetworkUsualMTUNameDiff
+		} else if mtu == netsriovparameters.MTUCustom {
+			networkName = netsriovparameters.SriovNetworkCustomMTUNameDiff
+		} else {
+			Skip(fmt.Sprintf("Unsupported test parameter mtu: %d", mtu))
+		}
+	default:
+		networkName = defineNetworkName(mtu)
+	}
+	return networkName
+}
+
+func defineNetworkName(mtu int) string {
+	var networkName string
+	if mtu == netsriovparameters.MTUJumbo {
+		networkName = netsriovparameters.SriovNetworkJumboFrameName
+	} else if mtu == netsriovparameters.MTUStandart {
+		networkName = netsriovparameters.SriovNetworkUsualMTUName
+	} else if mtu == netsriovparameters.MTUCustom {
+		networkName = netsriovparameters.SriovNetworkCustomMTUName
+	} else {
+		Skip(fmt.Sprintf("Unsupported test parameter mtu: %d", mtu))
+	}
+	return networkName
+}
+
+func defineNodeSelector(connectivity string, sriovInfos *cluster.EnabledNodes) []string {
+	var nodeSelector []string
+	if connectivity == netsriovparameters.ConnectivityDiffNode {
+		if len(sriovInfos.Nodes) < 2 {
+			Skip("Nodes number less that 2")
+		}
+		nodeSelector = sriovInfos.Nodes
+	} else if connectivity == netsriovparameters.ConnectivitySameNodeSamePF ||
+		connectivity == netsriovparameters.ConnectivitySameNodeDiffPF {
+		nodeSelector = append(nodeSelector, sriovInfos.Nodes[0])
+	} else {
+		Skip(fmt.Sprintf("Unsupported test parameter Connectivity: %s", connectivity))
+	}
+	return nodeSelector
+}
+
+func defineServerPod(
+	protocol string,
+	nodeSelector []string,
+	networkName string,
+	ipaddress string,
+	macAddress string,
+	podImage string,
+	podCommand []string) *corev1.Pod {
+
+	podDefinition := pod.RedefineWithRestartPolicy(
+		pod.DefineWithNodeNetworks(
+			nodeSelector[0],
+			[]string{networkName},
+			netsriovparameters.OperatorTestNamespace, podImage),
+		corev1.RestartPolicyNever)
+
+	if serverNeedsPrivilege(protocol) {
+		podDefinition = pod.RedefineAsPrivileged(podDefinition)
+	}
+
+	podDefinition = definePodCommandWithIpamAndMac(podDefinition, networkName, ipaddress, macAddress, podCommand)
+
+	if strings.Contains(ipaddress, ":") {
+		podDefinition = redefinePodWithInitCommandPolicy(podDefinition, podImage,
+			fmt.Sprintf(
+				"ping6 -c 3 -w 30 %s && ip -6 route add %s/128 dev net1 table local",
+				netsriovparameters.ServerPodIpv6, netsriovparameters.MulticastIPv6Address))
+	}
+	return redefinePodWithInitDebugCommands(podDefinition, podImage)
+}
+
+func defineClientPod(
+	protocol string,
+	nodeSelector []string,
+	networkName string,
+	ipaddress string,
+	macAddress string,
+	podImage string,
+	podCommand []string) *corev1.Pod {
+
+	var podDefinition *corev1.Pod
+
+	if len(nodeSelector) > 1 {
+		podDefinition = pod.RedefineWithRestartPolicy(
+			pod.DefineWithNodeNetworks(
+				nodeSelector[1],
+				[]string{networkName},
+				netsriovparameters.OperatorTestNamespace, podImage),
+			corev1.RestartPolicyNever)
+	} else {
+		podDefinition = pod.RedefineWithRestartPolicy(
+			pod.DefineWithNodeNetworks(
+				nodeSelector[0],
+				[]string{networkName},
+				netsriovparameters.OperatorTestNamespace, podImage),
+			corev1.RestartPolicyNever)
+	}
+
+	if clientNeedsPrivilege(protocol) {
+		podDefinition = pod.RedefineAsPrivileged(podDefinition)
+	}
+
+	podDefinition = definePodCommandWithIpamAndMac(podDefinition, networkName, ipaddress, macAddress, podCommand)
+	serverIP := netsriovparameters.ServerPodIP
+	if strings.Contains(ipaddress, ":") {
+		serverIP = netsriovparameters.ServerPodIpv6
+	}
+	return redefinePodWithInitCommandPolicy(
+		podDefinition,
+		podImage,
+		fmt.Sprintf("ping %s -c 3 -w 30", serverIP))
+}
+
+func redefinePodWithInitCommandPolicy(podObject *corev1.Pod, initImage string, command string) *corev1.Pod {
+	b := true
+	podObject.Spec.InitContainers = []corev1.Container{{Name: "inittest",
+		Image: initImage,
+		SecurityContext: &corev1.SecurityContext{
+			Privileged: &b,
+		},
+		Command: []string{"/bin/bash", "-c", command}}}
+	return podObject
+}
+
+func waitUntilPodInStatus(
+	createdPod *corev1.Pod,
+	podRole string,
+	execCommand []string,
+	podStatus corev1.PodPhase,
+	waitingTime time.Duration) {
+
+	Eventually(func() corev1.PodPhase {
+		createdPod, _ = Apiclient.Pods(netsriovparameters.OperatorTestNamespace).Get(
+			context.Background(),
+			createdPod.Name,
+			metav1.GetOptions{})
+		if createdPod.Status.Phase == corev1.PodFailed {
+			Fail(fmt.Sprintf("Pod role %s.Invalid return code. Command: %s", podRole, execCommand))
+		}
+		return createdPod.Status.Phase
+	}, waitingTime, time.Second).Should(Equal(podStatus),
+		fmt.Sprintf("Pod role %s. Invalid return code. Command: %s", podRole, execCommand))
+}
+
+func SetupSriovConfig(sriovInfos *cluster.EnabledNodes, SnoTimeoutMultiplier time.Duration) {
+	sriovInterfaces, err := sriovInfos.FindSriovDevices(sriovInfos.Nodes[0])
+	Expect(err).ToNot(HaveOccurred())
+
+	if SnoTimeoutMultiplier == 2 {
+		disableDrainState := GetNodeDrainState(netsriovparameters.OperatorNamespace)
+		if !disableDrainState {
+			SetDisableNodeDrainState(true, netsriovparameters.OperatorNamespace)
+			ChangedNodeDrainState = true
+		}
+	}
+
+	validSriovInterfaces, err := Config.GetSriovInterfaces(sriovInterfaces, 2)
+	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error determine SRIOV interfaces: %s", err))
+
+	By(fmt.Sprintf("Clean test namespace %s", netsriovparameters.OperatorTestNamespace))
+	namespaces.Clean(
+		generalParameters.SriovOperatorNamespace,
+		netsriovparameters.OperatorTestNamespace,
+		Apiclient,
+		false)
+
+	By("Waiting until SRIOV become stable")
+	WaitForSRIOVStable(generalParameters.SriovOperatorNamespace, netsriovparameters.WaitingTime, SnoTimeoutMultiplier)
+
+	By("Configuring SriovPolicy resources")
+	err = namespaces.Create(netsriovparameters.OperatorTestNamespace, Apiclient)
+	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error to create namespace %s: %s", netsriovparameters.OperatorNamespace, err))
+
+	usualSriovPolicyConfig := DefineSriovPolicy(
+		"test-policy-usual",
+		generalParameters.SriovOperatorNamespace,
+		validSriovInterfaces[0],
+		6,
+		"#0-1",
+		1500,
+		"testresourceusual",
+		"netdevice")
+	customSriovPolicyConfig := DefineSriovPolicy(
+		"test-policy-custom",
+		generalParameters.SriovOperatorNamespace,
+		validSriovInterfaces[0],
+		6,
+		"#2-3",
+		1450,
+		"testresourcecustom",
+		"netdevice")
+	jumboSriovPolicyConfig := DefineSriovPolicy(
+		"test-policy-jumbo",
+		generalParameters.SriovOperatorNamespace,
+		validSriovInterfaces[0],
+		6,
+		"#4-5",
+		9000,
+		"testresourcejumbo",
+		"netdevice")
+	usualSriovPolicyConfigDiffPF := DefineSriovPolicy(
+		"test-policy-usual-diff",
+		generalParameters.SriovOperatorNamespace,
+		validSriovInterfaces[1],
+		5,
+		"#0-0",
+		1500,
+		"testresourceusualdiff",
+		"netdevice")
+	customSriovPolicyConfigDiffPF := DefineSriovPolicy(
+		"test-policy-custom-diff",
+		generalParameters.SriovOperatorNamespace,
+		validSriovInterfaces[1],
+		5,
+		"#1-1",
+		1450,
+		"testresourcecustomdiff",
+		"netdevice")
+	jumboSriovPolicyConfigDiffPF := DefineSriovPolicy(
+		"test-policy-jumbo-diff",
+		generalParameters.SriovOperatorNamespace,
+		validSriovInterfaces[1],
+		5,
+		"#2-2",
+		9000,
+		"testresourcejumbodiff",
+		"netdevice")
+	for _, networkPolicy := range []*sriovv1.SriovNetworkNodePolicy{
+		usualSriovPolicyConfig,
+		customSriovPolicyConfig,
+		jumboSriovPolicyConfig,
+		customSriovPolicyConfigDiffPF,
+		jumboSriovPolicyConfigDiffPF,
+		usualSriovPolicyConfigDiffPF} {
+		err = Apiclient.Create(context.Background(), networkPolicy)
+		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error to create SR-IOV networkPolicy %s: %s", networkPolicy, err))
+	}
+
+	By("Configuring SriovNetwork resources")
+	usualSriovNetworkConfig := defineSriovNetwork(
+		netsriovparameters.SriovNetworkUsualMTUName,
+		usualSriovPolicyConfig.Spec.ResourceName,
+		true)
+	customSriovNetworkConfig := defineSriovNetwork(
+		netsriovparameters.SriovNetworkCustomMTUName,
+		customSriovPolicyConfig.Spec.ResourceName,
+		true)
+	jumboSriovNetworkConfig := defineSriovNetwork(
+		netsriovparameters.SriovNetworkJumboFrameName,
+		jumboSriovPolicyConfig.Spec.ResourceName,
+		true)
+	usualSriovNetworkConfigDiff := defineSriovNetwork(
+		netsriovparameters.SriovNetworkUsualMTUNameDiff,
+		usualSriovPolicyConfigDiffPF.Spec.ResourceName,
+		true)
+	customSriovNetworkConfigDiff := defineSriovNetwork(
+		netsriovparameters.SriovNetworkCustomMTUNameDiff,
+		customSriovPolicyConfigDiffPF.Spec.ResourceName,
+		true)
+	jumboSriovNetworkConfigDiff := defineSriovNetwork(
+		netsriovparameters.SriovNetworkJumboFrameNameDiff,
+		jumboSriovPolicyConfigDiffPF.Spec.ResourceName,
+		true)
+	for _, network := range []*sriovv1.SriovNetwork{
+		usualSriovNetworkConfig,
+		customSriovNetworkConfig,
+		jumboSriovNetworkConfig,
+		customSriovNetworkConfigDiff,
+		jumboSriovNetworkConfigDiff,
+		usualSriovNetworkConfigDiff} {
+		err = Apiclient.Create(context.Background(), network)
+		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error to create SR-IOV network %s: %s", network, err))
+	}
+
+	By("Waiting until SRIOV become stable")
+	WaitForSRIOVStable(generalParameters.SriovOperatorNamespace, netsriovparameters.WaitingTime, SnoTimeoutMultiplier)
+
+	By("Waiting until SRIOV resources become available")
+	ValidateSriovVFsAvailableOnNodes(
+		sriovInfos.Nodes, []*sriovv1.SriovNetworkNodePolicy{
+			usualSriovPolicyConfig,
+			customSriovPolicyConfig,
+			jumboSriovPolicyConfig},
+		2)
+	ValidateSriovVFsAvailableOnNodes(
+		sriovInfos.Nodes,
+		[]*sriovv1.SriovNetworkNodePolicy{
+			usualSriovPolicyConfigDiffPF,
+			customSriovPolicyConfigDiffPF,
+			jumboSriovPolicyConfigDiffPF},
+		1)
 }

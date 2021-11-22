@@ -7,7 +7,6 @@ import (
 	sriovv1 "github.com/k8snetworkplumbingwg/sriov-network-operator/api/v1"
 	. "github.com/onsi/gomega"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/cluster"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -27,7 +26,7 @@ func WaitForSRIOVStable(operatorNamespace string, waitingTime time.Duration, sno
 	// then stable. The issue is that if no configuration is applied, then
 	// the status won't never go to not stable and the test will fail.
 	// TODO: find a better way to handle this scenario
-	time.Sleep((10 + snoTimeoutMultiplier*10)*time.Second)
+	time.Sleep((10 + snoTimeoutMultiplier*10) * time.Second)
 	Eventually(func() bool {
 		res, err := cluster.SriovStable(operatorNamespace, Apiclient)
 		Expect(err).ToNot(HaveOccurred())
@@ -52,8 +51,6 @@ func DefineSriovPolicy(
 	resourceName string,
 	devType string) *sriovv1.SriovNetworkNodePolicy {
 
-	conf, err := config.NewConfig()
-	Expect(err).ToNot(HaveOccurred())
 	return &sriovv1.SriovNetworkNodePolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: name,
@@ -62,7 +59,7 @@ func DefineSriovPolicy(
 
 		Spec: sriovv1.SriovNetworkNodePolicySpec{
 			NodeSelector: map[string]string{
-				conf.General.CnfNodeLabel: "",
+				Config.General.CnfNodeLabel: "",
 			},
 			NumVfs:       VfsNumber,
 			Mtu:          mtu,
@@ -96,7 +93,7 @@ func validateSriovVFsNodeAllocatedResources(node string, SriovNetworkPolicies []
 	}
 }
 
-func GetNodeDrainState(operatorNamespace string) (bool) {
+func GetNodeDrainState(operatorNamespace string) bool {
 	sriovOperatorConfg := &sriovv1.SriovOperatorConfig{}
 	err := Apiclient.Get(context.TODO(), runtimeclient.ObjectKey{Name: "default", Namespace: operatorNamespace}, sriovOperatorConfg)
 	Expect(err).ToNot(HaveOccurred())

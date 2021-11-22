@@ -1,7 +1,7 @@
 package sriov
 
 import (
-	"fmt"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/sriov/netsriovhelper"
 	"log"
 	"runtime"
 	"testing"
@@ -16,7 +16,6 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/sriov/netsriovparameters"
 	_ "gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/sriov/tests"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/cluster"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 	testutils "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/utils"
@@ -28,13 +27,8 @@ const (
 
 func TestSriov(t *testing.T) {
 	_, currentFile, _, _ := runtime.Caller(0)
-	configSuite, err := config.NewConfig()
-	if err != nil {
-		fmt.Print(err)
-		return
-	}
-	junitPath := configSuite.GetReportPath(currentFile)
-	dumpFile := configSuite.GetDumpFailedTestReportLocation(currentFile)
+	junitPath := Config.GetReportPath(currentFile)
+	dumpFile := Config.GetDumpFailedTestReportLocation(currentFile)
 	RegisterFailHandler(Fail)
 	rr := append([]Reporter{}, reporters.NewJUnitReporter(junitPath))
 	if dumpFile != "" {
@@ -57,15 +51,14 @@ var _ = BeforeSuite(func() {
 	if isSingleNode {
 		snoTimeoutMultiplier = 2
 	}
-	configuration, err := config.NewConfig()
-	Expect(err).ToNot(HaveOccurred())
-	PullTestImage(configuration.General.CnfNodeLabel, configuration.Network.TestContainerImage)
+	PullTestImage(Config.General.CnfNodeLabel, Config.Network.TestContainerImage)
 	sriovInfos, err := cluster.DiscoverSriov(Apiclient, netsriovparameters.OperatorNamespace)
 	Expect(err).ToNot(HaveOccurred())
 	err = nethelper.CompareNodeSriovInterfaces(sriovInfos)
 	Expect(err).ToNot(HaveOccurred())
 	namespaces.Clean(netsriovparameters.OperatorNamespace, netsriovparameters.OperatorTestNamespace, Apiclient, false)
 	WaitForSRIOVStable(netsriovparameters.OperatorNamespace, timeout, snoTimeoutMultiplier)
+	netsriovhelper.SetupSriovConfig(sriovInfos, snoTimeoutMultiplier)
 })
 
 var _ = AfterSuite(func() {
