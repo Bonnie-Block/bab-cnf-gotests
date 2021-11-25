@@ -1,4 +1,4 @@
-package networkmetallbhelper
+package netmetallbhelper
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	. "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
-	metallbParameters "gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/metallb/networkmlbparameters"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/metallb/netmlbparameters"
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
@@ -31,7 +31,7 @@ func IsEnvVarMetallbIPinNodeExtNetRange(cnfNodeLabel string, metallbEnvIP string
 	//Checks that the METALLB_ADDR_LIST is in the range of the cluster br-ex interface
 	node := GetNodeListStringByLabel(cnfNodeLabel)
 	event, _ := Apiclient.Nodes().Get(context.Background(), node[0], metav1.GetOptions{})
-	v, _ := event.Annotations[metallbParameters.AnnotationPrimaryIfaddr]
+	v, _ := event.Annotations[netmlbparameters.AnnotationPrimaryIfaddr]
 	// Output example {"ipv4":"10.46.56.13/24"} len = 5
 	nodeOutput := strings.Split(v, "\"")
 	Expect(len(nodeOutput)).Should(Equal(5))
@@ -49,10 +49,10 @@ func DefineMetallbAddressPool() *metallbv1alpha1.AddressPool {
 	Expect(err).ToNot(HaveOccurred())
 	ap := &metallbv1alpha1.AddressPool{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      metallbParameters.AddressPool,
-			Namespace: metallbParameters.MetalLBOperatorNameSpace,
+			Name:      netmlbparameters.AddressPool,
+			Namespace: netmlbparameters.MetalLBOperatorNameSpace,
 			Annotations: map[string]string{
-				metallbParameters.MetalLBAddressPool: metallbParameters.AddressPool,
+				netmlbparameters.MetalLBAddressPool: netmlbparameters.AddressPool,
 			},
 		},
 		Spec: metallbv1alpha1.AddressPoolSpec{
@@ -81,7 +81,7 @@ func CreateLBService(cs *client.ClientSet, namespace string) *k8sv1.Service {
 	service := k8sv1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Annotations: map[string]string{
-				metallbParameters.MetalLBAddressPool: metallbParameters.AddressPool,
+				netmlbparameters.MetalLBAddressPool: netmlbparameters.AddressPool,
 			},
 			Name:      "metallb-service",
 			Namespace: namespace,
@@ -111,7 +111,7 @@ func CreateLBService(cs *client.ClientSet, namespace string) *k8sv1.Service {
 //GetLBServiceEvents searches for node name in following string example:
 // "announcing from node "helix13.lab.eng.tlv2.redhat.com"
 func GetLBServiceEvents() (string, error) {
-	serviceEvents, err := Apiclient.Events(metallbParameters.TestNamespace).List(context.Background(), metav1.ListOptions{FieldSelector: "reason=nodeAssigned"})
+	serviceEvents, err := Apiclient.Events(netmlbparameters.TestNamespace).List(context.Background(), metav1.ListOptions{FieldSelector: "reason=nodeAssigned"})
 	re := regexp.MustCompile(`"([^\"]+)"`)
 	node := re.FindAllString(serviceEvents.Items[0].Message, -1)
 	nodeName := strings.Trim(node[0], "\"")
@@ -125,7 +125,7 @@ func GetLBServiceEvents() (string, error) {
 func SpeakerNodeMac(metallbNode string) (string, error) {
 	event, err := Apiclient.Nodes().Get(context.Background(), metallbNode, metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
-	v, _ := event.Annotations[metallbParameters.AnnotationL3GW]
+	v, _ := event.Annotations[netmlbparameters.AnnotationL3GW]
 	for _, i := range strings.Split(v, ",") {
 		if strings.Contains(string(i), "mac-address") {
 			re := regexp.MustCompile("([0-9a-fA-F]{2}[:]){5}([0-9a-fA-F]{2})")
@@ -139,17 +139,17 @@ func SpeakerNodeMac(metallbNode string) (string, error) {
 //MLBTestPod creates a pod connected to the host network br-ex interface
 func MLBTestPod(node string, ns string, image string) *k8sv1.Pod {
 	podDefPrivHostNet := pod.RedefineAsPrivileged(pod.DefineWithHostNetwork(node, ns, image))
-	runningPod := WaitUntilPodCreatedAndRunning(podDefPrivHostNet, metallbParameters.PodWaitingTime)
+	runningPod := WaitUntilPodCreatedAndRunning(podDefPrivHostNet, netmlbparameters.PodWaitingTime)
 	return runningPod
 }
 
 //MLBClientPod with nginx listening on port 80
 func MLBClientPod(node string, image string) *k8sv1.Pod {
-	podDefNodeLabel := redefineWithLabel(pod.DefinePodOnNode(metallbParameters.TestNamespace, image, node))
+	podDefNodeLabel := redefineWithLabel(pod.DefinePodOnNode(netmlbparameters.TestNamespace, image, node))
 	podDefPrivCommand := pod.RedefineAsPrivileged(pod.RedefineWithCommand(podDefNodeLabel,
 		[]string{"/bin/bash", "-c"},
 		[]string{"nginx && sleep INF"}))
-	runningPod := WaitUntilPodCreatedAndRunning(podDefPrivCommand, metallbParameters.PodWaitingTime)
+	runningPod := WaitUntilPodCreatedAndRunning(podDefPrivCommand, netmlbparameters.PodWaitingTime)
 	return runningPod
 }
 

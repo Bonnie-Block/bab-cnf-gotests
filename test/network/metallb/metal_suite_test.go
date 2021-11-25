@@ -10,7 +10,7 @@ import (
 	"github.com/onsi/ginkgo/reporters"
 	. "github.com/onsi/gomega"
 	generalHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/metallb/networkmlbparameters"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/metallb/netmlbparameters"
 	_ "gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/metallb/tests"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 	testutils "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/utils"
@@ -25,8 +25,8 @@ func TestLB(t *testing.T) {
 	if dumpFile != "" {
 		reporter, err := testutils.NewReporter(
 			dumpFile,
-			networkmlbparameters.ReporterNamespacesToDump,
-			networkmlbparameters.ReporterCrds)
+			netmlbparameters.ReporterNamespacesToDump,
+			netmlbparameters.ReporterCrds)
 		if err != nil {
 			log.Fatalf("Failed to create log reporter %s", err)
 		}
@@ -37,13 +37,13 @@ func TestLB(t *testing.T) {
 
 var _ = BeforeSuite(func() {
 	generalHelper.PullTestImage(generalHelper.Config.General.CnfNodeLabel, generalHelper.Config.Network.TestContainerImage)
-	By(fmt.Sprintf("Create %s namespace", networkmlbparameters.TestNamespace))
-	err := namespaces.Create(networkmlbparameters.TestNamespace, generalHelper.Apiclient)
+	By(fmt.Sprintf("Create %s namespace", netmlbparameters.TestNamespace))
+	err := namespaces.Create(netmlbparameters.TestNamespace, generalHelper.Apiclient)
 	Expect(err).ToNot(HaveOccurred())
 })
 
 var _ = AfterSuite(func() {
-	By(fmt.Sprintf("Clean test namespace %s", networkmlbparameters.TestNamespace))
-	err := namespaces.DeleteAndWait(generalHelper.Apiclient, networkmlbparameters.TestNamespace, networkmlbparameters.Timeout)
+	By(fmt.Sprintf("Clean test namespace %s", netmlbparameters.TestNamespace))
+	err := namespaces.DeleteAndWait(generalHelper.Apiclient, netmlbparameters.TestNamespace, netmlbparameters.Timeout)
 	Expect(err).ToNot(HaveOccurred())
 })

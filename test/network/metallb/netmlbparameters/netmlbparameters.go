@@ -1,4 +1,4 @@
-package networkmlbparameters
+package netmlbparameters
 
 import (
 	"time"
