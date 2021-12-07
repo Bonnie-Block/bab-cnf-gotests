@@ -19,13 +19,13 @@ const (
 
 var (
 	TestLabel = map[string]string{"testKey": "testValue"}
-	// ReporterNamespacesToDump tells to reporter from where to collect logs
+	// ReporterNamespacesToDump tells to reporter from where to collect logs.
 	ReporterNamespacesToDump = map[string]string{
 		"openshift-performance-addon-operator": "performance",
 		OperatorNamespace:                      "other",
 		TestNamespace:                          "other",
 	}
-	// ReporterCrds tells to reporter what resources to collect
+	// ReporterCrds tells to reporter what resources to collect.
 	ReporterCrds = []k8sreporter.CRData{
 		{Cr: &mcfgv1.MachineConfigPoolList{}},
 		{Cr: &fecv2.SriovFecNodeConfigList{}},

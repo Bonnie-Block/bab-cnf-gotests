@@ -17,28 +17,35 @@ const (
 )
 
 var (
-	supportedProtocols       = []string{protocols.ProtocolICMP, protocols.ProtocolUDP, protocols.ProtocolTCP, protocols.ProtocolSCTP}
-	supportedServerProtocols = []string{protocols.ProtocolUDP, protocols.ProtocolSCTP}
+	supportedProtocols = []string{
+		protocols.ProtocolICMP,
+		protocols.ProtocolUDP,
+		protocols.ProtocolTCP,
+		protocols.ProtocolSCTP}
 )
 
 func validateIP(host string, multicast bool) error {
-	ip := net.ParseIP(host)
+	ipAddr := net.ParseIP(host)
 	if multicast {
-		if ip.IsMulticast() {
+		if ipAddr.IsMulticast() {
 			return nil
 		}
-		return fmt.Errorf("Unsupported parameter server ip=%s is not mulicast address", host)
+
+		return fmt.Errorf("unsupported parameter server ip=%s is not mulicast address", host)
 	}
-	if ip != nil {
+
+	if ipAddr != nil {
 		return nil
 	}
-	return fmt.Errorf("Unsupported parameter server ip=%s", host)
+
+	return fmt.Errorf("unsupported parameter server ip=%s", host)
 }
 
 func ipProtocolVersion(host string) int {
 	if strings.Contains(host, ":") {
 		return 6
 	}
+
 	return 4
 }
 
@@ -46,22 +53,25 @@ func validateIntInRange(testInt int, rangeStart int, rangeStop int) error {
 	if testInt >= rangeStart && testInt <= rangeStop {
 		return nil
 	}
+
 	return fmt.Errorf("value=%d not in range %d...%d", testInt, rangeStart, rangeStop)
 }
 
 func validateMtu(mtuSize int) error {
 	err := validateIntInRange(mtuSize, 50, 9000)
 	if err != nil {
-		return fmt.Errorf("unsupported parameter mtu=%d %s", mtuSize, err)
+		return fmt.Errorf("unsupported parameter mtu=%d %w", mtuSize, err)
 	}
+
 	return nil
 }
 
 func validatePort(portNumber int) error {
 	err := validateIntInRange(portNumber, 1, 65534)
 	if err != nil {
-		return fmt.Errorf("unsupported parameter port=%d %s", portNumber, err)
+		return fmt.Errorf("unsupported parameter port=%d %w", portNumber, err)
 	}
+
 	return nil
 }
 
@@ -71,7 +81,8 @@ func validateProtocol(protocolName string) error {
 			return nil
 		}
 	}
-	return fmt.Errorf("Unsupported parameter protocol=%s", protocolName)
+
+	return fmt.Errorf("unsupported parameter protocol=%s", protocolName)
 }
 
 func main() {
@@ -105,27 +116,31 @@ func main() {
 			os.Exit(1)
 		}
 
-		if *multicast {
+		switch {
+		case *multicast:
 			err = validateIP(*dstAddress, *multicast)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "error: %v\n", err)
 				os.Exit(1)
 			}
+
 			protocolVersion := ipProtocolVersion(*dstAddress)
 			servers.RunMulticastUDPServer(*serverPort, *dstAddress, protocolVersion, *mtu, *interfaceName)
-		} else if *broadcast {
+
+		case *broadcast:
 			servers.RunBroadcastUDPServer(*serverPort, ipv4BroadcastAddress, *mtu, *interfaceName)
-		} else {
-			switch *protocol {
-			case protocols.ProtocolUDP:
+		default:
+			if *protocol == protocols.ProtocolUDP {
 				if *dstAddress != "" {
 					log.Printf("Parameter -server=%s ignored in server UDP unicast mode. Use all interfaces 0.0.0.0", *dstAddress)
 				}
+
 				servers.RunUDPServer(*serverPort, *mtu)
-			case protocols.ProtocolSCTP:
+			} else if *protocol == protocols.ProtocolSCTP {
 				servers.RunSCTP(*dstAddress, *serverPort, *mtu, *interfaceName, ipProtocolVersion(*dstAddress))
 			}
 		}
+
 		return
 	}
 
@@ -134,6 +149,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}
+
 	protocolVersion := ipProtocolVersion(*dstAddress)
 
 	switch *protocol {
@@ -147,6 +163,7 @@ func main() {
 			fmt.Fprintf(os.Stderr, "error: %v\n", err)
 			os.Exit(1)
 		}
+
 		test := protocols.NewTCPTest(*mtu, protocolVersion, *dstAddress, *serverPort, *negative, *interfaceName)
 		test.RunTest()
 
@@ -156,7 +173,9 @@ func main() {
 			fmt.Fprintf(os.Stderr, "error: %v\n", err)
 			os.Exit(1)
 		}
-		test := protocols.NewUDPTest(*mtu, protocolVersion, *dstAddress, *serverPort, *negative, *multicast, *broadcast, *interfaceName)
+
+		test := protocols.NewUDPTest(
+			*mtu, protocolVersion, *dstAddress, *serverPort, *negative, *multicast, *broadcast, *interfaceName)
 		test.RunTest()
 
 	case protocols.ProtocolSCTP:
@@ -164,6 +183,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("port validation error: %v\n", err)
 		}
+
 		test := protocols.NewSCTPTest(*mtu, *dstAddress, protocolVersion, *serverPort, *negative)
 		test.RunTest()
 	}

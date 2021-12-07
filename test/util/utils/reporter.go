@@ -11,27 +11,46 @@ import (
 	ptpv1 "github.com/openshift/ptp-operator/pkg/apis/ptp/v1"
 )
 
-// NewReporter creates a specific reporter for CNF tests
-func NewReporter(reportPath string, namespacesToDump map[string]string, crds []k8sreporter.CRData) (*k8sreporter.KubernetesReporter, error) {
+// NewReporter creates a specific reporter for CNF tests.
+func NewReporter(
+	reportPath string,
+	namespacesToDump map[string]string,
+	crds []k8sreporter.CRData) (*k8sreporter.KubernetesReporter, error) {
+	addToScheme := func(scheme *runtime.Scheme) {
+		err := ptpv1.AddToScheme(scheme)
+		if err != nil {
+			panic(err)
+		}
 
-	addToScheme := func(s *runtime.Scheme) {
-		ptpv1.AddToScheme(s)
-		mcfgv1.AddToScheme(s)
-		sriovv1.AddToScheme(s)
+		err = mcfgv1.AddToScheme(scheme)
 
+		if err != nil {
+			panic(err)
+		}
+
+		err = sriovv1.AddToScheme(scheme)
+
+		if err != nil {
+			panic(err)
+		}
 	}
 
 	skipByNamespace := func(ns string) bool {
 		_, found := namespacesToDump[ns]
+
 		return !found
 	}
 	err := os.Mkdir(reportPath, 0755)
+
 	if err != nil {
 		return nil, err
 	}
+
 	res, err := k8sreporter.New("", addToScheme, skipByNamespace, reportPath, crds...)
+
 	if err != nil {
 		return nil, err
 	}
+
 	return res, nil
 }

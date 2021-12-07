@@ -20,8 +20,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// definePodCommandsWithDualIpamAndMac returns a pod with 2 ip addresses and 2 containers
-func definePodCommandsWithDualIpamAndMac(podDefinition *corev1.Pod, networkName string, ip4address string, ip6address string, macAddress string, podCommands ...[]string) *corev1.Pod {
+// definePodCommandsWithDualIpamAndMac returns a pod with 2 ip addresses and 2 containers.
+func definePodCommandsWithDualIpamAndMac(
+	podDefinition *corev1.Pod,
+	networkName string,
+	ip4address string,
+	ip6address string,
+	macAddress string,
+	podCommands ...[]string) *corev1.Pod {
 	if macAddress == "" {
 		podDefinition = definePodCommands(
 			definePodWithStaticDualIpamAndDynamicMac(podDefinition, networkName, ip4address, ip6address),
@@ -35,8 +41,9 @@ func definePodCommandsWithDualIpamAndMac(podDefinition *corev1.Pod, networkName 
 	return podDefinition
 }
 
-// definePodWithStaticDualIpamAndDynamicMac sets pod network with static dual IPAM config with Dynamic Mac address
-func definePodWithStaticDualIpamAndDynamicMac(pod *corev1.Pod, networkName string, ip4address string, ip6address string) *corev1.Pod {
+// definePodWithStaticDualIpamAndDynamicMac sets pod network with static dual IPAM config with Dynamic Mac address.
+func definePodWithStaticDualIpamAndDynamicMac(
+	pod *corev1.Pod, networkName string, ip4address string, ip6address string) *corev1.Pod {
 	pod.Annotations = map[string]string{"k8s.v1.cni.cncf.io/networks": fmt.Sprintf(`[
 		{
 			"name": "%s",
@@ -47,8 +54,9 @@ func definePodWithStaticDualIpamAndDynamicMac(pod *corev1.Pod, networkName strin
 	return pod
 }
 
-// definePodWithStaticMacAndDualIpam sets pod network with static IPAM config with Static Mac address
-func definePodWithStaticMacAndDualIpam(pod *corev1.Pod, networkName string, ip4address string, ip6address string, macAddress string) *corev1.Pod {
+// definePodWithStaticMacAndDualIpam sets pod network with static IPAM config with Static Mac address.
+func definePodWithStaticMacAndDualIpam(
+	pod *corev1.Pod, networkName string, ip4address string, ip6address string, macAddress string) *corev1.Pod {
 	pod.Annotations = map[string]string{"k8s.v1.cni.cncf.io/networks": fmt.Sprintf(`[
 		{
 			"name": "%s", 
@@ -60,15 +68,17 @@ func definePodWithStaticMacAndDualIpam(pod *corev1.Pod, networkName string, ip4a
 	return pod
 }
 
-// definePodCommands sets a container for every command
+// definePodCommands sets a container for every command.
 func definePodCommands(pod *corev1.Pod, commands ...[]string) *corev1.Pod {
 	for index := 0; index < len(commands); index++ {
 		if index == len(pod.Spec.Containers) {
 			pod.Spec.Containers = append(pod.Spec.Containers, *pod.Spec.Containers[0].DeepCopy())
 		}
+
 		pod.Spec.Containers[index].Command = commands[index]
 		pod.Spec.Containers[index].Name = fmt.Sprintf("test-%d", index)
 	}
+
 	return pod
 }
 
@@ -83,13 +93,13 @@ func runDualServerPod(
 	serverMacAddress string,
 	serverIPV4 string,
 	serverIPV6 string) {
-
 	nodeSelector := defineNodeSelector(connectivity, sriovInfos)
 
 	if (protocol == netsriovparameters.CommunicationProtocolMulticastUDP ||
 		protocol == netsriovparameters.CommunicationProtocolBroadcastUDP ||
-		protocol == netsriovparameters.CommunicationProtocolUnicastSCTP) && negative == true {
-		namespaces.CleanPods(netsriovparameters.OperatorTestNamespace, Apiclient)
+		protocol == netsriovparameters.CommunicationProtocolUnicastSCTP) && negative {
+		err := namespaces.CleanPods(netsriovparameters.OperatorTestNamespace, Apiclient)
+		Expect(err).ToNot(HaveOccurred())
 	}
 
 	serverIPv4Command, err := serverCommandFor(protocol, mtu, serverIPV4, negative, netsriovparameters.TestPort)
@@ -102,6 +112,7 @@ func runDualServerPod(
 	if protocol == netsriovparameters.CommunicationProtocolBroadcastUDP {
 		serverIPv6Command = []string{"sleep", "INF"}
 	}
+
 	serverPodDefinition := defineDualServerPod(
 		protocol,
 		nodeSelector,
@@ -133,7 +144,6 @@ func defineDualServerPod(protocol string,
 	podImage string,
 	podIPv4Command []string,
 	podIPv6Command []string) *corev1.Pod {
-
 	podDefinition := pod.RedefineWithRestartPolicy(
 		pod.DefineWithNodeNetworks(
 			nodeSelector[0],
@@ -171,7 +181,6 @@ func defineDualClientPod(
 	macAddress string,
 	podImage string,
 	podCommand []string) *corev1.Pod {
-
 	var podDefinition *corev1.Pod
 
 	if len(nodeSelector) > 1 {
@@ -212,11 +221,12 @@ func TestSriovDualScenario(
 	config *config.Config,
 	clientMacAddress string,
 	serverMacAddress string) {
-
 	By("Validating test parameters")
+
 	connectivityParameters, err := netsriovparameters.NewConnectivityTestParameters(mtu, connectivity, protocol)
 	Expect(err).ToNot(HaveOccurred())
 	By("Defining test resources")
+
 	nodeSelector := defineNodeSelector(connectivity, sriovInfos)
 	serverNetworkName := defineServerNetworkName(mtu)
 	clientNetworkName := defineClientNetworkName(mtu, connectivityParameters.Connectivity)
@@ -243,6 +253,7 @@ func TestSriovDualScenario(
 			netsriovparameters.TestPort+1)
 		Expect(err).ToNot(HaveOccurred())
 	}
+
 	ipv4StringCommand := strings.Join(ipv4ClientTestCommand, " ")
 	ipv6StringCommand := strings.Join(ipv6ClientTestCommand, " ")
 
@@ -275,26 +286,33 @@ func TestSriovDualScenario(
 	)
 
 	By("Creating Client Pod")
+
 	clientPod, err := Apiclient.Pods(netsriovparameters.OperatorTestNamespace).Create(
 		context.Background(),
 		clientPodDefinition,
 		metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
-	waitUntilPodInStatus(clientPod, "Client", ClientTestCommand, corev1.PodSucceeded, netsriovparameters.DualPodWaitingTime)
+	waitUntilPodInStatus(
+		clientPod, "Client", ClientTestCommand, corev1.PodSucceeded, netsriovparameters.DualPodWaitingTime)
 
 	if protocol == netsriovparameters.CommunicationProtocolUnicastTCP {
 		By("Positive test flow - success")
+
 		return
 	}
+
 	err = pod.DeletePodAndWait(Apiclient, clientPod)
 	Expect(err).ToNot(HaveOccurred())
 
 	By("Positive test flow - success. Running negative flow")
+
 	negativeFlag = true
+
 	if protocol == netsriovparameters.CommunicationProtocolUnicastSCTP {
 		serverNetworkName = defineClientNetworkName(mtu, connectivityParameters.Connectivity)
 		clientNetworkName = defineServerNetworkName(mtu)
 	}
+
 	if protocol == netsriovparameters.CommunicationProtocolMulticastUDP ||
 		protocol == netsriovparameters.CommunicationProtocolBroadcastUDP ||
 		protocol == netsriovparameters.CommunicationProtocolUnicastSCTP {
@@ -313,6 +331,7 @@ func TestSriovDualScenario(
 	}
 
 	By("Creating Client Pod with negative flag")
+
 	ipv4ClientTestCommand, err = defineTestCommandParameters(
 		negativeFlag,
 		connectivityParameters.Protocol,

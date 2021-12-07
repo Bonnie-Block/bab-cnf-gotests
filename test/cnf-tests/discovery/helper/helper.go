@@ -20,10 +20,11 @@ func envVarErrorString(envVarName string) error {
 	return fmt.Errorf("error to detect %s env var", envVarName)
 }
 
-// NewConfig reads env var and sort them in to struct
+// NewConfig reads env var and sort them in to struct.
 func NewConfig() (*parameters.EnvironmentConfig, error) {
 	var environmentConfiguration parameters.EnvironmentConfig
 	err := envconfig.Process("", &environmentConfiguration)
+
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +44,7 @@ func NewConfig() (*parameters.EnvironmentConfig, error) {
 	return &environmentConfiguration, nil
 }
 
-// CreatePTPConfig creates PtpConfig based on provided resource
+// CreatePTPConfig creates PtpConfig based on provided resource.
 func CreatePTPConfig(profileName string,
 	ptpOperatorNamespace string,
 	ifaceName string,
@@ -51,10 +52,12 @@ func CreatePTPConfig(profileName string,
 	phc2sysOpts,
 	nodeLabel string,
 	priority *int64) error {
+	var (
+		ptpProfile   []ptpv1.PtpProfile
+		ptpRecommend []ptpv1.PtpRecommend
+		matchRule    = ptpv1.MatchRule{NodeLabel: &nodeLabel}
+	)
 
-	var ptpProfile []ptpv1.PtpProfile
-	var ptpRecommend []ptpv1.PtpRecommend
-	matchRule := ptpv1.MatchRule{NodeLabel: &nodeLabel}
 	ptpProfile = append(
 		ptpProfile, ptpv1.PtpProfile{
 			Name:        &profileName,
@@ -78,44 +81,53 @@ func CreatePTPConfig(profileName string,
 			Recommend: ptpRecommend}}
 
 	_, err := Apiclient.PtpConfigs(ptpOperatorNamespace).Create(context.Background(), &policy, metav1.CreateOptions{})
+
 	return err
 }
 
-// DeployMC installs MachineConfig based on provided resource definition
+// DeployMC installs MachineConfig based on provided resource definition.
 func DeployMC(machineConfig string) error {
 	mc, err := DecodeMCYaml(machineConfig)
 	if err != nil {
 		return err
 	}
+
 	err = Apiclient.Client.Create(context.TODO(), mc)
+
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 
-// DecodeMCYaml decodes a MachineConfig YAML to a MachineConfig struct
+// DecodeMCYaml decodes a MachineConfig YAML to a MachineConfig struct.
 func DecodeMCYaml(mcyaml string) (*mcov1.MachineConfig, error) {
 	decode := mcoScheme.Codecs.UniversalDeserializer().Decode
 	obj, _, err := decode([]byte(mcyaml), nil, nil)
+
 	if err != nil {
 		return nil, err
 	}
-	mc, ok := obj.(*mcov1.MachineConfig)
+
+	machineConfig, ok := obj.(*mcov1.MachineConfig)
+
 	if !ok {
 		return nil, fmt.Errorf("couldnt create MC object from mcyaml")
 	}
 
-	return mc, err
+	return machineConfig, err
 }
 
-// CleanAllSriovPolicy removes all SriovNetworkNodePolicyList except default
+// CleanAllSriovPolicy removes all SriovNetworkNodePolicyList except default.
 func CleanAllSriovPolicy(snoTimeoutMultiplier time.Duration) error {
 	sriovNodePolicyList := &sriovv1.SriovNetworkNodePolicyList{}
 	err := Apiclient.Client.List(context.TODO(), sriovNodePolicyList)
+
 	if err != nil {
 		return err
 	}
+
 	if len(sriovNodePolicyList.Items) > 1 {
 		for _, sriovNodePolicy := range sriovNodePolicyList.Items {
 			if sriovNodePolicy.Name != "default" {
@@ -127,12 +139,14 @@ func CleanAllSriovPolicy(snoTimeoutMultiplier time.Duration) error {
 				}
 			}
 		}
+
 		WaitForSRIOVStable(generalParameters.SriovOperatorNamespace, parameters.SriovWaitingTime, snoTimeoutMultiplier)
 	}
+
 	return nil
 }
 
-// DefineSCTPMC returns SCTP MachineConfig string
+// DefineSCTPMC returns SCTP MachineConfig string.
 func DefineSCTPMC(roleWorker string) string {
 	return fmt.Sprintf(`
 apiVersion: machineconfiguration.openshift.io/v1
@@ -161,7 +175,7 @@ spec:
 `, roleWorker)
 }
 
-// DefineXtu32MC returns XT_u32 MachineConfig string
+// DefineXtu32MC returns XT_u32 MachineConfig string.
 func DefineXtu32MC(roleWorker string) string {
 	return fmt.Sprintf(`apiVersion: machineconfiguration.openshift.io/v1
 kind: MachineConfig
@@ -182,7 +196,7 @@ spec:
           path: /etc/modules-load.d/xt_u32-load.conf`, roleWorker)
 }
 
-// DefineQOSEgressMC returns egress-limit MachineConfig string
+// DefineQOSEgressMC returns egress-limit MachineConfig string.
 func DefineQOSEgressMC(roleWorker string) string {
 	return fmt.Sprintf(`apiVersion: machineconfiguration.openshift.io/v1
 kind: MachineConfig
@@ -218,7 +232,7 @@ spec:
           name: egress-limit.service`, roleWorker, parameters.DiscoveryOVSQOSEgressMCName)
 }
 
-// DefineQOSIngressMC returns ingress-limit MachineConfig string
+// DefineQOSIngressMC returns ingress-limit MachineConfig string.
 func DefineQOSIngressMC(roleWorker string) string {
 	return fmt.Sprintf(`apiVersion: machineconfiguration.openshift.io/v1
 kind: MachineConfig
@@ -263,10 +277,13 @@ func DeleteOVSQOSMCs(cnfNodeLabel string) error {
 			}
 		}
 	}
+
 	err = WaitForClusterToBeStable(cnfNodeLabel, 2)
+
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -275,6 +292,7 @@ func DefineDiscoverySriovPolicyList(sriovInterface *sriovv1.InterfaceExt) []*sri
 	if sriovInterface.Vendor == "8086" {
 		sriovVFNumber = 10
 	}
+
 	discoverySriovPolicyList := []*sriovv1.SriovNetworkNodePolicy{DefineSriovPolicy(
 		parameters.DiscoverySriovPolicy,
 		generalParameters.SriovOperatorNamespace,
@@ -304,5 +322,6 @@ func DefineDiscoverySriovPolicyList(sriovInterface *sriovv1.InterfaceExt) []*sri
 				"sriovnicintel",
 				"netdevice"))
 	}
+
 	return discoverySriovPolicyList
 }

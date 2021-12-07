@@ -21,8 +21,10 @@ func TestPtp(t *testing.T) {
 	_, currentFile, _, _ := runtime.Caller(0)
 	junitPath := Config.GetReportPath(currentFile)
 	dumpFile := Config.GetDumpFailedTestReportLocation(currentFile)
+
 	RegisterFailHandler(Fail)
-	rr := append([]Reporter{}, reporters.NewJUnitReporter(junitPath))
+	reporterList := append([]Reporter{}, reporters.NewJUnitReporter(junitPath))
+
 	if dumpFile != "" {
 		reporter, err := testutils.NewReporter(
 			dumpFile,
@@ -31,9 +33,10 @@ func TestPtp(t *testing.T) {
 		if err != nil {
 			log.Fatalf("Failed to create log reporter %s", err)
 		}
-		rr = append(rr, reporter)
+		reporterList = append(reporterList, reporter)
 	}
-	RunSpecsWithDefaultAndCustomReporters(t, "PTP tests", rr)
+
+	RunSpecsWithDefaultAndCustomReporters(t, "PTP tests", reporterList)
 }
 
 var _ = BeforeSuite(func() {

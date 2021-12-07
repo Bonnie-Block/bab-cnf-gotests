@@ -40,16 +40,15 @@ type McpConfig struct {
 	Storage   *Storage
 }
 
-// WaitForCondition waits until the machine config pool will have specified condition type with the expected status
+// WaitForCondition waits until the machine config pool will have specified condition type with the expected status.
 func WaitForCondition(
-	cs *testclient.ClientSet,
+	clientSet *testclient.ClientSet,
 	mcp *mcov1.MachineConfigPool,
 	conditionType mcov1.MachineConfigPoolConditionType,
-	conditionStatus corev1.ConditionStatus,
 	timeout time.Duration,
 ) error {
 	return wait.PollImmediate(3*time.Second, timeout, func() (bool, error) {
-		mcpUpdated, err := cs.MachineConfigPools().Get(context.Background(), mcp.Name, metav1.GetOptions{})
+		mcpUpdated, err := clientSet.MachineConfigPools().Get(context.Background(), mcp.Name, metav1.GetOptions{})
 		if err != nil {
 			return false, nil
 		}
@@ -58,65 +57,77 @@ func WaitForCondition(
 	})
 }
 
-// GetByLabel returns all MCPs with the specified label
-func GetByLabel(cs *testclient.ClientSet, key, value string) ([]mcov1.MachineConfigPool, error) {
+// GetByLabel returns all MCPs with the specified label.
+func GetByLabel(clientSet *testclient.ClientSet, key, value string) ([]mcov1.MachineConfigPool, error) {
 	selector := labels.NewSelector()
 	req, err := labels.NewRequirement(key, selection.Equals, []string{value})
+
 	if err != nil {
 		return nil, err
 	}
+
 	selector = selector.Add(*req)
 	mcps := &mcov1.MachineConfigPoolList{}
-	if err := cs.List(context.TODO(), mcps, &client.ListOptions{LabelSelector: selector}); err != nil {
+
+	if err := clientSet.List(context.TODO(), mcps, &client.ListOptions{LabelSelector: selector}); err != nil {
 		return nil, err
 	}
+
 	if len(mcps.Items) > 0 {
 		return mcps.Items, nil
 	}
 	// fallback to look for a mcp with the same nodeselector.
 	// key value may come from a node selector, so looking for a mcp
 	// that targets the same nodes is legit
-	if err := cs.List(context.TODO(), mcps); err != nil {
+	if err := clientSet.List(context.TODO(), mcps); err != nil {
 		return nil, err
 	}
+
 	var res []mcov1.MachineConfigPool
+
 	for _, item := range mcps.Items {
 		if item.Spec.NodeSelector.MatchLabels[key] == value {
 			res = append(res, item)
 		}
+
 		nodeRoleKey := components.NodeRoleLabelPrefix + value
 
 		if _, ok := item.Spec.NodeSelector.MatchLabels[nodeRoleKey]; ok {
 			res = append(res, item)
 		}
 	}
+
 	return res, nil
 }
 
-// GetByProfile returns the MCP by a given performance profile
-func GetByProfile(cs *testclient.ClientSet, performanceProfile *performancev2.PerformanceProfile) (*mcov1.MachineConfigPool, error) {
+// GetByProfile returns the MCP by a given performance profile.
+func GetByProfile(
+	cs *testclient.ClientSet,
+	performanceProfile *performancev2.PerformanceProfile) (*mcov1.MachineConfigPool, error) {
 	mcpLabel := performanceProfile.Spec.MachineConfigLabel
 	key, value := components.GetFirstKeyAndValue(mcpLabel)
 	mcpsByLabel, err := GetByLabel(cs, key, value)
+
 	if err != nil {
 		return nil, err
 	}
+
 	return &mcpsByLabel[0], nil
 }
 
-// WaitForMcpUpdate waits for a mcp to be updating and then updated
-func WaitForMcpUpdate(cs *testclient.ClientSet, nodeLabel string) error {
+// WaitForMcpUpdate waits for a mcp to be updating and then updated.
+func WaitForMcpUpdate(clientSet *testclient.ClientSet, nodeLabel string) error {
 	mcp := &mcov1.MachineConfigPool{}
-	err := cs.Get(context.TODO(), client.ObjectKey{Name: nodeLabel}, mcp)
+	err := clientSet.Get(context.TODO(), client.ObjectKey{Name: nodeLabel}, mcp)
+
 	if err != nil {
 		return err
 	}
 
 	err = WaitForCondition(
-		cs,
+		clientSet,
 		&mcov1.MachineConfigPool{ObjectMeta: metav1.ObjectMeta{Name: nodeLabel}},
 		mcov1.MachineConfigPoolUpdating,
-		corev1.ConditionTrue,
 		2*time.Minute)
 	if err != nil {
 		return err
@@ -124,10 +135,9 @@ func WaitForMcpUpdate(cs *testclient.ClientSet, nodeLabel string) error {
 
 	// We need to wait a long time here for the node to reboot
 	err = WaitForCondition(
-		cs,
+		clientSet,
 		&mcov1.MachineConfigPool{ObjectMeta: metav1.ObjectMeta{Name: nodeLabel}},
 		mcov1.MachineConfigPoolUpdated,
-		corev1.ConditionTrue,
 		time.Duration(45*mcp.Status.MachineCount)*time.Minute)
 
 	return err
@@ -137,7 +147,7 @@ func WaitForMcpUpdate(cs *testclient.ClientSet, nodeLabel string) error {
 // Set stableDuration to 0 to return immediately when all mcps are updated.
 func WaitForClusterStable(cs *testclient.ClientSet, timeout, interval, stableDuration time.Duration) error {
 	startTime := time.Now()
-	err_ := wait.PollImmediate(interval, timeout, func() (bool, error) {
+	errMcp := wait.PollImmediate(interval, timeout, func() (bool, error) {
 		mcpList, err := cs.MachineConfigPools().List(context.Background(), metav1.ListOptions{})
 		if err != nil {
 			return false, nil
@@ -149,6 +159,7 @@ func WaitForClusterStable(cs *testclient.ClientSet, timeout, interval, stableDur
 			if !isMcpInCondition(&mcp, mcov1.MachineConfigPoolUpdated) {
 				// Reset timer for stable duration if mcp is not in expected state
 				startTime = time.Now()
+
 				return false, nil
 			}
 		}
@@ -164,9 +175,11 @@ func WaitForClusterStable(cs *testclient.ClientSet, timeout, interval, stableDur
 			extraMsg = fmt.Sprintf("for at least %s", stableDuration.String())
 		}
 		log.Println("All mcps are updated", extraMsg)
+
 		return true, nil
 	})
-	return err_
+
+	return errMcp
 }
 
 // isMcpInCondition parses MCP conditions. Returns true if given MCP is in given condition, otherwise false.
@@ -176,5 +189,6 @@ func isMcpInCondition(mcp *mcov1.MachineConfigPool, condition mcov1.MachineConfi
 			return true
 		}
 	}
+
 	return false
 }

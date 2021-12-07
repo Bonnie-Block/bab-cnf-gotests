@@ -29,7 +29,9 @@ var _ = Describe("CNF VRF", func() {
 	)
 
 	execute.BeforeAll(func() {
-		nodeListString = generalHelper.GetNodeListStringByLabel(strings.Split(generalHelper.Config.General.CnfNodeLabel, "/")[1])
+		nodeListString = generalHelper.GetNodeListStringByLabel(
+			strings.Split(generalHelper.Config.General.CnfNodeLabel, "/")[1],
+		)
 
 		By(fmt.Sprintf("Create %s namespace", netvrfparameters.TestNamespace))
 		err := namespaces.Create(netvrfparameters.TestNamespace, generalHelper.Apiclient)
@@ -37,7 +39,11 @@ var _ = Describe("CNF VRF", func() {
 			testFail = fmt.Sprintf("Error to create namespace %s: %s", netvrfparameters.TestNamespace, err)
 			Expect(err).ToNot(HaveOccurred(), testFail)
 		}
-		validMacVlanInterfaces := netvrfhelper.GetNodeValidMacVlanInterface(nodeListString[0], generalHelper.Config, 2)
+		validMacVlanInterfaces := netvrfhelper.GetNodeValidMacVlanInterface(
+			nodeListString[0],
+			generalHelper.Config,
+			2,
+		)
 
 		By("Adding NADs")
 		vrfBlue = netvrfhelper.AddVRFNad(
@@ -58,7 +64,7 @@ var _ = Describe("CNF VRF", func() {
 		err := namespaces.CleanPods(netvrfparameters.TestNamespace, generalHelper.Apiclient)
 		Expect(err).ToNot(HaveOccurred())
 	})
-	//36306
+	// 36306
 	DescribeTable("Integration: NAD, IPAM: static, Interfaces: 2, Scheme: 2 Pods 2 VRFs network overlap",
 		func(node string, ipStack string) {
 			netvrfhelper.TestVRFScenario(
@@ -75,7 +81,7 @@ var _ = Describe("CNF VRF", func() {
 		Entry(describe, netvrfparameters.SameNode, netvrfparameters.IPStackIPv6),
 		Entry(describe, netvrfparameters.DiffNode, netvrfparameters.IPStackIPv6),
 	)
-	//36314
+	// 36314
 	DescribeTable("Integration: NAD, IPAM: static, Interfaces: 2, Scheme: 2 Pods 2 VRFs Different IP networks",
 		func(node string, ipStack string) {
 			netvrfhelper.TestVRFScenario(
@@ -92,7 +98,7 @@ var _ = Describe("CNF VRF", func() {
 		Entry(describe, netvrfparameters.SameNode, netvrfparameters.IPStackIPv6),
 		Entry(describe, netvrfparameters.DiffNode, netvrfparameters.IPStackIPv6),
 	)
-	//36300
+	// 36300
 	DescribeTable("Integration: NAD, IPAM: static, Interfaces: 2, Scheme: 2 Pods 2 VRFs OCP Primary network overlap",
 		func(node string, ipStack string) {
 			netvrfhelper.TestVRFScenario(

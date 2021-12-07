@@ -28,8 +28,9 @@ var _ = Describe("CNF VRF", func() {
 	)
 
 	execute.BeforeAll(func() {
-		nodeListString = generalHelper.GetNodeListStringByLabel(strings.Split(generalHelper.Config.General.CnfNodeLabel, "/")[1])
-		fmt.Println(nodeListString)
+		nodeListString = generalHelper.GetNodeListStringByLabel(
+			strings.Split(generalHelper.Config.General.CnfNodeLabel, "/")[1],
+		)
 		By(fmt.Sprintf("Create %s namespace", netvrfparameters.TestNamespace))
 		err := namespaces.Create(netvrfparameters.TestNamespace, generalHelper.Apiclient)
 		if err != nil {
@@ -58,7 +59,7 @@ var _ = Describe("CNF VRF", func() {
 		Expect(err).ToNot(HaveOccurred())
 	})
 
-	//36305
+	// 36305
 	DescribeTable("Integration: NAD, IPAM: static, Interfaces: 1, Scheme: 2 Pods 2 VRFs OCP Primary network overlap",
 		func(node string, ipStack string) {
 			netvrfhelper.TestVRFScenario(
@@ -74,7 +75,7 @@ var _ = Describe("CNF VRF", func() {
 		Entry(describe, netvrfparameters.DiffNode, netvrfparameters.IPStackIPv4),
 	)
 
-	//36313
+	// 36313
 	DescribeTable("Integration: NAD, IPAM: static, Interfaces: 1, Scheme: 2 Pods 2 VRFs ip network overlap",
 		func(node string, ipStack string) {
 			netvrfhelper.TestVRFScenario(
@@ -92,7 +93,7 @@ var _ = Describe("CNF VRF", func() {
 		Entry(describe, netvrfparameters.DiffNode, netvrfparameters.IPStackIPv6),
 	)
 
-	//36320
+	// 36320
 	DescribeTable("Integration: NAD, IPAM: static, Interfaces: 1, Scheme: 2 Pods 2 VRFs Different IP networks",
 		func(node string, ipStack string) {
 			netvrfhelper.TestVRFScenario(

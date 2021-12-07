@@ -2,15 +2,14 @@ package helper
 
 import (
 	"context"
-	"fmt"
 	"time"
 
-	"github.com/openshift-kni/performance-addon-operators/api/v2"
+	v2 "github.com/openshift-kni/performance-addon-operators/api/v2"
 
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// CreatePerformanceProfile creates performance profile
+// CreatePerformanceProfile creates performance profile.
 func CreatePerformanceProfile(performanceProfileName string, mcpPoolName string) error {
 	isolatedCPUSet := v2.CPUSet("8-15")
 	reservedCPUSet := v2.CPUSet("0-7")
@@ -34,20 +33,23 @@ func CreatePerformanceProfile(performanceProfileName string, mcpPoolName string)
 				},
 			},
 			NodeSelector: map[string]string{
-				fmt.Sprintf("%s", mcpPoolName): "",
+				mcpPoolName: "",
 			},
 		},
 	}
+
 	return Apiclient.Client.Create(context.TODO(), performanceProfile)
 }
 
-// CleanAllPerformanceProfile removes all PerformanceProfile from cluster
+// CleanAllPerformanceProfile removes all PerformanceProfile from cluster.
 func CleanAllPerformanceProfile(cnfNodeLabel string, snoTimeoutMultiplier time.Duration) error {
 	performanceProfileList := &v2.PerformanceProfileList{}
 	err := Apiclient.Client.List(context.TODO(), performanceProfileList)
+
 	if err != nil {
 		return err
 	}
+
 	if len(performanceProfileList.Items) > 0 {
 		for _, performanceProfile := range performanceProfileList.Items {
 			err := Apiclient.Client.Delete(
@@ -57,11 +59,12 @@ func CleanAllPerformanceProfile(cnfNodeLabel string, snoTimeoutMultiplier time.D
 				return err
 			}
 		}
+
 		err = WaitForClusterToBeStable(cnfNodeLabel, snoTimeoutMultiplier)
 		if err != nil {
 			return err
 		}
-
 	}
+
 	return nil
 }

@@ -56,13 +56,13 @@ var (
 	protocolParameters = []string{CommunicationProtocolUnicastICMP, CommunicationProtocolUnicastTCP,
 		CommunicationProtocolUnicastUDP, CommunicationProtocolMulticastUDP,
 		CommunicationProtocolBroadcastUDP, CommunicationProtocolUnicastSCTP}
-	// ReporterNamespacesToDump tells to reporter from where to collect logs
+	// ReporterNamespacesToDump tells to reporter from where to collect logs.
 	ReporterNamespacesToDump = map[string]string{
 		"openshift-performance-addon-operator": "performance",
 		OperatorNamespace:                      "sriov",
 		OperatorTestNamespace:                  "other",
 	}
-	// ReporterCrds tells to reporter what resources to collect
+	// ReporterCrds tells to reporter what resources to collect.
 	ReporterCrds = []k8sreporter.CRData{
 		{Cr: &mcfgv1.MachineConfigPoolList{}},
 		{Cr: &sriovv1.SriovNetworkNodePolicyList{}},
@@ -72,31 +72,38 @@ var (
 	}
 )
 
-// ConnectivityTestParameters contains test parameters for connectivity
+// ConnectivityTestParameters contains test parameters for connectivity.
 type ConnectivityTestParameters struct {
 	Protocol     string
 	MTU          int
 	Connectivity string
 }
 
-// NewConnectivityTestParameters creates new instance of ConnectivityTestParameters
-func NewConnectivityTestParameters(MTU int, Connectivity string, Protocol string) (*ConnectivityTestParameters, error) {
+// NewConnectivityTestParameters creates new instance of ConnectivityTestParameters.
+func NewConnectivityTestParameters(mtu int, connectivity string, protocol string) (*ConnectivityTestParameters, error) {
 	connectivityTestParameters := new(ConnectivityTestParameters)
-	err := validateIntParam(MTU, mtuParameters)
+	err := validateIntParam(mtu, mtuParameters)
+
 	if err != nil {
 		return nil, err
 	}
-	connectivityTestParameters.MTU = MTU
-	err = validateSrtParam(Connectivity, connectivityParameters)
+
+	connectivityTestParameters.MTU = mtu
+	err = validateSrtParam(connectivity, connectivityParameters)
+
 	if err != nil {
 		return nil, err
 	}
-	connectivityTestParameters.Connectivity = Connectivity
-	err = validateSrtParam(Protocol, protocolParameters)
+
+	connectivityTestParameters.Connectivity = connectivity
+	err = validateSrtParam(protocol, protocolParameters)
+
 	if err != nil {
 		return nil, err
 	}
-	connectivityTestParameters.Protocol = Protocol
+
+	connectivityTestParameters.Protocol = protocol
+
 	return connectivityTestParameters, nil
 }
 
@@ -106,6 +113,7 @@ func validateIntParam(intParam int, intParamRange []int) error {
 			return nil
 		}
 	}
+
 	return fmt.Errorf("error: wrong parameter %v", intParam)
 }
 
@@ -115,5 +123,6 @@ func validateSrtParam(param string, paramRange []string) error {
 			return nil
 		}
 	}
+
 	return fmt.Errorf("error: wrong parameter %v", param)
 }

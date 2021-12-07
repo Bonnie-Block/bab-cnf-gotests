@@ -2,6 +2,7 @@ package tests
 
 import (
 	"fmt"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -41,7 +42,7 @@ var _ = Describe("CNF VRF", func() {
 		netvrfhelper.CleanResources()
 	})
 
-	//36299
+	// 36299
 	DescribeTable("Integration: SRIOV, IPAM: static, Interfaces: 2, Scheme: 2 Pods 2 VRFs OCP Primary network overlap",
 		func(node string, ipStack string) {
 			netvrfhelper.TestVRFScenario(
@@ -57,7 +58,7 @@ var _ = Describe("CNF VRF", func() {
 		Entry(describe, netvrfparameters.DiffNode, netvrfparameters.IPStackIPv4),
 	)
 
-	//36308
+	// 36308
 	DescribeTable("Integration: SRIOV, IPAM: static, Interfaces: 2, Scheme: 2 Pods 2 VRFs ip network overlap",
 		func(node string, ipStack string) {
 			netvrfhelper.TestVRFScenario(
@@ -74,7 +75,7 @@ var _ = Describe("CNF VRF", func() {
 		Entry(describe, netvrfparameters.SameNode, netvrfparameters.IPStackIPv6),
 		Entry(describe, netvrfparameters.DiffNode, netvrfparameters.IPStackIPv6),
 	)
-	//36312
+	// 36312
 	DescribeTable("Integration: SRIOV, IPAM: static, Interfaces: 2, Scheme: 2 Pods 2 VRFs Different IP networks",
 		func(node string, ipStack string) {
 			netvrfhelper.TestVRFScenario(

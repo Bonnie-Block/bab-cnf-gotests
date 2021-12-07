@@ -60,7 +60,7 @@ var _ = Describe("SNO Reboot", func() {
 
 	Context("soft reboot with workloads running", func() {
 		// 40896
-		It(fmt.Sprintf("cluster and workload pods should be recovered after reboot"), func() {
+		It("cluster and workload pods should be recovered after reboot", func() {
 			startTime := time.Now()
 			// Trigger soft reboot and wait for cluster and workload pods to recover.
 			helper.SoftRebootNodeAndWaitForDisconnect(node)
@@ -76,32 +76,35 @@ var _ = Describe("SNO Reboot", func() {
 			}
 		})
 		// 40814
-		It(fmt.Sprintf("cluster and workload pods should be recovered after power comes back"), func() {
+		It("cluster and workload pods should be recovered after power comes back", func() {
 			powerOnTime := ranreboothelper.PowerOffAndOnSno()
 			waitForClusterRecoverAndLogTime(powerOnTime, node, ranrebootparameters.RanMetricPowerCycle)
 		})
 	})
 })
 
-// writeToGinkgoReport writes reboot recovery time to ginkgo report
+// writeToGinkgoReport writes reboot recovery time to ginkgo report.
 func writeToGinkgoReport(metric string, duration time.Duration) {
 	content := fmt.Sprintf("%s: %d", metric, int(duration.Seconds()))
 	_, err := fmt.Fprintln(GinkgoWriter, content)
+
 	if err != nil {
 		log.Println("Failed to write content to ginkgo report:", content)
 	}
 }
 
 // waitForClusterRecoverAndLogTime waits for sno node to be pingable, ocp reachable, then all pods to recover
-// Record the timing for each stage in ginkgo report
+// Record the timing for each stage in ginkgo report.
 func waitForClusterRecoverAndLogTime(rebootStartTime time.Time, node *corev1.Node, ranmetric string) {
 	// Wait for linux to be reachable via ping and record time
 	metricStartTime, metricCount := rebootStartTime, 1
+
 	helper.WaitForNodeReachable(node)
 	writeToGinkgoReport(fmt.Sprintf("%s_%d_node_reachable", ranmetric, metricCount), time.Since(metricStartTime))
 
 	// Wait for openshift to be reachable and record time
 	metricStartTime, metricCount = time.Now(), metricCount+1
+
 	ranreboothelper.WaitForClusterReachable()
 	writeToGinkgoReport(fmt.Sprintf("%s_%d_cluster_reachable", ranmetric, metricCount), time.Since(metricStartTime))
 
@@ -116,16 +119,30 @@ func waitForClusterRecoverAndLogTime(rebootStartTime time.Time, node *corev1.Nod
 	Expect(err).ToNot(HaveOccurred())
 	// check all workload pods are recovered and stable
 	workloadStableDuration := 30 * time.Second
-	unhealthyWorkloadPods := ranreboothelper.WaitForAllPodsHealthy([]string{ran.NamespaceTesting}, 45*time.Minute, interval, workloadStableDuration)
+	unhealthyWorkloadPods := ranreboothelper.WaitForAllPodsHealthy(
+		[]string{ran.NamespaceTesting},
+		45*time.Minute,
+		interval,
+		workloadStableDuration,
+	)
 	Expect(unhealthyWorkloadPods).To(BeEmpty())
-	writeToGinkgoReport(fmt.Sprintf("%s_%d_workload_recover", ranmetric, metricCount), time.Since(metricStartTime)-workloadStableDuration)
+	writeToGinkgoReport(
+		fmt.Sprintf("%s_%d_workload_recover", ranmetric, metricCount),
+		time.Since(metricStartTime)-workloadStableDuration,
+	)
 
 	// Wait for all pods on cluster to recover and record time
 	metricStartTime, metricCount = time.Now().Add(-workloadStableDuration), metricCount+1
 	clusterStableDuration := 1 * time.Minute
-	unhealthyPods := ranreboothelper.WaitForAllPodsHealthy(nil, 30*time.Minute, interval, clusterStableDuration)
+	unhealthyPods := ranreboothelper.WaitForAllPodsHealthy(
+		nil, 30*time.Minute,
+		interval, clusterStableDuration,
+	)
 	Expect(unhealthyPods).To(BeEmpty())
-	writeToGinkgoReport(fmt.Sprintf("%s_%d_cluster_recover", ranmetric, metricCount), time.Since(metricStartTime)-clusterStableDuration)
+	writeToGinkgoReport(
+		fmt.Sprintf("%s_%d_cluster_recover", ranmetric, metricCount),
+		time.Since(metricStartTime)-clusterStableDuration,
+	)
 	writeToGinkgoReport(fmt.Sprintf("%s_total", ranmetric), time.Since(rebootStartTime)-clusterStableDuration)
 
 	log.Println("Sleep for 5 minutes after reboot - quiet time")

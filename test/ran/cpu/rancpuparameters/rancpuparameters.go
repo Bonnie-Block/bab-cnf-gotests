@@ -9,22 +9,22 @@ import (
 )
 
 var (
-	// ReporterNamespacesToDump tells to reporter from where to collect logs
+	// ReporterNamespacesToDump tells to reporter from where to collect logs.
 	ReporterNamespacesToDump = map[string]string{
 		parameters.PerformanceAddonOperatorNamespace: "performance",
 		ran.NamespaceTesting:                         "other",
 	}
-	// ReporterCrds tells to reporter what resources to collect
+	// ReporterCrds tells to reporter what resources to collect.
 	ReporterCrds = []k8sreporter.CRData{
 		{Cr: &mcfgv1.MachineConfigPoolList{}},
 	}
 )
 
-// RAN CPU metric names/prefixes
+// RAN CPU metric names/prefixes.
 const (
-	RanCpuMetricOsDaemon  = "ranmetrics_cpu_os_daemon"
-	RanCpuMetricInfraPods = "ranmetrics_cpu_infra_pods"
-	RanCpuMetricTotal     = "ranmetrics_cpu_total"
+	RanCPUMetricOsDaemon  = "ranmetrics_cpu_os_daemon"
+	RanCPUMetricInfraPods = "ranmetrics_cpu_infra_pods"
+	RanCPUMetricTotal     = "ranmetrics_cpu_total"
 )
 
 type PromQueryResponse struct {
@@ -35,7 +35,7 @@ type PromQueryResponse struct {
 	}
 }
 
-// PromMetric struct to hold an item in prom query result list
+// PromMetric struct to hold an item in prom query result list.
 type PromMetric struct {
 	Metric map[string]string
 	Value  []interface{}

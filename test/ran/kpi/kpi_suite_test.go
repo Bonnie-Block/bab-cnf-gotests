@@ -20,8 +20,10 @@ func TestKpi(t *testing.T) {
 	_, currentFile, _, _ := runtime.Caller(0)
 	junitPath := helper.Config.GetReportPath(currentFile)
 	dumpFile := helper.Config.GetDumpFailedTestReportLocation(currentFile)
+
 	RegisterFailHandler(Fail)
-	rr := append([]Reporter{}, reporters.NewJUnitReporter(junitPath))
+	reporterList := append([]Reporter{}, reporters.NewJUnitReporter(junitPath))
+
 	if dumpFile != "" {
 		reporter, err := utils.NewReporter(
 			dumpFile,
@@ -31,9 +33,10 @@ func TestKpi(t *testing.T) {
 		if err != nil {
 			log.Fatalf("Failed to create log reporter %s", err)
 		}
-		rr = append(rr, reporter)
+		reporterList = append(reporterList, reporter)
 	}
-	RunSpecsWithDefaultAndCustomReporters(t, "RAN KPI tests", rr)
+
+	RunSpecsWithDefaultAndCustomReporters(t, "RAN KPI tests", reporterList)
 }
 
 var _ = BeforeSuite(func() {

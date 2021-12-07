@@ -9,18 +9,18 @@ import (
 )
 
 var (
-	// ReporterNamespacesToDump tells to reporter from where to collect logs
+	// ReporterNamespacesToDump tells to reporter from where to collect logs.
 	ReporterNamespacesToDump = map[string]string{
 		parameters.PerformanceAddonOperatorNamespace: "performance",
 		ran.NamespaceTesting:                         "other",
 	}
-	// ReporterCrds tells to reporter what resources to collect
+	// ReporterCrds tells to reporter what resources to collect.
 	ReporterCrds = []k8sreporter.CRData{
 		{Cr: &mcfgv1.MachineConfigPoolList{}},
 	}
 )
 
-// RAN CPU metric names/prefixes
+// RAN CPU metric names/prefixes.
 const (
 	RanMetricPowerCycle = "ranmetrics_power_cycle"
 	RanMetricSoftReboot = "ranmetrics_soft_reboot"

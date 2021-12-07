@@ -5,7 +5,7 @@ const (
 )
 
 const (
-	// NamespaceTesting contains the name of the testing namespace
+	// NamespaceTesting contains the name of the testing namespace.
 	NamespaceTesting = "ran-test"
 )
 
@@ -13,18 +13,7 @@ const (
 	ProcessExporterPodName = "process-exporter"
 	PromNamespace          = "openshift-monitoring"
 	PromPodName            = "prometheus-k8s-0"
-	PromContainer          = "prometheus"
-	PromLocalUrl           = "http://localhost:9090/api/v1/"
-)
-
-const (
-	// FilePathKubeletConfig contains the kubelet.conf file path
-	FilePathKubeletConfig = "/etc/kubernetes/kubelet.conf"
-)
-
-const (
-	// ContainerMachineConfigDaemon contains the name of the machine-config-daemon container
-	ContainerMachineConfigDaemon = "machine-config-daemon"
+	PromLocalURL           = "http://localhost:9090/api/v1/"
 )
 
 const (

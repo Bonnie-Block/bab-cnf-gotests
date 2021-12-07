@@ -17,17 +17,17 @@ const (
 	updateMode = "update"
 )
 
-// ApplyObjects adds manifests from given directory to cluster
+// ApplyObjects adds manifests from given directory to cluster.
 func ApplyObjects(resDir string) error {
 	return modifyObjects(createMode, resDir)
 }
 
-// DeleteObjects removes manifests from given directory from cluster
+// DeleteObjects removes manifests from given directory from cluster.
 func DeleteObjects(resDir string) error {
 	return modifyObjects(deleteMode, resDir)
 }
 
-// UpdateObjects updates existing resurces based on manifests from given directory
+// UpdateObjects updates existing resurces based on manifests from given directory.
 func UpdateObjects(resDir string) error {
 	return modifyObjects(updateMode, resDir)
 }
@@ -35,35 +35,42 @@ func UpdateObjects(resDir string) error {
 func modifyObjects(mode string, resDir string) error {
 	data := render.MakeRenderData()
 	objs, err := render.RenderDir(resDir, &data)
+
 	if err != nil {
 		return err
 	}
+
 	var errorList []error
+
 	for _, obj := range objs {
-		if mode == createMode {
+		switch mode {
+		case createMode:
 			err = helper.Apiclient.Client.Create(context.TODO(), obj)
-		} else if mode == deleteMode {
+		case deleteMode:
 			err = helper.Apiclient.Client.Delete(context.TODO(), obj)
-		} else if mode == updateMode {
+		case updateMode:
 			err = updateObject(obj)
 		}
+
 		if err != nil {
 			errorList = append(errorList, err)
 		}
 	}
+
 	if len(errorList) > 0 {
 		return fmt.Errorf(
-			"one or more errors occured while processing resources from dir %s \n%v errors",
+			"one or more errors occurred while processing resources from dir %s \n%v errors",
 			resDir, errorList)
 	}
+
 	return nil
 }
 
 func updateObject(obj *unstructured.Unstructured) error {
-	name := obj.GetName()
-	if name == "" {
+	if obj.GetName() == "" {
 		return errors.Errorf("Object %s has no name", obj.GroupVersionKind().String())
 	}
+
 	gvk := obj.GroupVersionKind()
 	existing := &unstructured.Unstructured{}
 	existing.SetGroupVersionKind(gvk)
@@ -71,14 +78,17 @@ func updateObject(obj *unstructured.Unstructured) error {
 		context.TODO(),
 		types.NamespacedName{Name: obj.GetName(), Namespace: obj.GetNamespace()},
 		existing)
+
 	if err != nil {
 		return err
 	}
+
 	obj.SetCreationTimestamp(existing.GetCreationTimestamp())
 	obj.SetResourceVersion(existing.GetResourceVersion())
 	obj.SetUID(existing.GetUID())
 	obj.SetGeneration(existing.GetGeneration())
 	obj.SetManagedFields(existing.GetManagedFields())
 	obj.SetFinalizers(existing.GetFinalizers())
+
 	return helper.Apiclient.Client.Update(context.TODO(), obj)
 }

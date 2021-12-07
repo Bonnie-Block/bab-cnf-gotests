@@ -53,17 +53,22 @@ var _ = Describe("CNF SRIOV", func() {
 			podsList, err := Apiclient.Pods(
 				netsriovparameters.OperatorTestNamespace).List(context.Background(), metav1.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			if len(podsList.Items) > 0 {
-				return false
-			}
-			return true
+
+			return len(podsList.Items) == 0
 		}, 3*time.Minute, 10*time.Second).Should(BeTrue())
 	})
 
 	DescribeTable(
 		"Ipam type: IP Static, Ip Stack: dual-stack, Mac address: MAC static",
 		func(mtu int, protocol string, connectivity string) {
-			netsriovhelper.TestSriovDualScenario(mtu, protocol, connectivity, sriovInfos, Config, netsriovparameters.ClientMacAddress, netsriovparameters.ServerMacAddress)
+			netsriovhelper.TestSriovDualScenario(
+				mtu,
+				protocol,
+				connectivity,
+				sriovInfos,
+				Config,
+				netsriovparameters.ClientMacAddress,
+				netsriovparameters.ServerMacAddress)
 		},
 		netsriovhelper.BuildTableEntries(
 			sriovSmokeTestMode,

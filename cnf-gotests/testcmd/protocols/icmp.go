@@ -8,17 +8,17 @@ import (
 )
 
 const (
-	// ProtocolICMP the name of the protocol
+	// ProtocolICMP the name of the protocol.
 	ProtocolICMP   = "icmp"
 	packagesNumber = 5
 )
 
-// ICMPTest define, run and process return code of icmp test command
+// ICMPTest define, run and process return code of icmp test command.
 type ICMPTest struct {
 	common CommonTest
 }
 
-// NewICMPTest creates new instance of ConnectivityTestParameters
+// NewICMPTest creates new instance of ConnectivityTestParameters.
 func NewICMPTest(mtu int, protocolVersion int, serverIP string, negative bool) *ICMPTest {
 	return &ICMPTest{
 		common: CommonTest{
@@ -32,10 +32,11 @@ func NewICMPTest(mtu int, protocolVersion int, serverIP string, negative bool) *
 func (test *ICMPTest) defineCommand() string {
 	command := []string{"ping", fmt.Sprintf("-%d", test.common.ProtocolVersion),
 		test.common.ServerIP, "-c", fmt.Sprintf("%d", packagesNumber), "-s", fmt.Sprintf("%d", test.common.MTU), "-M", "do"}
+
 	return strings.Join(command, " ")
 }
 
-// RunTest runs the test
+// RunTest runs the test.
 func (test *ICMPTest) RunTest() {
 	_, err := test.common.RunCommand(test.defineCommand())
 	if test.common.Negative {
@@ -47,6 +48,7 @@ func (test *ICMPTest) RunTest() {
 			os.Exit(1)
 		}
 	}
+
 	if err != nil {
 		log.Fatalf("cmd.Run() failed with %s\n", err)
 		os.Exit(1)

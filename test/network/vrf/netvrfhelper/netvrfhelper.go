@@ -19,9 +19,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// TestVRFScenario verifies that VRF feature works as expected
+// TestVRFScenario verifies that VRF feature works as expected.
 func TestVRFScenario(node string, ipStack string, ipOverLap string, config *config.Config, nodes []string,
-	VRFNetworkBlue string, VRFNetworkRed string) {
+	vrfNetworkBlue string, vrfNetworkRed string) {
 	var (
 		podClientNodeLabel        string
 		podServerNodeLabel        string
@@ -41,6 +41,7 @@ func TestVRFScenario(node string, ipStack string, ipOverLap string, config *conf
 	}
 
 	By("Validating test parameters")
+
 	if VRFParameters.Node == netvrfparameters.SameNode {
 		podClientNodeLabel = nodes[0]
 		podServerNodeLabel = nodes[0]
@@ -50,12 +51,11 @@ func TestVRFScenario(node string, ipStack string, ipOverLap string, config *conf
 	}
 
 	switch ipOverLap {
-
 	case "overLapToSDN":
-
 		if ipStack == netvrfparameters.IPStackIPv6 {
 			Skip("Skipping SDN IPv6 is not currently tested")
 		}
+
 		if VRFParameters.Node == netvrfparameters.SameNode {
 			redVRFNetworkPrefix = "24"
 		} else if VRFParameters.Node == netvrfparameters.DiffNode {
@@ -63,6 +63,7 @@ func TestVRFScenario(node string, ipStack string, ipOverLap string, config *conf
 		}
 
 		By("Getting overlapping SDN IP Addresses for VRF Red")
+
 		podClientVRFRedIPAddress = getOverlapIP(podClientNodeLabel, config.Network.TestContainerImage)
 		podServerVRFRedIPAddress = getOverlapIP(podServerNodeLabel, config.Network.TestContainerImage)
 
@@ -71,16 +72,16 @@ func TestVRFScenario(node string, ipStack string, ipOverLap string, config *conf
 		}
 
 		By("Setting overlapping IP Address for VRF Blue")
-		podClientVRFBlueIPAddress = "10.255.255.1"
-		podServerVRFBlueIPAddress = "10.255.255.2"
+
+		podClientVRFBlueIPAddress = netvrfparameters.VRFClientIPAddress
+		podServerVRFBlueIPAddress = netvrfparameters.VRFServerIPAddress
 		blueVRFNetworkPrefix = "24"
-
 	case "overLapToVRF":
-
 		if ipStack == netvrfparameters.IPStackIPv4 {
 			By("Setting overlapping non-SDN IP Addresses for VRF Red")
-			podClientVRFBlueIPAddress = "10.255.255.1"
-			podServerVRFBlueIPAddress = "10.255.255.2"
+
+			podClientVRFBlueIPAddress = netvrfparameters.VRFClientIPAddress
+			podServerVRFBlueIPAddress = netvrfparameters.VRFServerIPAddress
 			podClientVRFRedIPAddress = "10.255.255.3"
 			podServerVRFRedIPAddress = "10.255.255.4"
 			blueVRFNetworkPrefix = "24"
@@ -93,13 +94,12 @@ func TestVRFScenario(node string, ipStack string, ipOverLap string, config *conf
 			redVRFNetworkPrefix = "64"
 			blueVRFNetworkPrefix = "64"
 		}
-
 	case "nonOverLap":
-
 		if ipStack == netvrfparameters.IPStackIPv4 {
 			By("Setting overlapping non-SDN IP Addresses for VRF Red")
-			podClientVRFBlueIPAddress = "10.255.255.1"
-			podServerVRFBlueIPAddress = "10.255.255.2"
+
+			podClientVRFBlueIPAddress = netvrfparameters.VRFClientIPAddress
+			podServerVRFBlueIPAddress = netvrfparameters.VRFServerIPAddress
 			podClientVRFRedIPAddress = "192.168.255.3"
 			podServerVRFRedIPAddress = "192.168.255.4"
 			blueVRFNetworkPrefix = "24"
@@ -119,16 +119,27 @@ func TestVRFScenario(node string, ipStack string, ipOverLap string, config *conf
 	}
 
 	By("Define client/server pods")
-	podClientIpamConfig := fmt.Sprintf(`[{"name": "%s", "mac": "%s", "ips": ["%s/%s"]}, {"name": "%s", "mac": "%s", "ips": ["%s/%s"]}]`,
-		VRFNetworkBlue, "20:04:0f:f1:88:A1", podClientVRFBlueIPAddress, blueVRFNetworkPrefix, VRFNetworkRed,
-		"20:04:0f:f1:88:B2", podClientVRFRedIPAddress, redVRFNetworkPrefix)
+
+	podClientIpamConfig := fmt.Sprintf(
+		`[{"name": "%s", "mac": "%s", "ips": ["%s/%s"]}, {"name": "%s", "mac": "%s", "ips": ["%s/%s"]}]`,
+		vrfNetworkBlue, "20:04:0f:f1:88:A1", podClientVRFBlueIPAddress, blueVRFNetworkPrefix, vrfNetworkRed,
+		"20:04:0f:f1:88:B2", podClientVRFRedIPAddress, redVRFNetworkPrefix,
+	)
 	podClient := pod.RedefineAsNetRaw(
-		pod.RedefinePodWithNetwork(pod.DefinePodOnNode(netvrfparameters.TestNamespace, config.Network.TestContainerImage, podClientNodeLabel), podClientIpamConfig))
-	podServerIpamConfig := fmt.Sprintf(`[{"name": "%s", "mac": "%s", "ips": ["%s/%s"]}, {"name": "%s", "mac": "%s", "ips": ["%s/%s"]}]`,
-		VRFNetworkBlue, "20:04:0f:f1:88:A3", podServerVRFBlueIPAddress, blueVRFNetworkPrefix, VRFNetworkRed,
-		"20:04:0f:f1:88:B4", podServerVRFRedIPAddress, redVRFNetworkPrefix)
-	podServer := defineServerPodMutliHttpContainers(config, podServerNodeLabel, podServerIpamConfig)
+		pod.RedefinePodWithNetwork(
+			pod.DefinePodOnNode(netvrfparameters.TestNamespace, config.Network.TestContainerImage, podClientNodeLabel),
+			podClientIpamConfig,
+		),
+	)
+	podServerIpamConfig := fmt.Sprintf(
+		`[{"name": "%s", "mac": "%s", "ips": ["%s/%s"]}, {"name": "%s", "mac": "%s", "ips": ["%s/%s"]}]`,
+		vrfNetworkBlue, "20:04:0f:f1:88:A3", podServerVRFBlueIPAddress, blueVRFNetworkPrefix, vrfNetworkRed,
+		"20:04:0f:f1:88:B4", podServerVRFRedIPAddress, redVRFNetworkPrefix,
+	)
+	podServer := defineServerPodMultiHTTPContainers(config, podServerNodeLabel, podServerIpamConfig)
+
 	By("Running client/server pods")
+
 	runningClientPod := globalHelper.WaitUntilPodCreatedAndRunning(podClient, netvrfparameters.PodWaitingTime)
 	globalHelper.WaitUntilPodCreatedAndRunning(podServer, netvrfparameters.PodWaitingTime)
 	By("Validating client/server VRFs configuration")
@@ -142,11 +153,13 @@ func TestVRFScenario(node string, ipStack string, ipOverLap string, config *conf
 			{"vrfName": netvrfparameters.VRFRedName, "vrfClientIP": podServerVRFRedIPAddress, "vrfInterface": "net2"}})
 
 	By("Validating client/server ICMP VRF connectivity")
+
 	err = pingIPViaVRF(*runningClientPod, netvrfparameters.VRFRedName, podServerVRFRedIPAddress, false)
 	Expect(err).ToNot(HaveOccurred())
 	err = pingIPViaVRF(*runningClientPod, netvrfparameters.VRFBlueName, podServerVRFBlueIPAddress, false)
 	Expect(err).ToNot(HaveOccurred())
 	By("Validating client/server TCP VRF connectivity")
+
 	err = httpViaVRF(*runningClientPod, podServerVRFRedIPAddress, netvrfparameters.VRFRedName, false)
 	Expect(err).ToNot(HaveOccurred())
 	err = httpViaVRF(*runningClientPod, podServerVRFBlueIPAddress, netvrfparameters.VRFBlueName, false)
@@ -160,17 +173,21 @@ func TestVRFScenario(node string, ipStack string, ipOverLap string, config *conf
 			context.Background(),
 			podServer.Name,
 			metav1.GetOptions{})
+
 		return err
 	}, netvrfparameters.PodWaitingTime, 5*time.Second).Should(HaveOccurred())
+
 	err = pingIPViaVRF(*runningClientPod, netvrfparameters.VRFBlueName, podServerVRFBlueIPAddress, true)
 	Expect(err).ToNot(HaveOccurred())
 	err = pingIPViaVRF(*runningClientPod, netvrfparameters.VRFRedName, podServerVRFRedIPAddress, true)
 	Expect(err).ToNot(HaveOccurred())
 	By("Validating client/server TCP negative test")
+
 	err = httpViaVRF(*runningClientPod, podServerVRFRedIPAddress, netvrfparameters.VRFRedName, true)
 	Expect(err).ToNot(HaveOccurred())
 	err = httpViaVRF(*runningClientPod, podServerVRFBlueIPAddress, netvrfparameters.VRFBlueName, true)
 	Expect(err).ToNot(HaveOccurred())
+
 	if ipOverLap == "overLapToSDN" {
 		err = pingIPViaVRF(*runningClientPod, "eth0", podServerVRFRedIPAddress, false)
 		Expect(err).ToNot(HaveOccurred())
@@ -185,69 +202,93 @@ func podHasCorrectVrfConfig(podName string, vrfMapsConfig []map[string]string) {
 		podName,
 		metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
+
 	var ipStack string
+
 	if ipStack == netvrfparameters.IPStackIPv4 {
 		for _, vrfMapConfig := range vrfMapsConfig {
-			validateVrfIPAddrCommand := []string{"ip", "addr", "show", fmt.Sprintf("%s", vrfMapConfig["vrfInterface"])}
+			validateVrfIPAddrCommand := []string{"ip", "addr", "show", vrfMapConfig["vrfInterface"]}
+
 			Eventually(func() bool {
 				vrfIface, _ := pod.ExecCommand(globalHelper.Apiclient, *runningPod, validateVrfIPAddrCommand)
-				return strings.Contains(vrfIface.String(), vrfMapConfig["vrfClientIP"])
-			}, netvrfparameters.PodWaitingTime, 5*time.Second).Should(BeTrue(), fmt.Errorf("VRF interface is not present"))
 
-			validateVRFRouteTableCommand := []string{"ip", "route", "show", "vrf", fmt.Sprintf("%s", vrfMapConfig["vrfName"])}
+				return strings.Contains(vrfIface.String(), vrfMapConfig["vrfClientIP"])
+			}, netvrfparameters.PodWaitingTime, 5*time.Second).Should(
+				BeTrue(),
+				fmt.Errorf("VRF interface is not present"),
+			)
+
+			validateVRFRouteTableCommand := []string{"ip", "route", "show", "vrf", vrfMapConfig["vrfName"]}
 			Eventually(func() bool {
 				vrfRouteTable, _ := pod.ExecCommand(globalHelper.Apiclient, *runningPod, validateVRFRouteTableCommand)
+
 				return strings.Contains(vrfRouteTable.String(), vrfMapConfig["vrfClientIP"])
-			}, netvrfparameters.PodWaitingTime, 5*time.Second).Should(BeTrue(), fmt.Errorf(fmt.Sprintf("VRF %s route table is not present", vrfMapConfig["vrfName"])))
+			}, netvrfparameters.PodWaitingTime, 5*time.Second).Should(
+				BeTrue(),
+				fmt.Errorf(fmt.Sprintf("VRF %s route table is not present", vrfMapConfig["vrfName"])),
+			)
 		}
 	} else if ipStack == netvrfparameters.IPStackIPv6 {
 		for _, vrfMapConfig := range vrfMapsConfig {
-			validateVrfIPAddrCommand := []string{"ip", "-6", "addr", "show", fmt.Sprintf("%s", vrfMapConfig["vrfInterface"])}
+			validateVrfIPAddrCommand := []string{"ip", "-6", "addr", "show", vrfMapConfig["vrfInterface"]}
 			Eventually(func() bool {
 				vrfIface, _ := pod.ExecCommand(globalHelper.Apiclient, *runningPod, validateVrfIPAddrCommand)
-				return strings.Contains(vrfIface.String(), vrfMapConfig["vrfClientIP"])
-			}, netvrfparameters.PodWaitingTime, 5*time.Second).Should(BeTrue(), fmt.Errorf("VRF interface is not present"))
 
-			validateVRFRouteTableCommand := []string{"ip", "-6", "route", "show", "vrf", fmt.Sprintf("%s", vrfMapConfig["vrfName"])}
+				return strings.Contains(vrfIface.String(), vrfMapConfig["vrfClientIP"])
+			}, netvrfparameters.PodWaitingTime, 5*time.Second).Should(
+				BeTrue(),
+				fmt.Errorf("VRF interface is not present"))
+
+			validateVRFRouteTableCommand := []string{"ip", "-6", "route", "show", "vrf", vrfMapConfig["vrfName"]}
 			Eventually(func() bool {
 				vrfRouteTable, _ := pod.ExecCommand(globalHelper.Apiclient, *runningPod, validateVRFRouteTableCommand)
 				_, ipnet, _ := net.ParseCIDR(vrfMapConfig["vrfClientIP"] + "/64")
+
 				return strings.Contains(vrfRouteTable.String(), ipnet.String())
-			}, netvrfparameters.PodWaitingTime, 5*time.Second).Should(BeTrue(), fmt.Errorf(fmt.Sprintf("VRF %s route table is not present", vrfMapConfig["vrfName"])))
+			}, netvrfparameters.PodWaitingTime, 5*time.Second).Should(
+				BeTrue(),
+				fmt.Errorf(fmt.Sprintf("VRF %s route table is not present", vrfMapConfig["vrfName"])),
+			)
 		}
 	}
 }
 
-// DescribeParameters validates given parameters and returns json formatted string
+// DescribeParameters validates given parameters and returns json formatted string.
 func DescribeParameters(node string, ipStack string) string {
 	VRFParameters, err := netvrfparameters.NewVRFTestParameters(node, ipStack)
+
 	if err != nil {
 		return fmt.Sprintf("error in parameters: node=%s, ipStack=%s", node, ipStack)
 	}
+
 	params, err := json.Marshal(VRFParameters)
+
 	if err != nil {
 		return fmt.Sprintf("error in parameters: node=%s, ipStack=%s", node, ipStack)
 	}
-	return fmt.Sprintf("%s", string(params))
+
+	return string(params)
 }
 
-func pingIPViaVRF(client k8sv1.Pod, vrfName string, DestIPAddr string, negative bool) error {
-	command := []string{"testcmd", "-interface", vrfName, "-server", DestIPAddr, "-protocol", "icmp", "-mtu", "100"}
+func pingIPViaVRF(client k8sv1.Pod, vrfName string, destIPAddr string, negative bool) error {
+	command := []string{"testcmd", "-interface", vrfName, "-server", destIPAddr, "-protocol", "icmp", "-mtu", "100"}
 	if negative {
 		command = append(command, "--negative")
 	}
+
 	_, err := pod.ExecCommand(
 		globalHelper.Apiclient,
 		client,
 		command)
+
 	return err
 }
 
-func httpViaVRF(client k8sv1.Pod, DestIPAddr string, interfaceName string, negative bool) error {
+func httpViaVRF(client k8sv1.Pod, destIPAddr string, interfaceName string, negative bool) error {
 	command := []string{
 		"testcmd",
 		fmt.Sprintf("--interface=%s", interfaceName),
-		fmt.Sprintf("--server=%s", DestIPAddr),
+		fmt.Sprintf("--server=%s", destIPAddr),
 		"--protocol=tcp",
 		"--mtu=100",
 		fmt.Sprintf("--port=%d", netvrfparameters.TCPPort),
@@ -255,10 +296,12 @@ func httpViaVRF(client k8sv1.Pod, DestIPAddr string, interfaceName string, negat
 	if negative {
 		command = append(command, "--negative")
 	}
+
 	_, err := pod.ExecCommand(
 		globalHelper.Apiclient,
 		client,
 		command)
+
 	return err
 }
 
@@ -280,6 +323,7 @@ func getOverlapIP(nodeName string, podImage string) string {
 			context.Background(),
 			tempPodDefinition.Name,
 			metav1.GetOptions{})
+
 		return tempPod.Status.Phase
 	}, netvrfparameters.PodWaitingTime, time.Second).Should(Equal(k8sv1.PodRunning))
 
@@ -288,16 +332,22 @@ func getOverlapIP(nodeName string, podImage string) string {
 		tempPodDefinition.Name,
 		metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
+
 	return pod.Status.PodIP
 }
 
-func defineServerPodMutliHttpContainers(
+func defineServerPodMultiHTTPContainers(
 	config *config.Config, podServerNodeLabel string, podServerIpamConfig string) *k8sv1.Pod {
 	podServer := pod.RedefineWithCommand(
 		pod.RedefineAsNetRaw(
 			pod.RedefinePodWithNetwork(
-				pod.DefinePodOnNode(netvrfparameters.TestNamespace, config.Network.TestContainerImage, podServerNodeLabel),
-				podServerIpamConfig)),
+				pod.DefinePodOnNode(
+					netvrfparameters.TestNamespace,
+					config.Network.TestContainerImage,
+					podServerNodeLabel,
+				),
+				podServerIpamConfig),
+		),
 		[]string{"testcmd"},
 		[]string{
 			"--protocol=tcp",
@@ -336,5 +386,6 @@ func defineServerPodMutliHttpContainers(
 			"--mtu=100",
 			fmt.Sprintf("--port=%d", netvrfparameters.TCPPort)},
 	})
+
 	return podServer
 }

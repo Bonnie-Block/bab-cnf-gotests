@@ -42,7 +42,7 @@ var _ = Describe("CNF VRF", func() {
 		netvrfhelper.CleanResources()
 	})
 
-	//36303
+	// 36303
 	DescribeTable("Integration: SRIOV, IPAM: static, Interfaces: 1, Scheme: 2 Pods 2 VRFs OCP Primary network overlap",
 		func(node string, ipStack string) {
 			netvrfhelper.TestVRFScenario(

@@ -8,7 +8,6 @@ import (
 
 	sriovv1 "github.com/k8snetworkplumbingwg/sriov-network-operator/api/v1"
 	k8sv1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -18,13 +17,14 @@ import (
 	testclient "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
 )
 
-// WaitForDeletion waits until the namespace will be removed from the cluster
+// WaitForDeletion waits until the namespace will be removed from the cluster.
 func WaitForDeletion(cs *testclient.ClientSet, nsName string, timeout time.Duration) error {
 	return wait.PollImmediate(time.Second, timeout, func() (bool, error) {
 		_, err := cs.Namespaces().Get(context.Background(), nsName, metav1.GetOptions{})
-		if errors.IsNotFound(err) {
+		if k8serrors.IsNotFound(err) {
 			return true, nil
 		}
+
 		return false, nil
 	})
 }
@@ -40,102 +40,89 @@ func Create(namespace string, cs *testclient.ClientSet) error {
 	if k8serrors.IsAlreadyExists(err) {
 		return nil
 	}
+
 	return err
 }
 
-// DeleteAndWait deletes a namespace and waits until delete
-func DeleteAndWait(cs *testclient.ClientSet, namespace string, timeout time.Duration) error {
-	err := cs.Namespaces().Delete(context.Background(), namespace, metav1.DeleteOptions{})
+// DeleteAndWait deletes a namespace and waits until delete.
+func DeleteAndWait(clientSet *testclient.ClientSet, namespace string, timeout time.Duration) error {
+	err := clientSet.Namespaces().Delete(context.Background(), namespace, metav1.DeleteOptions{})
 	if err != nil {
 		return err
 	}
-	return WaitForDeletion(cs, namespace, timeout)
+
+	return WaitForDeletion(clientSet, namespace, timeout)
 }
 
-// Exists tells whether the given namespace exists
+// Exists tells whether the given namespace exists.
 func Exists(namespace string, cs *testclient.ClientSet) bool {
 	_, err := cs.Namespaces().Get(context.Background(), namespace, metav1.GetOptions{})
+
 	return err == nil || !k8serrors.IsNotFound(err)
 }
 
-// CleanPods deletes all pods in namespace
+// CleanPods deletes all pods in namespace.
 func CleanPods(namespace string, cs *testclient.ClientSet) error {
 	if !Exists(namespace, cs) {
 		return nil
 	}
+
 	err := cs.Pods(namespace).DeleteCollection(context.Background(), metav1.DeleteOptions{
 		GracePeriodSeconds: pointer.Int64Ptr(0),
 	}, metav1.ListOptions{})
+
 	if err != nil {
-		return fmt.Errorf("Failed to delete pods %v", err)
+		return fmt.Errorf("failed to delete pods %w", err)
 	}
+
 	return err
 }
 
-// CleanPolicies deletes all SriovNetworkNodePolicies in operatorNamespace
-func CleanPolicies(operatorNamespace string, cs *testclient.ClientSet) error {
+// CleanPolicies deletes all SriovNetworkNodePolicies in operatorNamespace.
+func CleanPolicies(operatorNamespace string, clientSet *testclient.ClientSet) error {
 	policies := sriovv1.SriovNetworkNodePolicyList{}
-	err := cs.List(context.Background(),
+	err := clientSet.List(context.Background(),
 		&policies,
 		runtimeclient.InNamespace(operatorNamespace),
 	)
+
 	if err != nil {
 		return err
 	}
+
 	for _, p := range policies.Items {
 		if p.Name != "default" && strings.HasPrefix(p.Name, "test-") {
-			err := cs.Delete(context.Background(), &p)
+			err := clientSet.Delete(context.Background(), &p)
 			if err != nil {
-				return fmt.Errorf("Failed to delete policy %v", err)
+				return fmt.Errorf("failed to delete policy %w", err)
 			}
 		}
 	}
+
 	return err
 }
 
-// CleanNetworks deletes all network in operatorNamespace
-func CleanNetworks(operatorNamespace string, cs *testclient.ClientSet) error {
+// CleanNetworks deletes all network in operatorNamespace.
+func CleanNetworks(operatorNamespace string, clientSet *testclient.ClientSet) error {
 	networks := sriovv1.SriovNetworkList{}
-	err := cs.List(context.Background(),
+	err := clientSet.List(context.Background(),
 		&networks,
 		runtimeclient.InNamespace(operatorNamespace))
+
 	if err != nil {
 		return err
 	}
+
 	for _, n := range networks.Items {
 		if strings.HasPrefix(n.Name, "test-") {
-			err := cs.Delete(context.Background(), &n)
+			err := clientSet.Delete(context.Background(), &n)
 			if err != nil {
-				return fmt.Errorf("Failed to delete network %v", err)
+				return fmt.Errorf("failed to delete network %w", err)
 			}
 		}
 	}
-	return waitForSriovNetworkDeletion(operatorNamespace, cs, 15*time.Second)
-}
 
-// CleanPodsByPrefix cleans all pods objects from the given namespace by prefix.
-func CleanPodsByPrefix(namespace string, prefix string, cs *testclient.ClientSet) error {
-	_, err := cs.Namespaces().Get(context.Background(), namespace, metav1.GetOptions{})
-	if err != nil && k8serrors.IsNotFound(err) {
-		return nil
-	}
-
-	pods, err := cs.Pods(namespace).List(context.Background(), metav1.ListOptions{})
-	if err != nil {
-		return err
-	}
-
-	for _, pod := range pods.Items {
-		if strings.HasPrefix(pod.Name, prefix) {
-			err = cs.Pods(namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{
-				GracePeriodSeconds: pointer.Int64Ptr(0),
-			})
-			if err != nil && !errors.IsNotFound(err) {
-				return err
-			}
-		}
-	}
-	return err
+	return waitForSriovNetworkDeletion(operatorNamespace, clientSet, 15*time.Second)
 }
 
 func waitForSriovNetworkDeletion(operatorNamespace string, cs *testclient.ClientSet, timeout time.Duration) error {
@@ -152,22 +139,26 @@ func waitForSriovNetworkDeletion(operatorNamespace string, cs *testclient.Client
 				return false, nil
 			}
 		}
+
 		return true, nil
 	})
 }
 
 // Clean cleans all dangling objects from the given namespace.
-func Clean(operatorNamespace, namespace string, cs *testclient.ClientSet, discoveryEnabled bool) error {
-	err := CleanPods(namespace, cs)
+func Clean(operatorNamespace, namespace string, clientSet *testclient.ClientSet, discoveryEnabled bool) error {
+	err := CleanPods(namespace, clientSet)
 	if err != nil {
 		return err
 	}
+
 	if !discoveryEnabled {
-		err = CleanPolicies(operatorNamespace, cs)
+		err = CleanPolicies(operatorNamespace, clientSet)
 		if err != nil {
 			return err
 		}
 	}
-	err = CleanNetworks(operatorNamespace, cs)
+
+	err = CleanNetworks(operatorNamespace, clientSet)
+
 	return err
 }

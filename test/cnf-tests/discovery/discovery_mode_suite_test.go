@@ -20,11 +20,10 @@ import (
 
 func TestDiscovery(t *testing.T) {
 	_, currentFile, _, _ := runtime.Caller(0)
-
 	junitPath := Config.GetReportPath(currentFile)
+
 	RegisterFailHandler(Fail)
 	rr := append([]Reporter{}, reporters.NewJUnitReporter(junitPath))
-	RegisterFailHandler(Fail)
 	RunSpecsWithDefaultAndCustomReporters(t, "CNF containers discovery mode", rr)
 }
 

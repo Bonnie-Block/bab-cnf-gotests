@@ -35,7 +35,7 @@ var _ = Describe("CNF MetalLB", func() {
 	execute.BeforeAll(func() {
 		isMetalLBOperatorInstalled, err := generalHelper.IsDeploymentReady(generalHelper.Apiclient,
 			netmlbparameters.MetalLBOperatorNameSpace, netmlbparameters.MetalLBOperatorDeploymentName)
-		if isMetalLBOperatorInstalled == false {
+		if !isMetalLBOperatorInstalled {
 			Skip("MetalLB Operator is not installed")
 		} else {
 			Expect(err).ToNot(HaveOccurred())
@@ -67,9 +67,16 @@ var _ = Describe("CNF MetalLB", func() {
 		})
 
 		By("should deploy MetalLB", func() {
-			metallb, err = metallbutils.Get(netmlbparameters.MetalLBOperatorNameSpace, netmlbparameters.UseMetallbResourcesFromFile)
+			metallb, err = metallbutils.Get(
+				netmlbparameters.MetalLBOperatorNameSpace,
+				netmlbparameters.UseMetallbResourcesFromFile,
+			)
 			Expect(err).ToNot(HaveOccurred())
-			err = generalHelper.Apiclient.Get(context.Background(), goclient.ObjectKey{Namespace: metallb.Namespace, Name: metallb.Name}, metallb)
+			err = generalHelper.Apiclient.Get(
+				context.Background(),
+				goclient.ObjectKey{Namespace: metallb.Namespace, Name: metallb.Name},
+				metallb,
+			)
 			if errors.IsNotFound(err) {
 				Expect(generalHelper.Apiclient.Create(context.Background(), metallb)).Should(Succeed())
 			} else {
@@ -84,9 +91,10 @@ var _ = Describe("CNF MetalLB", func() {
 				if err != nil {
 					return false
 				}
-				if isMetalLBControllerRunning == true {
+				if isMetalLBControllerRunning {
 					return true
 				}
+
 				return false
 			}, metallbutils.Timeout, metallbutils.Interval).Should(BeTrue())
 		})
@@ -96,6 +104,7 @@ var _ = Describe("CNF MetalLB", func() {
 			Eventually(func() bool {
 				daemonSetRunning, daemonSetDesired := generalHelper.CountDaemonsets(generalHelper.Apiclient,
 					netmlbparameters.MetalLBOperatorNameSpace, netmlbparameters.MetalLBDaemonsetName)
+
 				return daemonSetRunning == daemonSetDesired
 			}, metallbutils.DeployTimeout, metallbutils.Interval).Should(BeTrue())
 		})
@@ -132,7 +141,7 @@ var _ = Describe("CNF MetalLB", func() {
 		})
 	})
 
-	//OCP-42936
+	// 42936
 	It("Validate MetalLB Layer 2 functionality", func() {
 		addresspool := netmetallbhelper.DefineMetallbAddressPool()
 
@@ -174,9 +183,10 @@ var _ = Describe("CNF MetalLB", func() {
 			Expect(lineCount).To(Equal(2), "An incorrect number of arp replies were received")
 			// Verifies the output mac addresses matches the annoucing node mac address
 			node, err := netmetallbhelper.GetLBServiceEvents()
+			Expect(err).ToNot(HaveOccurred())
 			nodeMac, err := netmetallbhelper.SpeakerNodeMac(node)
-			Expect(string(strings.Join(output, "\n"))).Should(ContainSubstring(strings.ToUpper(nodeMac)),
-				"ARP request was not recieved from the announcing node")
+			Expect(strings.Join(output, "\n")).Should(ContainSubstring(strings.ToUpper(nodeMac)),
+				"ARP request was not received from the announcing node")
 			Expect(err).ToNot(HaveOccurred())
 		})
 

@@ -25,12 +25,13 @@ func TestSriovIPv4Scenario(
 	config *config.Config,
 	clientMacAddress string,
 	serverMacAddress string) {
-
 	By("Validating test parameters")
+
 	connectivityParameters, err := netsriovparameters.NewConnectivityTestParameters(mtu, connectivity, protocol)
 	Expect(err).ToNot(HaveOccurred())
 
 	By("Defining test resources")
+
 	nodeSelector := defineNodeSelector(connectivity, sriovInfos)
 	serverNetworkName := defineServerNetworkName(mtu)
 	clientNetworkName := defineClientNetworkName(mtu, connectivityParameters.Connectivity)
@@ -60,12 +61,12 @@ func TestSriovIPv4Scenario(
 		sriovInfos,
 		config,
 		serverNetworkName,
-		nodeSelector,
 		negativeFlag,
 		serverMacAddress,
 		netsriovparameters.ServerPodIP)
 
 	By("Creating Client Pod")
+
 	clientPod, err := Apiclient.Pods(netsriovparameters.OperatorTestNamespace).Create(
 		context.Background(),
 		clientPodDefinition,
@@ -75,17 +76,22 @@ func TestSriovIPv4Scenario(
 
 	if protocol == netsriovparameters.CommunicationProtocolUnicastTCP {
 		By("Positive test flow - success")
+
 		return
 	}
+
 	err = pod.DeletePodAndWait(Apiclient, clientPod)
 	Expect(err).ToNot(HaveOccurred())
 
 	By("Positive test flow - success. Running negative flow")
+
 	negativeFlag = true
+
 	if protocol == netsriovparameters.CommunicationProtocolUnicastSCTP {
 		serverNetworkName = defineClientNetworkName(mtu, connectivityParameters.Connectivity)
 		clientNetworkName = defineServerNetworkName(mtu)
 	}
+
 	if protocol == netsriovparameters.CommunicationProtocolMulticastUDP ||
 		protocol == netsriovparameters.CommunicationProtocolBroadcastUDP ||
 		protocol == netsriovparameters.CommunicationProtocolUnicastSCTP {
@@ -96,11 +102,11 @@ func TestSriovIPv4Scenario(
 			sriovInfos,
 			config,
 			serverNetworkName,
-			nodeSelector,
 			negativeFlag,
 			serverMacAddress,
 			netsriovparameters.ServerPodIP)
 	}
+
 	clientTestCommand, err = defineTestCommandParameters(
 		negativeFlag,
 		connectivityParameters.Protocol,
@@ -110,6 +116,7 @@ func TestSriovIPv4Scenario(
 	Expect(err).ToNot(HaveOccurred())
 
 	By("Creating Client Pod with negative flag")
+
 	clientPodDefinitionNegative := defineClientPod(
 		connectivityParameters.Protocol,
 		nodeSelector,

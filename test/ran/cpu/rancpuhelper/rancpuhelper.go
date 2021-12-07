@@ -29,13 +29,16 @@ func GetThreadSiblingsList(cpu int, node *corev1.Node) ([]int, error) {
 		fmt.Sprintf(ran.ThreadSiblingsListPath, cpu),
 	}
 	output, err := helper.ExecCommandOnNode(node, cmd)
+
 	if err != nil {
 		return nil, err
 	}
 
 	// Parse string output to int list. e.g., "0,40" > [0 40]
 	cpuStringList := strings.Split(output, ",")
+
 	var cpuList []int
+
 	for _, cpuString := range cpuStringList {
 		cpu, err := strconv.Atoi(strings.TrimSpace(cpuString))
 		if err != nil {
@@ -56,12 +59,12 @@ func GetRTPerformanceProfile() (*performancev2.PerformanceProfile, error) {
 	for _, profile := range profiles.Items {
 		if profile.Spec.RealTimeKernel != nil &&
 			profile.Spec.RealTimeKernel.Enabled != nil &&
-			*profile.Spec.RealTimeKernel.Enabled == true {
+			*profile.Spec.RealTimeKernel.Enabled {
 			return &profile, nil
 		}
 	}
 
-	// FIXME: workaround to get a performance profile without rt kernel set. As rt kernel is now side-loaded on SNO
+	// "FIXME: workaround to get a performance profile without rt kernel set. As rt kernel is now side-loaded on SNO"
 	// deployment pipeline due to blocking kernel bug.
 	for _, profile := range profiles.Items {
 		nodes, _ := GetNodesFromPerformanceProfile(&profile)
@@ -70,6 +73,7 @@ func GetRTPerformanceProfile() (*performancev2.PerformanceProfile, error) {
 			if err != nil {
 				return nil, err
 			}
+
 			if strings.Contains(strings.Trim(output, "\n"), ".rt") {
 				return &profile, nil
 			}
@@ -79,28 +83,38 @@ func GetRTPerformanceProfile() (*performancev2.PerformanceProfile, error) {
 	return nil, fmt.Errorf("RT Profile is not found")
 }
 
-// GetNodesFromPerformanceProfile returns list of nodes that are applicable to the given performance profile
+// GetNodesFromPerformanceProfile returns list of nodes that are applicable to the given performance profile.
 func GetNodesFromPerformanceProfile(profile *performancev2.PerformanceProfile) ([]*corev1.Node, error) {
-	var nodes []*corev1.Node
-
 	// Check machineConfigPoolSelector in performance profile
-	var mcpNodes *corev1.NodeList
-	var mcpNodesErr error
+	var (
+		nodes       []*corev1.Node
+		mcpNodes    *corev1.NodeList
+		mcpNodesErr error
+	)
+
 	mcp, _ := machineconfigpool.GetByProfile(helper.Apiclient, profile)
+
 	if mcp != nil {
 		mcpNodeSelector := mcp.Spec.NodeSelector.String()
-		mcpNodes, mcpNodesErr = helper.Apiclient.Nodes().List(context.TODO(), metav1.ListOptions{LabelSelector: mcpNodeSelector})
+		mcpNodes, mcpNodesErr = helper.Apiclient.Nodes().List(
+			context.TODO(),
+			metav1.ListOptions{LabelSelector: mcpNodeSelector},
+		)
+
 		if mcpNodes == nil {
 			return nil, mcpNodesErr
 		} else if len(mcpNodes.Items) == 0 {
-			return nil, fmt.Errorf("No nodes found in machine config pool %s\n", mcp.Name)
+			return nil, fmt.Errorf("no nodes found in machine config pool %s", mcp.Name)
 		}
 	}
 
 	// Check nodeSelector in performance profile
-	var profileNodes *corev1.NodeList
-	var profileNodesErr error
-	profileNodeSelector := profile.Spec.NodeSelector
+	var (
+		profileNodes        *corev1.NodeList
+		profileNodesErr     error
+		profileNodeSelector = profile.Spec.NodeSelector
+	)
+
 	if profileNodeSelector != nil {
 		key, value := components.GetFirstKeyAndValue(profileNodeSelector)
 		profileNodes, profileNodesErr = helper.Apiclient.Nodes().List(context.TODO(),
@@ -109,7 +123,7 @@ func GetNodesFromPerformanceProfile(profile *performancev2.PerformanceProfile) (
 		if profileNodes == nil {
 			return nil, profileNodesErr
 		} else if len(profileNodes.Items) == 0 {
-			return nil, fmt.Errorf("No nodes found using profile node selector %s\n", profileNodeSelector)
+			return nil, fmt.Errorf("no nodes found using profile node selector %s", profileNodeSelector)
 		}
 
 		if mcpNodes == nil {
@@ -125,7 +139,7 @@ func GetNodesFromPerformanceProfile(profile *performancev2.PerformanceProfile) (
 				}
 			}
 			if len(nodes) == 0 {
-				return nil, fmt.Errorf("No common nodes between profile Node Selector and MCP Selector\n")
+				return nil, fmt.Errorf("no common nodes between profile Node Selector and MCP Selector")
 			}
 		}
 	}
@@ -139,7 +153,9 @@ func RunMustGather() (mustGatherExecDir string, mustGatherOutput []byte, err err
 	if err != nil {
 		return "", nil, err
 	}
+
 	output, err := helper.ExecAndLogCommand(true, 45*time.Minute, "oc", "adm", "must-gather")
+
 	return dir, output, err
 }
 
@@ -149,9 +165,11 @@ func DeleteMustGathers(mustGatherExecDir string) error {
 	// Look for must-gathers under current dir if mustGatherExecDir is empty
 	if mustGatherExecDir == "" {
 		currentDir, err := os.Getwd()
+
 		if err != nil {
 			return err
 		}
+
 		mustGatherExecDir = currentDir
 	}
 
@@ -159,9 +177,11 @@ func DeleteMustGathers(mustGatherExecDir string) error {
 	if err != nil {
 		return err
 	}
+
 	if matches != nil {
 		log.Println("Must-gather dirs to be removed:", matches)
 	}
+
 	for _, match := range matches {
 		// Best effort
 		err = os.RemoveAll(match)
@@ -180,40 +200,48 @@ func execCommandInPromPod(command []string, logCommand bool) ([]byte, error) {
 	if logCommand {
 		log.Println("Command in prom pod:", command)
 	}
+
 	bytes, err := podUtil.ExecCommand(helper.Apiclient, *promPod, command)
+
 	if err != nil {
 		log.Printf("err: %v", err)
+
 		return nil, err
-	} else {
-		if logCommand {
-			log.Printf("output: %s", bytes.String())
-		}
-		return bytes.Bytes(), err
 	}
+
+	if logCommand {
+		log.Printf("output: %s", bytes.String())
+	}
+
+	return bytes.Bytes(), err
 }
 
 // ExecPromQuery returns rest response for given prom query
-// Note: "bash -c" is used, thus even if curl command failed, the error will be in the first return value
+// Note: "bash -c" is used, thus even if curl command failed, the error will be in the first return value.
 func ExecPromQuery(query string, logCommand bool) ([]rancpuparameters.PromMetric, error) {
 	command := []string{
 		"bash", "-c",
-		fmt.Sprintf("curl \"-s\" '%squery' --data-urlencode 'query=%s'; echo", ran.PromLocalUrl, query),
+		fmt.Sprintf("curl \"-s\" '%squery' --data-urlencode 'query=%s'; echo", ran.PromLocalURL, query),
 	}
 	output, err := execCommandInPromPod(command, logCommand)
+
 	if err != nil {
 		return nil, err
 	}
 
 	var response rancpuparameters.PromQueryResponse
 	err = json.Unmarshal(output, &response)
+
 	if err != nil {
 		return nil, err
 	}
+
 	if response.Status != "success" {
 		return nil, fmt.Errorf(response.Error)
 	}
 
 	result := response.Data.Result
+
 	return result, nil
 }
 
@@ -222,10 +250,12 @@ func GetEnv(key, fallback string) string {
 	if value, ok := os.LookupEnv(key); ok {
 		return value
 	}
+
 	return fallback
 }
 
 func IsOcExist() bool {
 	_, err := helper.ExecAndLogCommand(true, 10*time.Second, "oc", "version")
+
 	return err == nil
 }

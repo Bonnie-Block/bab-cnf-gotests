@@ -13,12 +13,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// GetSriovFecNodeForAcc100 retrieves SriovFecNodeConfig
+// GetSriovFecNodeForAcc100 retrieves SriovFecNodeConfig.
 func GetSriovFecNodeForAcc100(cs *client.ClientSet) (*fecv2.SriovFecNodeConfig, *fecv2.SriovAccelerator, error) {
 	sriovFecNodeConfigList, err := netacceleratorhelper.GetSriovFecNodeConfigList(cs)
+
 	if err != nil {
 		return nil, nil, err
 	}
+
 	for _, sriovFecNodeConfig := range sriovFecNodeConfigList.Items {
 		for _, accelerators := range sriovFecNodeConfig.Status.Inventory.SriovAccelerators {
 			if accelerators.DeviceID == netacc100parameters.Acc100DeviceID {
@@ -26,11 +28,16 @@ func GetSriovFecNodeForAcc100(cs *client.ClientSet) (*fecv2.SriovFecNodeConfig, 
 			}
 		}
 	}
-	return nil, nil, fmt.Errorf("SriovFecNodeConfigList %v doesn`t have sriovfecnodeconfig with configured nic", sriovFecNodeConfigList)
+
+	return nil, nil, fmt.Errorf(
+		"SriovFecNodeConfigList %v doesn`t have sriovfecnodeconfig with configured nic",
+		sriovFecNodeConfigList,
+	)
 }
 
-// GetSriovFecAcc100ClusterConfigDefinition retrieves SriovFecClusterConfig definition
-func GetSriovFecAcc100ClusterConfigDefinition(cs *client.ClientSet, isSingleNode bool) *fecv2.SriovFecClusterConfig {
+// GetSriovFecAcc100ClusterConfigDefinition retrieves SriovFecClusterConfig definition.
+func GetSriovFecAcc100ClusterConfigDefinition(
+	clientSet *client.ClientSet, isSingleNode bool) *fecv2.SriovFecClusterConfig {
 	var (
 		err                error
 		sriovFecNodeConfig *fecv2.SriovFecNodeConfig
@@ -39,7 +46,8 @@ func GetSriovFecAcc100ClusterConfigDefinition(cs *client.ClientSet, isSingleNode
 	)
 
 	Eventually(func() error {
-		sriovFecNodeConfig, accelerator, err = GetSriovFecNodeForAcc100(cs)
+		sriovFecNodeConfig, accelerator, err = GetSriovFecNodeForAcc100(clientSet)
+
 		return err
 	}, 2*time.Minute, 1*time.Second).ShouldNot(HaveOccurred(), "there are no available SriovAccelerators")
 
@@ -77,5 +85,6 @@ func GetSriovFecAcc100ClusterConfigDefinition(cs *client.ClientSet, isSingleNode
 			},
 		}}
 	sriovFecClusterConfig.Spec.DrainSkip = isSingleNode
+
 	return sriovFecClusterConfig
 }

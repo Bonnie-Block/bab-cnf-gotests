@@ -3,7 +3,6 @@ package pod
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -36,25 +35,18 @@ func getDefinition(namespace string, image string) *corev1.Pod {
 	return podObject
 }
 
-// DefineWithNetworks defines pod attached to network
-func DefineWithNetworks(networks []string, namespace string, image string) *corev1.Pod {
-	podObject := getDefinition(namespace, image)
-	podObject.Annotations = map[string]string{"k8s.v1.cni.cncf.io/networks": strings.Join(networks, ",")}
-
-	return podObject
-}
-
-// DefineWithNodeNetworks defines pod attached to Node network
+// DefineWithNodeNetworks defines pod attached to Node network.
 func DefineWithNodeNetworks(nodeName string, networks []string, namespace string, image string) *corev1.Pod {
 	podObject := getDefinition(namespace, image)
 	podObject.Annotations = map[string]string{"k8s.v1.cni.cncf.io/networks": strings.Join(networks, ",")}
 	podObject.Spec.NodeSelector = map[string]string{
 		parameters.LabelHostname: nodeName,
 	}
+
 	return podObject
 }
 
-// DefineWithHostNetwork  defines pod attached to Host network
+// DefineWithHostNetwork  defines pod attached to Host network.
 func DefineWithHostNetwork(nodeName string, namespace string, image string) *corev1.Pod {
 	podObject := getDefinition(namespace, image)
 	podObject.Spec.HostNetwork = true
@@ -65,11 +57,12 @@ func DefineWithHostNetwork(nodeName string, namespace string, image string) *cor
 	return podObject
 }
 
-// RedefineAsPrivileged uppdates the pod to be privileged
+// RedefineAsPrivileged uppdates the pod to be privileged.
 func RedefineAsPrivileged(pod *corev1.Pod) *corev1.Pod {
 	pod.Spec.Containers[0].SecurityContext = &corev1.SecurityContext{}
 	b := true
 	pod.Spec.Containers[0].SecurityContext.Privileged = &b
+
 	return pod
 }
 
@@ -78,40 +71,37 @@ func RedefineAsNetRaw(pod *corev1.Pod) *corev1.Pod {
 	pod.Spec.Containers[0].SecurityContext.Capabilities = &corev1.Capabilities{
 		Add: []corev1.Capability{"NET_RAW"},
 	}
+
 	return pod
 }
 
-// RedefineWithHostNetwork uppdates the pod definition Spec.HostNetwork to true
+// RedefineWithHostNetwork uppdates the pod definition Spec.HostNetwork to true.
 func RedefineWithHostNetwork(pod *corev1.Pod) *corev1.Pod {
 	pod.Spec.HostNetwork = true
+
 	return pod
 }
 
-// RedefineWithNodeSelector uppdates the pod definition with a node selector
-func RedefineWithNodeSelector(pod *corev1.Pod, node string) *corev1.Pod {
-	pod.Spec.NodeSelector = map[string]string{
-		parameters.LabelHostname: node,
-	}
-	return pod
-}
-
-// RedefineWithCommand updates the pod defintion with a different command
+// RedefineWithCommand updates the pod definition with a different command.
 func RedefineWithCommand(pod *corev1.Pod, command []string, args []string) *corev1.Pod {
 	pod.Spec.Containers[0].Command = command
 	pod.Spec.Containers[0].Args = args
+
 	return pod
 }
 
-// RedefineWithRestartPolicy updates the pod defintion with a restart policy
+// RedefineWithRestartPolicy updates the pod definition with a restart policy.
 func RedefineWithRestartPolicy(pod *corev1.Pod, restartPolicy corev1.RestartPolicy) *corev1.Pod {
 	pod.Spec.RestartPolicy = restartPolicy
+
 	return pod
 }
 
-// ExecCommand runs command in the pod and returns buffer output
-func ExecCommand(cs *testclient.ClientSet, pod corev1.Pod, command []string) (bytes.Buffer, error) {
+// ExecCommand runs command in the pod and returns buffer output.
+func ExecCommand(clientSet *testclient.ClientSet, pod corev1.Pod, command []string) (bytes.Buffer, error) {
 	var buf bytes.Buffer
-	req := cs.CoreV1Interface.RESTClient().
+
+	req := clientSet.CoreV1Interface.RESTClient().
 		Post().
 		Namespace(pod.Namespace).
 		Resource("pods").
@@ -126,7 +116,7 @@ func ExecCommand(cs *testclient.ClientSet, pod corev1.Pod, command []string) (by
 			TTY:       true,
 		}, scheme.ParameterCodec)
 
-	exec, err := remotecommand.NewSPDYExecutor(cs.Config, "POST", req.URL())
+	exec, err := remotecommand.NewSPDYExecutor(clientSet.Config, "POST", req.URL())
 	if err != nil {
 		return buf, err
 	}
@@ -144,15 +134,19 @@ func ExecCommand(cs *testclient.ClientSet, pod corev1.Pod, command []string) (by
 	return buf, nil
 }
 
-// GetLog connects to a pod and fetches log
+// GetLog connects to a pod and fetches log.
 func GetLog(cs *testclient.ClientSet, p *corev1.Pod, s time.Duration, containerName string) (string, error) {
 	logStart := int64(s.Seconds())
 	req := cs.Pods(p.Namespace).GetLogs(p.Name, &corev1.PodLogOptions{SinceSeconds: &logStart, Container: containerName})
 	log, err := req.Stream(context.Background())
+
 	if err != nil {
 		return "", err
 	}
-	defer log.Close()
+
+	defer func() {
+		_ = log.Close()
+	}()
 
 	buf := new(bytes.Buffer)
 	_, err = io.Copy(buf, log)
@@ -164,68 +158,34 @@ func GetLog(cs *testclient.ClientSet, p *corev1.Pod, s time.Duration, containerN
 	return buf.String(), nil
 }
 
-// RedefinePodWithNetwork updates the pod defintion with a network annotation
+// RedefinePodWithNetwork updates the pod definition with a network annotation.
 func RedefinePodWithNetwork(pod *corev1.Pod, networksSpec string) *corev1.Pod {
 	pod.ObjectMeta.Annotations = map[string]string{"k8s.v1.cni.cncf.io/networks": networksSpec}
+
 	return pod
 }
 
-// DefinePodOnNode creates the pod defintion with a node selector
+// DefinePodOnNode creates the pod definition with a node selector.
 func DefinePodOnNode(namespace string, image string, nodeName string) *corev1.Pod {
 	pod := getDefinition(namespace, image)
 	pod.Spec.NodeSelector = map[string]string{parameters.LabelHostname: nodeName}
+
 	return pod
 }
 
-// DefinePodOnHostNetwork updates the pod defintion with a host network flag
-func DefinePodOnHostNetwork(namespace string, image string, nodeName string) *corev1.Pod {
-	pod := DefinePodOnNode(namespace, image, nodeName)
-	pod.Spec.HostNetwork = true
-	return pod
-}
-
-// DefinePodWithStaticIpamStatiMac sets pod's network with static IP+mac address config
-func DefinePodWithStaticIpamStatiMac(pod *corev1.Pod, networkName string, ipAddress string, macAddress string) *corev1.Pod {
-	pod.Annotations = map[string]string{"k8s.v1.cni.cncf.io/networks": fmt.Sprintf(`[
-		{
-			"name": "%s", 
-			"mac": "%s",
-			"ips": ["%s/24"]
-		}
-	]`, networkName, macAddress, ipAddress)}
-	return pod
-}
-
-// GetPodDefinitionWithPort retrieves pod with port configuration
-func GetPodDefinitionWithPort(namespace string, image string, port int32) *corev1.Pod {
-	podObject := getDefinition(namespace, image)
-	podObject.Spec.Containers[0].Command = []string{"/bin/sleep", "3650d"}
-	podObject.Spec.Containers[0].ImagePullPolicy = "IfNotPresent"
-	podObject.Spec.Containers[0].Ports = []corev1.ContainerPort{{
-		ContainerPort: port,
-		Protocol:      "TCP"}}
-	return podObject
-}
-
-// GetPodDefinitionWithPortAndLabel retrieves pod with port configuration
-func GetPodDefinitionWithPortAndLabel(namespace string, image string, port int32, labels map[string]string) *corev1.Pod {
-	podObject := GetPodDefinitionWithPort(namespace, image, port)
-	podObject.Labels = labels
-	return podObject
-}
-
-// WaitForDeletion waits until the pod will be removed from the cluster
+// WaitForDeletion waits until the pod will be removed from the cluster.
 func WaitForDeletion(cs *testclient.ClientSet, pod *corev1.Pod, timeout time.Duration) error {
 	return wait.PollImmediate(time.Second, timeout, func() (bool, error) {
 		_, err := cs.Pods(pod.Namespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
 		if errors.IsNotFound(err) {
 			return true, nil
 		}
+
 		return false, nil
 	})
 }
 
-// DeletePodAndWait removes given pods and waits until it's fully removed
+// DeletePodAndWait removes given pods and waits until it's fully removed.
 func DeletePodAndWait(apiClient *testclient.ClientSet, podToDelete *corev1.Pod) error {
 	err := apiClient.Pods(podToDelete.Namespace).Delete(
 		context.Background(),
@@ -234,37 +194,49 @@ func DeletePodAndWait(apiClient *testclient.ClientSet, podToDelete *corev1.Pod) 
 	if err != nil {
 		return err
 	}
+
 	return WaitForDeletion(apiClient, podToDelete, 3*time.Minute)
 }
 
 // RedefineWithHostPid allows a pod to have access to the host process ID namespace.
 func RedefineWithHostPid(pod *corev1.Pod) *corev1.Pod {
 	pod.Spec.HostPID = true
+
 	return pod
 }
 
-// RedefineWithVolume redefines a pod with a new volume and volume mount. Given volume/volume mount will be appended to existing volumes/volume mounts.
-func RedefineWithVolume(pod *corev1.Pod, volumeMountName string, mountPath string, volumeSource corev1.VolumeSource, readOnly bool) *corev1.Pod {
+// RedefineWithVolume redefines a pod with a new volume and volume mount. Given volume/volume mount will be
+// appended to existing volumes/volume mounts.
+func RedefineWithVolume(
+	pod *corev1.Pod,
+	volumeMountName string,
+	mountPath string,
+	volumeSource corev1.VolumeSource,
+	readOnly bool) *corev1.Pod {
 	volMount := corev1.VolumeMount{Name: volumeMountName, MountPath: mountPath}
 	if readOnly {
 		volMount.ReadOnly = true
 	}
 	pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, volMount)
 	pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{Name: volumeMountName, VolumeSource: volumeSource})
+
 	return pod
 }
 
 // RedefineWithObjectMeta updates pod name/generateName and annotations
-// Use empty value "" or nil to skip a config. e.g., annotations=nil
-func RedefineWithObjectMeta(pod *corev1.Pod, name string, generateName string, annotations map[string]string) *corev1.Pod {
+// Use empty value "" or nil to skip a config. e.g., annotations=nil.
+func RedefineWithObjectMeta(
+	pod *corev1.Pod, name string, generateName string, annotations map[string]string) *corev1.Pod {
 	if name != "" {
 		pod.ObjectMeta.Name = name
 		pod.ObjectMeta.GenerateName = ""
 	} else if generateName != "" {
 		pod.ObjectMeta.GenerateName = generateName
 	}
+
 	if annotations != nil {
 		pod.ObjectMeta.Annotations = annotations
 	}
+
 	return pod
 }

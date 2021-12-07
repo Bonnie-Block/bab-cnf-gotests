@@ -17,10 +17,12 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 )
 
-// GetNodeValidMacVlanInterface returns list of node interfaces that can be used for macvlan
+// GetNodeValidMacVlanInterface returns list of node interfaces that can be used for macvlan.
 func GetNodeValidMacVlanInterface(nodeName string, config *config.Config, requestNumber int) []nodes.NodeInterface {
 	By("Select host interface for mac-vlan")
+
 	var macVlanInterfaces []nodes.NodeInterface
+
 	nodeInterfaceList, err := nodes.GetPhysicalNodeInterfaces(generalHelper.Apiclient, nodeName)
 	Expect(err).ToNot(HaveOccurred())
 
@@ -29,13 +31,14 @@ func GetNodeValidMacVlanInterface(nodeName string, config *config.Config, reques
 			macVlanInterfaces = append(macVlanInterfaces, oneInterface)
 		}
 	}
+
 	validMacVlanInterfaces, err := getNodeInterfaces(config, macVlanInterfaces, requestNumber)
 	Expect(err).ToNot(HaveOccurred())
 
 	return validMacVlanInterfaces
 }
 
-// AddVRFNad creates a Network Attachment Definition
+// AddVRFNad creates a Network Attachment Definition.
 func AddVRFNad(nadName string, ifName string, vrfName string) netattdefv1.NetworkAttachmentDefinition {
 	vrfDefinition := netattdefv1.NetworkAttachmentDefinition{
 		ObjectMeta: metav1.ObjectMeta{
@@ -51,20 +54,23 @@ func AddVRFNad(nadName string, ifName string, vrfName string) netattdefv1.Networ
 	}
 	err := generalHelper.Apiclient.Create(context.Background(), &vrfDefinition)
 	Expect(err).ToNot(HaveOccurred())
+
 	return vrfDefinition
 }
 
-// GetNodeInterfaces returns list of requested interfaces
+// GetNodeInterfaces returns list of requested interfaces.
 func getNodeInterfaces(
-	c *config.Config,
+	conf *config.Config,
 	nodeInterfaceList []nodes.NodeInterface,
 	requestedNumber int) ([]nodes.NodeInterface, error) {
-
 	var validNodeIntefaceList []nodes.NodeInterface
-	if c.Network.SriovInterfaces == "" {
-		return nil, fmt.Errorf("Environment variable CNF_INTERFACES_LIST is not set")
+
+	if conf.Network.SriovInterfaces == "" {
+		return nil, fmt.Errorf("environment variable CNF_INTERFACES_LIST is not set")
 	}
-	requestedNodeInterfaceList := strings.Split(c.Network.SriovInterfaces, ",")
+
+	requestedNodeInterfaceList := strings.Split(conf.Network.SriovInterfaces, ",")
+
 	if len(requestedNodeInterfaceList) < requestedNumber {
 		return nil, fmt.Errorf("CNF_INTERFACES_LIST has less interfaces than requested by test suite")
 	}
@@ -76,10 +82,12 @@ func getNodeInterfaces(
 			}
 		}
 	}
+
 	if len(validNodeIntefaceList) < requestedNumber {
 		return nil, fmt.Errorf(
-			"Requested interfaces %v are not present on cluster node",
+			"requested interfaces %v are not present on cluster node",
 			requestedNodeInterfaceList)
 	}
+
 	return validNodeIntefaceList, nil
 }

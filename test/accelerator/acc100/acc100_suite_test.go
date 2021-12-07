@@ -22,8 +22,10 @@ func TestACC100(t *testing.T) {
 	_, currentFile, _, _ := runtime.Caller(0)
 	junitPath := helper.Config.GetReportPath(currentFile)
 	dumpFile := helper.Config.GetDumpFailedTestReportLocation(currentFile)
+
 	RegisterFailHandler(Fail)
-	rr := append([]Reporter{}, reporters.NewJUnitReporter(junitPath))
+	reporterList := append([]Reporter{}, reporters.NewJUnitReporter(junitPath))
+
 	if dumpFile != "" {
 		reporter, err := testutils.NewReporter(
 			dumpFile,
@@ -32,9 +34,10 @@ func TestACC100(t *testing.T) {
 		if err != nil {
 			log.Fatalf("Failed to create log reporter %s", err)
 		}
-		rr = append(rr, reporter)
+		reporterList = append(reporterList, reporter)
 	}
-	RunSpecsWithDefaultAndCustomReporters(t, "ACC100 tests", rr)
+
+	RunSpecsWithDefaultAndCustomReporters(t, "ACC100 tests", reporterList)
 }
 
 var _ = BeforeSuite(func() {

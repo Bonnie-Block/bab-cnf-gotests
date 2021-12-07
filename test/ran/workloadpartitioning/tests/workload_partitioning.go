@@ -34,9 +34,9 @@ var _ = Describe("SNO management workload partitioning", func() {
 		node        *corev1.Node
 		isSNO       bool
 		rtProfile   *performancev2.PerformanceProfile
-		mgmtCpuSet  cpuset.CPUSet
-		isolCpuSet  cpuset.CPUSet
-		totalCpuSet cpuset.CPUSet
+		mgmtCPUSet  cpuset.CPUSet
+		isolCPUSet  cpuset.CPUSet
+		totalCPUSet cpuset.CPUSet
 		pod         *corev1.Pod
 	)
 
@@ -47,9 +47,9 @@ var _ = Describe("SNO management workload partitioning", func() {
 		workers, err := nodes.GetByRole(helper.Apiclient, parameters.RoleWorker)
 		Expect(err).ToNot(HaveOccurred())
 		node = &workers[0]
-		mgmtCpuSet = cpuset.MustParse(string(*rtProfile.Spec.CPU.Reserved))
-		isolCpuSet = cpuset.MustParse(string(*rtProfile.Spec.CPU.Isolated))
-		totalCpuSet = mgmtCpuSet.Union(isolCpuSet)
+		mgmtCPUSet = cpuset.MustParse(string(*rtProfile.Spec.CPU.Reserved))
+		isolCPUSet = cpuset.MustParse(string(*rtProfile.Spec.CPU.Isolated))
+		totalCPUSet = mgmtCPUSet.Union(isolCPUSet)
 	})
 
 	BeforeEach(func() {
@@ -92,7 +92,7 @@ var _ = Describe("SNO management workload partitioning", func() {
 		var failedPids []int
 		for pid, affinity := range affinities {
 			pidCpuset := cpuset.MustParse(affinity)
-			if !pidCpuset.IsSubsetOf(mgmtCpuSet) {
+			if !pidCpuset.IsSubsetOf(mgmtCPUSet) {
 				failedMap[pid] = affinity
 				failedPids = append(failedPids, pid)
 			}
@@ -107,7 +107,7 @@ var _ = Describe("SNO management workload partitioning", func() {
 	It("should have management pods pinned to reserved cpus", func() {
 		By("Checking cpuset for all running containers via crictl inspect on container host", func() {
 			containersInfo := ranwphelper.GetContainersInfo(node)
-			ranwphelper.CheckPodsAffinity(getMgmtContainersInfo(containersInfo), mgmtCpuSet)
+			ranwphelper.CheckPodsAffinity(getMgmtContainersInfo(containersInfo), mgmtCPUSet)
 		})
 	})
 
@@ -115,7 +115,7 @@ var _ = Describe("SNO management workload partitioning", func() {
 	It("should have the correct cpushares for management pods in crio", func() {
 		By("Comparing container cpu shares in crio and pod annotation", func() {
 			containersInfo := ranwphelper.GetContainersInfo(node)
-			checkCpuShares(containersInfo)
+			checkCPUShares(containersInfo)
 		})
 	})
 
@@ -142,7 +142,7 @@ var _ = Describe("SNO management workload partitioning", func() {
 		})
 		By("Checking pod is mutated with cpushares annotation added", func() {
 			podShares := make(map[string]int)
-			podShares = getPodsCpuShares([]corev1.Pod{*pod}, podShares)
+			podShares = getPodsCPUShares([]corev1.Pod{*pod}, podShares)
 			Expect(podShares).ToNot(BeEmpty())
 			for _, val := range podShares {
 				// 1 cpu request = 1024 mi request = 1024 cpushares
@@ -154,8 +154,9 @@ var _ = Describe("SNO management workload partitioning", func() {
 			for _, containerInfo := range containersInfo {
 				if containerInfo.Namespace == pod.Namespace && containerInfo.PodName == pod.Name {
 					Expect(containerInfo.Shares).To(BeEquivalentTo(1024))
-					podCpuSet := cpuset.MustParse(containerInfo.Cpus)
-					Expect(podCpuSet.String()).To(BeEquivalentTo(mgmtCpuSet.String()))
+					podCPUSet := cpuset.MustParse(containerInfo.Cpus)
+					Expect(podCPUSet.String()).To(BeEquivalentTo(mgmtCPUSet.String()))
+
 					return
 				}
 			}
@@ -186,7 +187,7 @@ var _ = Describe("SNO management workload partitioning", func() {
 		})
 		By("Checking pod has wp cpushares annotation added with 2 cpushares", func() {
 			podShares := make(map[string]int)
-			podShares = getPodsCpuShares([]corev1.Pod{*pod}, podShares)
+			podShares = getPodsCPUShares([]corev1.Pod{*pod}, podShares)
 			Expect(podShares).ToNot(BeEmpty())
 			for _, val := range podShares {
 				// Best effort pod is mutated with cpushares 2
@@ -198,8 +199,9 @@ var _ = Describe("SNO management workload partitioning", func() {
 			for _, containerInfo := range containersInfo {
 				if containerInfo.Namespace == pod.Namespace && containerInfo.PodName == pod.Name {
 					Expect(containerInfo.Shares).To(BeEquivalentTo(2))
-					podCpuSet := cpuset.MustParse(containerInfo.Cpus)
-					Expect(podCpuSet.String()).To(BeEquivalentTo(mgmtCpuSet.String()))
+					podCPUSet := cpuset.MustParse(containerInfo.Cpus)
+					Expect(podCPUSet.String()).To(BeEquivalentTo(mgmtCPUSet.String()))
+
 					return
 				}
 			}
@@ -228,8 +230,9 @@ var _ = Describe("SNO management workload partitioning", func() {
 			for _, containerInfo := range containersInfo {
 				if containerInfo.Namespace == pod.Namespace && containerInfo.PodName == pod.Name {
 					Expect(containerInfo.Shares).To(BeEquivalentTo(2))
-					podCpuSet := cpuset.MustParse(containerInfo.Cpus)
-					Expect(podCpuSet.String()).To(BeEquivalentTo(mgmtCpuSet.String()))
+					podCPUSet := cpuset.MustParse(containerInfo.Cpus)
+					Expect(podCPUSet.String()).To(BeEquivalentTo(mgmtCPUSet.String()))
+
 					return
 				}
 			}
@@ -241,7 +244,14 @@ var _ = Describe("SNO management workload partitioning", func() {
 		createsTestMgmtNamespace()
 		cpuReq, cpuLimit := 1, 2
 		By("Creating a burstable pod under test management namespace with cpu request and limit", func() {
-			pod = ranwphelper.DefineQoSTestPod(node.Name, ran.NamespaceTesting, strconv.Itoa(cpuReq), strconv.Itoa(cpuLimit), "", "")
+			pod = ranwphelper.DefineQoSTestPod(
+				node.Name,
+				ran.NamespaceTesting,
+				strconv.Itoa(cpuReq),
+				strconv.Itoa(cpuLimit),
+				"",
+				"",
+			)
 			pod = ranhelper.RedefineWithNewAnnotations(pod,
 				map[string]string{ranwpparameters.AnnotationWpPodKey: ranwpparameters.AnnotationWpPodValue})
 			pod = helper.WaitUntilPodCreatedAndRunning(pod, 5*time.Minute)
@@ -253,15 +263,16 @@ var _ = Describe("SNO management workload partitioning", func() {
 			Expect(resourceRequests.Cpu().Value()).To(Equal(int64(cpuReq)))
 			warning, warningAnnotated := pod.Annotations[ranwpparameters.AnnotationWpMutationWarning]
 			Expect(warningAnnotated).To(BeTrue())
-			Expect(warning).To(ContainSubstring(ranwpparameters.WarningCpuReqAndLimit))
+			Expect(warning).To(ContainSubstring(ranwpparameters.WarningCPUReqAndLimit))
 		})
 		By("Checking correct cpushares and affinity in crio", func() {
 			containersInfo := ranwphelper.GetContainersInfo(node)
 			for _, containerInfo := range containersInfo {
 				if containerInfo.Namespace == pod.Namespace && containerInfo.PodName == pod.Name {
 					Expect(containerInfo.Shares).To(BeEquivalentTo(cpuReq * 1024))
-					podCpuSet := cpuset.MustParse(containerInfo.Cpus)
-					Expect(podCpuSet.String()).To(BeEquivalentTo(totalCpuSet.String()))
+					podCPUSet := cpuset.MustParse(containerInfo.Cpus)
+					Expect(podCPUSet.String()).To(BeEquivalentTo(totalCPUSet.String()))
+
 					return
 				}
 			}
@@ -294,8 +305,9 @@ var _ = Describe("SNO management workload partitioning", func() {
 			for _, containerInfo := range containersInfo {
 				if containerInfo.Namespace == pod.Namespace && containerInfo.PodName == pod.Name {
 					Expect(containerInfo.Shares).To(BeEquivalentTo(1024))
-					podCpuSet := cpuset.MustParse(containerInfo.Cpus)
-					Expect(podCpuSet.String()).To(BeEquivalentTo(totalCpuSet.String()))
+					podCPUSet := cpuset.MustParse(containerInfo.Cpus)
+					Expect(podCPUSet.String()).To(BeEquivalentTo(totalCPUSet.String()))
+
 					return
 				}
 			}
@@ -329,10 +341,11 @@ var _ = Describe("SNO management workload partitioning", func() {
 			for _, containerInfo := range containersInfo {
 				if containerInfo.Namespace == pod.Namespace && containerInfo.PodName == pod.Name {
 					Expect(containerInfo.Shares).To(BeEquivalentTo(1024))
-					podCpuSet := cpuset.MustParse(containerInfo.Cpus)
+					podCPUSet := cpuset.MustParse(containerInfo.Cpus)
 					// For Guaranteed pod with 1 cpu requested, expect it to affine to 1 isolated cpu.
-					Expect(podCpuSet.IsSubsetOf(isolCpuSet)).To(BeTrue())
-					Expect(len(podCpuSet.ToSliceNoSort())).To(BeEquivalentTo(1))
+					Expect(podCPUSet.IsSubsetOf(isolCPUSet)).To(BeTrue())
+					Expect(len(podCPUSet.ToSliceNoSort())).To(BeEquivalentTo(1))
+
 					return
 				}
 			}
@@ -341,38 +354,50 @@ var _ = Describe("SNO management workload partitioning", func() {
 	})
 })
 
-// checkCpuShares checks cpu shares for all running management containers match with the wp pod annotation.
+// checkCPUShares checks cpu shares for all running management containers match with the wp pod annotation.
 // For management pods without explicit cpu request, the expected cpushares is 2. Cpushare annotation should be
 // added to Best Effort pod but not Burstable Pod.
-func checkCpuShares(containersInfo []ranwphelper.ContainerInfo) {
+func checkCPUShares(containersInfo []ranwphelper.ContainerInfo) {
 	// Gather cpu share information from pod annotation
 	allNamespaces, err := helper.Apiclient.Namespaces().List(context.Background(), metav1.ListOptions{})
 	Expect(err).ToNot(HaveOccurred())
+
 	containerShares := make(map[string]int)
+
 	for _, ns := range allNamespaces.Items {
 		if TestNamespaces.Has(ns.Name) {
 			continue
 		}
+
 		pods, err := helper.Apiclient.Pods(ns.Name).List(context.Background(), metav1.ListOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		containerShares = getPodsCpuShares(pods.Items, containerShares)
+
+		containerShares = getPodsCPUShares(pods.Items, containerShares)
 	}
 	// Check cpu shares for all running containers by comparing the value with pod annotation
 	for _, containerInfo := range containersInfo {
 		if isTestPod(containerInfo.PodName, containerInfo.Namespace) {
 			continue
 		}
+
 		searchKey := fmt.Sprintf("%s*%s*%s", containerInfo.Namespace, containerInfo.PodName, containerInfo.Name)
 		valInAnnotation, ok := containerShares[searchKey]
+
 		if ok {
 			// Check crio cpu shares matches with pod annotation if annotation exists.
-			Expect(valInAnnotation).To(BeEquivalentTo(containerInfo.Shares), "cpu shares value in crio mismatches pod annotation")
+			Expect(valInAnnotation).To(BeEquivalentTo(
+				containerInfo.Shares),
+				"cpu shares value in crio mismatches pod annotation")
 		} else {
-			// For a burstable management pod, if a container has no cpu request, then no annotation would be added for this container.
-			// In this case, expected cpushares in crio should be 2.
-			pod, err := helper.Apiclient.Pods(containerInfo.Namespace).Get(context.Background(), containerInfo.PodName, metav1.GetOptions{})
+			// For a burstable management pod, if a container has no cpu request, then no annotation would be
+			// added for this container. In this case, expected cpushares in crio should be 2.
+			pod, err := helper.Apiclient.Pods(containerInfo.Namespace).Get(
+				context.Background(),
+				containerInfo.PodName,
+				metav1.GetOptions{},
+			)
 			Expect(err).ToNot(HaveOccurred())
-			annotationExpectations := getMgmtCpuShareAnnotationExpectations(*pod)
+			annotationExpectations := getMgmtCPUShareAnnotationExpectations(*pod)
 			Expect(annotationExpectations[searchKey]).To(BeFalse(), "cpu share annotation is not found for %s", searchKey)
 			Expect(containerInfo.Shares).To(BeEquivalentTo(2), "cpu share in crio is not 2 for %s", searchKey)
 		}
@@ -385,17 +410,21 @@ func isTestPod(podName, namespace string) bool {
 		strings.HasPrefix(podName, "process-exporter") {
 		return true
 	}
+
 	return false
 }
 
-// getMgmtCpuShareAnnotationExpectations returns a map with a formatted container name as key, and cpu share expectation as value.
-// A management container is not expected to have cpushare annotation if it has no explicit cpu request and pod is Burstable.
-func getMgmtCpuShareAnnotationExpectations(pod corev1.Pod) map[string]bool {
+// getMgmtCPUShareAnnotationExpectations returns a map with a formatted container name as key, and cpu share
+// expectation as value. A management container is not expected to have cpushare annotation if it has no explicit
+// cpu request and pod is Burstable.
+func getMgmtCPUShareAnnotationExpectations(pod corev1.Pod) map[string]bool {
 	containerSharesExpectations := make(map[string]bool)
+
 	for _, container := range pod.Spec.Containers {
 		expectation := true
 		if pod.Status.QOSClass == corev1.PodQOSBurstable && container.Resources.Requests.Cpu().Value() == int64(0) {
 			expectation = false
+
 			for k, v := range container.Resources.Requests {
 				if k == ranwpparameters.AnnotationWpResource && v.Value() > int64(0) {
 					// If cpushares resource request exists, then we expect the annotation to be added.
@@ -403,23 +432,27 @@ func getMgmtCpuShareAnnotationExpectations(pod corev1.Pod) map[string]bool {
 				}
 			}
 		}
+
 		containerSharesExpectations[fmt.Sprintf("%s*%s*%s", pod.Namespace, pod.Name, container.Name)] = expectation
 	}
+
 	return containerSharesExpectations
 }
 
-// getPodsCpuShares retrieves containers' wp cpu shares from pod annotations
-func getPodsCpuShares(pods []corev1.Pod, containerShares map[string]int) map[string]int {
+// getPodsCPUShares retrieves containers' wp cpu shares from pod annotations.
+func getPodsCPUShares(pods []corev1.Pod, containerShares map[string]int) map[string]int {
 	for _, pod := range pods {
 		for key, val := range pod.Annotations {
-			if strings.HasPrefix(key, ranwpparameters.AnnotationPrefixCpuShare) {
+			if strings.HasPrefix(key, ranwpparameters.AnnotationPrefixCPUShare) {
 				cpushare, err := strconv.Atoi(strings.TrimSpace(strings.SplitN(strings.SplitN(val, ":", 2)[1], "}", 2)[0]))
 				Expect(err).ToNot(HaveOccurred())
+
 				containerName := strings.TrimSpace(strings.Split(key, "/")[1])
 				containerShares[fmt.Sprintf("%s*%s*%s", pod.Namespace, pod.Name, containerName)] = cpushare
 			}
 		}
 	}
+
 	return containerShares
 }
 
@@ -430,18 +463,22 @@ func findInt(item int, intSlice []int) bool {
 			return true
 		}
 	}
+
 	return false
 }
 
-// createsTestMgmtNamespace creates a test namespace with management workload partitioning annotation
+// createsTestMgmtNamespace creates a test namespace with management workload partitioning annotation.
 func createsTestMgmtNamespace() {
 	if namespaces.Exists(ran.NamespaceTesting, helper.Apiclient) {
 		return
 	}
+
 	By("creating a management test pod under test management namespace", func() {
 		namespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{
-			Name:        ran.NamespaceTesting,
-			Annotations: map[string]string{ranwpparameters.AnnotationWpNamespaceKey: ranwpparameters.AnnotationWpNamespaceValue}}}
+			Name: ran.NamespaceTesting,
+			Annotations: map[string]string{
+				ranwpparameters.AnnotationWpNamespaceKey: ranwpparameters.AnnotationWpNamespaceValue},
+		}}
 		_, err := helper.Apiclient.Namespaces().Create(context.Background(), namespace, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 	})
@@ -449,11 +486,13 @@ func createsTestMgmtNamespace() {
 
 func getMgmtContainersInfo(containersInfo []ranwphelper.ContainerInfo) []ranwphelper.ContainerInfo {
 	var mgmtContainerInfo []ranwphelper.ContainerInfo
+
 	for _, podinfo := range containersInfo {
 		// Exclude test pods
 		if !isTestPod(podinfo.PodName, podinfo.Namespace) {
 			mgmtContainerInfo = append(mgmtContainerInfo, podinfo)
 		}
 	}
+
 	return mgmtContainerInfo
 }

@@ -9,22 +9,22 @@ type (
 		TestImageRegistry string `envconfig:"CONTAINER_REPO"`
 	}
 
-	//Report is created from XML output by a Ant JUnit task.
+	// Report is created from XML output by an Ant JUnit task.
 	Report struct {
-		//Errors is the number of runtime exceptions
-		//which occurred when running the test cases.
+		// Errors is the number of runtime exceptions
+		// which occurred when running the test cases.
 		Errors int `xml:"errors,attr"`
-		//Failures is the number of test cases which produced
-		//an invalid result.
+		// Failures is the number of test cases which produced
+		// an invalid result.
 		Failures int     `xml:"failures,attr"`
 		Name     string  `xml:"name,attr"`
 		Tests    int     `xml:"tests,attr"`
 		Time     float64 `xml:"time,attr"`
-		//Results is all the failed testcases.
+		// Results is all the failed testcases.
 		Results TestCases `xml:"testcase"`
 	}
 
-	//TestCase represents a failed testcase
+	// TestCase represents a failed testcase.
 	TestCase struct {
 		ClassName string   `xml:"classname,attr"`
 		Name      string   `xml:"name,attr"`
@@ -33,11 +33,11 @@ type (
 		Skipped   *string  `xml:"skipped"`
 	}
 
-	//TestCases represents all the testcases which a class failed.
-	//It implements sort.Sort
+	// TestCases represents all the testcases which a class failed.
+	// It implements sort.Sort.
 	TestCases []*TestCase
 
-	//Failure gives details as to why a test case failed.
+	// Failure gives details as to why a test case failed.
 	Failure struct {
 		Message string `xml:"message,attr"`
 		Type    string `xml:"type,attr"`
@@ -66,68 +66,70 @@ const (
 
 const (
 	// DiscoveryAllFeaturesPassedTest expected number of passed tests with
-	// SriovNetworkNodePolicy, sctp machine config, xt_u32 machine config, ovs_qos machine configs, PerformanceProfile, PtpConfig
-	// resources configured
+	// SriovNetworkNodePolicy, sctp machine config, xt_u32 machine config, ovs_qos machine configs,
+	// PerformanceProfile, PtpConfig resources configured.
 	DiscoveryAllFeaturesPassedTest = 95
 	// DiscoveryAllFeaturesSkippedTest expected number of skipped tests with
-	// SriovNetworkNodePolicy, sctp machine config, xt_u32 machine config, ovs_qos machine configs, PerformanceProfile, PtpConfig
-	// resources configured
+	// SriovNetworkNodePolicy, sctp machine config, xt_u32 machine config, ovs_qos machine configs,
+	// PerformanceProfile, PtpConfig resources configured.
 	DiscoveryAllFeaturesSkippedTest = 77
 
 	// DiscoveryExceptSriovPassedTest expected number of passed tests with:
-	// sctp machine config, xt_u32 machine config, ovs_qos machine configs, PerformanceProfile, PtpConfig resources configured
+	// sctp machine config, xt_u32 machine config, ovs_qos machine configs, PerformanceProfile, PtpConfig
+	// resources configured.
 	DiscoveryExceptSriovPassedTest = 75
 	// DiscoveryExceptSriovSkippedTest expected number of skipped tests with
-	// sctp machine config, xt_u32 machine config, ovs_qos machine configs, PerformanceProfile, PtpConfig resources configured
+	// sctp machine config, xt_u32 machine config, ovs_qos machine configs, PerformanceProfile, PtpConfig
+	// resources configured.
 	DiscoveryExceptSriovSkippedTest = 97
 
 	// DiscoveryExceptSriovPtpPassedTest expected number of passed tests with
-	// sctp machine config, xt_u32 machine config, ovs_qos machine configs, PerformanceProfile resources configured
+	// sctp machine config, xt_u32 machine config, ovs_qos machine configs, PerformanceProfile resources configured.
 	DiscoveryExceptSriovPtpPassedTest = 69
 	// DiscoveryExceptSriovPtpSkippedTest expected number of skipped tests with
-	// sctp machine config, xt_u32 machine config, ovs_qos machine configs, PerformanceProfile resources configured
+	// sctp machine config, xt_u32 machine config, ovs_qos machine configs, PerformanceProfile resources configured.
 	DiscoveryExceptSriovPtpSkippedTest = 103
 
 	// DiscoveryExceptSriovPtpPerformancePassedTest expected number of passed tests with
-	// sctp machine config, xt_u32 machine config, ovs_qos machine configs resources configured
+	// sctp machine config, xt_u32 machine config, ovs_qos machine configs resources configured.
 	DiscoveryExceptSriovPtpPerformancePassedTest = 37
-	// DiscoveryExceptSriovPtpPerformancePassedTestSkippedTest expected number of skipped tests with
-	// sctp machine config, xt_u32 machine config, ovs_qos machine configs, resources configured
+	// DiscoveryExceptSriovPtpPerformancetSkippedTest expected number of skipped tests with
+	// sctp machine config, xt_u32 machine config, ovs_qos machine configs, resources configured.
 	DiscoveryExceptSriovPtpPerformancetSkippedTest = 135
 
 	// DiscoveryExceptSriovPtpOVSQOSPerformancePassedTest expected number of passed tests with
-	// sctp machine config, xt_u32 machine config  resources configured
+	// sctp machine config, xt_u32 machine config  resources configured.
 	DiscoveryExceptSriovPtpOVSQOSPerformancePassedTest = 25
-	// DiscoveryExceptSriovPtpPerformancePassedTestSkippedTest expected number of skipped tests with
-	// sctp machine config, xt_u32 machine config resources configured
+	// DiscoveryExceptSriovPtpOVSQOSPerformanceSkippedTest expected number of skipped tests with
+	// sctp machine config, xt_u32 machine config resources configured.
 	DiscoveryExceptSriovPtpOVSQOSPerformanceSkippedTest = 147
 
 	// SNODiscoveryAllFeaturesPassedTest expected number of passed tests with
 	// SriovNetworkNodePolicy, sctp machine config, xt_u32 machine config, PerformanceProfile
 	// resources configured
-	// for SNO
+	// for SNO.
 	SNODiscoveryAllFeaturesPassedTest = 63
 	// SNODiscoveryAllFeaturesSkippedTest expected number of skipped tests with
 	// SriovNetworkNodePolicy, sctp machine config, xt_u32 machine config, PerformanceProfile
 	// resources configured
-	// for SNO
+	// for SNO.
 	SNODiscoveryAllFeaturesSkippedTest = 71
 
 	// SNODiscoveryExceptSriovPassedTest expected number of passed tests with:
 	// sctp machine config, xt_u32 machine config, PerformanceProfile resources configured
-	// for SNO
+	// for SNO.
 	SNODiscoveryExceptSriovPassedTest = 43
 	// SNODiscoveryExceptSriovSkippedTest expected number of skipped tests with
 	// sctp machine config, xt_u32 machine config, PerformanceProfile resources configured
-	// for SNO
+	// for SNO.
 	SNODiscoveryExceptSriovSkippedTest = 91
 
 	// SNODiscoveryExceptSriovPerformancePassedTest expected number of passed tests with
 	// sctp machine config, xt_u32 machine config  resources configured
-	// for SNO
+	// for SNO.
 	SNODiscoveryExceptSriovPerformancePassedTest = 17
-	// SNODiscoveryExceptSriovPerformancePassedTestSkippedTest expected number of skipped tests with
+	// SNODiscoveryExceptSriovPerformanceSkippedTest expected number of skipped tests with
 	// sctp machine config, xt_u32 machine config resources configured
-	// for SNO
+	// for SNO.
 	SNODiscoveryExceptSriovPerformanceSkippedTest = 117
 )

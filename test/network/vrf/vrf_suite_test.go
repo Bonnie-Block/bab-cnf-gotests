@@ -28,8 +28,10 @@ func TestVrf(t *testing.T) {
 	_, currentFile, _, _ := runtime.Caller(0)
 	junitPath := generalHelper.Config.GetReportPath(currentFile)
 	dumpFile := generalHelper.Config.GetDumpFailedTestReportLocation(currentFile)
+
 	RegisterFailHandler(Fail)
-	rr := append([]Reporter{}, reporters.NewJUnitReporter(junitPath))
+	reporterList := append([]Reporter{}, reporters.NewJUnitReporter(junitPath))
+
 	if dumpFile != "" {
 		reporter, err := testutils.NewReporter(
 			dumpFile,
@@ -38,9 +40,10 @@ func TestVrf(t *testing.T) {
 		if err != nil {
 			log.Fatalf("Failed to create log reporter %s", err)
 		}
-		rr = append(rr, reporter)
+		reporterList = append(reporterList, reporter)
 	}
-	RunSpecsWithDefaultAndCustomReporters(t, "VRF tests", rr)
+
+	RunSpecsWithDefaultAndCustomReporters(t, "VRF tests", reporterList)
 }
 
 var _ = BeforeSuite(func() {

@@ -9,26 +9,28 @@ import (
 )
 
 var (
-	// ReporterNamespacesToDump tells to reporter from where to collect logs
+	// ReporterNamespacesToDump tells to reporter from where to collect logs.
 	ReporterNamespacesToDump = map[string]string{
 		parameters.PerformanceAddonOperatorNamespace: "performance",
 		ran.NamespaceTesting:                         "other",
 	}
-	// ReporterCrds tells to reporter what resources to collect
+	// ReporterCrds tells to reporter what resources to collect.
 	ReporterCrds = []k8sreporter.CRData{
 		{Cr: &mcfgv1.MachineConfigPoolList{}},
 	}
 )
 
 const (
-	AnnotationPrefixCpuShare    = "resources.workload.openshift.io"
+	AnnotationPrefixCPUShare    = "resources.workload.openshift.io"
 	AnnotationWpNamespaceKey    = "workload.openshift.io/allowed"
 	AnnotationWpNamespaceValue  = "management"
 	AnnotationWpPodKey          = "target.workload.openshift.io/management"
 	AnnotationWpPodValue        = "{\"effect\": \"PreferredDuringScheduling\"}"
 	AnnotationWpResource        = "management.workload.openshift.io/cores"
 	AnnotationWpMutationWarning = "workload.openshift.io/warning"
-	WarningQoSChange            = "skip pod CPUs requests modifications because it will change the pod QoS class from Burstable to BestEffort"
-	WarningQoSGuaranteed        = "skip pod CPUs requests modifications because it has guaranteed QoS class"
-	WarningCpuReqAndLimit       = "skip pod CPUs requests modifications because pod container has both CPU limit and request"
+	WarningQoSChange            = "skip pod CPUs requests modifications because it will change the pod QoS class " +
+		"from Burstable to BestEffort"
+	WarningQoSGuaranteed  = "skip pod CPUs requests modifications because it has guaranteed QoS class"
+	WarningCPUReqAndLimit = "skip pod CPUs requests modifications because pod container has both CPU limit " +
+		"and request"
 )

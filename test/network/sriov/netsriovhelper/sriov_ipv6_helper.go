@@ -25,12 +25,13 @@ func TestSriovIPv6Scenario(
 	config *config.Config,
 	clientMacAddress string,
 	serverMacAddress string) {
-
 	By("Validating test parameters")
+
 	connectivityParameters, err := netsriovparameters.NewConnectivityTestParameters(mtu, connectivity, protocol)
 	Expect(err).ToNot(HaveOccurred())
 
 	By("Defining test resources")
+
 	nodeSelector := defineNodeSelector(connectivity, sriovInfos)
 	serverNetworkName := defineServerNetworkName(mtu)
 	clientNetworkName := defineClientNetworkName(mtu, connectivityParameters.Connectivity)
@@ -42,6 +43,7 @@ func TestSriovIPv6Scenario(
 		netsriovparameters.ServerPodIpv6,
 		netsriovparameters.TestPort)
 	Expect(err).ToNot(HaveOccurred())
+
 	clientPodDefinition := defineClientPod(
 		connectivityParameters.Protocol,
 		nodeSelector,
@@ -59,12 +61,12 @@ func TestSriovIPv6Scenario(
 		sriovInfos,
 		config,
 		serverNetworkName,
-		nodeSelector,
 		negativeFlag,
 		serverMacAddress,
 		netsriovparameters.ServerPodIpv6)
 
 	By("Creating Client Pod")
+
 	clientPod, err := Apiclient.Pods(netsriovparameters.OperatorTestNamespace).Create(
 		context.Background(),
 		clientPodDefinition,
@@ -79,17 +81,22 @@ func TestSriovIPv6Scenario(
 
 	if protocol == netsriovparameters.CommunicationProtocolUnicastTCP {
 		By("Positive test flow - success")
+
 		return
 	}
+
 	err = pod.DeletePodAndWait(Apiclient, clientPod)
 	Expect(err).ToNot(HaveOccurred())
 
 	By("Positive test flow - success. Running negative flow")
+
 	negativeFlag = true
+
 	if protocol == netsriovparameters.CommunicationProtocolUnicastSCTP {
 		serverNetworkName = defineClientNetworkName(mtu, connectivityParameters.Connectivity)
 		clientNetworkName = defineServerNetworkName(mtu)
 	}
+
 	if protocol == netsriovparameters.CommunicationProtocolMulticastUDP ||
 		protocol == netsriovparameters.CommunicationProtocolBroadcastUDP ||
 		protocol == netsriovparameters.CommunicationProtocolUnicastSCTP {
@@ -100,7 +107,6 @@ func TestSriovIPv6Scenario(
 			sriovInfos,
 			config,
 			serverNetworkName,
-			nodeSelector,
 			negativeFlag,
 			serverMacAddress,
 			netsriovparameters.ServerPodIpv6)
@@ -115,6 +121,7 @@ func TestSriovIPv6Scenario(
 	Expect(err).ToNot(HaveOccurred())
 
 	By("Creating Client Pod with negative flag")
+
 	clientPodDefinitionNegative := defineClientPod(
 		connectivityParameters.Protocol,
 		nodeSelector,

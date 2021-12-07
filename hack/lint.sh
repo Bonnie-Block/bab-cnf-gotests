@@ -3,18 +3,11 @@ set -e
 
 . $(dirname "$0")/common.sh
 
-if which golint; then
+if which golangci-lint; then
 	echo "golint installed"
 else
 	echo "Downloading golint tool"
-	go get -u golang.org/x/lint/golint
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.43.0
 fi
 
-RETVAL=0
-for file in $(find . -path ./vendor -prune -o -type f -name '*.go' -print | grep -E "functests/utils"); do
-	golint -min_confidence=.9 -set_exit_status "$file"
-	if [[ $? -ne 0 ]]; then 
-		RETVAL=1
- 	fi
-done
-exit $RETVAL
+golangci-lint run -v

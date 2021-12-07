@@ -96,10 +96,15 @@ var _ = Describe("Intel ACC100", func() {
 
 		It("configuration", func() {
 			Eventually(func() int64 {
-				testedNode, err := helper.Apiclient.CoreV1Interface.Nodes().Get(context.TODO(), fecConfig.Spec.NodeSelector["kubernetes.io/hostname"], metav1.GetOptions{})
+				testedNode, err := helper.Apiclient.CoreV1Interface.Nodes().Get(
+					context.TODO(),
+					fecConfig.Spec.NodeSelector["kubernetes.io/hostname"],
+					metav1.GetOptions{},
+				)
 				Expect(err).ToNot(HaveOccurred())
-				resNum, _ := testedNode.Status.Allocatable[corev1.ResourceName(netacc100parameters.Acc100ResourceName)]
+				resNum := testedNode.Status.Allocatable[corev1.ResourceName(netacc100parameters.Acc100ResourceName)]
 				allocatable, _ := resNum.AsInt64()
+
 				return allocatable
 			}, 10*time.Minute, time.Second).Should(Equal(int64(2)))
 		})
@@ -107,10 +112,15 @@ var _ = Describe("Intel ACC100", func() {
 		It("validation", func() {
 			By("Waiting for resource to reported in the node")
 			Eventually(func() int64 {
-				testedNode, err := helper.Apiclient.CoreV1Interface.Nodes().Get(context.TODO(), fecConfig.Spec.NodeSelector["kubernetes.io/hostname"], metav1.GetOptions{})
+				testedNode, err := helper.Apiclient.CoreV1Interface.Nodes().Get(
+					context.TODO(),
+					fecConfig.Spec.NodeSelector["kubernetes.io/hostname"],
+					metav1.GetOptions{},
+				)
 				Expect(err).ToNot(HaveOccurred())
-				resNum, _ := testedNode.Status.Allocatable[corev1.ResourceName(netacc100parameters.Acc100ResourceName)]
+				resNum := testedNode.Status.Allocatable[corev1.ResourceName(netacc100parameters.Acc100ResourceName)]
 				allocatable, _ := resNum.AsInt64()
+
 				return allocatable
 			}, 10*time.Minute, time.Second).Should(Equal(int64(2)))
 

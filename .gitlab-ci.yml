@@ -1,17 +1,11 @@
 default:
   image: quay.io/centos/centos:7
   before_script:
-    - yum -y install make wget which gcc
-    - wget --no-verbose --directory-prefix=/tmp/ https://golang.org/dl/go1.15.7.linux-amd64.tar.gz
-    - tar -C /usr/local -xzf /tmp/go1.15.7.linux-amd64.tar.gz
-    - export PATH=$PATH:/usr/local/go/bin
+    - yum -y install make wget which gcc curl
+    - wget --no-verbose --directory-prefix=/tmp/ https://golang.org/dl/go1.16.10.linux-amd64.tar.gz
+    - tar -C /usr/local -xzf /tmp/go1.16.10.linux-amd64.tar.gz
+    - export PATH=$PATH:/usr/local/go/bin:${HOME}/go/bin/
     - go version
-
-gofmt:
-  script:
-    - make gofmt
-  only:
-    - merge_requests
 
 golint:
   script:

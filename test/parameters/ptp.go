@@ -16,13 +16,13 @@ const (
 )
 
 var (
-	// ReporterNamespacesToDump tells to reporter from where to collect logs
+	// ReporterNamespacesToDump tells to reporter from where to collect logs.
 	ReporterNamespacesToDump = map[string]string{
 		"openshift-performance-addon-operator": "performance",
 		PtpOperatorNamespace:                   "sriov",
 		PtpTestNamespace:                       "other",
 	}
-	// ReporterCrds tells to reporter what resources to collect
+	// ReporterCrds tells to reporter what resources to collect.
 	ReporterCrds = []k8sreporter.CRData{
 		{Cr: &mcfgv1.MachineConfigPoolList{}},
 		{Cr: &ptpv1.PtpConfigList{}},

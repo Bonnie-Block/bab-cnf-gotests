@@ -28,8 +28,10 @@ func TestCpu(t *testing.T) {
 	_, currentFile, _, _ := runtime.Caller(0)
 	junitPath := helper.Config.GetReportPath(currentFile)
 	dumpFile := helper.Config.GetDumpFailedTestReportLocation(currentFile)
+
 	RegisterFailHandler(Fail)
-	rr := append([]Reporter{}, reporters.NewJUnitReporter(junitPath))
+	reporterList := append([]Reporter{}, reporters.NewJUnitReporter(junitPath))
+
 	if dumpFile != "" {
 		reporter, err := testutils.NewReporter(
 			dumpFile,
@@ -38,11 +40,13 @@ func TestCpu(t *testing.T) {
 		if err != nil {
 			log.Fatalf("Failed to create log reporter %s", err)
 		}
-		rr = append(rr, reporter)
+		reporterList = append(reporterList, reporter)
 	}
 	// Stop ginkgo complaining about slow tests
 	cfg.DefaultReporterConfig.SlowSpecThreshold = 1200.0
-	RunSpecsWithDefaultAndCustomReporters(t, "RAN CPU management tests", rr)
+
+	RunSpecsWithDefaultAndCustomReporters(t, "RAN CPU management tests", reporterList)
+
 	cfg.DefaultReporterConfig.SlowSpecThreshold = 5.0
 }
 

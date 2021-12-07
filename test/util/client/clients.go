@@ -17,7 +17,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	discovery "k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes/scheme"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	appsv1client "k8s.io/client-go/kubernetes/typed/apps/v1"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	networkv1client "k8s.io/client-go/kubernetes/typed/networking/v1"
@@ -28,11 +27,10 @@ import (
 
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// ClientSet provides the struct to talk with relevant API
+// ClientSet provides the struct to talk with relevant API.
 type ClientSet struct {
 	corev1client.CoreV1Interface
 	clientconfigv1.ConfigV1Interface
@@ -49,8 +47,10 @@ type ClientSet struct {
 
 // New returns a *ClientBuilder with the given kubeconfig.
 func New(kubeconfig string) *ClientSet {
-	var config *rest.Config
-	var err error
+	var (
+		config *rest.Config
+		err    error
+	)
 
 	if kubeconfig == "" {
 		kubeconfig = os.Getenv("KUBECONFIG")
@@ -63,6 +63,7 @@ func New(kubeconfig string) *ClientSet {
 		glog.V(4).Infof("Using in-cluster kube client config")
 		config, err = rest.InClusterConfig()
 	}
+
 	if err != nil {
 		return nil
 	}
@@ -79,28 +80,52 @@ func New(kubeconfig string) *ClientSet {
 	clientSet.Config = config
 
 	crScheme := runtime.NewScheme()
-	clientgoscheme.AddToScheme(crScheme)
-	netattdefv1.SchemeBuilder.AddToScheme(crScheme)
-	scheme.AddToScheme(crScheme)
-	sriovv1.AddToScheme(crScheme)
-	mcv1.AddToScheme(crScheme)
-	fecv2.AddToScheme(crScheme)
+	if err := scheme.AddToScheme(crScheme); err != nil {
+		panic(err)
+	}
+
+	if err := netattdefv1.SchemeBuilder.AddToScheme(crScheme); err != nil {
+		panic(err)
+	}
+
+	if err := scheme.AddToScheme(crScheme); err != nil {
+		panic(err)
+	}
+
+	if err := sriovv1.AddToScheme(crScheme); err != nil {
+		panic(err)
+	}
+
+	if err := mcv1.AddToScheme(crScheme); err != nil {
+		panic(err)
+	}
+
+	if err := fecv2.AddToScheme(crScheme); err != nil {
+		panic(err)
+	}
+
 	if err := apiext.AddToScheme(crScheme); err != nil {
 		panic(err)
 	}
+
 	if err := metallbv1alpha1.AddToScheme(crScheme); err != nil {
 		panic(err)
 	}
+
 	if err := metallbv1beta1.AddToScheme(crScheme); err != nil {
 		panic(err)
 	}
+
 	if err := performancev2.AddToScheme(crScheme); err != nil {
 		panic(err)
 	}
 
-	clientSet.Client, err = runtimeclient.New(config, client.Options{
+	clientSet.Client, err = runtimeclient.New(config, runtimeclient.Options{
 		Scheme: crScheme,
 	})
-	return clientSet
+	if err != nil {
+		panic(err)
+	}
 
+	return clientSet
 }

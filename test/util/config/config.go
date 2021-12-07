@@ -17,11 +17,11 @@ import (
 )
 
 const (
-	// ConfigPath path to config file
-	ConfigPath = "config/config.yaml"
+	// PathToConfig path to config file.
+	PathToConfig = "config/config.yaml"
 )
 
-// Config type keeps general configuration
+// Config type keeps general configuration.
 type Config struct {
 	General struct {
 		ReportDirAbsPath              string `yaml:"report" envconfig:"REPORT_DIR_NAME"`
@@ -45,37 +45,47 @@ type Config struct {
 	} `yaml:"ran"`
 }
 
-// NewConfig returns instance Config type
+// NewConfig returns instance Config type.
 func NewConfig() (*Config, error) {
 	var c Config
+
 	_, filename, _, _ := runtime.Caller(0)
 	baseDir := filepath.Dir(filepath.Dir(filepath.Join(filepath.Dir(filename), "..")))
-	confFile := filepath.Join(baseDir, ConfigPath)
+	confFile := filepath.Join(baseDir, PathToConfig)
 	err := readFile(&c, confFile)
+
 	if err != nil {
 		return nil, err
 	}
+
 	c.General.ReportDirAbsPath = filepath.Join(baseDir, c.General.ReportDirAbsPath)
 	c.Ran.ProcessExporterConfigsDir = filepath.Join(baseDir, c.Ran.ProcessExporterConfigsDir)
 	err = readEnv(&c)
+
 	if err != nil {
 		return nil, err
 	}
+
 	return &c, nil
 }
 
-func readFile(c *Config, cfgfile string) error {
-	f, err := os.Open(cfgfile)
+func readFile(conf *Config, cfgfile string) error {
+	openedCfgFile, err := os.Open(cfgfile)
 	if err != nil {
 		return err
 	}
-	defer f.Close()
 
-	decoder := yaml.NewDecoder(f)
-	err = decoder.Decode(&c)
+	defer func() {
+		_ = openedCfgFile.Close()
+	}()
+
+	decoder := yaml.NewDecoder(openedCfgFile)
+	err = decoder.Decode(&conf)
+
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -84,25 +94,32 @@ func readEnv(c *Config) error {
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 
-// GetReportPath returns full path to the report file
+// GetReportPath returns full path to the report file.
 func (c *Config) GetReportPath(file string) string {
 	reportFileName := strings.TrimSuffix(filepath.Base(file), filepath.Ext(filepath.Base(file)))
+
 	return fmt.Sprintf("%s.xml", filepath.Join(c.General.ReportDirAbsPath, reportFileName))
 }
 
-// GetSriovInterfaces returns list of requested interfaces
-func (c *Config) GetSriovInterfaces(availableSriovInterfaces []*sriovv1.InterfaceExt, requestedNumber int) ([]*sriovv1.InterfaceExt, error) {
+// GetSriovInterfaces returns list of requested interfaces.
+func (c *Config) GetSriovInterfaces(
+	availableSriovInterfaces []*sriovv1.InterfaceExt, requestedNumber int) ([]*sriovv1.InterfaceExt, error) {
 	var validSriovIntefaceList []*sriovv1.InterfaceExt
+
 	if c.Network.SriovInterfaces == "" {
-		return nil, fmt.Errorf("Environmnet variable CNF_INTERFACES_LIST is not set")
+		return nil, fmt.Errorf("environment variable CNF_INTERFACES_LIST is not set")
 	}
+
 	requestedSriovInterfaceList := strings.Split(c.Network.SriovInterfaces, ",")
+
 	if len(requestedSriovInterfaceList) < requestedNumber {
 		return nil, fmt.Errorf("CNF_INTERFACES_LIST has less interfaces than requested by test suite")
 	}
+
 	for _, availableSriovInterface := range availableSriovInterfaces {
 		for _, requestedSriovInterface := range requestedSriovInterfaceList {
 			if availableSriovInterface.Name == requestedSriovInterface {
@@ -110,46 +127,54 @@ func (c *Config) GetSriovInterfaces(availableSriovInterfaces []*sriovv1.Interfac
 			}
 		}
 	}
+
 	if len(validSriovIntefaceList) < requestedNumber {
-		return nil, fmt.Errorf("Requested interfaces %v are not present on cluster node", requestedSriovInterfaceList)
+		return nil, fmt.Errorf("requested interfaces %v are not present on cluster node", requestedSriovInterfaceList)
 	}
+
 	return validSriovIntefaceList, nil
 }
 
-// GetDumpFailedTestReportLocation returns destination file for failed tests logs
+// GetDumpFailedTestReportLocation returns destination file for failed tests logs.
 func (c *Config) GetDumpFailedTestReportLocation(file string) string {
 	if c.General.DumpFailedTestsReportLocation == "true" {
-
 		if _, err := os.Stat(c.General.ReportDirAbsPath); os.IsNotExist(err) {
-			os.MkdirAll(c.General.ReportDirAbsPath, 0744)
+			err := os.MkdirAll(c.General.ReportDirAbsPath, 0744)
+			if err != nil {
+				panic(fmt.Errorf("can not create report dir due to %w", err))
+			}
 		}
 
 		dumpFileName := strings.TrimSuffix(filepath.Base(file), filepath.Ext(filepath.Base(file)))
 
 		return filepath.Join(c.General.ReportDirAbsPath, fmt.Sprintf("failed_%s", dumpFileName))
 	}
+
 	return ""
 }
 
-// DefineClients sets client and return it's instance
+// DefineClients sets client and return it's instance.
 func DefineClients() (*testclient.ClientSet, error) {
 	clients := testclient.New("")
 	if clients == nil {
 		return nil, fmt.Errorf("client is not set please check KUBECONFIG env variable")
 	}
+
 	return clients, nil
 }
 
-// GetMetallbVirtIP checks the environmental variable and returns the value in []string
+// GetMetallbVirtIP checks the environmental variable and returns the value in []string.
 func (c *Config) GetMetallbVirtIP() ([]string, error) {
 	envValue := strings.Split(c.Network.MetalLBAddressPoolIP, ",")
 	if len(envValue) < 2 {
 		return nil, nil
 	}
+
 	for _, v := range envValue {
 		if net.ParseIP(v) == nil {
-			return nil, fmt.Errorf("The environment IP variable is not a valid IP")
+			return nil, fmt.Errorf("the environment IP variable is not a valid IP")
 		}
 	}
+
 	return envValue, nil
 }
