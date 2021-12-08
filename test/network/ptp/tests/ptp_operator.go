@@ -411,7 +411,7 @@ func amountPtpProcessesAndMetrics(role string, podEntry v1core.Pod) (map[string]
 	if role == "master" {
 		phc2sysMetric := CountLinesByMatches(
 			ptpMetrics.String(),
-			"openshift_ptp_offset_from_system",
+			"openshift_ptp_offset_ns",
 			"phc2sys",
 		)
 		ptp4lProc := CountLinesByMatches(psOutput.String(), "ptp4l")
@@ -421,7 +421,7 @@ func amountPtpProcessesAndMetrics(role string, podEntry v1core.Pod) (map[string]
 	} else if role == "slave" {
 		ptp4lMetric := CountLinesByMatches(
 			ptpMetrics.String(),
-			"penshift_ptp_ptp_interface_role",
+			"openshift_ptp_interface_role",
 			"ptp4l",
 		)
 		ptp4lProc := CountLinesByMatches(psOutput.String(), "ptp4l")
