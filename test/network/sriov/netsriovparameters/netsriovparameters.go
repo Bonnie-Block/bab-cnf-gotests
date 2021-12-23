@@ -17,6 +17,8 @@ const (
 	ConnectivityDiffNode              = "2 pods on different node"
 	ConnectivitySameNodeDiffPF        = "2 pods on the same node 2 different PF"
 	ConnectivitySameNodeSamePF        = "2 pods on same node same PF"
+	ConnectivityDiffNodeDiffPF        = "2 pods on different node 2 different PFs"
+	ConnectivityDiffNodeSamePF        = "2 pods on different node same PF"
 	CommunicationProtocolUnicastICMP  = "unicast-icmp"
 	CommunicationProtocolUnicastTCP   = "unicast-tcp"
 	CommunicationProtocolUnicastUDP   = "unicast-udp"
@@ -32,6 +34,8 @@ const (
 	SriovNetworkUsualMTUNameDiff      = "test-sriov-static-usual-diff"
 	SriovNetworkCustomMTUNameDiff     = "test-sriov-static-custom-diff"
 	SriovNetworkJumboFrameNameDiff    = "test-sriov-static-jumbo-diff"
+	SriovNetworkBondName              = "test-sriov-static-bond"
+	SriovNetworkBondNameDiff          = "test-sriov-static-bond-diff"
 	ClientPodIP                       = "192.168.100.1"
 	ClientPodIPv6                     = "2001:1db8:85a3::1"
 	ClientMacAddress                  = "20:04:0f:f1:88:01"
@@ -40,6 +44,8 @@ const (
 	ServerMacAddress                  = "20:04:0f:f1:88:03"
 	TestPort                          = 50000
 	TestInterfaceName                 = "net1"
+	TestBondInterfaceName             = "bond0"
+	NADBondName                       = "bond-net"
 	MulticastIPv6Address              = "FF05:0:0:0:0:0:0:18C"
 	MulticastIPAddress                = "224.255.0.10"
 )
@@ -51,7 +57,13 @@ var (
 
 	mtuParameters          = []int{MTUCustom, MTUJumbo, MTUStandart}
 	connectivityParameters = []string{
-		ConnectivityDiffNode, ConnectivitySameNodeDiffPF, ConnectivitySameNodeSamePF}
+		ConnectivityDiffNode,
+		ConnectivitySameNodeDiffPF,
+		ConnectivitySameNodeSamePF}
+
+	connectivityBondParameters = []string{
+		ConnectivityDiffNodeDiffPF,
+		ConnectivityDiffNodeSamePF}
 
 	protocolParameters = []string{CommunicationProtocolUnicastICMP, CommunicationProtocolUnicastTCP,
 		CommunicationProtocolUnicastUDP, CommunicationProtocolMulticastUDP,
@@ -80,7 +92,9 @@ type ConnectivityTestParameters struct {
 }
 
 // NewConnectivityTestParameters creates new instance of ConnectivityTestParameters.
-func NewConnectivityTestParameters(mtu int, connectivity string, protocol string) (*ConnectivityTestParameters, error) {
+func NewConnectivityTestParameters(mtu int,
+	connectivity string,
+	protocol string, bond bool) (*ConnectivityTestParameters, error) {
 	connectivityTestParameters := new(ConnectivityTestParameters)
 	err := validateIntParam(mtu, mtuParameters)
 
@@ -89,7 +103,12 @@ func NewConnectivityTestParameters(mtu int, connectivity string, protocol string
 	}
 
 	connectivityTestParameters.MTU = mtu
-	err = validateSrtParam(connectivity, connectivityParameters)
+
+	if bond {
+		err = validateSrtParam(connectivity, connectivityBondParameters)
+	} else {
+		err = validateSrtParam(connectivity, connectivityParameters)
+	}
 
 	if err != nil {
 		return nil, err

@@ -23,7 +23,6 @@ import (
 
 var _ = Describe("CNF SRIOV", func() {
 	describe := netsriovhelper.DescribeSRIOVParameters
-
 	var (
 		sriovInfos *cluster.EnabledNodes
 		err        error
@@ -37,6 +36,11 @@ var _ = Describe("CNF SRIOV", func() {
 			generalParameters.SriovOperatorNamespace)
 		if err != nil {
 			testFail = fmt.Sprintf("Error discover SRIOV node info: %s", err)
+			Expect(err).ToNot(HaveOccurred(), testFail)
+		}
+		err = netsriovhelper.CreateBondNad(netsriovparameters.NADBondName, "active-backup")
+		if err != nil {
+			testFail = fmt.Sprintf("Failed create Bond NAD: %s", err)
 			Expect(err).ToNot(HaveOccurred(), testFail)
 		}
 	})
@@ -59,60 +63,32 @@ var _ = Describe("CNF SRIOV", func() {
 	})
 
 	DescribeTable(
-		"Ipam type: IP Static, Ip Stack: ipv4, Mac address: MAC static",
+		"Bond CNI. Bond-mode: active-backup",
 		func(mtu int, protocol string, connectivity string, bond bool) {
-			netsriovhelper.TestSriovIPv4Scenario(
+			netsriovhelper.TestBondModeScenario(
 				mtu,
 				protocol,
 				connectivity,
 				sriovInfos,
-				Config,
-				netsriovparameters.ClientMacAddress,
-				netsriovparameters.ServerMacAddress)
+				"active-backup")
 		},
 		netsriovhelper.BuildTableEntries(
 			sriovSmokeTestMode,
 			describe,
-			false,
-			[]int{netsriovparameters.MTUCustom,
-				netsriovparameters.MTUJumbo,
-				netsriovparameters.MTUStandart},
-			[]string{netsriovparameters.ConnectivityDiffNode,
-				netsriovparameters.ConnectivitySameNodeDiffPF,
-				netsriovparameters.ConnectivitySameNodeSamePF},
-			[]string{
-				netsriovparameters.CommunicationProtocolUnicastICMP,
-				netsriovparameters.CommunicationProtocolUnicastTCP,
-				netsriovparameters.CommunicationProtocolUnicastUDP,
-				netsriovparameters.CommunicationProtocolMulticastUDP,
-				netsriovparameters.CommunicationProtocolBroadcastUDP,
-				netsriovparameters.CommunicationProtocolUnicastSCTP,
+			true,
+			[]int{
+				// Waiting for a bug fix Bug 2030677
+				// netsriovparameters.MTUCustom,
+				// netsriovparameters.MTUJumbo,
+				netsriovparameters.MTUStandart,
 			},
-		)...,
-	)
-
-	DescribeTable(
-		"Ipam type: IP Static, Ip Stack: ipv4, Mac address: MAC dynamic",
-		func(mtu int, protocol string, connectivity string, bond bool) {
-			netsriovhelper.TestSriovIPv4Scenario(mtu, protocol, connectivity, sriovInfos, Config, "", "")
-		},
-		netsriovhelper.BuildTableEntries(
-			sriovSmokeTestMode,
-			describe,
-			false,
-			[]int{netsriovparameters.MTUCustom,
-				netsriovparameters.MTUJumbo,
-				netsriovparameters.MTUStandart},
-			[]string{netsriovparameters.ConnectivityDiffNode,
-				netsriovparameters.ConnectivitySameNodeDiffPF,
-				netsriovparameters.ConnectivitySameNodeSamePF},
+			[]string{
+				netsriovparameters.ConnectivityDiffNodeDiffPF,
+				netsriovparameters.ConnectivityDiffNodeSamePF,
+			},
 			[]string{
 				netsriovparameters.CommunicationProtocolUnicastICMP,
 				netsriovparameters.CommunicationProtocolUnicastTCP,
-				netsriovparameters.CommunicationProtocolUnicastUDP,
-				netsriovparameters.CommunicationProtocolMulticastUDP,
-				netsriovparameters.CommunicationProtocolBroadcastUDP,
-				netsriovparameters.CommunicationProtocolUnicastSCTP,
 			},
 		)...,
 	)

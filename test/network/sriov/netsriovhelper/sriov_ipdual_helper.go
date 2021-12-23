@@ -102,10 +102,20 @@ func runDualServerPod(
 		Expect(err).ToNot(HaveOccurred())
 	}
 
-	serverIPv4Command, err := serverCommandFor(protocol, mtu, serverIPV4, negative, netsriovparameters.TestPort)
+	serverIPv4Command, err := serverCommandFor(protocol,
+		mtu,
+		serverIPV4,
+		negative,
+		netsriovparameters.TestPort,
+		netsriovparameters.TestInterfaceName)
 	Expect(err).ToNot(HaveOccurred())
 
-	serverIPv6Command, err := serverCommandFor(protocol, mtu, serverIPV6, negative, netsriovparameters.TestPort+1)
+	serverIPv6Command, err := serverCommandFor(protocol,
+		mtu,
+		serverIPV6,
+		negative,
+		netsriovparameters.TestPort+1,
+		netsriovparameters.TestInterfaceName)
 	Expect(err).ToNot(HaveOccurred())
 
 	// IPv6 can't be used for udp-broadcast. tcp-unicast running for ipv4 and ipv6 by default
@@ -223,7 +233,7 @@ func TestSriovDualScenario(
 	serverMacAddress string) {
 	By("Validating test parameters")
 
-	connectivityParameters, err := netsriovparameters.NewConnectivityTestParameters(mtu, connectivity, protocol)
+	connectivityParameters, err := netsriovparameters.NewConnectivityTestParameters(mtu, connectivity, protocol, false)
 	Expect(err).ToNot(HaveOccurred())
 	By("Defining test resources")
 
@@ -237,7 +247,8 @@ func TestSriovDualScenario(
 		connectivityParameters.Protocol,
 		connectivityParameters.MTU,
 		netsriovparameters.ServerPodIP,
-		netsriovparameters.TestPort)
+		netsriovparameters.TestPort,
+		netsriovparameters.TestInterfaceName)
 	Expect(err).ToNot(HaveOccurred())
 
 	// IPv6 can't be used for udp-broadcast
@@ -250,7 +261,8 @@ func TestSriovDualScenario(
 			connectivityParameters.Protocol,
 			connectivityParameters.MTU,
 			netsriovparameters.ServerPodIpv6,
-			netsriovparameters.TestPort+1)
+			netsriovparameters.TestPort+1,
+			netsriovparameters.TestInterfaceName)
 		Expect(err).ToNot(HaveOccurred())
 	}
 
@@ -337,7 +349,8 @@ func TestSriovDualScenario(
 		connectivityParameters.Protocol,
 		connectivityParameters.MTU,
 		netsriovparameters.ServerPodIP,
-		netsriovparameters.TestPort)
+		netsriovparameters.TestPort,
+		netsriovparameters.TestInterfaceName)
 	Expect(err).ToNot(HaveOccurred())
 
 	ipv6ClientTestCommand, err = defineTestCommandParameters(
@@ -345,7 +358,8 @@ func TestSriovDualScenario(
 		connectivityParameters.Protocol,
 		connectivityParameters.MTU,
 		netsriovparameters.ServerPodIpv6,
-		netsriovparameters.TestPort+1)
+		netsriovparameters.TestPort+1,
+		netsriovparameters.TestInterfaceName)
 	Expect(err).ToNot(HaveOccurred())
 
 	ipv4NegativeStringCommand := strings.Join(ipv4ClientTestCommand, " ")

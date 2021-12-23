@@ -27,7 +27,7 @@ func TestSriovIPv4Scenario(
 	serverMacAddress string) {
 	By("Validating test parameters")
 
-	connectivityParameters, err := netsriovparameters.NewConnectivityTestParameters(mtu, connectivity, protocol)
+	connectivityParameters, err := netsriovparameters.NewConnectivityTestParameters(mtu, connectivity, protocol, false)
 	Expect(err).ToNot(HaveOccurred())
 
 	By("Defining test resources")
@@ -41,13 +41,15 @@ func TestSriovIPv4Scenario(
 		connectivityParameters.Protocol,
 		connectivityParameters.MTU,
 		netsriovparameters.ServerPodIP,
-		netsriovparameters.TestPort)
+		netsriovparameters.TestPort,
+		netsriovparameters.TestInterfaceName)
 	Expect(err).ToNot(HaveOccurred())
 
 	clientPodDefinition := defineClientPod(
 		connectivityParameters.Protocol,
 		nodeSelector,
 		clientNetworkName,
+		[]string{},
 		netsriovparameters.ClientPodIP,
 		clientMacAddress,
 		config.Network.TestContainerImage,
@@ -61,9 +63,11 @@ func TestSriovIPv4Scenario(
 		sriovInfos,
 		config,
 		serverNetworkName,
+		[]string{},
 		negativeFlag,
 		serverMacAddress,
-		netsriovparameters.ServerPodIP)
+		netsriovparameters.ServerPodIP,
+		netsriovparameters.TestInterfaceName)
 
 	By("Creating Client Pod")
 
@@ -102,9 +106,11 @@ func TestSriovIPv4Scenario(
 			sriovInfos,
 			config,
 			serverNetworkName,
+			[]string{},
 			negativeFlag,
 			serverMacAddress,
-			netsriovparameters.ServerPodIP)
+			netsriovparameters.ServerPodIP,
+			netsriovparameters.TestInterfaceName)
 	}
 
 	clientTestCommand, err = defineTestCommandParameters(
@@ -112,7 +118,8 @@ func TestSriovIPv4Scenario(
 		connectivityParameters.Protocol,
 		connectivityParameters.MTU,
 		netsriovparameters.ServerPodIP,
-		netsriovparameters.TestPort)
+		netsriovparameters.TestPort,
+		netsriovparameters.TestInterfaceName)
 	Expect(err).ToNot(HaveOccurred())
 
 	By("Creating Client Pod with negative flag")
@@ -121,10 +128,12 @@ func TestSriovIPv4Scenario(
 		connectivityParameters.Protocol,
 		nodeSelector,
 		clientNetworkName,
+		[]string{},
 		netsriovparameters.ClientPodIP,
 		clientMacAddress,
 		config.Network.TestContainerImage,
 		clientTestCommand)
+
 	clientPodNegative, err := Apiclient.Pods(netsriovparameters.OperatorTestNamespace).Create(
 		context.Background(),
 		clientPodDefinitionNegative,

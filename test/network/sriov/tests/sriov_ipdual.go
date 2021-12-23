@@ -60,7 +60,7 @@ var _ = Describe("CNF SRIOV", func() {
 
 	DescribeTable(
 		"Ipam type: IP Static, Ip Stack: dual-stack, Mac address: MAC static",
-		func(mtu int, protocol string, connectivity string) {
+		func(mtu int, protocol string, connectivity string, bond bool) {
 			netsriovhelper.TestSriovDualScenario(
 				mtu,
 				protocol,
@@ -73,6 +73,7 @@ var _ = Describe("CNF SRIOV", func() {
 		netsriovhelper.BuildTableEntries(
 			sriovSmokeTestMode,
 			describe,
+			false,
 			[]int{netsriovparameters.MTUCustom,
 				netsriovparameters.MTUJumbo,
 				netsriovparameters.MTUStandart},
@@ -92,12 +93,13 @@ var _ = Describe("CNF SRIOV", func() {
 
 	DescribeTable(
 		"Ipam type: IP Static, Ip Stack: dual-stack, Mac address: MAC dynamic",
-		func(mtu int, protocol string, connectivity string) {
+		func(mtu int, protocol string, connectivity string, bond bool) {
 			netsriovhelper.TestSriovDualScenario(mtu, protocol, connectivity, sriovInfos, Config, "", "")
 		},
 		netsriovhelper.BuildTableEntries(
 			sriovSmokeTestMode,
 			describe,
+			false,
 			[]int{netsriovparameters.MTUCustom,
 				netsriovparameters.MTUJumbo,
 				netsriovparameters.MTUStandart,
