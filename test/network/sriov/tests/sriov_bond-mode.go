@@ -17,11 +17,13 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/cluster"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var _ = Describe("CNF SRIOV", func() {
+var _ = Describe("CNF SRIOV: Bond CNI.", func() {
 	describe := netsriovhelper.DescribeSRIOVParameters
 	var (
 		sriovInfos *cluster.EnabledNodes
@@ -38,19 +40,10 @@ var _ = Describe("CNF SRIOV", func() {
 			testFail = fmt.Sprintf("Error discover SRIOV node info: %s", err)
 			Expect(err).ToNot(HaveOccurred(), testFail)
 		}
-		err = netsriovhelper.CreateBondNad(netsriovparameters.NADBondName, "active-backup")
-		if err != nil {
-			testFail = fmt.Sprintf("Failed create Bond NAD: %s", err)
-			Expect(err).ToNot(HaveOccurred(), testFail)
-		}
 	})
 
-	BeforeEach(func() {
-		if testFail != "" {
-			Fail(testFail)
-		}
-
-		By("Cleaning up resources before test")
+	AfterEach(func() {
+		By("Cleaning up resources after test")
 		err = namespaces.CleanPods(netsriovparameters.OperatorTestNamespace, Apiclient)
 		Expect(err).ToNot(HaveOccurred())
 		Eventually(func() bool {
@@ -62,34 +55,161 @@ var _ = Describe("CNF SRIOV", func() {
 		}, 3*time.Minute, 10*time.Second).Should(BeTrue())
 	})
 
-	DescribeTable(
-		"Bond CNI. Bond-mode: active-backup",
-		func(mtu int, protocol string, connectivity string, bond bool) {
-			netsriovhelper.TestBondModeScenario(
-				mtu,
-				protocol,
-				connectivity,
-				sriovInfos,
-				"active-backup")
-		},
-		netsriovhelper.BuildTableEntries(
-			sriovSmokeTestMode,
-			describe,
-			true,
-			[]int{
-				// Waiting for a bug fix Bug 2030677
-				// netsriovparameters.MTUCustom,
-				// netsriovparameters.MTUJumbo,
+	Context("Bond-mode:", func() {
+		BeforeEach(func() {
+			if testFail != "" {
+				Fail(testFail)
+			}
+		})
+
+		AfterEach(func() {
+			err := netsriovhelper.DeleteBondNAD()
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		DescribeTable(
+			netsriovparameters.BondModeActiveBackup,
+			func(mtu int, protocol string, connectivity string, bond bool) {
+				netsriovhelper.TestBondModeScenario(
+					mtu,
+					protocol,
+					connectivity,
+					sriovInfos,
+					netsriovparameters.BondModeActiveBackup)
+			},
+			netsriovhelper.BuildTableEntries(
+				sriovSmokeTestMode,
+				describe,
+				true,
+				[]int{
+					netsriovparameters.MTUCustom,
+					netsriovparameters.MTUJumbo,
+					netsriovparameters.MTUStandart,
+				},
+				[]string{
+					netsriovparameters.ConnectivityDiffNodeDiffPF,
+					netsriovparameters.ConnectivityDiffNodeSamePF,
+				},
+				[]string{
+					netsriovparameters.CommunicationProtocolUnicastICMP,
+					netsriovparameters.CommunicationProtocolUnicastTCP,
+				},
+			)...,
+		)
+	})
+
+	Context("Scale: Bond with 16 VFs", func() {
+		var (
+			clientTestCommand   []string
+			clientPod           *corev1.Pod
+			totalNumberSlaveVFs = 16
+			slaveNetworks       []string
+		)
+		BeforeEach(func() {
+			if testFail != "" {
+				Fail(testFail)
+			}
+			sriovInterfaces, err := sriovInfos.FindSriovDevices(sriovInfos.Nodes[0])
+			Expect(err).ToNot(HaveOccurred())
+			validSriovInterfaces, err := Config.GetSriovInterfaces(sriovInterfaces, 2)
+			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error determine SRIOV interfaces: %s", err))
+
+			isScaleSupported := netsriovhelper.DoSriovNodesSupportVFsNumber(netsriovparameters.ScaleVFsNumber,
+				validSriovInterfaces)
+			if !isScaleSupported {
+				Skip(fmt.Sprintf("Requested interfaces %v are not supported scale VFs number - %d",
+					validSriovInterfaces, netsriovparameters.ScaleVFsNumber))
+			}
+
+			By("Creating Bond interface")
+			ScaleNADBond := netsriovhelper.DefineBondNad(netsriovparameters.NADBondName,
+				netsriovparameters.BondModeActiveBackup,
 				netsriovparameters.MTUStandart,
-			},
-			[]string{
-				netsriovparameters.ConnectivityDiffNodeDiffPF,
-				netsriovparameters.ConnectivityDiffNodeSamePF,
-			},
-			[]string{
+				totalNumberSlaveVFs)
+			err = Apiclient.Create(context.Background(), ScaleNADBond)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Creating half of the slave VFs from one network and the other half from another network
+			for i := 0; i < totalNumberSlaveVFs/2; i++ {
+				slaveNetworks = append(slaveNetworks, netsriovparameters.SriovScaleBondName)
+			}
+
+			for i := 0; i < totalNumberSlaveVFs/2; i++ {
+				slaveNetworks = append(slaveNetworks, netsriovparameters.SriovScaleBondNameDiff)
+			}
+
+			By("Creating Server Pod")
+			netsriovhelper.RunServerPod(
 				netsriovparameters.CommunicationProtocolUnicastICMP,
-				netsriovparameters.CommunicationProtocolUnicastTCP,
-			},
-		)...,
-	)
+				netsriovparameters.MTUStandart,
+				netsriovparameters.ConnectivityDiffNodeDiffPF,
+				sriovInfos,
+				Config,
+				netsriovparameters.NADBondName,
+				slaveNetworks,
+				false,
+				"",
+				netsriovparameters.ServerPodIP,
+				netsriovparameters.TestBondInterfaceName)
+
+			By("Creating Client Pod")
+			clientPodDefinition := netsriovhelper.DefineClientPod(
+				netsriovparameters.CommunicationProtocolUnicastICMP,
+				sriovInfos.Nodes,
+				netsriovparameters.NADBondName,
+				slaveNetworks,
+				netsriovparameters.ClientPodIP,
+				"",
+				Config.Network.TestContainerImage,
+				generalParameters.SleepCommand)
+
+			clientTestCommand, err = netsriovhelper.DefineTestCommandParameters(
+				false,
+				netsriovparameters.CommunicationProtocolUnicastICMP,
+				netsriovparameters.MTUStandart,
+				netsriovparameters.ServerPodIP,
+				netsriovparameters.TestPort,
+				netsriovparameters.TestBondInterfaceName)
+			Expect(err).ToNot(HaveOccurred())
+
+			clientPod, err = Apiclient.Pods(netsriovparameters.OperatorTestNamespace).Create(
+				context.Background(),
+				clientPodDefinition,
+				metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			netsriovhelper.WaitUntilPodInStatus(
+				clientPod,
+				"Client",
+				generalParameters.SleepCommand,
+				corev1.PodRunning,
+				netsriovparameters.PodWaitingTime)
+
+			isBondInterfaceUp, err := netsriovhelper.BondInterfaceIsUp(clientPod,
+				netsriovparameters.TestBondInterfaceName)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(isBondInterfaceUp).To(BeTrue(), "Bond interface is not Up")
+
+			isBondInterfaceHasInMode, err := netsriovhelper.BondInterfaceHasMode(clientPod,
+				netsriovparameters.TestBondInterfaceName,
+				netsriovparameters.BondModeActiveBackup)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(isBondInterfaceHasInMode).To(BeTrue(), "Bond interface has incorrect bond type")
+
+			isBondInterfaceHasSlaves, err := netsriovhelper.BondInterfaceHasSlaves(clientPod,
+				netsriovparameters.TestBondInterfaceName,
+				"16")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(isBondInterfaceHasSlaves).To(BeTrue(), "Bond interface has wrong number of slaves")
+		})
+
+		AfterEach(func() {
+			err := netsriovhelper.DeleteBondNAD()
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should work with ICMP traffic", func() {
+			_, err = pod.ExecCommand(Apiclient, *clientPod, clientTestCommand)
+			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Failed to run ICMP traffic - %s", err))
+		})
+	})
 })

@@ -309,7 +309,7 @@ func serverCommandFor(
 	return testCommand, nil
 }
 
-func runServerPod(
+func RunServerPod(
 	protocol string,
 	mtu int,
 	connectivity string,
@@ -350,14 +350,14 @@ func runServerPod(
 		serverPodDefinition,
 		metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
-	waitUntilPodInStatus(
+	WaitUntilPodInStatus(
 		serverPod,
 		"Server",
 		serverCommand,
 		corev1.PodRunning, netsriovparameters.PodWaitingTime)
 }
 
-func defineTestCommandParameters(
+func DefineTestCommandParameters(
 	negative bool,
 	protocol string,
 	mtu int,
@@ -534,7 +534,7 @@ func defineServerPod(
 	return redefinePodWithInitDebugCommands(podDefinition, podImage)
 }
 
-func defineClientPod(
+func DefineClientPod(
 	protocol string,
 	nodeSelector []string,
 	mainNetwork string,
@@ -601,7 +601,7 @@ func redefinePodWithInitCommandPolicy(podObject *corev1.Pod, initImage string, c
 	return podObject
 }
 
-func waitUntilPodInStatus(
+func WaitUntilPodInStatus(
 	createdPod *corev1.Pod,
 	podRole string,
 	execCommand []string,
@@ -621,27 +621,54 @@ func waitUntilPodInStatus(
 		fmt.Sprintf("Pod role %s. Invalid return code. Command: %s", podRole, execCommand))
 }
 
-func SetupSriovConfig(sriovInfos *cluster.EnabledNodes, snoTimeoutMultiplier time.Duration) {
-	sriovInterfaces, err := sriovInfos.FindSriovDevices(sriovInfos.Nodes[0])
-	Expect(err).ToNot(HaveOccurred())
+func DoSriovNodesSupportVFsNumber(totalVFs int, sriovInterfaces []*sriovv1.InterfaceExt) bool {
+	var isSriovNodesSupportVFsNumber bool
 
-	if snoTimeoutMultiplier == 2 {
-		disableDrainState := GetNodeDrainState(netsriovparameters.OperatorNamespace)
-		if !disableDrainState {
-			SetDisableNodeDrainState(true, netsriovparameters.OperatorNamespace)
-			ChangedNodeDrainState = true
+	nodeStates, err := Apiclient.SriovNetworkNodeStates(netsriovparameters.OperatorNamespace).
+		List(context.Background(), metav1.ListOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	Expect(len(sriovInterfaces)).ToNot(BeNumerically("==", 0))
+	Expect(len(nodeStates.Items)).ToNot(BeNumerically("==", 0))
+
+	for _, nodeState := range nodeStates.Items {
+		for _, nodeInterface := range nodeState.Status.Interfaces {
+			for _, sriovInterface := range sriovInterfaces {
+				if nodeInterface.Name == sriovInterface.Name {
+					if nodeInterface.TotalVfs < totalVFs {
+						return false
+					}
+
+					isSriovNodesSupportVFsNumber = true
+				}
+			}
 		}
 	}
 
-	validSriovInterfaces, err := Config.GetSriovInterfaces(sriovInterfaces, 2)
-	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error determine SRIOV interfaces: %s", err))
+	return isSriovNodesSupportVFsNumber
+}
+
+func SetupSriovConfig(sriovInfos *cluster.EnabledNodes, snoTimeoutMultiplier time.Duration) {
+	var (
+		isScaleSupported    bool
+		vfsNumberDiffConfig = 5
+		vfsNumberSameConfig = 6
+	)
+
+	if snoTimeoutMultiplier == 2 {
+		disableDrainState()
+	}
+
+	validSriovInterfaces := validateSriovInterfaces(sriovInfos)
+	isScaleSupported = DoSriovNodesSupportVFsNumber(netsriovparameters.ScaleVFsNumber, validSriovInterfaces)
+
+	if isScaleSupported {
+		vfsNumberDiffConfig = netsriovparameters.ScaleVFsNumber
+		vfsNumberSameConfig = netsriovparameters.ScaleVFsNumber
+	}
 
 	By(fmt.Sprintf("Clean test namespace %s", netsriovparameters.OperatorTestNamespace))
-	err = namespaces.Clean(
-		generalParameters.SriovOperatorNamespace,
-		netsriovparameters.OperatorTestNamespace,
-		Apiclient,
-		false)
+	err := namespaces.Clean(generalParameters.SriovOperatorNamespace, netsriovparameters.OperatorTestNamespace,
+		Apiclient, false)
 	Expect(err).ToNot(HaveOccurred())
 
 	By("Waiting until SRIOV become stable")
@@ -650,72 +677,42 @@ func SetupSriovConfig(sriovInfos *cluster.EnabledNodes, snoTimeoutMultiplier tim
 	By("Configuring SriovPolicy resources")
 
 	err = namespaces.Create(netsriovparameters.OperatorTestNamespace, Apiclient)
-	Expect(err).ToNot(
-		HaveOccurred(),
+	Expect(err).ToNot(HaveOccurred(),
 		fmt.Sprintf("Error to create namespace %s: %s", netsriovparameters.OperatorNamespace, err))
 
 	usualSriovPolicyConfig := DefineSriovPolicy(
-		"test-policy-usual",
-		generalParameters.SriovOperatorNamespace,
-		validSriovInterfaces[0],
-		6,
-		"#0-1",
-		1500,
-		"testresourceusual",
-		"netdevice")
+		"test-policy-usual", generalParameters.SriovOperatorNamespace, validSriovInterfaces[0],
+		vfsNumberSameConfig, "#0-1", 1500, "testresourceusual", "netdevice")
 	customSriovPolicyConfig := DefineSriovPolicy(
-		"test-policy-custom",
-		generalParameters.SriovOperatorNamespace,
-		validSriovInterfaces[0],
-		6,
-		"#2-3",
-		1450,
-		"testresourcecustom",
-		"netdevice")
+		"test-policy-custom", generalParameters.SriovOperatorNamespace, validSriovInterfaces[0],
+		vfsNumberSameConfig, "#2-3", 1450, "testresourcecustom", "netdevice")
 	jumboSriovPolicyConfig := DefineSriovPolicy(
-		"test-policy-jumbo",
-		generalParameters.SriovOperatorNamespace,
-		validSriovInterfaces[0],
-		6,
-		"#4-5",
-		9000,
-		"testresourcejumbo",
-		"netdevice")
+		"test-policy-jumbo", generalParameters.SriovOperatorNamespace, validSriovInterfaces[0],
+		vfsNumberSameConfig, "#4-5", 9000, "testresourcejumbo", "netdevice")
 	usualSriovPolicyConfigDiffPF := DefineSriovPolicy(
-		"test-policy-usual-diff",
-		generalParameters.SriovOperatorNamespace,
-		validSriovInterfaces[1],
-		5,
-		"#0-0",
-		1500,
-		"testresourceusualdiff",
-		"netdevice")
+		"test-policy-usual-diff", generalParameters.SriovOperatorNamespace, validSriovInterfaces[1],
+		vfsNumberDiffConfig, "#0-0", 1500, "testresourceusualdiff", "netdevice")
 	customSriovPolicyConfigDiffPF := DefineSriovPolicy(
-		"test-policy-custom-diff",
-		generalParameters.SriovOperatorNamespace,
-		validSriovInterfaces[1],
-		5,
-		"#1-1",
-		1450,
-		"testresourcecustomdiff",
-		"netdevice")
+		"test-policy-custom-diff", generalParameters.SriovOperatorNamespace, validSriovInterfaces[1],
+		vfsNumberDiffConfig, "#1-1", 1450, "testresourcecustomdiff", "netdevice")
 	jumboSriovPolicyConfigDiffPF := DefineSriovPolicy(
-		"test-policy-jumbo-diff",
-		generalParameters.SriovOperatorNamespace,
-		validSriovInterfaces[1],
-		5,
-		"#2-2",
-		9000,
-		"testresourcejumbodiff",
-		"netdevice")
+		"test-policy-jumbo-diff", generalParameters.SriovOperatorNamespace, validSriovInterfaces[1],
+		vfsNumberDiffConfig, "#2-2", 9000, "testresourcejumbodiff", "netdevice")
+	scaleSriovPolicyConfigDiffPF := DefineSriovPolicy(
+		"test-policy-scale-diff", generalParameters.SriovOperatorNamespace, validSriovInterfaces[1],
+		netsriovparameters.ScaleVFsNumber, "#3-34", 1500, "testresourcescalediff", "netdevice")
+	scaleSriovPolicyConfig := DefineSriovPolicy(
+		"test-policy-scale", generalParameters.SriovOperatorNamespace, validSriovInterfaces[0],
+		netsriovparameters.ScaleVFsNumber, "#6-37", 1500, "testresourcescaled", "netdevice")
 
-	for _, networkPolicy := range []*sriovv1.SriovNetworkNodePolicy{
-		usualSriovPolicyConfig,
-		customSriovPolicyConfig,
-		jumboSriovPolicyConfig,
-		customSriovPolicyConfigDiffPF,
-		jumboSriovPolicyConfigDiffPF,
-		usualSriovPolicyConfigDiffPF} {
+	networkPolicies := []*sriovv1.SriovNetworkNodePolicy{usualSriovPolicyConfig, customSriovPolicyConfig,
+		jumboSriovPolicyConfig, customSriovPolicyConfigDiffPF, jumboSriovPolicyConfigDiffPF,
+		usualSriovPolicyConfigDiffPF}
+	if isScaleSupported {
+		networkPolicies = append(networkPolicies, scaleSriovPolicyConfigDiffPF, scaleSriovPolicyConfig)
+	}
+
+	for _, networkPolicy := range networkPolicies {
 		err = Apiclient.Create(context.Background(), networkPolicy)
 		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error to create SR-IOV networkPolicy %v: %s", networkPolicy, err))
 	}
@@ -746,16 +743,21 @@ func SetupSriovConfig(sriovInfos *cluster.EnabledNodes, snoTimeoutMultiplier tim
 	sriovBondConfigDiff := defineSriovBondNetwork(
 		netsriovparameters.SriovNetworkBondNameDiff,
 		jumboSriovPolicyConfigDiffPF.Spec.ResourceName)
+	sriovScaleBondConfig := defineSriovBondNetwork(
+		netsriovparameters.SriovScaleBondName,
+		scaleSriovPolicyConfig.Spec.ResourceName)
+	sriovScaleBondConfigDiff := defineSriovBondNetwork(
+		netsriovparameters.SriovScaleBondNameDiff,
+		scaleSriovPolicyConfigDiffPF.Spec.ResourceName)
 
-	for _, network := range []*sriovv1.SriovNetwork{
-		usualSriovNetworkConfig,
-		customSriovNetworkConfig,
-		jumboSriovNetworkConfig,
-		sriovBondNetworkConfig,
-		customSriovNetworkConfigDiff,
-		jumboSriovNetworkConfigDiff,
-		usualSriovNetworkConfigDiff,
-		sriovBondConfigDiff} {
+	sriovNetworks := []*sriovv1.SriovNetwork{usualSriovNetworkConfig, customSriovNetworkConfig,
+		jumboSriovNetworkConfig, sriovBondNetworkConfig, customSriovNetworkConfigDiff, jumboSriovNetworkConfigDiff,
+		usualSriovNetworkConfigDiff, sriovBondConfigDiff}
+	if isScaleSupported {
+		sriovNetworks = append(sriovNetworks, sriovScaleBondConfig, sriovScaleBondConfigDiff)
+	}
+
+	for _, network := range sriovNetworks {
 		err = Apiclient.Create(context.Background(), network)
 		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error to create SR-IOV network %v: %s", network, err))
 	}
@@ -765,16 +767,39 @@ func SetupSriovConfig(sriovInfos *cluster.EnabledNodes, snoTimeoutMultiplier tim
 
 	By("Waiting until SRIOV resources become available")
 	ValidateSriovVFsAvailableOnNodes(
-		sriovInfos.Nodes, []*sriovv1.SriovNetworkNodePolicy{
-			usualSriovPolicyConfig,
-			customSriovPolicyConfig,
+		sriovInfos.Nodes, []*sriovv1.SriovNetworkNodePolicy{usualSriovPolicyConfig, customSriovPolicyConfig,
 			jumboSriovPolicyConfig},
 		2)
 	ValidateSriovVFsAvailableOnNodes(
 		sriovInfos.Nodes,
-		[]*sriovv1.SriovNetworkNodePolicy{
-			usualSriovPolicyConfigDiffPF,
-			customSriovPolicyConfigDiffPF,
+		[]*sriovv1.SriovNetworkNodePolicy{usualSriovPolicyConfigDiffPF, customSriovPolicyConfigDiffPF,
 			jumboSriovPolicyConfigDiffPF},
 		1)
+
+	if isScaleSupported {
+		ValidateSriovVFsAvailableOnNodes(
+			sriovInfos.Nodes,
+			[]*sriovv1.SriovNetworkNodePolicy{
+				scaleSriovPolicyConfigDiffPF,
+				scaleSriovPolicyConfig},
+			32)
+	}
+}
+
+func validateSriovInterfaces(sriovInfos *cluster.EnabledNodes) []*sriovv1.InterfaceExt {
+	sriovInterfaces, err := sriovInfos.FindSriovDevices(sriovInfos.Nodes[0])
+	Expect(err).ToNot(HaveOccurred())
+
+	validSriovInterfaces, err := Config.GetSriovInterfaces(sriovInterfaces, 2)
+	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error determine SRIOV interfaces: %s", err))
+
+	return validSriovInterfaces
+}
+
+func disableDrainState() {
+	disableDrainState := GetNodeDrainState(netsriovparameters.OperatorNamespace)
+	if !disableDrainState {
+		SetDisableNodeDrainState(true, netsriovparameters.OperatorNamespace)
+		ChangedNodeDrainState = true
+	}
 }

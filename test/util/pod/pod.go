@@ -30,7 +30,7 @@ func getDefinition(namespace string, image string) *corev1.Pod {
 			TerminationGracePeriodSeconds: pointer.Int64Ptr(0),
 			Containers: []corev1.Container{{Name: "test",
 				Image:   image,
-				Command: []string{"/bin/bash", "-c", "sleep INF"}}}}}
+				Command: parameters.SleepCommand}}}}
 
 	return podObject
 }

@@ -36,7 +36,7 @@ func TestSriovIPv6Scenario(
 	serverNetworkName := defineServerNetworkName(mtu)
 	clientNetworkName := defineClientNetworkName(mtu, connectivityParameters.Connectivity)
 	negativeFlag := false
-	clientTestCommand, err := defineTestCommandParameters(
+	clientTestCommand, err := DefineTestCommandParameters(
 		negativeFlag,
 		connectivityParameters.Protocol,
 		connectivityParameters.MTU,
@@ -45,7 +45,7 @@ func TestSriovIPv6Scenario(
 		netsriovparameters.TestInterfaceName)
 	Expect(err).ToNot(HaveOccurred())
 
-	clientPodDefinition := defineClientPod(
+	clientPodDefinition := DefineClientPod(
 		connectivityParameters.Protocol,
 		nodeSelector,
 		clientNetworkName,
@@ -56,7 +56,7 @@ func TestSriovIPv6Scenario(
 		clientTestCommand)
 
 	By("Creating Server Pod")
-	runServerPod(
+	RunServerPod(
 		protocol,
 		connectivityParameters.MTU,
 		connectivityParameters.Connectivity,
@@ -76,7 +76,7 @@ func TestSriovIPv6Scenario(
 		clientPodDefinition,
 		metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
-	waitUntilPodInStatus(
+	WaitUntilPodInStatus(
 		clientPod,
 		"Client",
 		clientTestCommand,
@@ -104,7 +104,7 @@ func TestSriovIPv6Scenario(
 	if protocol == netsriovparameters.CommunicationProtocolMulticastUDP ||
 		protocol == netsriovparameters.CommunicationProtocolBroadcastUDP ||
 		protocol == netsriovparameters.CommunicationProtocolUnicastSCTP {
-		runServerPod(
+		RunServerPod(
 			protocol,
 			connectivityParameters.MTU,
 			connectivityParameters.Connectivity,
@@ -118,7 +118,7 @@ func TestSriovIPv6Scenario(
 			netsriovparameters.TestInterfaceName)
 	}
 
-	clientTestCommand, err = defineTestCommandParameters(
+	clientTestCommand, err = DefineTestCommandParameters(
 		negativeFlag,
 		connectivityParameters.Protocol,
 		connectivityParameters.MTU,
@@ -129,7 +129,7 @@ func TestSriovIPv6Scenario(
 
 	By("Creating Client Pod with negative flag")
 
-	clientPodDefinitionNegative := defineClientPod(
+	clientPodDefinitionNegative := DefineClientPod(
 		connectivityParameters.Protocol,
 		nodeSelector,
 		clientNetworkName,
@@ -144,7 +144,7 @@ func TestSriovIPv6Scenario(
 		clientPodDefinitionNegative,
 		metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
-	waitUntilPodInStatus(
+	WaitUntilPodInStatus(
 		clientPodNegative,
 		"Client",
 		clientTestCommand,

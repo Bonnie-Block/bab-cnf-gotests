@@ -137,7 +137,7 @@ func runDualServerPod(
 	serverPod, err := Apiclient.Pods(netsriovparameters.OperatorTestNamespace).Create(
 		context.Background(), serverPodDefinition, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
-	waitUntilPodInStatus(
+	WaitUntilPodInStatus(
 		serverPod,
 		"Server",
 		append(serverIPv4Command, serverIPv6Command...),
@@ -242,7 +242,7 @@ func TestSriovDualScenario(
 	clientNetworkName := defineClientNetworkName(mtu, connectivityParameters.Connectivity)
 	negativeFlag := false
 
-	ipv4ClientTestCommand, err := defineTestCommandParameters(
+	ipv4ClientTestCommand, err := DefineTestCommandParameters(
 		negativeFlag,
 		connectivityParameters.Protocol,
 		connectivityParameters.MTU,
@@ -256,7 +256,7 @@ func TestSriovDualScenario(
 	if protocol == netsriovparameters.CommunicationProtocolBroadcastUDP {
 		ipv6ClientTestCommand = []string{"exit 0"}
 	} else {
-		ipv6ClientTestCommand, err = defineTestCommandParameters(
+		ipv6ClientTestCommand, err = DefineTestCommandParameters(
 			negativeFlag,
 			connectivityParameters.Protocol,
 			connectivityParameters.MTU,
@@ -304,7 +304,7 @@ func TestSriovDualScenario(
 		clientPodDefinition,
 		metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
-	waitUntilPodInStatus(
+	WaitUntilPodInStatus(
 		clientPod, "Client", ClientTestCommand, corev1.PodSucceeded, netsriovparameters.DualPodWaitingTime)
 
 	if protocol == netsriovparameters.CommunicationProtocolUnicastTCP {
@@ -344,7 +344,7 @@ func TestSriovDualScenario(
 
 	By("Creating Client Pod with negative flag")
 
-	ipv4ClientTestCommand, err = defineTestCommandParameters(
+	ipv4ClientTestCommand, err = DefineTestCommandParameters(
 		negativeFlag,
 		connectivityParameters.Protocol,
 		connectivityParameters.MTU,
@@ -353,7 +353,7 @@ func TestSriovDualScenario(
 		netsriovparameters.TestInterfaceName)
 	Expect(err).ToNot(HaveOccurred())
 
-	ipv6ClientTestCommand, err = defineTestCommandParameters(
+	ipv6ClientTestCommand, err = DefineTestCommandParameters(
 		negativeFlag,
 		connectivityParameters.Protocol,
 		connectivityParameters.MTU,
@@ -386,7 +386,7 @@ func TestSriovDualScenario(
 		clientPodDefinitionNegative,
 		metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
-	waitUntilPodInStatus(
+	WaitUntilPodInStatus(
 		clientPodNegative,
 		"Client",
 		ClientTestCommand,

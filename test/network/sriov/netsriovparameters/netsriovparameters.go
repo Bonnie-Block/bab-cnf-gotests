@@ -36,6 +36,8 @@ const (
 	SriovNetworkJumboFrameNameDiff    = "test-sriov-static-jumbo-diff"
 	SriovNetworkBondName              = "test-sriov-static-bond"
 	SriovNetworkBondNameDiff          = "test-sriov-static-bond-diff"
+	SriovScaleBondName                = "test-sriov-scale-bond"
+	SriovScaleBondNameDiff            = "test-sriov-scale-bond-diff"
 	ClientPodIP                       = "192.168.100.1"
 	ClientPodIPv6                     = "2001:1db8:85a3::1"
 	ClientMacAddress                  = "20:04:0f:f1:88:01"
@@ -48,6 +50,8 @@ const (
 	NADBondName                       = "bond-net"
 	MulticastIPv6Address              = "FF05:0:0:0:0:0:0:18C"
 	MulticastIPAddress                = "224.255.0.10"
+	BondModeActiveBackup              = "active-backup"
+	ScaleVFsNumber                    = 64
 )
 
 var (

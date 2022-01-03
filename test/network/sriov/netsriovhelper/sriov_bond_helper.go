@@ -10,14 +10,16 @@ import (
 
 	. "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/sriov/netsriovparameters"
-
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/cluster"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 
 	netattdefv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	sriovv1 "github.com/k8snetworkplumbingwg/sriov-network-operator/api/v1"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	goclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func TestBondModeScenario(
@@ -36,6 +38,11 @@ func TestBondModeScenario(
 	connectivityParameters, err := netsriovparameters.NewConnectivityTestParameters(mtu, connectivity, protocol, true)
 	Expect(err).ToNot(HaveOccurred())
 
+	By(fmt.Sprintf("Creating Bond interface - %s", bondType))
+	nadBond := DefineBondNad(netsriovparameters.NADBondName, bondType, mtu, 2)
+	err = Apiclient.Create(context.Background(), nadBond)
+	Expect(err).ToNot(HaveOccurred())
+
 	By("Defining test resources")
 
 	nodeSelector := defineNodeSelector(connectivity, sriovInfos)
@@ -49,7 +56,7 @@ func TestBondModeScenario(
 	slaveNetworks = append(slaveNetworks, netsriovparameters.SriovNetworkBondName,
 		secondNetwork)
 
-	clientTestCommand, err := defineTestCommandParameters(
+	clientTestCommand, err := DefineTestCommandParameters(
 		false,
 		connectivityParameters.Protocol,
 		connectivityParameters.MTU,
@@ -58,7 +65,7 @@ func TestBondModeScenario(
 		netsriovparameters.TestBondInterfaceName)
 	Expect(err).ToNot(HaveOccurred())
 
-	clientPodDefinition := defineClientPod(
+	clientPodDefinition := DefineClientPod(
 		protocol,
 		nodeSelector,
 		netsriovparameters.NADBondName,
@@ -66,11 +73,11 @@ func TestBondModeScenario(
 		netsriovparameters.ClientPodIP,
 		"",
 		Config.Network.TestContainerImage,
-		[]string{"/bin/bash", "-c", "sleep INF"})
+		parameters.SleepCommand)
 
 	By("Creating Server Pod")
 
-	runServerPod(
+	RunServerPod(
 		protocol,
 		connectivityParameters.MTU,
 		connectivityParameters.Connectivity,
@@ -90,24 +97,24 @@ func TestBondModeScenario(
 		clientPodDefinition,
 		metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
-	waitUntilPodInStatus(
+	WaitUntilPodInStatus(
 		clientPod,
 		"Client",
-		[]string{"/bin/bash", "-c", "sleep INF"},
+		parameters.SleepCommand,
 		corev1.PodRunning,
 		netsriovparameters.PodWaitingTime)
 
 	By("Checking that Bond interface is configured")
 
-	isBondInterfaceConfigured, err := bondInterfaceIsUp(clientPod, netsriovparameters.TestBondInterfaceName)
+	isBondInterfaceConfigured, err := BondInterfaceIsUp(clientPod, netsriovparameters.TestBondInterfaceName)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(isBondInterfaceConfigured).To(BeTrue(), "Bond interface is not Up")
 
-	isBondInterfaceConfigured, err = bondInterfaceHasMode(clientPod, netsriovparameters.TestBondInterfaceName, bondType)
+	isBondInterfaceConfigured, err = BondInterfaceHasMode(clientPod, netsriovparameters.TestBondInterfaceName, bondType)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(isBondInterfaceConfigured).To(BeTrue(), "Bond interface has incorrect bond type")
 
-	isBondInterfaceConfigured, err = bondInterfaceHasSlaves(clientPod, netsriovparameters.TestBondInterfaceName, "2")
+	isBondInterfaceConfigured, err = BondInterfaceHasSlaves(clientPod, netsriovparameters.TestBondInterfaceName, "2")
 	Expect(err).ToNot(HaveOccurred())
 	Expect(isBondInterfaceConfigured).To(BeTrue(), "Bond interface has wrong number of slaves")
 
@@ -119,7 +126,7 @@ func TestBondModeScenario(
 	activeVF, err := findBondActiveInterface(clientPod, netsriovparameters.TestBondInterfaceName)
 	Expect(err).ToNot(HaveOccurred())
 
-	By(fmt.Sprintf("Disabling  active interface %s and check the traffic again", activeVF))
+	By(fmt.Sprintf("Disabling active interface %s and check the traffic again", activeVF))
 
 	err = setInterfaceStatus(clientPod, activeVF, "down")
 	Expect(err).ToNot(HaveOccurred())
@@ -131,7 +138,7 @@ func TestBondModeScenario(
 	_, err = pod.ExecCommand(Apiclient, *clientPod, clientTestCommand)
 	Expect(err).ToNot(HaveOccurred(), "Traffic failed")
 
-	By(fmt.Sprintf("Disabling secondary interface %s and bring active interface %s back"+
+	By(fmt.Sprintf("Disabling secondary interface %s, bring active interface %s back"+
 		" and check the traffic again", secondaryVF, activeVF))
 
 	err = setInterfaceStatus(clientPod, activeVF, "up")
@@ -159,10 +166,14 @@ func findBondActiveInterface(clientPod *corev1.Pod, bondInterfaceName string) (s
 	return strings.TrimSpace(activeInterface.String()), err
 }
 
-// CreateBondNad creates a Bond Network Attachment Definition.
-// Need to add MTU support.
-func CreateBondNad(nadName string, bondType string) error {
-	bondDefinition := netattdefv1.NetworkAttachmentDefinition{
+// DefineBondNad returns network attachment definition for a Bond interface.
+func DefineBondNad(nadName string,
+	bondType string,
+	mtu int,
+	numberSlaveInterfaces int) *netattdefv1.NetworkAttachmentDefinition {
+	slaveInterfaces := bondNADSlaveInterfaces(numberSlaveInterfaces)
+
+	return &netattdefv1.NetworkAttachmentDefinition{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      nadName,
 			Namespace: netsriovparameters.OperatorTestNamespace,
@@ -170,17 +181,26 @@ func CreateBondNad(nadName string, bondType string) error {
 		Spec: netattdefv1.NetworkAttachmentDefinitionSpec{
 			Config: fmt.Sprintf(
 				`{"type": "bond", "cniVersion": "0.3.1", "name": "%s", "ifname": "%s",
-"mode": "%s", "failOverMac": 1, "linksInContainer": true, "miimon": "100", "links": [{"name": "net1"},{"name": "net2"}],
+"mode": "%s", "failOverMac": 1, "linksInContainer": true, "miimon": "100", "mtu": %d, "links": [%s],
 "capabilities": {"mac": true, "ips": true}, "ipam": {"type": "static"}}`,
-				netsriovparameters.NADBondName, netsriovparameters.TestBondInterfaceName, bondType),
+				netsriovparameters.NADBondName, netsriovparameters.TestBondInterfaceName, bondType, mtu, slaveInterfaces),
 		},
 	}
-
-	return Apiclient.Create(context.Background(), &bondDefinition)
 }
 
-// bondInterfaceIsUp verifies that the bond is Up.
-func bondInterfaceIsUp(clientPod *corev1.Pod, bondInterfaceName string) (bool, error) {
+// bondNADSlaveInterfaces returns string with slave interfaces for Bond interface Network Attachment Definition.
+func bondNADSlaveInterfaces(numberInterfaces int) string {
+	slaveInterfaces := `{"name": "net1"}`
+
+	for i := 2; i <= numberInterfaces; i++ {
+		slaveInterfaces += fmt.Sprintf(`,{"name": "net%d"}`, i)
+	}
+
+	return slaveInterfaces
+}
+
+// BondInterfaceIsUp verifies that the bond is Up.
+func BondInterfaceIsUp(clientPod *corev1.Pod, bondInterfaceName string) (bool, error) {
 	status, err := pod.ExecCommand(Apiclient, *clientPod, []string{"cat",
 		fmt.Sprintf("/sys/class/net/%s/bonding/mii_status", bondInterfaceName)})
 	if err != nil {
@@ -190,8 +210,8 @@ func bondInterfaceIsUp(clientPod *corev1.Pod, bondInterfaceName string) (bool, e
 	return strings.Contains(status.String(), "up"), nil
 }
 
-// bondInterfaceHasMode verifies that the bond has expected bond type.
-func bondInterfaceHasMode(clientPod *corev1.Pod, bondInterfaceName string, bondMode string) (bool, error) {
+// BondInterfaceHasMode verifies that the bond has expected bond type.
+func BondInterfaceHasMode(clientPod *corev1.Pod, bondInterfaceName string, bondMode string) (bool, error) {
 	bondModeOut, err := pod.ExecCommand(Apiclient, *clientPod, []string{"cat",
 		fmt.Sprintf("/sys/class/net/%s/bonding/mode", bondInterfaceName)})
 	if err != nil {
@@ -201,8 +221,8 @@ func bondInterfaceHasMode(clientPod *corev1.Pod, bondInterfaceName string, bondM
 	return strings.Contains(bondModeOut.String(), bondMode), nil
 }
 
-// bondInterfaceHasSlaves verifies that the bond has expected number of slaves.
-func bondInterfaceHasSlaves(clientPod *corev1.Pod, bondInterfaceName string, numSlaves string) (bool, error) {
+// BondInterfaceHasSlaves verifies that the bond has expected number of slaves.
+func BondInterfaceHasSlaves(clientPod *corev1.Pod, bondInterfaceName string, numSlaves string) (bool, error) {
 	command := fmt.Sprintf("wc -w /sys/class/net/%s/bonding/slaves | awk '{print $1;}'", bondInterfaceName)
 	numSlavesOut, err := pod.ExecCommand(Apiclient, *clientPod, []string{"bash", "-c", command})
 
@@ -220,4 +240,22 @@ func defineSriovBondNetwork(name string, resourceName string) *sriovv1.SriovNetw
 	sriovNetwork.Spec.SpoofChk = "off"
 
 	return sriovNetwork
+}
+
+// DeleteBondNAD removes Bond interface Network Attachment Definition.
+func DeleteBondNAD() error {
+	nadBond := &netattdefv1.NetworkAttachmentDefinition{}
+
+	err := Apiclient.Get(context.Background(), goclient.ObjectKey{Namespace: netsriovparameters.OperatorTestNamespace,
+		Name: netsriovparameters.NADBondName}, nadBond)
+	if err != nil {
+		return err
+	}
+
+	err = Apiclient.Delete(context.Background(), nadBond)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
