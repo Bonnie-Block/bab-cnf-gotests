@@ -70,12 +70,15 @@ var _ = Describe("CNF SRIOV: Bond CNI.", func() {
 		DescribeTable(
 			netsriovparameters.BondModeActiveBackup,
 			func(mtu int, protocol string, connectivity string, bond bool) {
-				netsriovhelper.TestBondModeScenario(
+				netsriovhelper.TestBondScenario(
 					mtu,
 					protocol,
 					connectivity,
 					sriovInfos,
-					netsriovparameters.BondModeActiveBackup)
+					netsriovparameters.BondModeActiveBackup,
+					netsriovparameters.ServerPodIP,
+					netsriovparameters.ClientPodIP,
+					netsriovparameters.IpamStatic)
 			},
 			netsriovhelper.BuildTableEntries(
 				sriovSmokeTestMode,
@@ -122,10 +125,12 @@ var _ = Describe("CNF SRIOV: Bond CNI.", func() {
 			}
 
 			By("Creating Bond interface")
-			ScaleNADBond := netsriovhelper.DefineBondNad(netsriovparameters.NADBondName,
+			ScaleNADBond, err := netsriovhelper.DefineBondNad(netsriovparameters.BondNadName,
 				netsriovparameters.BondModeActiveBackup,
 				netsriovparameters.MTUStandart,
-				totalNumberSlaveVFs)
+				totalNumberSlaveVFs, netsriovparameters.IpamStatic)
+			Expect(err).ToNot(HaveOccurred())
+
 			err = Apiclient.Create(context.Background(), ScaleNADBond)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -145,23 +150,25 @@ var _ = Describe("CNF SRIOV: Bond CNI.", func() {
 				netsriovparameters.ConnectivityDiffNodeDiffPF,
 				sriovInfos,
 				Config,
-				netsriovparameters.NADBondName,
+				netsriovparameters.BondNadName,
 				slaveNetworks,
 				false,
 				"",
 				netsriovparameters.ServerPodIP,
-				netsriovparameters.TestBondInterfaceName)
+				netsriovparameters.TestBondInterfaceName,
+				netsriovparameters.IpamStatic)
 
 			By("Creating Client Pod")
 			clientPodDefinition := netsriovhelper.DefineClientPod(
 				netsriovparameters.CommunicationProtocolUnicastICMP,
 				sriovInfos.Nodes,
-				netsriovparameters.NADBondName,
+				netsriovparameters.BondNadName,
 				slaveNetworks,
 				netsriovparameters.ClientPodIP,
 				"",
 				Config.Network.TestContainerImage,
-				generalParameters.SleepCommand)
+				generalParameters.SleepCommand,
+				netsriovparameters.IpamStatic)
 
 			clientTestCommand, err = netsriovhelper.DefineTestCommandParameters(
 				false,
