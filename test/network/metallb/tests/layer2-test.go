@@ -100,7 +100,7 @@ var _ = Describe("CNF MetalLB", func() {
 				}
 
 				return false
-			}, metallbutils.Timeout, metallbutils.Interval).Should(BeTrue())
+			}, netmlbparameters.DeployTimeout, netmlbparameters.Interval).Should(BeTrue())
 		})
 
 		By("checking MetalLB daemonset is in running state", func() {
@@ -109,7 +109,7 @@ var _ = Describe("CNF MetalLB", func() {
 					netmlbparameters.MetalLBOperatorNameSpace, netmlbparameters.MetalLBDaemonsetName)
 
 				return daemonSetRunning == daemonSetDesired
-			}, metallbutils.DeployTimeout, metallbutils.Interval).Should(BeTrue())
+			}, netmlbparameters.DeployTimeout, netmlbparameters.Interval).Should(BeTrue())
 		})
 	})
 

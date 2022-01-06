@@ -10,6 +10,8 @@ import (
 )
 
 const (
+	DeployTimeout                               = time.Minute * 3
+	Interval                                    = time.Second * 2
 	TestNamespace                               = "cni-test"
 	DefaultNameSpace                            = "default"
 	AddressPool                                 = "brexpool"
