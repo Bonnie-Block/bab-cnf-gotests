@@ -14,11 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
+package v1beta1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"time"
 )
 
 type MatchExpression struct {
@@ -63,7 +62,11 @@ type BGPPeerSpec struct {
 
 	// Requested BGP hold time, per RFC4271.
 	// +optional
-	HoldTime time.Duration `json:"holdTime,omitempty" yaml:"hold-time,omitempty"`
+	HoldTime metav1.Duration `json:"holdTime,omitempty" yaml:"hold-time,omitempty"`
+
+	// Requested BGP keepalive time, per RFC4271.
+	// +optional
+	KeepaliveTime metav1.Duration `json:"keepaliveTime,omitempty" yaml:"keepalive-time,omitempty"`
 
 	// BGP router ID to advertise to the peer
 	// +optional
@@ -78,6 +81,7 @@ type BGPPeerSpec struct {
 	// +optional
 	Password string `json:"password,omitempty" yaml:"password,omitempty"`
 
+	BFDProfile string `json:"bfdProfile,omitempty" yaml:"bfdprofile,omitempty"`
 	// Add future BGP configuration here
 }
 

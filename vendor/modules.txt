@@ -487,7 +487,7 @@ github.com/mattn/go-runewidth
 github.com/mattn/go-shellwords
 # github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369
 github.com/matttproud/golang_protobuf_extensions/pbutil
-# github.com/metallb/metallb-operator v0.10.2 => github.com/openshift/metallb-operator v0.0.0-20211102092327-95f19b7e217c
+# github.com/metallb/metallb-operator v0.10.2 => github.com/openshift/metallb-operator v0.0.0-20211215122912-b151615b54ba
 ## explicit
 github.com/metallb/metallb-operator/api/v1alpha1
 github.com/metallb/metallb-operator/api/v1beta1
@@ -1240,7 +1240,7 @@ sigs.k8s.io/yaml
 # github.com/Azure/go-autorest => github.com/Azure/go-autorest v13.3.2+incompatible
 # github.com/k8snetworkplumbingwg/sriov-network-operator => github.com/openshift/sriov-network-operator v0.0.0-20210105152551-211d8ee0992e
 # github.com/mattn/go-sqlite3 => github.com/mattn/go-sqlite3 v1.10.0
-# github.com/metallb/metallb-operator => github.com/openshift/metallb-operator v0.0.0-20211102092327-95f19b7e217c
+# github.com/metallb/metallb-operator => github.com/openshift/metallb-operator v0.0.0-20211215122912-b151615b54ba
 # github.com/open-ness/openshift-operator => github.com/otcshare/openshift-operator v0.0.0-20210318084613-47ff60d3afe3
 # github.com/openshift-kni/performance-addon-operators => github.com/openshift-kni/performance-addon-operators v0.0.0-20210416124233-c5ee96762702
 # github.com/openshift/api => github.com/openshift/api v0.0.0-20210202165416-a9e731090f5e

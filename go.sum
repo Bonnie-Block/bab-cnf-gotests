@@ -852,6 +852,7 @@ github.com/intel/sriov-network-device-plugin v0.0.0-20200924101303-b7f6d3e06797/
 github.com/ishidawataru/sctp v0.0.0-20190723014705-7c296d48a2b5/go.mod h1:DM4VvS+hD/kDi1U1QsX2fnZowwBhqD0Dk3bRPKF/Oc8=
 github.com/ishidawataru/sctp v0.0.0-20191218070446-00ab2ac2db07 h1:rw3IAne6CDuVFlZbPOkA7bhxlqawFh7RJJ+CejfMaxE=
 github.com/ishidawataru/sctp v0.0.0-20191218070446-00ab2ac2db07/go.mod h1:co9pwDoBCm1kGxawmb4sPq0cSIOOWNPT4KnHotMP1Zg=
+github.com/j-keck/arping v0.0.0-20160618110441-2cf9dc699c56/go.mod h1:ymszkNOg6tORTn+6F6j+Jc8TOr5osrynvN6ivFWZ2GA=
 github.com/jBytes-keck/arping v0.0.0-20160618110441-2cf9dc699c56/go.mod h1:ymszkNOg6tORTn+6F6j+Jc8TOr5osrynvN6ivFWZ2GA=
 github.com/jackc/fake v0.0.0-20150926172116-812a484cc733/go.mod h1:WrMFNQdiFJ80sQsxDoMokWK1W5TQtxBFNpzWTD84ibQ=
 github.com/jackc/pgx v3.2.0+incompatible/go.mod h1:0ZGrqGqkRlliWnWB4zKnWtjbSWbGkVEFm4TeybAXq+I=
@@ -1185,6 +1186,8 @@ github.com/openshift/machine-config-operator v0.0.0-20210317203040-17ef0905ea26 
 github.com/openshift/machine-config-operator v0.0.0-20210317203040-17ef0905ea26/go.mod h1:k6nPHwa38pFpZXG9uK279i9O8yXLSaRpPZakaAKOHu4=
 github.com/openshift/metallb-operator v0.0.0-20211102092327-95f19b7e217c h1:TNykzruP5ZG/AzEXux5A1USR5cigYVIDKjvbDNcNEBQ=
 github.com/openshift/metallb-operator v0.0.0-20211102092327-95f19b7e217c/go.mod h1:OklSBaSeVcigNS4wtnHABJJlpSype7HZ7xg1gWDffh4=
+github.com/openshift/metallb-operator v0.0.0-20211215122912-b151615b54ba h1:KcFlBaGma7a5JwNPQqnMbPakJnlej2HEZNqyyHOlcTU=
+github.com/openshift/metallb-operator v0.0.0-20211215122912-b151615b54ba/go.mod h1:OklSBaSeVcigNS4wtnHABJJlpSype7HZ7xg1gWDffh4=
 github.com/openshift/origin v0.0.0-20160503220234-8f127d736703/go.mod h1:0Rox5r9C8aQn6j1oAOQ0c1uC86mYbUFObzjBRvUKHII=
 github.com/openshift/prom-label-proxy v0.1.1-0.20191016113035-b8153a7f39f1/go.mod h1:p5MuxzsYP1JPsNGwtjtcgRHHlGziCJJfztff91nNixw=
 github.com/openshift/ptp-operator v0.0.0-20210110151302-58d8ffd4a37e h1:EkSbbYHfXvcUSAlrlu6ZZOUwNQcCsz3Qi1ZuT/6hpJ4=
