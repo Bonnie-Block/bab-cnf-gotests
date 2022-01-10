@@ -10,29 +10,22 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"k8s.io/apimachinery/pkg/api/errors"
-
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/metallb/netmetallbhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/metallb/netmlbparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	metallbv1beta1 "github.com/metallb/metallb-operator/api/v1beta1"
-
-	metallbutils "github.com/metallb/metallb-operator/test/e2e/metallb"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	k8sv1 "k8s.io/api/core/v1"
-	goclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = Describe("CNF MetalLB", func() {
 
 	var (
-		metallb        *metallbv1beta1.MetalLB
 		nodeListString []string
 		metallbIPList  []string
 	)
@@ -41,17 +34,11 @@ var _ = Describe("CNF MetalLB", func() {
 	Expect(err).ToNot(HaveOccurred())
 
 	execute.BeforeAll(func() {
-		isMetalLBOperatorInstalled, err := helper.IsDeploymentReady(helper.Apiclient,
-			netmlbparameters.MetalLBOperatorNameSpace, netmlbparameters.MetalLBOperatorDeploymentName)
-		if !isMetalLBOperatorInstalled {
-			Skip("MetalLB Operator is not installed")
-		} else {
-			Expect(err).ToNot(HaveOccurred())
-		}
+		By("Checking MetalLB operator is installed and running")
+		Eventually(netmetallbhelper.IsMetalLBAvailable, deployTimeout, interval).ShouldNot(HaveOccurred())
 	})
 
 	BeforeEach(func() {
-
 		metallbIPList, err = helper.Config.GetMetallbVirtIP()
 		Expect(err).ToNot(HaveOccurred())
 
@@ -72,63 +59,9 @@ var _ = Describe("CNF MetalLB", func() {
 				Skip("Need at least 2 nodes to run MetalLB test")
 			}
 		})
-
-		By("should deploy MetalLB", func() {
-			metallb, err = metallbutils.Get(
-				netmlbparameters.MetalLBOperatorNameSpace,
-				netmlbparameters.UseMetallbResourcesFromFile,
-			)
-			Expect(err).ToNot(HaveOccurred())
-			err = helper.Apiclient.Get(context.Background(), goclient.ObjectKey{Namespace: metallb.Namespace,
-				Name: metallb.Name}, metallb)
-			if errors.IsNotFound(err) {
-				Expect(helper.Apiclient.Create(context.Background(), metallb)).Should(Succeed())
-			} else {
-				Expect(err).ToNot(HaveOccurred())
-			}
-		})
-
-		By("should have MetalLB controller in running state", func() {
-			Eventually(func() bool {
-				isMetalLBControllerRunning, err := helper.IsDeploymentReady(helper.Apiclient,
-					netmlbparameters.MetalLBOperatorNameSpace, netmlbparameters.MetalLBDeploymentName)
-				if err != nil {
-					return false
-				}
-				if isMetalLBControllerRunning {
-					return true
-				}
-
-				return false
-			}, netmlbparameters.DeployTimeout, netmlbparameters.Interval).Should(BeTrue())
-		})
-
-		By("checking MetalLB daemonset is in running state", func() {
-			Eventually(func() error {
-				return helper.IsDaemonsetReady(helper.Apiclient,
-					netmlbparameters.MetalLBOperatorNameSpace, netmlbparameters.MetalLBDaemonsetName)
-			}, netmlbparameters.DeployTimeout, netmlbparameters.Interval).ShouldNot(HaveOccurred())
-		})
 	})
 
 	AfterEach(func() {
-
-		By("should remove MetalLB Custom Resource", func() {
-			deployment, err := helper.Apiclient.Deployments(metallb.Namespace).Get(context.Background(),
-				netmlbparameters.MetalLBDeploymentName, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(deployment.OwnerReferences).ToNot(BeNil())
-			Expect(deployment.OwnerReferences[0].Kind).To(Equal("MetalLB"))
-
-			daemonset, err := helper.Apiclient.DaemonSets(metallb.Namespace).Get(context.Background(),
-				netmlbparameters.MetalLBDaemonsetName, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(daemonset.OwnerReferences).ToNot(BeNil())
-			Expect(daemonset.OwnerReferences[0].Kind).To(Equal("MetalLB"))
-
-			metallbutils.Delete(metallb)
-
-		})
 
 		By("should delete Address Pool and test Pod after test", func() {
 			addresspool := netmetallbhelper.DefineMetallbAddressPool(metallbIP)

@@ -2,8 +2,15 @@ package nethelper
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net"
+
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/netparameters"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 
 	sriovv1 "github.com/k8snetworkplumbingwg/sriov-network-operator/api/v1"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
@@ -115,4 +122,109 @@ func IPFamilyForAddress(ip string) string {
 	}
 
 	return "ipv4"
+}
+
+// DefineFRRConfigMap returns configmap definition with FRR configuration.
+func DefineFRRConfigMap(configMapName string, testNamespace string, configMapData map[string]string) *k8sv1.ConfigMap {
+	configMapData["vtysh.conf"] = ""
+
+	configMap := &k8sv1.ConfigMap{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "ConfigMap",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      configMapName,
+			Namespace: testNamespace,
+		},
+		Data: configMapData,
+	}
+
+	return configMap
+}
+
+// DefineFRRPod returns Pod required for the FRR test setup.
+func DefineFRRPod(masterNodeName string, namespace string) *k8sv1.Pod {
+	pod := &k8sv1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "frr-pod",
+			Namespace: namespace,
+		},
+		Spec: k8sv1.PodSpec{
+			HostNetwork: true,
+			Volumes: []k8sv1.Volume{
+				{
+					Name: netparameters.MasterConfigMapName,
+					VolumeSource: k8sv1.VolumeSource{
+						ConfigMap: &k8sv1.ConfigMapVolumeSource{
+							LocalObjectReference: k8sv1.LocalObjectReference{
+								Name: netparameters.MasterConfigMapName,
+							},
+						},
+					},
+				},
+			},
+			NodeSelector: map[string]string{
+				parameters.LabelHostname: masterNodeName,
+			},
+			Tolerations: []k8sv1.Toleration{
+				{
+					Key:    fmt.Sprintf("%s/%s", nodes.LabelRole, parameters.RoleMaster),
+					Effect: "NoSchedule",
+				},
+			},
+			Containers: []k8sv1.Container{
+				{
+					Name:  "frr",
+					Image: helper.Config.Network.FrrImage,
+					VolumeMounts: []k8sv1.VolumeMount{
+						{
+							Name:      netparameters.MasterConfigMapName,
+							MountPath: "/etc/frr",
+						},
+					},
+					SecurityContext: &k8sv1.SecurityContext{
+						Capabilities: &k8sv1.Capabilities{
+							Add: []k8sv1.Capability{
+								"NET_ADMIN",
+								"NET_RAW",
+								"SYS_ADMIN",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	return pod
+}
+
+type BFDDescription struct {
+	BFDStatus string `json:"status"`
+	BFDpeer   string `json:"peer"`
+}
+
+// IsBFDHasStatus verifies that BFD session on a pod has given status.
+func IsBFDHasStatus(frrPod *k8sv1.Pod, bfdPeer string, status string) error {
+	bfdStatusOut, err := pod.ExecCommand(helper.Apiclient, *frrPod,
+		[]string{"vtysh", "-c", "sh bfd peers brief json"})
+	if err != nil {
+		return err
+	}
+
+	result := []BFDDescription{}
+
+	err = json.Unmarshal(bfdStatusOut.Bytes(), &result)
+	if err != nil {
+		return err
+	}
+
+	for _, peer := range result {
+		if peer.BFDpeer == bfdPeer && peer.BFDStatus != status {
+			return fmt.Errorf("%s bfd status is %s (expected %s)", peer.BFDpeer, peer.BFDStatus, status)
+		}
+	}
+
+	return nil
 }

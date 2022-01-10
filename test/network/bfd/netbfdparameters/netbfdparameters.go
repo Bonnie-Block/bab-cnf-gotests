@@ -2,22 +2,15 @@ package netbfdparameters
 
 import (
 	"time"
-
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 )
 
 const (
-	MasterNodeSelector  = nodes.LabelRole + "/" + parameters.RoleMaster
-	MasterConfigMapName = "frr-master-node-config"
 	WorkerConfigMapName = "frr-worker-nodes-config"
 	RoleName            = "frr-role"
 	AppName             = "frr"
-	PodOnMasterName     = "frr-master"
 	MountPath           = "/etc/frr"
 	PeerConfigTemplate  = " peer %s\n   no shutdown\n !\n"
 	TestNamespace       = "bfd-test"
-	IPV4Family          = "ipv4"
 	BFDStatusUp         = "up"
 	DeletionTimeout     = time.Minute * 5
 	WaitingTime         = time.Second * 30

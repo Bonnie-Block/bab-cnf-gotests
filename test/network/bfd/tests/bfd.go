@@ -5,48 +5,47 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/bfd/netbfdhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/bfd/netbfdparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/nethelper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/netparameters"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var (
-	workerNodesAdresses []string
-	masterNodePod       *k8sv1.Pod
+	workerNodesAddresses []string
+	masterNodePod        *k8sv1.Pod
 )
 
 var _ = Describe("BFD", func() {
 	execute.BeforeAll(func() {
 
 		By("Getting ip addresses of worker and master nodes")
-		masterNodes, err := helper.Apiclient.Nodes().List(context.Background(), metav1.ListOptions{
-			LabelSelector: netbfdparameters.MasterNodeSelector,
-		})
+		masterNodes, err := nodes.GetByRole(helper.Apiclient, parameters.RoleMaster)
 		Expect(err).ToNot(HaveOccurred())
+		masterNodesAddresses := nethelper.NodeIPsForFamily(masterNodes, netparameters.IPV4Family)
 
-		masterNodesAddresses := nethelper.NodeIPsForFamily(masterNodes.Items, netbfdparameters.IPV4Family)
-
-		workerNodes, err := helper.Apiclient.Nodes().List(context.Background(), metav1.ListOptions{
-			LabelSelector: helper.Config.General.CnfNodeLabel,
-		})
+		workerNodes, err := nodes.GetByRole(helper.Apiclient, parameters.RoleWorker)
 		Expect(err).ToNot(HaveOccurred())
-
-		workerNodesAdresses = nethelper.NodeIPsForFamily(workerNodes.Items, netbfdparameters.IPV4Family)
+		workerNodesAddresses = nethelper.NodeIPsForFamily(workerNodes, netparameters.IPV4Family)
+		Expect(err).ToNot(HaveOccurred())
 
 		By("Creating configmaps")
-		workerConfigMap := netbfdhelper.DefineBFDConfigMap(&masterNodesAddresses, netbfdparameters.WorkerConfigMapName)
+		workerConfigMap := netbfdhelper.DefineBFDConfigMap(masterNodesAddresses, netbfdparameters.WorkerConfigMapName)
 		_, err = helper.Apiclient.ConfigMaps(netbfdparameters.TestNamespace).Create(
 			context.TODO(),
 			workerConfigMap,
 			metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
-		masterConfigMap := netbfdhelper.DefineBFDConfigMap(&workerNodesAdresses, netbfdparameters.MasterConfigMapName)
+		masterConfigMap := netbfdhelper.DefineBFDConfigMap(workerNodesAddresses, netparameters.MasterConfigMapName)
 		_, err = helper.Apiclient.ConfigMaps(netbfdparameters.TestNamespace).Create(
 			context.TODO(),
 			masterConfigMap,
@@ -85,13 +84,13 @@ var _ = Describe("BFD", func() {
 			"daemonset failed to get into running state")
 
 		By("Creating FRR container on a Master node")
-		frrPod := netbfdhelper.DefineFRRPod()
+		frrPod := nethelper.DefineFRRPod(masterNodes[0].Name, netbfdparameters.TestNamespace)
 		masterNodePod = helper.WaitUntilPodCreatedAndRunning(frrPod, netbfdparameters.WaitingTime)
 	})
 
 	It("Should have BFD status up", func() {
 		Eventually(func() error {
-			return netbfdhelper.IsBFDStatusUp(masterNodePod, workerNodesAdresses)
+			return netbfdhelper.IsBFDStatusUp(masterNodePod, workerNodesAddresses)
 		}, netbfdparameters.WaitingTime, netbfdparameters.Interval).ShouldNot(HaveOccurred())
 	})
 })

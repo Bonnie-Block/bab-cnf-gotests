@@ -2,27 +2,37 @@ package netmetallbhelper
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net"
+	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
-
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/metallb/netmlbparameters"
-
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
-
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
-
-	metallbv1alpha1 "github.com/metallb/metallb-operator/api/v1alpha1"
-	"k8s.io/apimachinery/pkg/util/intstr"
-
-	k8sv1 "k8s.io/api/core/v1"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/metallb/netmlbparameters"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/nethelper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
+
+	metallbv1alpha1 "github.com/metallb/metallb-operator/api/v1alpha1"
+	metallbv1beta1 "github.com/metallb/metallb-operator/api/v1beta1"
+	"github.com/pkg/errors"
+
+	appsv1 "k8s.io/api/apps/v1"
+	k8sv1 "k8s.io/api/core/v1"
+	apiErrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/utils/pointer"
+	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // IsEnvVarMetallbIPinNodeExtNetRange validates that the enviromnental IP variable
@@ -253,4 +263,266 @@ func CurlMlbPod(destIPAddr string, image string, nodeListString []string, node s
 		"Curl was unable to connect to nginx")
 
 	return err
+}
+
+// IsMetalLBAvailable verifies that metallb installed and running.
+func IsMetalLBAvailable() error {
+	err := helper.IsDaemonsetReady(helper.Apiclient,
+		netmlbparameters.MetalLBOperatorNameSpace,
+		netmlbparameters.MetalLBDaemonsetName)
+	if err != nil {
+		return errors.Errorf("MetalLB speaker daemonset not ready")
+	}
+
+	isMLBDeploymentReady, err := helper.IsDeploymentReady(helper.Apiclient,
+		netmlbparameters.MetalLBOperatorNameSpace,
+		netmlbparameters.MetalLBDeploymentName)
+	if err != nil {
+		return err
+	}
+
+	if !isMLBDeploymentReady {
+		return errors.Errorf("MetalLB controller deployment not ready")
+	}
+
+	return nil
+}
+
+// DefineBFDProfile returns BFDprofile definition.
+func DefineBFDProfile(name string) *metallbv1beta1.BFDProfile {
+	return &metallbv1beta1.BFDProfile{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: netmlbparameters.MetalLBOperatorNameSpace,
+		},
+		Spec: metallbv1beta1.BFDProfileSpec{
+			ReceiveInterval:  uint32Ptr(100),
+			TransmitInterval: uint32Ptr(100),
+			DetectMultiplier: uint32Ptr(3),
+			EchoInterval:     uint32Ptr(100),
+			EchoMode:         pointer.BoolPtr(true),
+			PassiveMode:      pointer.BoolPtr(false),
+			MinimumTTL:       uint32Ptr(5),
+		},
+	}
+}
+
+// DefineBGPPeerWithBFD returns BGPPeer definition with BFD configuration.
+func DefineBGPPeerWithBFD(peerAdress string, asn uint32, bfdProfile string) *metallbv1beta1.BGPPeer {
+	return &metallbv1beta1.BGPPeer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      netmlbparameters.BGPPeerName,
+			Namespace: netmlbparameters.MetalLBOperatorNameSpace,
+		},
+		Spec: metallbv1beta1.BGPPeerSpec{
+			MyASN:      64500,
+			ASN:        asn,
+			Address:    peerAdress,
+			RouterID:   "10.10.10.10",
+			BFDProfile: bfdProfile,
+		},
+	}
+}
+
+// DefineBFDMLBConfigMap returns configmap definition with FRR BFD configuration.
+func DefineBFDMLBConfigMap(ipAddresses []string, configMapName string, asn int) *k8sv1.ConfigMap {
+	configMapData := make(map[string]string)
+	configMapData["daemons"] = netmlbparameters.DaemonsFile
+
+	bfdConfig, err := defineBFDConfig(ipAddresses, asn)
+	Expect(err).ToNot(HaveOccurred())
+
+	configMapData["frr.conf"] = bfdConfig
+	configMap := nethelper.DefineFRRConfigMap(configMapName, netmlbparameters.TestNamespace, configMapData)
+
+	return configMap
+}
+
+// defineBFDConfig returns string which represents BFD config file peering to all given IP addresses.
+func defineBFDConfig(neighborsIPAddresses []string, asn int) (string, error) {
+	if len(neighborsIPAddresses) < 1 {
+		return "", fmt.Errorf("list of neigbors ip addresses is empty")
+	}
+
+	asnStr := strconv.Itoa(asn)
+	bfdConfig := "bfd\n router bgp 64501\n"
+
+	for _, ipAddress := range neighborsIPAddresses {
+		bfdConfig += fmt.Sprintf(" neighbor %s remote-as %s\n neighbor %s bfd\n", ipAddress, asnStr, ipAddress)
+	}
+
+	bfdConfig += "!"
+
+	return bfdConfig, nil
+}
+
+type BGPDescription struct {
+	BGPState string `json:"bgpState"`
+}
+
+// IsBGPNeighborshipHasState verifies that BGP session on a pod has given state.
+func IsBGPNeighborshipHasState(frrPod *k8sv1.Pod, neighborIPAddress string, state string) bool {
+	bgpStateOut, err := pod.ExecCommand(helper.Apiclient, *frrPod,
+		[]string{"vtysh", "-u", "-c", "sh bgp neighbors json"})
+	Expect(err).ToNot(HaveOccurred())
+
+	result := map[string]BGPDescription{}
+	err = json.Unmarshal(bgpStateOut.Bytes(), &result)
+	Expect(err).ToNot(HaveOccurred())
+
+	return result[neighborIPAddress].BGPState == state
+}
+
+// UpdateSpeakerNodeSelector updates SpeakerNodeSelector in Metallb CR.
+func UpdateSpeakerNodeSelector(namespace string, nodeSelector map[string]string) error {
+	metallb := &metallbv1beta1.MetalLB{}
+
+	err := helper.Apiclient.Get(context.Background(), types.NamespacedName{Name: "metallb", Namespace: namespace}, metallb)
+	if err != nil {
+		return err
+	}
+
+	metallb.Spec.SpeakerNodeSelector = nodeSelector
+
+	err = helper.Apiclient.Update(context.Background(), metallb)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// DeleteAllBFDProfiles removes all BFDProfile CRs.
+func DeleteAllBFDProfiles() error {
+	bfdProfileList := metallbv1beta1.BFDProfileList{}
+
+	err := helper.Apiclient.List(context.Background(), &bfdProfileList,
+		runtimeclient.InNamespace(netmlbparameters.MetalLBOperatorNameSpace))
+	if err != nil {
+		return err
+	}
+
+	for _, bfdProfile := range bfdProfileList.Items {
+		err = helper.Apiclient.Delete(context.Background(), &bfdProfile)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// UpdateToDefaultSpeakerNodeSelector updates a Metallb CR to the default SpeakerNodeSelector.
+func UpdateToDefaultSpeakerNodeSelector() error {
+	metallb := &metallbv1beta1.MetalLB{}
+
+	err := helper.Apiclient.Get(context.Background(),
+		types.NamespacedName{Name: netmlbparameters.MetalLBCRName,
+			Namespace: netmlbparameters.MetalLBOperatorNameSpace}, metallb)
+	if err != nil {
+		return err
+	}
+
+	if !reflect.DeepEqual(metallb.Spec.SpeakerNodeSelector, netmlbparameters.SpeakerNodeSelectorWorker) {
+		metallb.Spec.SpeakerNodeSelector = netmlbparameters.SpeakerNodeSelectorWorker
+
+		err = helper.Apiclient.Update(context.Background(), metallb)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// DeleteAllBGPPeers removes all BGPPeer CRs.
+func DeleteAllBGPPeers() error {
+	bgpPeerList := metallbv1beta1.BGPPeerList{}
+
+	err := helper.Apiclient.List(context.Background(), &bgpPeerList,
+		runtimeclient.InNamespace(netmlbparameters.MetalLBOperatorNameSpace))
+	if err != nil {
+		return err
+	}
+
+	for _, bgpPeer := range bgpPeerList.Items {
+		err = helper.Apiclient.Delete(context.Background(), &bgpPeer)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// AreSpeakersReady verifies that Speakers are up and running.
+func AreSpeakersReady() bool {
+	daemonSet := &appsv1.DaemonSet{}
+
+	err := helper.Apiclient.Get(context.Background(),
+		types.NamespacedName{Name: netmlbparameters.MetalLBDaemonsetName,
+			Namespace: netmlbparameters.MetalLBOperatorNameSpace}, daemonSet)
+	Expect(err).ToNot(HaveOccurred())
+
+	if daemonSet.Status.DesiredNumberScheduled == 0 ||
+		daemonSet.Status.DesiredNumberScheduled != daemonSet.Status.NumberAvailable {
+		return false
+	}
+
+	return true
+}
+
+// CreateMetallb creates Metallb CR.
+func CreateMetallb() *metallbv1beta1.MetalLB {
+	metallb := defineMetallb()
+
+	err := helper.Apiclient.Get(context.Background(), runtimeclient.ObjectKey{Namespace: metallb.Namespace,
+		Name: metallb.Name}, metallb)
+	if apiErrors.IsNotFound(err) {
+		Expect(helper.Apiclient.Create(context.Background(), metallb)).Should(Succeed())
+	} else {
+		Expect(err).ToNot(HaveOccurred())
+	}
+
+	return metallb
+}
+
+// defineMetallb returns Metallb definition.
+func defineMetallb() *metallbv1beta1.MetalLB {
+	return &metallbv1beta1.MetalLB{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      netmlbparameters.MetalLBCRName,
+			Namespace: netmlbparameters.MetalLBOperatorNameSpace,
+		},
+		Spec: metallbv1beta1.MetalLBSpec{
+			SpeakerNodeSelector: netmlbparameters.SpeakerNodeSelectorWorker,
+		},
+	}
+}
+
+// DeleteLabelFromWorkers removes a label from all workers.
+func DeleteLabelFromWorkers(label string) error {
+	workerNodes, err := nodes.GetByRole(helper.Apiclient, parameters.RoleWorker)
+	if err != nil {
+		return err
+	}
+
+	if len(workerNodes) == 0 {
+		return fmt.Errorf("worker node list is empty")
+	}
+
+	for _, node := range workerNodes {
+		delete(node.Labels, label)
+
+		_, err = helper.Apiclient.Nodes().Update(context.Background(), &node, metav1.UpdateOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to remove label from %s %w", node.Name, err)
+		}
+	}
+
+	return nil
+}
+
+func uint32Ptr(n uint32) *uint32 {
+	return &n
 }
