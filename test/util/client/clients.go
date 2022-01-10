@@ -41,6 +41,7 @@ type ClientSet struct {
 	appsv1client.AppsV1Interface
 	rbacv1client.RbacV1Interface
 	discovery.DiscoveryInterface
+	rbacv1client.RbacV1Interface
 	clientsriovv1.SriovnetworkV1Interface
 	Config *rest.Config
 	runtimeclient.Client
