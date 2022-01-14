@@ -1,6 +1,7 @@
 package netmetallbhelper
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -9,6 +10,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -34,6 +36,21 @@ import (
 	"k8s.io/utils/pointer"
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+type queryOutput struct {
+	Data data
+}
+type data struct {
+	Result []result
+}
+
+type result struct {
+	Metric metric
+}
+
+type metric struct {
+	Pod string
+}
 
 // IsEnvVarMetallbIPinNodeExtNetRange validates that the enviromnental IP variable
 // is in the same IP range as the br-ex interface of the cluster under-test.
@@ -368,7 +385,7 @@ func IsBGPNeighborshipHasState(frrPod *k8sv1.Pod, neighborIPAddress string, stat
 
 	result := map[string]BGPDescription{}
 	err = json.Unmarshal(bgpStateOut.Bytes(), &result)
-	Expect(err).ToNot(HaveOccurred())
+	Expect(err).ToNot(HaveOccurred(), bgpStateOut.String())
 
 	return result[neighborIPAddress].BGPState == state
 }
@@ -408,6 +425,11 @@ func DeleteAllBFDProfiles() error {
 			return err
 		}
 	}
+
+	// Failed due to BZ 2050824.
+	Eventually(func() bool {
+		return IsProtocolConfigured(netmlbparameters.BFDConfigPrefix)
+	}, 1*time.Minute, 2*time.Second).Should(BeFalse(), "BFD configuration is not removed")
 
 	return nil
 }
@@ -451,6 +473,10 @@ func DeleteAllBGPPeers() error {
 			return err
 		}
 	}
+
+	Eventually(func() bool {
+		return IsProtocolConfigured(netmlbparameters.BGPConfigPrefix)
+	}, 1*time.Minute, 2*time.Second).Should(BeFalse(), "BGP configuration is not removed")
 
 	return nil
 }
@@ -521,6 +547,148 @@ func DeleteLabelFromWorkers(label string) error {
 	}
 
 	return nil
+}
+
+// CollectMetalLBMetricsByPod returns MetalLB metrics from speaker pods by prefix.
+func CollectMetalLBMetricsByPod(speakerPods []k8sv1.Pod, prefix string) (map[string][]string, []string) {
+	uniqueMetricKeys := []string{}
+	monitoredEntriesByPod := map[string][]string{}
+
+	Expect(speakerPods).ShouldNot(BeEmpty(), "List of Speakers is empty")
+
+	for _, speakerPod := range speakerPods {
+		podEntries := []string{}
+
+		var (
+			stdout bytes.Buffer
+			err    error
+		)
+
+		Eventually(func() error {
+			stdout, err = pod.ExecCommand(helper.Apiclient, speakerPod, []string{"curl", "localhost:7473/metrics"})
+			if len(strings.Split(stdout.String(), "\n")) == 0 {
+				return fmt.Errorf("empty response")
+			}
+
+			return err
+		}, 1*time.Minute, 2*time.Second).ShouldNot(HaveOccurred())
+
+		for _, line := range strings.Split(stdout.String(), "\n") {
+			if strings.HasPrefix(line, prefix) {
+				metricsKey := line[0:strings.Index(line, "{")]
+				podEntries = append(podEntries, metricsKey)
+				uniqueMetricKeys = appendIfMissing(uniqueMetricKeys, metricsKey)
+			}
+		}
+
+		monitoredEntriesByPod[speakerPod.Name] = podEntries
+	}
+
+	Expect(uniqueMetricKeys).ShouldNot(BeEmpty(), "There is no metrics on a pod")
+	Expect(monitoredEntriesByPod).ShouldNot(BeEmpty(), "There is no metrics on a pod")
+
+	return monitoredEntriesByPod, uniqueMetricKeys
+}
+
+// CollectPrometheusMetrics returns  metrics from prometheus pod by uniqueMetricKeys.
+func CollectPrometheusMetrics(uniqueMetricKeys []string) map[string][]string {
+	prometheusPods, err := helper.Apiclient.Pods(parameters.PromNamespace).List(context.Background(),
+		metav1.ListOptions{
+			LabelSelector: "app.kubernetes.io/name=prometheus",
+		})
+	Expect(err).ToNot(HaveOccurred())
+	Expect(prometheusPods.Items).NotTo(BeEmpty())
+
+	podsPerPrometheusMetricKey := map[string][]string{}
+
+	Expect(uniqueMetricKeys).NotTo(BeEmpty())
+
+	for _, metricsKey := range uniqueMetricKeys {
+		podsPerKey := []string{}
+
+		command := []string{
+			"curl",
+			fmt.Sprintf("%squery?query=%s", parameters.PromLocalURL, metricsKey),
+		}
+		stdout, err := pod.ExecCommand(helper.Apiclient, prometheusPods.Items[0], command)
+		Expect(err).ToNot(HaveOccurred())
+
+		var queryOutput queryOutput
+		err = json.Unmarshal(stdout.Bytes(), &queryOutput)
+		Expect(err).ToNot(HaveOccurred(), stdout.String())
+
+		for _, result := range queryOutput.Data.Result {
+			podsPerKey = append(podsPerKey, result.Metric.Pod)
+		}
+
+		podsPerPrometheusMetricKey[metricsKey] = podsPerKey
+	}
+
+	Expect(podsPerPrometheusMetricKey).NotTo(BeEmpty(), "There is no metrics on a Prometheus pod")
+
+	return podsPerPrometheusMetricKey
+}
+
+// ContainSameMetrics verifies that metricsByPod have prometheusMetrics.
+func ContainSameMetrics(metricsByPod map[string][]string, prometheusMetrics map[string][]string) error {
+	for podName, monitoringKeys := range metricsByPod {
+		for _, key := range monitoringKeys {
+			if podsWithMetric, ok := prometheusMetrics[key]; ok {
+				// We only check if the element is present, but do not compare the values
+				// New values are reported periodically, and there is a risk of discrepancies
+				// in the values read from metalLB Speaker pods and the ones read from prometheus
+				if hasElement(podsWithMetric, podName) {
+					continue
+				}
+			}
+
+			return fmt.Errorf("metric %s on pod %s was not reported", key, podName)
+		}
+	}
+
+	return nil
+}
+
+// IsProtocolConfigured checks for the presence of a protocol prefix in running-config on Speakers.
+func IsProtocolConfigured(protocolPrefix string) bool {
+	speakerPodList, err := helper.Apiclient.Pods(netmlbparameters.MetalLBOperatorNameSpace).List(
+		context.Background(),
+		metav1.ListOptions{LabelSelector: netmlbparameters.SpeakersLabelSelector},
+	)
+	Expect(err).ToNot(HaveOccurred())
+
+	for _, speakerPod := range speakerPodList.Items {
+		configStateOut, err := pod.ExecCommand(helper.Apiclient, speakerPod,
+			[]string{"vtysh", "-c", "sh run"})
+		Expect(err).ToNot(HaveOccurred())
+
+		configs := strings.Split(configStateOut.String(), "!")
+		for _, config := range configs {
+			if strings.HasPrefix(strings.TrimSpace(config), protocolPrefix) {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+func appendIfMissing(slice []string, newItem string) []string {
+	if hasElement(slice, newItem) {
+		return slice
+	}
+
+	return append(slice, newItem)
+}
+
+func hasElement(slice []string, item string) bool {
+	for _, sliceItem := range slice {
+		if item == sliceItem {
+			return true
+		}
+	}
+
+	return false
 }
 
 func uint32Ptr(n uint32) *uint32 {

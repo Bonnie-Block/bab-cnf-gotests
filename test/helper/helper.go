@@ -411,31 +411,3 @@ func isPodInCondition(pod *k8sv1.Pod, condition k8sv1.PodConditionType) bool {
 
 	return false
 }
-
-// GetNodeIPListByLabel returns a list with all the IP addresses of matching nodes for given label Selector.
-func GetNodeIPListByLabel(labelSelector string) ([]string, error) {
-	nodesList, err := Apiclient.Nodes().List(context.Background(), metav1.ListOptions{
-		LabelSelector: labelSelector,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	var nodesIP []string
-
-	for _, node := range nodesList.Items {
-		for _, address := range node.Status.Addresses {
-			if address.Type == k8sv1.NodeInternalIP {
-				nodesIP = append(nodesIP, address.Address)
-
-				break
-			}
-		}
-	}
-
-	if len(nodesIP) == 0 {
-		return nil, fmt.Errorf("no nodes matched the given label selector")
-	}
-
-	return nodesIP, nil
-}

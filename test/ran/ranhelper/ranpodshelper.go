@@ -191,7 +191,7 @@ func DeployProcessExporter() *appsv1.DaemonSet {
 	configsDir := helper.Config.Ran.ProcessExporterConfigsDir
 	image := helper.Config.Ran.ProcessExporterImage
 
-	daemonset, err := helper.Apiclient.DaemonSets(ran.PromNamespace).Get(
+	daemonset, err := helper.Apiclient.DaemonSets(parameters.PromNamespace).Get(
 		context.Background(),
 		ran.ProcessExporterPodName, metav1.GetOptions{},
 	)
@@ -203,7 +203,7 @@ func DeployProcessExporter() *appsv1.DaemonSet {
 
 	Expect(err).ShouldNot(HaveOccurred())
 	Eventually(func() error {
-		daemonset, err = helper.Apiclient.DaemonSets(ran.PromNamespace).Get(
+		daemonset, err = helper.Apiclient.DaemonSets(parameters.PromNamespace).Get(
 			context.Background(),
 			ran.ProcessExporterPodName,
 			metav1.GetOptions{},
@@ -216,7 +216,7 @@ func DeployProcessExporter() *appsv1.DaemonSet {
 		if daemonset.Spec.Template.Spec.Containers[0].Image != image {
 			// Update dummy image to configured value
 			daemonset.Spec.Template.Spec.Containers[0].Image = image
-			_, _ = helper.Apiclient.DaemonSets(ran.PromNamespace).Update(
+			_, _ = helper.Apiclient.DaemonSets(parameters.PromNamespace).Update(
 				context.Background(),
 				daemonset,
 				metav1.UpdateOptions{},
@@ -240,7 +240,7 @@ func DeployProcessExporter() *appsv1.DaemonSet {
 func DeleteProcessExporter() {
 	configsDir := helper.Config.Ran.ProcessExporterConfigsDir
 
-	daemonset, err := helper.Apiclient.DaemonSets(ran.PromNamespace).Get(
+	daemonset, err := helper.Apiclient.DaemonSets(parameters.PromNamespace).Get(
 		context.Background(),
 		ran.ProcessExporterPodName,
 		metav1.GetOptions{},
@@ -255,7 +255,7 @@ func DeleteProcessExporter() {
 	err = DeleteObjects(configsDir)
 	Expect(err).ShouldNot(HaveOccurred())
 	Eventually(func() error {
-		daemonset, err = helper.Apiclient.DaemonSets(ran.PromNamespace).Get(
+		daemonset, err = helper.Apiclient.DaemonSets(parameters.PromNamespace).Get(
 			context.Background(),
 			ran.ProcessExporterPodName,
 			metav1.GetOptions{},

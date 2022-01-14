@@ -16,6 +16,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/netparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -34,6 +35,8 @@ var (
 	masterNodePod           *k8sv1.Pod
 	firstWorkerNodeAddress  string
 	secondWorkerNodeAddress string
+	workerNodeList          []k8sv1.Node
+	err                     error
 )
 
 var _ = Describe("BFD", func() {
@@ -43,8 +46,8 @@ var _ = Describe("BFD", func() {
 	})
 
 	Context("Single hop", func() {
-		BeforeEach(func() {
-			workerNodeList, err := nodes.GetByRole(helper.Apiclient, parameters.RoleWorker)
+		execute.BeforeAll(func() {
+			workerNodeList, err = nodes.GetByRole(helper.Apiclient, parameters.RoleWorker)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(workerNodeList)).To(BeNumerically(">", 1))
 			workerNodesAddresses := nethelper.NodeIPsForFamily(workerNodeList, netparameters.IPV4Family)
@@ -58,37 +61,25 @@ var _ = Describe("BFD", func() {
 			Expect(len(masterNodeList)).To(BeNumerically(">", 0))
 			masterNode := masterNodeList[0]
 
-			By("Changing the label selector for Metallb and adding a label for Workers")
-			err = netmetallbhelper.UpdateSpeakerNodeSelector(netmlbparameters.MetalLBOperatorNameSpace,
-				map[string]string{netmlbparameters.SpeakerNodeTestLabel: ""})
-			Expect(err).ToNot(HaveOccurred())
-			Eventually(func() bool {
-				speakerPodList, _ := helper.Apiclient.Pods(netmlbparameters.MetalLBOperatorNameSpace).List(
-					context.Background(),
-					metav1.ListOptions{LabelSelector: "component=speaker"},
-				)
-
-				return len(speakerPodList.Items) == 0
-			}, 1*time.Minute, 1*time.Second).Should(BeTrue())
-
-			for _, worker := range workerNodeList {
-				_, err = nodes.LabelNode(helper.Apiclient, worker.Name, netmlbparameters.SpeakerNodeTestLabel, "")
-				Expect(err).ToNot(HaveOccurred())
-			}
-
-			Eventually(netmetallbhelper.AreSpeakersReady, deployTimeout, interval).
-				Should(BeTrue(), "Speaker pods are not ready")
-
 			By("Creating BFD profile")
 			bfdProfileDefinition = netmetallbhelper.DefineBFDProfile(netmlbparameters.BFDProfileName)
 			err = helper.Apiclient.Create(context.Background(), bfdProfileDefinition)
 			Expect(err).ToNot(HaveOccurred())
+
+			Eventually(func() bool {
+				return netmetallbhelper.IsProtocolConfigured(netmlbparameters.BFDConfigPrefix)
+			}, deployTimeout, interval).
+				Should(BeTrue(), "BFD is not configured on the Speakers")
 
 			By("Creating BGP Peers")
 			bgpPeerDefinition = netmetallbhelper.DefineBGPPeerWithBFD(masterNode.Status.Addresses[0].Address,
 				netmlbparameters.Asn2, netmlbparameters.BFDProfileName)
 			err = helper.Apiclient.Create(context.Background(), bgpPeerDefinition)
 			Expect(err).ToNot(HaveOccurred())
+
+			Eventually(func() bool {
+				return netmetallbhelper.IsProtocolConfigured(netmlbparameters.BGPConfigPrefix)
+			}, deployTimeout, interval).Should(BeTrue(), "BGP is not configured on the Speakers")
 
 			By("Creating FRR container on a Master node")
 			masterConfigMap := netmetallbhelper.DefineBFDMLBConfigMap(workerNodesAddresses,
@@ -106,17 +97,43 @@ var _ = Describe("BFD", func() {
 
 		AfterEach(func() {
 			By("Cleaning after test")
-			err := netmetallbhelper.DeleteAllBFDProfiles()
-			Expect(err).ToNot(HaveOccurred())
-			err = netmetallbhelper.DeleteAllBGPPeers()
-			Expect(err).ToNot(HaveOccurred())
-			err = netmetallbhelper.UpdateToDefaultSpeakerNodeSelector()
-			Expect(err).ToNot(HaveOccurred())
 			err = netmetallbhelper.DeleteLabelFromWorkers(netmlbparameters.SpeakerNodeTestLabel)
 			Expect(err).ToNot(HaveOccurred())
+
+			Eventually(netmetallbhelper.AreSpeakersReady, deployTimeout, interval).
+				Should(BeTrue(), "Speaker pods are not ready")
+			err = netmetallbhelper.UpdateToDefaultSpeakerNodeSelector()
+			Expect(err).ToNot(HaveOccurred())
+
+			Eventually(netmetallbhelper.AreSpeakersReady, deployTimeout, interval).
+				Should(BeTrue(), "Speaker pods are not ready")
 		})
 
 		It("performs basic functionality", func() {
+			By("Changing the label selector for Metallb and adding a label for Workers")
+			workerNodeList, err = nodes.GetByRole(helper.Apiclient, parameters.RoleWorker)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(workerNodeList)).To(BeNumerically(">", 1))
+			err = netmetallbhelper.UpdateSpeakerNodeSelector(netmlbparameters.MetalLBOperatorNameSpace,
+				map[string]string{netmlbparameters.SpeakerNodeTestLabel: ""})
+			Expect(err).ToNot(HaveOccurred())
+
+			Eventually(func() int {
+				speakerPodList, _ := helper.Apiclient.Pods(netmlbparameters.MetalLBOperatorNameSpace).List(
+					context.Background(),
+					metav1.ListOptions{LabelSelector: netmlbparameters.SpeakersLabelSelector},
+				)
+
+				return len(speakerPodList.Items)
+			}, 1*time.Minute, 1*time.Second).Should(BeNumerically("==", 0))
+
+			for _, worker := range workerNodeList {
+				_, err = nodes.LabelNode(helper.Apiclient, worker.Name, netmlbparameters.SpeakerNodeTestLabel, "")
+				Expect(err).ToNot(HaveOccurred())
+			}
+
+			Eventually(netmetallbhelper.AreSpeakersReady, deployTimeout, interval).
+				Should(BeTrue(), "Speaker pods are not ready")
 			By("Checking that BGP and BFD sessions are established and up")
 			Eventually(func() bool {
 				return netmetallbhelper.IsBGPNeighborshipHasState(masterNodePod, firstWorkerNodeAddress,
@@ -137,7 +154,7 @@ var _ = Describe("BFD", func() {
 			}, timeout, interval).ShouldNot(HaveOccurred())
 
 			By("Removing Speaker pod and checking that speaker pod is down")
-			workerNodeList, err := nodes.GetByRole(helper.Apiclient, parameters.RoleWorker)
+			workerNodeList, err = nodes.GetByRole(helper.Apiclient, parameters.RoleWorker)
 			Expect(len(workerNodeList)).To(BeNumerically(">", 1))
 			Expect(err).ToNot(HaveOccurred())
 
@@ -145,14 +162,14 @@ var _ = Describe("BFD", func() {
 			_, err = helper.Apiclient.Nodes().Update(context.Background(), &workerNodeList[0], metav1.UpdateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			Eventually(func() bool {
+			Eventually(func() int {
 				speakerPodList, _ := helper.Apiclient.Pods(netmlbparameters.MetalLBOperatorNameSpace).List(
 					context.Background(),
 					metav1.ListOptions{LabelSelector: "component=speaker"},
 				)
 
-				return len(speakerPodList.Items) == 1
-			}, 1*time.Minute, 1*time.Second).Should(BeTrue())
+				return len(speakerPodList.Items)
+			}, 1*time.Minute, 1*time.Second).Should(BeNumerically("==", len(workerNodeList)-1))
 
 			By("Checking that BGP and BFD sessions are down with one BGPpeer and continue to work with another")
 			Expect(nethelper.IsBFDHasStatus(masterNodePod, firstWorkerNodeAddress,
@@ -166,11 +183,18 @@ var _ = Describe("BFD", func() {
 				netmlbparameters.BGPStateEstablished)).To(BeTrue())
 
 			By("Bringing Speaker pod back and checking that speaker pods  are up and running")
-			err = netmetallbhelper.UpdateSpeakerNodeSelector(netmlbparameters.MetalLBOperatorNameSpace,
-				netmlbparameters.SpeakerNodeSelectorWorker)
+			_, err = nodes.LabelNode(helper.Apiclient,
+				workerNodeList[0].Name,
+				netmlbparameters.SpeakerNodeTestLabel, "")
 			Expect(err).ToNot(HaveOccurred())
-			Eventually(netmetallbhelper.AreSpeakersReady, deployTimeout, interval).
-				Should(BeTrue(), "Speaker pods are not ready")
+			Eventually(func() int {
+				speakerPodList, _ := helper.Apiclient.Pods(netmlbparameters.MetalLBOperatorNameSpace).List(
+					context.Background(),
+					metav1.ListOptions{LabelSelector: netmlbparameters.SpeakersLabelSelector},
+				)
+
+				return len(speakerPodList.Items)
+			}, 1*time.Minute, 1*time.Second).Should(BeNumerically("==", len(workerNodeList)))
 
 			By("Checking that BGP and BFD sessions are established and up")
 			Eventually(func() bool {
@@ -191,5 +215,27 @@ var _ = Describe("BFD", func() {
 					netmlbparameters.BFDStatusUp)
 			}, timeout, interval).ShouldNot(HaveOccurred())
 		})
+
+		It("provides Prometheus BFD metrics", func() {
+			_, err = namespaces.LabelNamespace(helper.Apiclient,
+				netmlbparameters.MetalLBOperatorNameSpace,
+				netmlbparameters.MonitoringLabel,
+				"true")
+			Expect(err).ToNot(HaveOccurred())
+			speakerPods, err := helper.Apiclient.Pods(netmlbparameters.MetalLBOperatorNameSpace).
+				List(context.Background(), metav1.ListOptions{
+					LabelSelector: netmlbparameters.SpeakersLabelSelector,
+				})
+			Expect(err).ToNot(HaveOccurred())
+			metalLBMonitoredEntriesByPod, uniqueMetricKeys := netmetallbhelper.CollectMetalLBMetricsByPod(speakerPods.Items,
+				"metallb_bfd_")
+
+			Eventually(func() error {
+				podsPerPrometheusMetricKey := netmetallbhelper.CollectPrometheusMetrics(uniqueMetricKeys)
+
+				return netmetallbhelper.ContainSameMetrics(metalLBMonitoredEntriesByPod, podsPerPrometheusMetricKey)
+			}, deployTimeout, 2*interval).Should(Not(HaveOccurred()))
+		})
 	})
+
 })

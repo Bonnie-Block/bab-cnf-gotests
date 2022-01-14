@@ -9,4 +9,8 @@ const (
 	RoleWorker = "worker"
 	// PrivPodNamespace is the namespace for privileged pods in cnf gotests.
 	PrivPodNamespace = "cnfgotestpriv"
+	// PromNamespace is the Prometheus namespace.
+	PromNamespace = "openshift-monitoring"
+	// PromLocalURL is the Prometheus http API to get metrics.
+	PromLocalURL = "http://localhost:9090/api/v1/"
 )

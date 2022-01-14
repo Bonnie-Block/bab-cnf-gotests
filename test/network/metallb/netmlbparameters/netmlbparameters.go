@@ -35,8 +35,12 @@ const (
 	Asn2                                        = 64501
 	SpeakerNodeTestLabel                        = "metallbtest"
 	BGPStateEstablished                         = "Established"
+	SpeakersLabelSelector                       = "component=speaker"
+	MonitoringLabel                             = "openshift.io/cluster-monitoring"
 	BFDStatusUp                                 = "up"
 	BFDStatusDown                               = "down"
+	BFDConfigPrefix                             = "bfd"
+	BGPConfigPrefix                             = "router bgp"
 	DaemonsFile                                 = `
 	# This file tells the frr package which daemons to start.
     #

@@ -202,7 +202,7 @@ func DefineFRRPod(masterNodeName string, namespace string) *k8sv1.Pod {
 
 type BFDDescription struct {
 	BFDStatus string `json:"status"`
-	BFDpeer   string `json:"peer"`
+	BFDPeer   string `json:"peer"`
 }
 
 // IsBFDHasStatus verifies that BFD session on a pod has given status.
@@ -221,8 +221,8 @@ func IsBFDHasStatus(frrPod *k8sv1.Pod, bfdPeer string, status string) error {
 	}
 
 	for _, peer := range result {
-		if peer.BFDpeer == bfdPeer && peer.BFDStatus != status {
-			return fmt.Errorf("%s bfd status is %s (expected %s)", peer.BFDpeer, peer.BFDStatus, status)
+		if peer.BFDPeer == bfdPeer && peer.BFDStatus != status {
+			return fmt.Errorf("%s bfd status is %s (expected %s)", peer.BFDPeer, peer.BFDStatus, status)
 		}
 	}
 

@@ -162,3 +162,20 @@ func Clean(operatorNamespace, namespace string, clientSet *testclient.ClientSet,
 
 	return err
 }
+
+// LabelNamespace set label (key & value) to a namespace.
+func LabelNamespace(clientSet *testclient.ClientSet, namespaceName, key, value string) (*k8sv1.Namespace, error) {
+	namespace, err := clientSet.Namespaces().Get(context.Background(), namespaceName, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	namespace.Labels[key] = value
+	namespace, err = clientSet.Namespaces().Update(context.Background(), namespace, metav1.UpdateOptions{})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return namespace, nil
+}

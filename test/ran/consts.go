@@ -12,9 +12,7 @@ const (
 
 const (
 	ProcessExporterPodName = "process-exporter"
-	PromNamespace          = "openshift-monitoring"
 	PromPodName            = "prometheus-k8s-0"
-	PromLocalURL           = "http://localhost:9090/api/v1/"
 )
 
 const (

@@ -19,6 +19,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/machineconfigpool"
 )
@@ -192,7 +193,8 @@ func DeleteMustGathers(mustGatherExecDir string) error {
 
 // Execute a command in Prometheus pod and returns output and error.
 func execCommandInPromPod(command []string, logCommand bool) ([]byte, error) {
-	promPod, err := helper.Apiclient.Pods(ran.PromNamespace).Get(context.TODO(), ran.PromPodName, metav1.GetOptions{})
+	promPod, err := helper.Apiclient.Pods(parameters.PromNamespace).
+		Get(context.TODO(), ran.PromPodName, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -221,7 +223,7 @@ func execCommandInPromPod(command []string, logCommand bool) ([]byte, error) {
 func ExecPromQuery(query string, logCommand bool) ([]rancpuparameters.PromMetric, error) {
 	command := []string{
 		"bash", "-c",
-		fmt.Sprintf("curl \"-s\" '%squery' --data-urlencode 'query=%s'; echo", ran.PromLocalURL, query),
+		fmt.Sprintf("curl \"-s\" '%squery' --data-urlencode 'query=%s'; echo", parameters.PromLocalURL, query),
 	}
 	output, err := execCommandInPromPod(command, logCommand)
 
