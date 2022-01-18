@@ -27,7 +27,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 )
 
-var TestNamespaces = sets.NewString(ran.NamespaceTesting, parameters.PrivPodNamespace)
+var TestNamespaces = sets.NewString(ran.NamespaceTesting, parameters.PrivPodNamespace, ran.NamespaceFec)
 
 var _ = Describe("SNO management workload partitioning", func() {
 	var (

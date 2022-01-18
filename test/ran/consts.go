@@ -7,6 +7,7 @@ const (
 const (
 	// NamespaceTesting contains the name of the testing namespace.
 	NamespaceTesting = "ran-test"
+	NamespaceFec     = "vran-acceleration-operators"
 )
 
 const (
