@@ -20,12 +20,12 @@ require (
 	golang.org/x/lint v0.0.0-20210508222113-6edffad5e616 // indirect
 	golang.org/x/tools v0.1.7 // indirect
 	gopkg.in/yaml.v2 v2.4.0
-	k8s.io/api v0.20.4
-	k8s.io/apiextensions-apiserver v0.20.4
-	k8s.io/apimachinery v0.20.4
+	k8s.io/api v0.20.6
+	k8s.io/apiextensions-apiserver v0.20.6
+	k8s.io/apimachinery v0.20.6
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/kubernetes v1.21.1
-	k8s.io/utils v0.0.0-20201110183641-67b214c5f920
+	k8s.io/utils v0.0.0-20210111153108-fddb29f9d009
 	sigs.k8s.io/controller-runtime v0.8.3
 )
 
@@ -70,6 +70,7 @@ replace (
 	github.com/openshift/cluster-node-tuning-operator => github.com/openshift/cluster-node-tuning-operator v0.0.0-20210205110635-24392937d275 // release-4.7
 	github.com/openshift/library-go => github.com/openshift/library-go v0.0.0-20200421122923-c1de486c7d47 // fix bitbucket dependency https://github.com/openshift/library-go/pull/776
 	github.com/openshift/machine-config-operator => github.com/openshift/machine-config-operator v0.0.0-20210317203040-17ef0905ea26 // release-4.7
+	github.com/operator-framework/operator-lifecycle-manager => github.com/operator-framework/operator-lifecycle-manager v0.18.3
 	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.6.3
 )
 

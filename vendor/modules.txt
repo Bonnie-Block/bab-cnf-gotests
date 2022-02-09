@@ -367,7 +367,7 @@ github.com/fsnotify/fsnotify
 github.com/fsouza/go-dockerclient
 # github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
 github.com/ghodss/yaml
-# github.com/go-logr/logr v0.3.0
+# github.com/go-logr/logr v0.4.0
 github.com/go-logr/logr
 # github.com/go-openapi/jsonpointer v0.19.3
 github.com/go-openapi/jsonpointer
@@ -407,9 +407,10 @@ github.com/google/go-cmp/cmp/internal/value
 github.com/google/gofuzz
 # github.com/google/uuid v1.1.2
 github.com/google/uuid
-# github.com/googleapis/gnostic v0.4.1
+# github.com/googleapis/gnostic v0.5.1
 github.com/googleapis/gnostic/compiler
 github.com/googleapis/gnostic/extensions
+github.com/googleapis/gnostic/jsonschema
 github.com/googleapis/gnostic/openapiv2
 # github.com/gorilla/mux v1.8.0
 github.com/gorilla/mux
@@ -477,7 +478,7 @@ github.com/mailru/easyjson/jwriter
 github.com/manifoldco/promptui
 github.com/manifoldco/promptui/list
 github.com/manifoldco/promptui/screenbuf
-# github.com/mattn/go-colorable v0.1.2
+# github.com/mattn/go-colorable v0.1.7
 github.com/mattn/go-colorable
 # github.com/mattn/go-isatty v0.0.12
 github.com/mattn/go-isatty
@@ -805,7 +806,7 @@ golang.org/x/text/transform
 golang.org/x/text/unicode/bidi
 golang.org/x/text/unicode/norm
 golang.org/x/text/width
-# golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
+# golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba
 golang.org/x/time/rate
 # golang.org/x/tools v0.1.7
 ## explicit
@@ -822,7 +823,7 @@ google.golang.org/appengine/internal/urlfetch
 google.golang.org/appengine/urlfetch
 # google.golang.org/genproto v0.0.0-20201110150050-8816d57aaa9a
 google.golang.org/genproto/googleapis/rpc/status
-# google.golang.org/grpc v1.29.1
+# google.golang.org/grpc v1.30.0
 google.golang.org/grpc/codes
 google.golang.org/grpc/internal/status
 google.golang.org/grpc/status
@@ -870,7 +871,9 @@ gopkg.in/tomb.v1
 # gopkg.in/yaml.v2 v2.4.0
 ## explicit
 gopkg.in/yaml.v2
-# k8s.io/api v0.20.4 => k8s.io/api v0.20.2
+# gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
+gopkg.in/yaml.v3
+# k8s.io/api v0.20.6 => k8s.io/api v0.20.2
 ## explicit
 k8s.io/api/admission/v1beta1
 k8s.io/api/admissionregistration/v1
@@ -916,7 +919,7 @@ k8s.io/api/scheduling/v1beta1
 k8s.io/api/storage/v1
 k8s.io/api/storage/v1alpha1
 k8s.io/api/storage/v1beta1
-# k8s.io/apiextensions-apiserver v0.20.4 => k8s.io/apiextensions-apiserver v0.20.2
+# k8s.io/apiextensions-apiserver v0.20.6 => k8s.io/apiextensions-apiserver v0.20.2
 ## explicit
 k8s.io/apiextensions-apiserver/pkg/apis/apiextensions
 k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1
@@ -932,7 +935,7 @@ k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions/apiextensio
 k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions/internalinterfaces
 k8s.io/apiextensions-apiserver/pkg/client/listers/apiextensions/v1
 k8s.io/apiextensions-apiserver/pkg/client/listers/apiextensions/v1beta1
-# k8s.io/apimachinery v0.20.4 => k8s.io/apimachinery v0.20.2
+# k8s.io/apimachinery v0.20.6 => k8s.io/apimachinery v0.20.2
 ## explicit
 k8s.io/apimachinery/pkg/api/equality
 k8s.io/apimachinery/pkg/api/errors
@@ -1160,14 +1163,14 @@ k8s.io/client-go/util/flowcontrol
 k8s.io/client-go/util/homedir
 k8s.io/client-go/util/keyutil
 k8s.io/client-go/util/workqueue
-# k8s.io/component-base v0.20.4 => k8s.io/component-base v0.20.2
+# k8s.io/component-base v0.20.6 => k8s.io/component-base v0.20.2
 k8s.io/component-base/config
 k8s.io/component-base/config/v1alpha1
 # k8s.io/klog v1.0.0
 k8s.io/klog
 # k8s.io/klog/v2 v2.4.0
 k8s.io/klog/v2
-# k8s.io/kube-openapi v0.0.0-20201113171705-d219536bb9fd
+# k8s.io/kube-openapi v0.0.0-20210305001622-591a79e4bda7
 k8s.io/kube-openapi/pkg/common
 k8s.io/kube-openapi/pkg/util/proto
 # k8s.io/kubelet v0.20.0 => k8s.io/kubelet v0.20.4
@@ -1175,7 +1178,7 @@ k8s.io/kubelet/config/v1beta1
 # k8s.io/kubernetes v1.21.1 => k8s.io/kubernetes v1.20.2
 ## explicit
 k8s.io/kubernetes/pkg/kubelet/cm/cpuset
-# k8s.io/utils v0.0.0-20201110183641-67b214c5f920
+# k8s.io/utils v0.0.0-20210111153108-fddb29f9d009
 ## explicit
 k8s.io/utils/buffer
 k8s.io/utils/integer
@@ -1259,4 +1262,5 @@ sigs.k8s.io/yaml
 # github.com/openshift/cluster-node-tuning-operator => github.com/openshift/cluster-node-tuning-operator v0.0.0-20210205110635-24392937d275
 # github.com/openshift/library-go => github.com/openshift/library-go v0.0.0-20200421122923-c1de486c7d47
 # github.com/openshift/machine-config-operator => github.com/openshift/machine-config-operator v0.0.0-20210317203040-17ef0905ea26
+# github.com/operator-framework/operator-lifecycle-manager => github.com/operator-framework/operator-lifecycle-manager v0.18.3
 # sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.6.3
