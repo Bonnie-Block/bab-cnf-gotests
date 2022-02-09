@@ -250,7 +250,7 @@ func BondInterfaceHasSlaves(clientPod *corev1.Pod, bondInterfaceName string, num
 
 // defineSriovBondNetwork builds SriovNetwork resource for Bond Interface.
 func defineSriovBondNetwork(name string, resourceName string) *sriovv1.SriovNetwork {
-	sriovNetwork := defineSriovNetwork(name, resourceName)
+	sriovNetwork := DefineSriovNetwork(name, resourceName)
 	sriovNetwork.Spec.Trust = "on"
 	sriovNetwork.Spec.SpoofChk = "off"
 

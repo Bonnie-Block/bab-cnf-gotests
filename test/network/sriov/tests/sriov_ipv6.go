@@ -31,6 +31,7 @@ var _ = Describe("CNF SRIOV", func() {
 	)
 
 	execute.BeforeAll(func() {
+		netsriovhelper.VerifySriovOperatorInstalledAndPreconfigured(operatorGroup, sriovSubscription)
 		By("Discover SRIOV interfaces")
 		sriovInfos, err = cluster.DiscoverSriov(
 			Apiclient,

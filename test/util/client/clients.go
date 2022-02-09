@@ -13,6 +13,8 @@ import (
 	mcv1 "github.com/openshift/machine-config-operator/pkg/apis/machineconfiguration.openshift.io/v1"
 	clientmachineconfigv1 "github.com/openshift/machine-config-operator/pkg/generated/clientset/versioned/typed/machineconfiguration.openshift.io/v1"
 	ptpv1 "github.com/openshift/ptp-operator/pkg/client/clientset/versioned/typed/ptp/v1"
+	olm2 "github.com/operator-framework/operator-lifecycle-manager/pkg/api/client/clientset/versioned/scheme"
+	olm "github.com/operator-framework/operator-lifecycle-manager/pkg/api/client/clientset/versioned/typed/operators/v1alpha1"
 	fecv2 "github.com/smart-edge-open/openshift-operator/sriov-fec/api/v2"
 	"k8s.io/apimachinery/pkg/runtime"
 	discovery "k8s.io/client-go/discovery"
@@ -45,6 +47,7 @@ type ClientSet struct {
 	Config *rest.Config
 	runtimeclient.Client
 	ptpv1.PtpV1Interface
+	olm.OperatorsV1alpha1Interface
 }
 
 // New returns a *ClientBuilder with the given kubeconfig.
@@ -80,6 +83,8 @@ func New(kubeconfig string) *ClientSet {
 	clientSet.NetworkingV1Client = *networkv1client.NewForConfigOrDie(config)
 	clientSet.PtpV1Interface = ptpv1.NewForConfigOrDie(config)
 	clientSet.RbacV1Interface = rbacv1client.NewForConfigOrDie(config)
+	clientSet.OperatorsV1alpha1Interface = olm.NewForConfigOrDie(config)
+
 	clientSet.Config = config
 
 	crScheme := runtime.NewScheme()
@@ -120,6 +125,10 @@ func New(kubeconfig string) *ClientSet {
 	}
 
 	if err := performancev2.AddToScheme(crScheme); err != nil {
+		panic(err)
+	}
+
+	if err := olm2.AddToScheme(crScheme); err != nil {
 		panic(err)
 	}
 

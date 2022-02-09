@@ -4,6 +4,10 @@ export PATH=$PATH:$GOPATH/bin
 EXCLUDED_FOLDERS="cnf-tests ran"
 ALL_TESTS_FOLDERS=$(ls -d ./test/*/)
 
+# Suppress deprecation warning
+export ACK_GINKGO_DEPRECATIONS=1.16.5
+export ACK_GINKGO_RC=true
+
 function run_tests {
     case $1 in
         all)

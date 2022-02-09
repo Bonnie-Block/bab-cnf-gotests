@@ -28,6 +28,7 @@ const (
 	OperatorTestNamespace             = "sriov-operator-tests"
 	OperatorNamespace                 = "openshift-sriov-network-operator"
 	SriovErrorProtocolMessage         = "Unsupported test parameter"
+	SriovNetworkPolicyMTUUsual        = "test-policy-usual"
 	SriovNetworkUsualMTUName          = "test-sriov-static-usual"
 	SriovNetworkCustomMTUName         = "test-sriov-static-custom"
 	SriovNetworkJumboFrameName        = "test-sriov-static-jumbo"
@@ -38,6 +39,13 @@ const (
 	SriovNetworkBondNameDiff          = "test-sriov-static-bond-diff"
 	SriovScaleBondName                = "test-sriov-scale-bond"
 	SriovScaleBondNameDiff            = "test-sriov-scale-bond-diff"
+	SriovOperatorDeploymentName       = "sriov-network-operator"
+	SriovWebhookResourceInjector      = "network-resources-injector-config"
+	SriovWebhookOperator              = "sriov-operator-webhook-config"
+	SriovOperatorGroupName            = "sriov-network-operators"
+	SriovOperatorSubscriptionName     = "sriov-network-operator-subscription"
+	SriovOperatorDeploymentTime       = 10 * time.Minute
+	SriovOperatorDeploymentRetry      = 30 * time.Second
 	ClientPodIP                       = "192.168.100.1"
 	ClientPodIPv6                     = "2001:1db8:85a3::2"
 	ClientMacAddress                  = "20:04:0f:f1:88:01"
@@ -90,6 +98,14 @@ var (
 		{Cr: &sriovv1.SriovNetworkNodeStateList{}},
 		{Cr: &sriovv1.SriovOperatorConfigList{}},
 	}
+	SriovCrds = []string{
+		"sriovoperatorconfigs.sriovnetwork.openshift.io", "sriovnetworks.sriovnetwork.openshift.io",
+		"sriovnetworkpoolconfigs.sriovnetwork.openshift.io", "sriovnetworknodestates.sriovnetwork.openshift.io",
+		"sriovnetworknodepolicies.sriovnetwork.openshift.io", "sriovibnetworks.sriovnetwork.openshift.io",
+	}
+	SriovOperatorDaemonSets = []string{"network-resources-injector", "operator-webhook", "sriov-network-config-daemon"}
+	SriovMutationWebhooks   = []string{SriovWebhookResourceInjector, SriovWebhookOperator}
+	SriovValidationWebhook  = "sriov-operator-webhook-config"
 )
 
 // ConnectivityTestParameters contains test parameters for connectivity.

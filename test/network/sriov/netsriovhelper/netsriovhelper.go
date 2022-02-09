@@ -8,6 +8,9 @@ import (
 	"strings"
 	"time"
 
+	v1 "github.com/operator-framework/api/pkg/operators/v1"
+	"github.com/operator-framework/api/pkg/operators/v1alpha1"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -19,6 +22,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/cluster"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 
 	sriovv1 "github.com/k8snetworkplumbingwg/sriov-network-operator/api/v1"
@@ -34,15 +38,15 @@ const (
 
 // defineSriovNetworkStaticIPAM builds SriovNetwork resource.
 func defineSriovNetworkWithStaticIPAM(name string, resourceName string) *sriovv1.SriovNetwork {
-	sriovNetwork := defineSriovNetwork(name, resourceName)
+	sriovNetwork := DefineSriovNetwork(name, resourceName)
 	sriovNetwork.Spec.IPAM = `{ "type": "static" }`
 	sriovNetwork.Spec.Capabilities = `{ "mac": true, "ips": true }`
 
 	return sriovNetwork
 }
 
-// defineSriovNetwork builds SriovNetwork resource.
-func defineSriovNetwork(name string, resourceName string) *sriovv1.SriovNetwork {
+// DefineSriovNetwork builds SriovNetwork resource.
+func DefineSriovNetwork(name string, resourceName string) *sriovv1.SriovNetwork {
 	return &sriovv1.SriovNetwork{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -812,5 +816,67 @@ func disableDrainState() {
 	if !disableDrainState {
 		SetDisableNodeDrainState(true, netsriovparameters.OperatorNamespace)
 		ChangedNodeDrainState = true
+	}
+}
+
+func IsSriovPreConfigured() bool {
+	sriovPolicies, err := Apiclient.SriovNetworkNodePolicies(generalParameters.SriovOperatorNamespace).List(
+		context.TODO(), metav1.ListOptions{})
+	Expect(err).ToNot(HaveOccurred())
+
+	if len(sriovPolicies.Items) < 2 {
+		return false
+	}
+
+	sriovNetworks, err := Apiclient.SriovNetworks(
+		generalParameters.SriovOperatorNamespace).List(context.TODO(), metav1.ListOptions{})
+	Expect(err).ToNot(HaveOccurred())
+
+	return len(sriovNetworks.Items) >= 2
+}
+
+func SriovPreConfiguration() {
+	var snoTimeoutMultiplier time.Duration = 1
+
+	isSingleNode, err := nodes.IsSingleNodeCluster(Apiclient)
+	Expect(err).ToNot(HaveOccurred())
+
+	if isSingleNode {
+		snoTimeoutMultiplier = 2
+	}
+
+	sriovInfos, err := cluster.DiscoverSriov(Apiclient, netsriovparameters.OperatorNamespace)
+	Expect(err).ToNot(HaveOccurred())
+	SetupSriovConfig(sriovInfos, snoTimeoutMultiplier)
+}
+
+func VerifySriovOperatorInstalledAndPreconfigured(operatorGroup v1.OperatorGroup,
+	sriovSubscription *v1alpha1.Subscription) {
+	By("Checking if SR-IOV operator installed")
+
+	if IsSriovOperatorInstalled() != nil {
+		By("SR-IOV Operator is not installed, start deployment")
+
+		err := DeploySriovOperator(&operatorGroup, sriovSubscription)
+		Expect(err).ToNot(HaveOccurred())
+
+		Eventually(
+			IsSriovOperatorInstalled,
+			netsriovparameters.SriovOperatorDeploymentTime,
+			netsriovparameters.SriovOperatorDeploymentRetry).ShouldNot(HaveOccurred())
+
+		Eventually(func() error {
+			_, err = cluster.DiscoverSriov(Apiclient, netsriovparameters.OperatorNamespace)
+
+			return err
+		}, netsriovparameters.SriovOperatorDeploymentTime,
+			netsriovparameters.SriovOperatorDeploymentRetry).ShouldNot(HaveOccurred())
+	}
+
+	By("Check if SR-IOV operator preconfigured")
+
+	if !IsSriovPreConfigured() {
+		By("Configure SR-IOV operator")
+		SriovPreConfiguration()
 	}
 }

@@ -15,6 +15,8 @@ require (
 	github.com/openshift/machine-config-operator v4.2.0-alpha.0.0.20190917115525-033375cbe820+incompatible
 	github.com/openshift/ptp-operator v0.0.0-20210110151302-58d8ffd4a37e
 	github.com/opentracing/opentracing-go v1.2.0
+	github.com/operator-framework/api v0.9.2
+	github.com/operator-framework/operator-lifecycle-manager v3.11.0+incompatible
 	github.com/pkg/errors v0.9.1
 	github.com/smart-edge-open/openshift-operator/sriov-fec v0.0.0-20210929104519-4a309763e614
 	golang.org/x/lint v0.0.0-20210508222113-6edffad5e616 // indirect
