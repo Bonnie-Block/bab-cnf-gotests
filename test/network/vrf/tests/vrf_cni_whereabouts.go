@@ -17,14 +17,17 @@ import (
 )
 
 var _ = Describe("CNF VRF", func() {
-
 	describe := netvrfhelper.DescribeParameters
 
 	var (
-		nodeListString []string
-		vrfBlue        netattdefv1.NetworkAttachmentDefinition
-		vrfRed         netattdefv1.NetworkAttachmentDefinition
-		testFail       = ""
+		nodeListString    []string
+		vrfBlueRange1     netattdefv1.NetworkAttachmentDefinition
+		vrfRedRange1      netattdefv1.NetworkAttachmentDefinition
+		vrfIPv6BlueRange1 netattdefv1.NetworkAttachmentDefinition
+		vrfIPv6RedRange1  netattdefv1.NetworkAttachmentDefinition
+		testFail          = ""
+		vrfBlueIPs        []string
+		vrfRedIPs         []string
 	)
 
 	execute.BeforeAll(func() {
@@ -38,21 +41,35 @@ var _ = Describe("CNF VRF", func() {
 			Expect(err).ToNot(HaveOccurred(), testFail)
 		}
 		validMacVlanInterfaces := netvrfhelper.GetNodeValidMacVlanInterface(nodeListString[0], generalHelper.Config, 1)
-
 		By("Adding NADs")
-		vrfBlue = netvrfhelper.AddVRFNad(
-			"test-vrf-blue",
+		vrfBlueRange1 = netvrfhelper.AddVRFNad(
+			"test-vrf-blue-1",
 			validMacVlanInterfaces[0].Name,
 			netvrfparameters.VRFBlueName,
-			netvrfparameters.VRFIpamStatic,
-			"")
-
-		vrfRed = netvrfhelper.AddVRFNad(
-			"test-vrf-red",
+			netvrfparameters.IpamWhereabouts,
+			netvrfparameters.WhereaboutsV4Range1)
+		vrfRedRange1 = netvrfhelper.AddVRFNad(
+			"test-vrf-red-1",
 			validMacVlanInterfaces[0].Name,
 			netvrfparameters.VRFRedName,
-			netvrfparameters.VRFIpamStatic,
-			"")
+			netvrfparameters.IpamWhereabouts,
+			netvrfparameters.WhereaboutsV4Range1)
+
+		vrfIPv6BlueRange1 = netvrfhelper.AddVRFNad(
+			"test-vrf-blue-2",
+			validMacVlanInterfaces[0].Name,
+			netvrfparameters.VRFBlueName,
+			netvrfparameters.IpamWhereabouts,
+			netvrfparameters.WhereaboutsV6Range1)
+		vrfIPv6RedRange1 = netvrfhelper.AddVRFNad(
+			"test-vrf-red-2",
+			validMacVlanInterfaces[0].Name,
+			netvrfparameters.VRFRedName,
+			netvrfparameters.IpamWhereabouts,
+			netvrfparameters.WhereaboutsV6Range1)
+
+		vrfBlueIPs = append(vrfBlueIPs, vrfBlueRange1.Name, vrfIPv6BlueRange1.Name)
+		vrfRedIPs = append(vrfRedIPs, vrfRedRange1.Name, vrfIPv6RedRange1.Name)
 	})
 
 	BeforeEach(func() {
@@ -64,55 +81,18 @@ var _ = Describe("CNF VRF", func() {
 		Expect(err).ToNot(HaveOccurred())
 	})
 
-	// 36305
-	DescribeTable("Integration: NAD, IPAM: static, Interfaces: 1, Scheme: 2 Pods 2 VRFs OCP Primary network overlap",
+	// 36325
+	DescribeTable("Integration: NAD, IPAM: Whereabouts, Interfaces: 1, VRF Scheme: 2 Pods 2 VRFs ip network overlap",
 		func(node string, ipStack string) {
-			netvrfhelper.TestVRFScenario(
+			netvrfhelper.TestVRFWAIPScenario(
 				node,
 				ipStack,
-				"overLapToSDN",
 				generalHelper.Config,
 				nodeListString,
-				vrfBlue.Name,
-				vrfRed.Name,
-				netvrfparameters.VRFIpamStatic)
+				vrfBlueIPs,
+				vrfRedIPs)
 		},
-		Entry(describe, netvrfparameters.SameNode, netvrfparameters.IPStackIPv4),
-		Entry(describe, netvrfparameters.DiffNode, netvrfparameters.IPStackIPv4),
-	)
 
-	// 36313
-	DescribeTable("Integration: NAD, IPAM: static, Interfaces: 1, Scheme: 2 Pods 2 VRFs ip network overlap",
-		func(node string, ipStack string) {
-			netvrfhelper.TestVRFScenario(
-				node,
-				ipStack,
-				"overLapToVRF",
-				generalHelper.Config,
-				nodeListString,
-				vrfBlue.Name,
-				vrfRed.Name,
-				netvrfparameters.VRFIpamStatic)
-		},
-		Entry(describe, netvrfparameters.SameNode, netvrfparameters.IPStackIPv4),
-		Entry(describe, netvrfparameters.DiffNode, netvrfparameters.IPStackIPv4),
-		Entry(describe, netvrfparameters.SameNode, netvrfparameters.IPStackIPv6),
-		Entry(describe, netvrfparameters.DiffNode, netvrfparameters.IPStackIPv6),
-	)
-
-	// 36320
-	DescribeTable("Integration: NAD, IPAM: static, Interfaces: 1, Scheme: 2 Pods 2 VRFs Different IP networks",
-		func(node string, ipStack string) {
-			netvrfhelper.TestVRFScenario(
-				node,
-				ipStack,
-				"nonOverLap",
-				generalHelper.Config,
-				nodeListString,
-				vrfBlue.Name,
-				vrfRed.Name,
-				netvrfparameters.VRFIpamStatic)
-		},
 		Entry(describe, netvrfparameters.SameNode, netvrfparameters.IPStackIPv4),
 		Entry(describe, netvrfparameters.DiffNode, netvrfparameters.IPStackIPv4),
 		Entry(describe, netvrfparameters.SameNode, netvrfparameters.IPStackIPv6),

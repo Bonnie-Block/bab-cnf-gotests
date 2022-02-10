@@ -50,7 +50,7 @@ func SetupSriovBeforeAll(config *config.Config, sriovInfos *cluster.EnabledNodes
 	var (
 		resourceNameRange                            = []string{netvrfparameters.ResourceNameVRF}
 		snoTimeoutMultiplier           time.Duration = 1
-		requestedIntefcace                           = 1
+		requestedInterface                           = 1
 		resourceNameVrfRed                           = netvrfparameters.ResourceNameVRF
 		resourceNameVrfBlue                          = netvrfparameters.ResourceNameVRF
 		sriovNetworkInterfaceIndexRed                = 0
@@ -59,7 +59,7 @@ func SetupSriovBeforeAll(config *config.Config, sriovInfos *cluster.EnabledNodes
 
 	if dual {
 		resourceNameRange = []string{netvrfparameters.ResourceNameVRFVf1, netvrfparameters.ResourceNameVRFVf2}
-		requestedIntefcace = 2
+		requestedInterface = 2
 		resourceNameVrfRed = netvrfparameters.ResourceNameVRFVf1
 		resourceNameVrfBlue = netvrfparameters.ResourceNameVRFVf2
 		sriovNetworkInterfaceIndexRed = 0
@@ -81,7 +81,7 @@ func SetupSriovBeforeAll(config *config.Config, sriovInfos *cluster.EnabledNodes
 
 	sriovInterfaces, err := sriovInfos.FindSriovDevices(sriovInfos.Nodes[0])
 	Expect(err).ToNot(HaveOccurred())
-	validSriovInterfaces, err := config.GetSriovInterfaces(sriovInterfaces, requestedIntefcace)
+	validSriovInterfaces, err := config.GetSriovInterfaces(sriovInterfaces, requestedInterface)
 	Expect(err).ToNot(HaveOccurred())
 
 	By(fmt.Sprintf("Clean test namespace %s", netvrfparameters.TestNamespace))

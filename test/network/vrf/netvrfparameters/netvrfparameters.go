@@ -28,13 +28,17 @@ const (
 	WaitingTime             = 20 * time.Minute
 	TCPPort                 = 8080
 	VRFClientIPAddress      = "10.255.255.1"
+	VRFServerIPAddress      = "10.255.255.2"
 	VRFClientMacAddressBlue = "20:04:0f:f1:88:A1"
 	VRFClientMacAddressRed  = "20:04:0f:f1:88:B2"
 	VRFServerMacAddressBlue = "20:04:0f:f1:88:A3"
 	VRFServerMacAddressRed  = "20:04:0f:f1:88:B4"
-	VRFServerIPAddress      = "10.255.255.2"
-	VRFIpamDHCP             = "dhcp"
 	VRFIpamStatic           = "static"
+	VRFIpamDHCP             = "dhcp"
+	IpamWhereabouts         = "whereabouts"
+	WhereaboutsV4Range1     = "192.168.100.0/24"
+	WhereaboutsV6Range1     = "2001:1db8:85a3::0/96"
+	AnnotationNetStat       = "k8s.v1.cni.cncf.io/network-status"
 )
 
 var (

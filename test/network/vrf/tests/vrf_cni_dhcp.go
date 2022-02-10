@@ -43,12 +43,14 @@ var _ = Describe("CNF VRF", func() {
 			"test-vrf-blue",
 			validMacVlanInterfaces[0].Name,
 			netvrfparameters.VRFBlueName,
-			netvrfparameters.VRFIpamDHCP)
+			netvrfparameters.VRFIpamDHCP,
+			"")
 		vrfRed = netvrfhelper.AddVRFNad(
 			"test-vrf-red",
 			validMacVlanInterfaces[0].Name,
 			netvrfparameters.VRFRedName,
-			netvrfparameters.VRFIpamDHCP)
+			netvrfparameters.VRFIpamDHCP,
+			"")
 	})
 
 	BeforeEach(func() {

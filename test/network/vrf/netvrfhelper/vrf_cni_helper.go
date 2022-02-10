@@ -38,19 +38,9 @@ func GetNodeValidMacVlanInterface(nodeName string, config *config.Config, reques
 	return validMacVlanInterfaces
 }
 
-// AddVRFNad creates a Network Attachment Definition.
-func AddVRFNad(nadName string, ifName string, vrfName string, ipam string) netattdefv1.NetworkAttachmentDefinition {
-	ipamStatic := netvrfparameters.VRFIpamStatic
-
-	switch ipam {
-	case netvrfparameters.VRFIpamStatic:
-		ipam = ipamStatic
-	case netvrfparameters.VRFIpamDHCP:
-		ipam = netvrfparameters.VRFIpamDHCP
-	default:
-		ipam = netvrfparameters.VRFIpamStatic
-	}
-
+// AddVRFNad creates a Network Attachment Definition for static and dynamic IP addresses.
+// For static IPs leave the "ipRange" argument empty ("").
+func AddVRFNad(nadName string, ifName string, vrfName string, ipam string, ipRange string) netattdefv1.NetworkAttachmentDefinition {
 	vrfDefinition := netattdefv1.NetworkAttachmentDefinition{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: nadName,
@@ -58,12 +48,50 @@ func AddVRFNad(nadName string, ifName string, vrfName string, ipam string) netat
 		},
 		Spec: netattdefv1.NetworkAttachmentDefinitionSpec{
 			Config: fmt.Sprintf(
-				`{"cniVersion": "0.4.0", "name": "macvlan-vrf", "plugins": [{"type": "macvlan","master": "%s","ipam": {"type": "%s"}},{"type": "vrf","vrfname": "%s"}]}`,
-				ifName,
-				ipam,
-				vrfName),
-		},
+				`{
+					"cniVersion": "0.4.0",
+					"name": "macvlan-vrf",
+					"plugins":
+					[
+						{
+							"type": "macvlan",
+							"master": "%s",`,
+				ifName),
+		}}
+
+	switch ipam {
+	case netvrfparameters.VRFIpamStatic, netvrfparameters.VRFIpamDHCP:
+		vrfDefinition.Spec.Config += fmt.Sprintf(
+			`
+							"ipam": {"type": "%s"}
+						},
+						{
+							"type": "vrf",
+							"vrfname": "%s"
+						}
+					]
+				}`,
+			ipam, vrfName)
+	case netvrfparameters.IpamWhereabouts:
+		vrfDefinition.Spec.Config += fmt.Sprintf(
+			`
+							"ipam":
+							{
+								"type": "%s",
+								"range": "%s"
+							}
+						},
+						{
+							"type": "vrf",
+							"vrfname": "%s"
+						}
+					]
+				}`,
+			ipam,
+			ipRange,
+			vrfName)
 	}
+
 	err := generalHelper.Apiclient.Create(context.Background(), &vrfDefinition)
 	Expect(err).ToNot(HaveOccurred())
 
@@ -75,7 +103,7 @@ func getNodeInterfaces(
 	conf *config.Config,
 	nodeInterfaceList []nodes.NodeInterface,
 	requestedNumber int) ([]nodes.NodeInterface, error) {
-	var validNodeIntefaceList []nodes.NodeInterface
+	var validNodeInterfaceList []nodes.NodeInterface
 
 	if conf.Network.SriovInterfaces == "" {
 		return nil, fmt.Errorf("environment variable CNF_INTERFACES_LIST is not set")
@@ -90,16 +118,16 @@ func getNodeInterfaces(
 	for _, availableNodeInterface := range nodeInterfaceList {
 		for _, requestedNodeInterface := range requestedNodeInterfaceList {
 			if availableNodeInterface.Name == requestedNodeInterface {
-				validNodeIntefaceList = append(validNodeIntefaceList, availableNodeInterface)
+				validNodeInterfaceList = append(validNodeInterfaceList, availableNodeInterface)
 			}
 		}
 	}
 
-	if len(validNodeIntefaceList) < requestedNumber {
+	if len(validNodeInterfaceList) < requestedNumber {
 		return nil, fmt.Errorf(
 			"requested interfaces %v are not present on cluster node",
 			requestedNodeInterfaceList)
 	}
 
-	return validNodeIntefaceList, nil
+	return validNodeInterfaceList, nil
 }

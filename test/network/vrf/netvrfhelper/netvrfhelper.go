@@ -117,7 +117,7 @@ func TestVRFScenario(node string, ipStack string, ipOverLap string, config *conf
 		}
 	default:
 		{
-			Fail(fmt.Sprintf("%v scenario doesn't exsit", ipOverLap))
+			Fail(fmt.Sprintf("%v scenario doesn't exist", ipOverLap))
 		}
 	}
 
