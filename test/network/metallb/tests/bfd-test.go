@@ -42,6 +42,9 @@ var (
 
 var _ = Describe("BFD", func() {
 	execute.BeforeAll(func() {
+		By("Setup Metallb")
+		netmetallbhelper.SetupMetalLB()
+
 		By("Checking MetalLB operator is installed and running")
 		Eventually(netmetallbhelper.IsMetalLBAvailable, deployTimeout, interval).ShouldNot(HaveOccurred())
 	})

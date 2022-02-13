@@ -13,7 +13,7 @@ const (
 	TestNamespace       = "bfd-test"
 	BFDStatusUp         = "up"
 	DeletionTimeout     = time.Minute * 5
-	WaitingTime         = time.Second * 30
+	WaitingTime         = time.Second * 120
 	Interval            = time.Second * 2
 	DaemonsFile         = `
 	# This file tells the frr package which daemons to start.

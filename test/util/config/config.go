@@ -29,10 +29,13 @@ type Config struct {
 		DumpFailedTestsReportLocation string `envconfig:"REPORTER_ERROR_OUTPUT"`
 	} `yaml:"general"`
 	Network struct {
-		TestContainerImage   string `yaml:"test_container_image" envconfig:"NETWORK_TEST_CONTAINER_IMAGE"`
-		SriovInterfaces      string `envconfig:"CNF_INTERFACES_LIST"`
-		MetalLBAddressPoolIP string `envconfig:"METALLB_ADDR_LIST"`
-		FrrImage             string `yaml:"frr_image" envconfig:"FRR_IMAGE"`
+		TestContainerImage     string `yaml:"test_container_image" envconfig:"NETWORK_TEST_CONTAINER_IMAGE"`
+		SriovInterfaces        string `envconfig:"CNF_INTERFACES_LIST"`
+		MetalLBAddressPoolIP   string `envconfig:"METALLB_ADDR_LIST"`
+		FrrImage               string `yaml:"frr_image" envconfig:"FRR_IMAGE"`
+		MetalLBAddressPoolIPV4 string `envconfig:"METALLB_ADDRV4_LIST"`
+		MetalLBAddressPoolIPV6 string `envconfig:"METALLB_ADDRV6_LIST"`
+		MetalLBDeployIP        string `envconfig:"DEPLOY_IP"`
 	} `yaml:"network"`
 	Ran struct {
 		CnfTestImage              string `yaml:"cnf_test_image" envconfig:"CNF_TEST_IMAGE"`
@@ -164,9 +167,25 @@ func DefineClients() (*testclient.ClientSet, error) {
 	return clients, nil
 }
 
-// GetMetallbVirtIP checks the environmental variable and returns the value in []string.
-func (c *Config) GetMetallbVirtIP() ([]string, error) {
-	envValue := strings.Split(c.Network.MetalLBAddressPoolIP, ",")
+// GetMetallbVirtIP IPv4 checks the environmental variable and returns the value in []string.
+func (c *Config) GetMetallbVirtIPv4() ([]string, error) {
+	envValue := strings.Split(c.Network.MetalLBAddressPoolIPV4, ",")
+	if len(envValue) < 2 {
+		return nil, fmt.Errorf("there are not enough environment IP variables")
+	}
+
+	for _, v := range envValue {
+		if net.ParseIP(v) == nil {
+			return nil, fmt.Errorf("the environment IP variable is not a valid IP")
+		}
+	}
+
+	return envValue, nil
+}
+
+// GetMetallbVirtIP IPv6 checks the environmental variable and returns the value in []string.
+func (c *Config) GetMetallbVirtIPv6() ([]string, error) {
+	envValue := strings.Split(c.Network.MetalLBAddressPoolIPV6, ",")
 	if len(envValue) < 2 {
 		return nil, nil
 	}
@@ -178,4 +197,13 @@ func (c *Config) GetMetallbVirtIP() ([]string, error) {
 	}
 
 	return envValue, nil
+}
+
+// GetEnvIPStack IPv4 checks the environmental variable and returns the value in []string.
+func (c *Config) GetEnvIPStack() (string, error) {
+	if len(c.Network.MetalLBDeployIP) < 1 {
+		return "", nil
+	}
+
+	return c.Network.MetalLBDeployIP, nil
 }

@@ -9,15 +9,12 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"github.com/metallb/metallb-operator/api/v1beta1"
-	metallbutils "github.com/metallb/metallb-operator/test/e2e/metallb"
 	"github.com/onsi/ginkgo/reporters"
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/metallb/netmetallbhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/metallb/netmlbparameters"
 	_ "gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/metallb/tests"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 	testutils "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/utils"
@@ -46,8 +43,6 @@ func TestLB(t *testing.T) {
 	RunSpecsWithDefaultAndCustomReporters(t, "MetalLB tests", reporterList)
 }
 
-var metallb *v1beta1.MetalLB
-
 var _ = BeforeSuite(func() {
 	isSingleNode, err := nodes.IsSingleNodeCluster(helper.Apiclient)
 	Expect(err).ToNot(HaveOccurred())
@@ -58,34 +53,24 @@ var _ = BeforeSuite(func() {
 	By(fmt.Sprintf("Create %s namespace", netmlbparameters.TestNamespace))
 	err = namespaces.Create(netmlbparameters.TestNamespace, helper.Apiclient)
 	Expect(err).ToNot(HaveOccurred())
-	metallb = netmetallbhelper.CreateMetallb()
 })
 
 var _ = AfterSuite(func() {
 	By("Cleaning after suite")
-	err := netmetallbhelper.DeleteAllBFDProfiles()
+
+	By(fmt.Sprintf("Clean test namespace %s", netmlbparameters.TestNamespace))
+	err := namespaces.DeleteAndWait(helper.Apiclient, netmlbparameters.TestNamespace,
+		netmlbparameters.Timeout)
 	Expect(err).ToNot(HaveOccurred())
 
+	err = netmetallbhelper.DeleteAllBFDProfiles()
 	// Failed due to BZ 2050824. The BFD configuration check should be removed after the BZ fix.
 	isBFDConfigured := netmetallbhelper.IsProtocolConfigured(netmlbparameters.BFDConfigPrefix)
 	if isBFDConfigured {
 		log.Println("Error: BFD config is not removed due to BZ 2050824")
 	}
+
+	Expect(err).ToNot(HaveOccurred())
 	err = netmetallbhelper.DeleteAllBGPPeers()
 	Expect(err).ToNot(HaveOccurred())
-	err = netmetallbhelper.DeleteLabelFromWorkers(netmlbparameters.SpeakerNodeTestLabel)
-	Expect(err).ToNot(HaveOccurred())
-
-	metallbutils.Delete(metallb)
-
-	By(fmt.Sprintf("Clean test namespace %s", netmlbparameters.TestNamespace))
-	err = namespaces.DeleteAndWait(helper.Apiclient, netmlbparameters.TestNamespace,
-		netmlbparameters.Timeout)
-	Expect(err).ToNot(HaveOccurred())
-
-	By(fmt.Sprintf("Clean privileged namespace %s", parameters.PrivPodNamespace))
-	if namespaces.Exists(parameters.PrivPodNamespace, helper.Apiclient) {
-		err := namespaces.DeleteAndWait(helper.Apiclient, parameters.PrivPodNamespace, netmlbparameters.Timeout)
-		Expect(err).ToNot(HaveOccurred())
-	}
 })

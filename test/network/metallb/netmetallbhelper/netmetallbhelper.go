@@ -5,31 +5,33 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net"
 	"reflect"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/pkg/errors"
+	apiErrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/metallb/netmlbparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/nethelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 
-	metallbv1alpha1 "github.com/metallb/metallb-operator/api/v1alpha1"
 	metallbv1beta1 "github.com/metallb/metallb-operator/api/v1beta1"
-	"github.com/pkg/errors"
+	metallbutils "github.com/metallb/metallb-operator/test/e2e/metallb"
 
 	appsv1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
-	apiErrors "k8s.io/apimachinery/pkg/api/errors"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -43,11 +45,9 @@ type queryOutput struct {
 type data struct {
 	Result []result
 }
-
 type result struct {
 	Metric metric
 }
-
 type metric struct {
 	Pod string
 }
@@ -55,68 +55,127 @@ type metric struct {
 // IsEnvVarMetallbIPinNodeExtNetRange validates that the enviromnental IP variable
 // is in the same IP range as the br-ex interface of the cluster under-test.
 // MetallB Down-stream tests will only run on clusters Helix 2,3 and 7.
-func IsEnvVarMetallbIPinNodeExtNetRange(cnfNodeLabel string, metallbEnvIP string) bool {
+func IsEnvVarMetallbIPinNodeExtNetRange(cnfNodeLabel string, metallbEnvIP string) {
 	// Checks that the METALLB_ADDR_LIST is in the range of the cluster br-ex interface.
 	node := helper.GetNodeListStringByLabel(cnfNodeLabel)
-	event, _ := helper.Apiclient.Nodes().Get(context.Background(), node[0], metav1.GetOptions{})
+	Expect(len(node)).To(BeNumerically(">", 0), "No Node found in list")
+
+	event, err := helper.Apiclient.Nodes().Get(context.Background(), node[0], metav1.GetOptions{})
+
+	Expect(err).ToNot(HaveOccurred())
+
 	val := event.Annotations[netmlbparameters.AnnotationPrimaryIfaddr]
-	// Output example {"ipv4":"10.46.56.13/24"} len = 5
-	nodeOutput := strings.Split(val, "\"")
-	Expect(len(nodeOutput)).Should(Equal(5))
-	_, nodeNet, err := net.ParseCIDR(nodeOutput[3])
+	// Output example [{ ipv4 : 10.46.56.13/24 }] len = 5
+	ipListOutput := strings.Split(val, "\"")
+
+	switch len(ipListOutput) {
+	case 5:
+		log.Println("Cluster is a Single Stack")
+	case 9:
+		log.Println("Cluster is a Dual Stack")
+	default:
+		Fail("Incorrect IPStack output")
+	}
+
+	_, nodeNet, err := net.ParseCIDR(ipListOutput[3])
 	Expect(err).ToNot(HaveOccurred())
 
 	if !nodeNet.Contains(net.ParseIP(metallbEnvIP)) {
 		Skip("The environment IP variable is out of cluster br-ex IP range")
 	}
-
-	return true
 }
 
-// DefineMetallbAddressPool defines a MetalLB L2 Address Pool using env IP var METALLB_ADDR_LIST
-// for the IP address range.
-func DefineMetallbAddressPool(metallbIP []string) *metallbv1alpha1.AddressPool {
-	return &metallbv1alpha1.AddressPool{
+// CreateMetallb creates Metallb CR.
+func CreateMetallb() *metallbv1beta1.MetalLB {
+	metallb := defineMetallb()
+
+	err := helper.Apiclient.Get(context.Background(), runtimeclient.ObjectKey{Namespace: metallb.Namespace,
+		Name: metallb.Name}, metallb)
+	if apiErrors.IsNotFound(err) {
+		Expect(helper.Apiclient.Create(context.Background(), metallb)).Should(Succeed())
+	} else {
+		Expect(err).ToNot(HaveOccurred())
+	}
+
+	return metallb
+}
+
+// defineMetallb returns Metallb definition.
+func defineMetallb() *metallbv1beta1.MetalLB {
+	return &metallbv1beta1.MetalLB{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      netmlbparameters.AddressPool,
+			Name:      netmlbparameters.MetalLBCRName,
 			Namespace: netmlbparameters.MetalLBOperatorNameSpace,
-			Annotations: map[string]string{
-				netmlbparameters.MetalLBAddressPool: netmlbparameters.AddressPool,
-			},
 		},
-		Spec: metallbv1alpha1.AddressPoolSpec{
-			Protocol: "layer2",
-			Addresses: []string{
-				fmt.Sprintln(metallbIP[0], "-", metallbIP[1]),
-			},
+		Spec: metallbv1beta1.MetalLBSpec{
+			SpeakerNodeSelector: netmlbparameters.SpeakerNodeSelectorWorker,
 		},
 	}
 }
 
-// CreateAddressPool creates the MetalLB L2 Address Pool using func defineMetallbAddressPool.
-func CreateAddressPool(addresspool *metallbv1alpha1.AddressPool) error {
-	return helper.Apiclient.Create(context.Background(), addresspool)
+// DefineMetallbAddressPool defines a MetalLB L2 Address Pool using env IP var METALLB_ADDR_LIST
+// for the IP address range.
+func DefineMetalLBAddressPool(
+	metalLBIP []string, protocol string, iPStack string, addressPool string) *metallbv1beta1.AddressPool {
+	addrPool := metallbv1beta1.AddressPool{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      addressPool,
+			Namespace: netmlbparameters.MetalLBOperatorNameSpace,
+			Annotations: map[string]string{
+				netmlbparameters.MetalLBAddressPool: addressPool,
+			},
+		},
+		Spec: metallbv1beta1.AddressPoolSpec{
+			Protocol: protocol,
+			Addresses: []string{
+				fmt.Sprintln(metalLBIP[0], "-", metalLBIP[1]),
+			},
+		},
+	}
+
+	if iPStack == netmlbparameters.DualIPStack {
+		addrPool.Spec.Addresses = append(addrPool.Spec.Addresses,
+			fmt.Sprintln(metalLBIP[2], "-", metalLBIP[3]))
+	}
+
+	return &addrPool
 }
 
-// DeleteAddressPool from namespace metallb-system using func defineMetallbAddressPool.
-func DeleteAddressPool(addresspool *metallbv1alpha1.AddressPool) error {
-	return helper.Apiclient.Delete(context.Background(), addresspool)
-}
+// DefineAndCreateLBService create an external service using the MetalLB Address Pool allowing
+// connectivity from network host interface br-ex to the nginx pod on port 30101.
+func DefineAndCreateLBService(namespace string, iPStack string, addresspool string, appLabel string,
+	trafficPolicy k8sv1.ServiceExternalTrafficPolicyType) error {
+	var (
+		service  k8sv1.Service
+		ipFamily []k8sv1.IPFamily
+	)
 
-// CreateLBService create an external service using the MetalLB Address Pool allowing connectivity from network host
-// interface br-ex to the nginx pod on port 30101.
-func CreateLBService(clientSet *client.ClientSet, namespace string) *k8sv1.Service {
-	service := k8sv1.Service{
+	ipFamilyPolicy := k8sv1.IPFamilyPolicySingleStack
+
+	switch iPStack {
+	case netmlbparameters.SingleIPv4Stack:
+		ipFamily = []k8sv1.IPFamily{"IPv4"}
+
+	case netmlbparameters.SingleIPv6Stack:
+		ipFamily = []k8sv1.IPFamily{"IPv6"}
+
+	case netmlbparameters.DualIPStack:
+		ipFamily = []k8sv1.IPFamily{"IPv4", "IPv6"}
+		ipFamilyPolicy = k8sv1.IPFamilyPolicyRequireDualStack
+	}
+
+	service = k8sv1.Service{
+
 		ObjectMeta: metav1.ObjectMeta{
 			Annotations: map[string]string{
-				netmlbparameters.MetalLBAddressPool: netmlbparameters.AddressPool,
+				netmlbparameters.MetalLBAddressPool: addresspool,
 			},
-			Name:      "metallb-service",
-			Namespace: namespace,
+			GenerateName: "service-",
+			Namespace:    namespace,
 		},
 		Spec: k8sv1.ServiceSpec{
 			Selector: map[string]string{
-				"app": "nginx",
+				"app": appLabel,
 			},
 			Ports: []k8sv1.ServicePort{
 				{
@@ -128,25 +187,53 @@ func CreateLBService(clientSet *client.ClientSet, namespace string) *k8sv1.Servi
 					},
 				},
 			},
-			Type: "LoadBalancer",
+			ExternalTrafficPolicy: trafficPolicy,
+			Type:                  "LoadBalancer",
+			IPFamilies:            ipFamily,
+			IPFamilyPolicy:        &ipFamilyPolicy,
 		},
 	}
-	activeService, err := clientSet.Services(namespace).Create(context.Background(),
-		&service, metav1.CreateOptions{})
-	Expect(err).ToNot(HaveOccurred())
 
-	return activeService
+	_, err := helper.Apiclient.Services(namespace).Create(context.Background(),
+		&service, metav1.CreateOptions{})
+
+	return err
+}
+
+// DeleteAllLBServices deletes all the service in a specific namespace.
+func DeleteAllLBServices(namespace string) error {
+	allServices, err := helper.Apiclient.Services(namespace).List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return err
+	}
+
+	for _, service := range allServices.Items {
+		err = helper.Apiclient.Services(namespace).Delete(context.Background(),
+			service.Name,
+			metav1.DeleteOptions{GracePeriodSeconds: pointer.Int64Ptr(0)})
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // GetLBServiceAnnouncingNodeName searches for node name in following string example:
 // "announcing from node "helix13.lab.eng.tlv2.redhat.com".
-func GetLBServiceAnnouncingNodeName() (string, error) {
+func GetLBServiceAnnouncingNodeName() string {
 	var allEvents []string
 
-	serviceEvents, err := helper.Apiclient.Events(netmlbparameters.TestNamespace).List(context.Background(),
-		metav1.ListOptions{FieldSelector: "reason=nodeAssigned"})
+	serviceEvents, err := helper.Apiclient.Events(
+		netmlbparameters.TestNamespace).List(context.Background(), metav1.ListOptions{FieldSelector: "reason=nodeAssigned"})
+	Expect(err).ToNot(HaveOccurred())
 
-	for _, index := range strings.Split(serviceEvents.String(), "}") {
+	seriveSortedEvents := sortServiceTimeStamp(serviceEvents)
+	Expect(len(seriveSortedEvents)).To(BeNumerically(">", 0), "No events were found")
+
+	lastSortedEvent := seriveSortedEvents[len(seriveSortedEvents)-1]
+
+	for _, index := range strings.Split(lastSortedEvent.String(), "}") {
 		if strings.Contains(index, "announcing from node") {
 			re := regexp.MustCompile(`"([^\"]+)"`)
 			event := re.FindString(index)
@@ -154,10 +241,38 @@ func GetLBServiceAnnouncingNodeName() (string, error) {
 		}
 	}
 
-	numOfEvents := len(allEvents)
-	lastEvent := strings.Trim(allEvents[numOfEvents-1], "\"")
+	return strings.Trim(allEvents[len(allEvents)-1], "\"")
+}
 
-	return lastEvent, err
+// sortServiceTimeStamp api output returns logs out of order this sorts the events by their timestamps.
+func sortServiceTimeStamp(serviceEvents *k8sv1.EventList) []k8sv1.Event {
+	var res []k8sv1.Event
+
+	res = append(res, serviceEvents.Items...)
+
+	sort.Slice(res, func(i int, j int) bool {
+		return res[i].LastTimestamp.Before(&res[j].LastTimestamp)
+	})
+
+	return res
+}
+
+// GetNodeIndex retrieves a list of annoucing and non-annoucing node indexes.
+func GetNodeIndex() map[string]int {
+	workerNodeList := helper.GetNodeListStringByLabel(parameters.RoleWorker)
+	announcingNodeName := GetLBServiceAnnouncingNodeName()
+
+	res := map[string]int{"announcerNodeIndex": 0, "nonannouncerNodeIndex": 0}
+
+	for nodeIndex, workerName := range workerNodeList {
+		if workerName == announcingNodeName && nodeIndex == 0 {
+			res["nonannouncerNodeIndex"] = 1
+		} else {
+			res["announcerNodeIndex"] = 1
+		}
+	}
+
+	return res
 }
 
 // SpeakerNodeMac locates the MAC address of the node interface br-ex found in func GetLBServiceNodeName()
@@ -190,9 +305,10 @@ func MLBTestPod(node string, ns string, image string) *k8sv1.Pod {
 	return runningPod
 }
 
-// MLBClientPod with nginx listening on port 80.
-func MLBClientPod(node string, image string) *k8sv1.Pod {
-	podDefNodeLabel := redefineWithLabel(pod.DefinePodOnNode(netmlbparameters.TestNamespace, image, node))
+// DefineAndRunMlbClientPod with nginx listening on port 80.
+func DefineAndRunMlbClientPod(node string, image string, appLabel string) *k8sv1.Pod {
+	podDefNodeLabel := pod.RedefineWithLabel(
+		pod.DefinePodOnNode(netmlbparameters.TestNamespace, image, node), "app", appLabel)
 	podDefPrivCommand := pod.RedefineAsPrivileged(pod.RedefineWithCommand(podDefNodeLabel,
 		[]string{"/bin/bash", "-c"},
 		[]string{"nginx && sleep INF"}))
@@ -201,31 +317,18 @@ func MLBClientPod(node string, image string) *k8sv1.Pod {
 	return runningPod
 }
 
-// redefineWithLabel updates DefinePodOnNode() with label.
-func redefineWithLabel(pod *k8sv1.Pod) *k8sv1.Pod {
-	pod.ObjectMeta.Labels = map[string]string{"app": "nginx"}
+// DefineAndRunMlbPodMaster creates a pod on a Master node.
+func DefineAndRunMlbPodMaster(node string, ns string, image string) *k8sv1.Pod {
+	podDefPrivHostNet := pod.RedefineAsPrivileged(pod.DefineWithHostNetwork(node, ns, image))
+	podMaster := pod.RedefineOnMaster(podDefPrivHostNet)
+	runningPod := helper.WaitUntilPodCreatedAndRunning(podMaster, netmlbparameters.PodWaitingTime)
 
-	return pod
+	return runningPod
 }
 
 // Arping verifies only one node replies to arping and that the service node br-ex mac matches the output.
-func Arping(destIPAddr string, image string, nodeListString []string, node string, reboot bool) error {
-	var indexInt int
-
-	for index, value := range nodeListString {
-		if value == node && reboot {
-			indexInt = index
-		}
-
-		if value == node && index == 0 && !reboot {
-			indexInt = 1
-		}
-	}
-
-	testPod := MLBTestPod(nodeListString[indexInt],
-		netmlbparameters.DefaultNameSpace, image)
-
-	arpStatus, err := pod.ExecCommand(helper.Apiclient, *testPod, []string{"bash", "-c", fmt.Sprint("arping -I br-ex ",
+func Arping(client *k8sv1.Pod, destIPAddr string, node string) error {
+	arpStatus, err := pod.ExecCommand(helper.Apiclient, *client, []string{"bash", "-c", fmt.Sprint("arping -I br-ex ",
 		destIPAddr, " -c2")})
 	Expect(err).ToNot(HaveOccurred())
 
@@ -258,28 +361,12 @@ func IPAddBrEx(client k8sv1.Pod) ([]string, error) {
 }
 
 // CurlMlbPod verifies that nginx web service is available via the external service IP.
-func CurlMlbPod(destIPAddr string, image string, nodeListString []string, node string, reboot bool) error {
-	var indexInt int
-
-	for index, v := range nodeListString {
-		if v == node && reboot {
-			indexInt = index
-		}
-
-		if v == node && index == 0 && !reboot {
-			indexInt = 1
-		}
-	}
-
-	testPod := MLBTestPod(nodeListString[indexInt],
-		netmlbparameters.DefaultNameSpace, image)
-	curlStatus, err := pod.ExecCommand(helper.Apiclient, *testPod, []string{"bash", "-c", fmt.Sprint("curl ", destIPAddr)})
+func CurlMlbPod(client *k8sv1.Pod, destIPAddr string) {
+	curlStatus, err := pod.ExecCommand(helper.Apiclient, *client, []string{"bash", "-c", fmt.Sprint("curl ", destIPAddr)})
 	Expect(err).ToNot(HaveOccurred())
 
 	Expect(curlStatus.String()).Should(ContainSubstring("html"),
 		"Curl was unable to connect to nginx")
-
-	return err
 }
 
 // IsMetalLBAvailable verifies that metallb installed and running.
@@ -427,9 +514,9 @@ func DeleteAllBFDProfiles() error {
 	}
 
 	// Failed due to BZ 2050824. The BFD should be uncommented once the BZ is fixed
-	// Eventually(func() bool {
-	//	return IsProtocolConfigured(netmlbparameters.BFDConfigPrefix)
-	// }, 1*time.Minute, 2*time.Second).Should(BeFalse(), "BFD configuration is not removed")
+	Eventually(func() bool {
+		return IsProtocolConfigured(netmlbparameters.BFDConfigPrefix)
+	}, 1*time.Minute, 2*time.Second).Should(BeFalse(), "BFD configuration is not removed")
 
 	return nil
 }
@@ -496,34 +583,6 @@ func AreSpeakersReady() bool {
 	}
 
 	return true
-}
-
-// CreateMetallb creates Metallb CR.
-func CreateMetallb() *metallbv1beta1.MetalLB {
-	metallb := defineMetallb()
-
-	err := helper.Apiclient.Get(context.Background(), runtimeclient.ObjectKey{Namespace: metallb.Namespace,
-		Name: metallb.Name}, metallb)
-	if apiErrors.IsNotFound(err) {
-		Expect(helper.Apiclient.Create(context.Background(), metallb)).Should(Succeed())
-	} else {
-		Expect(err).ToNot(HaveOccurred())
-	}
-
-	return metallb
-}
-
-// defineMetallb returns Metallb definition.
-func defineMetallb() *metallbv1beta1.MetalLB {
-	return &metallbv1beta1.MetalLB{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      netmlbparameters.MetalLBCRName,
-			Namespace: netmlbparameters.MetalLBOperatorNameSpace,
-		},
-		Spec: metallbv1beta1.MetalLBSpec{
-			SpeakerNodeSelector: netmlbparameters.SpeakerNodeSelectorWorker,
-		},
-	}
 }
 
 // DeleteLabelFromWorkers removes a label from all workers.
@@ -693,4 +752,80 @@ func hasElement(slice []string, item string) bool {
 
 func uint32Ptr(n uint32) *uint32 {
 	return &n
+}
+
+// SetupMetalLB deploys metallb.
+func SetupMetalLB() {
+	By("should deploy MetalLB")
+
+	metallb, err := metallbutils.Get(
+		netmlbparameters.MetalLBOperatorNameSpace,
+		netmlbparameters.UseMetallbResourcesFromFile,
+	)
+	Expect(err).ToNot(HaveOccurred())
+	err = helper.Apiclient.Get(context.Background(), runtimeclient.ObjectKey{Namespace: metallb.Namespace,
+		Name: metallb.Name}, metallb)
+
+	if err != nil {
+		metallb.Spec.SpeakerNodeSelector = netmlbparameters.SpeakerNodeSelectorWorker
+		Expect(helper.Apiclient.Create(context.Background(), metallb)).Should(Succeed())
+	}
+
+	By("should have MetalLB controller in running state")
+	Eventually(func() bool {
+		isMetalLBControllerRunning, err := helper.IsDeploymentReady(helper.Apiclient,
+			netmlbparameters.MetalLBOperatorNameSpace, netmlbparameters.MetalLBDeploymentName)
+		if err != nil {
+			return false
+		}
+
+		return isMetalLBControllerRunning
+	}, netmlbparameters.PodWaitingTime, netmlbparameters.Interval).Should(BeTrue())
+
+	By("Checking MetalLB operator is installed and running")
+	Eventually(IsMetalLBAvailable,
+		netmlbparameters.PodWaitingTime,
+		netmlbparameters.Interval).ShouldNot(HaveOccurred())
+}
+
+// DeleteAllAddressPools removes all addresspools in metallb-system.
+func DeleteAllAddressPools() {
+	apList := metallbv1beta1.AddressPoolList{}
+	err := helper.Apiclient.List(context.Background(), &apList,
+		runtimeclient.InNamespace(netmlbparameters.MetalLBOperatorNameSpace))
+	Expect(err).ToNot(HaveOccurred())
+
+	Expect(len(apList.Items)).Should(BeNumerically(">=", 1))
+
+	for _, ap := range apList.Items {
+		err = helper.Apiclient.Delete(context.Background(), &ap)
+		Expect(err).ToNot(HaveOccurred())
+	}
+}
+
+// UpdateSpeakerNodeLabel adds label metallbtest to the speaker nodes.  This label will be used in Metallb in order to
+// simulate a node failure.
+func UpdateSpeakerNodeLabel() {
+	workerNodeList, err := nodes.GetByRole(helper.Apiclient, parameters.RoleWorker)
+	Expect(err).ToNot(HaveOccurred())
+
+	err = UpdateSpeakerNodeSelector(netmlbparameters.MetalLBOperatorNameSpace,
+		map[string]string{netmlbparameters.SpeakerNodeTestLabel: ""})
+	Expect(err).ToNot(HaveOccurred())
+	Eventually(func() bool {
+		speakerPodList, _ := helper.Apiclient.Pods(netmlbparameters.MetalLBOperatorNameSpace).List(
+			context.Background(),
+			metav1.ListOptions{LabelSelector: netmlbparameters.ComponentSpeaker},
+		)
+
+		return len(speakerPodList.Items) == len(workerNodeList)
+	}, 1*time.Minute, 1*time.Second).Should(BeTrue())
+
+	for _, worker := range workerNodeList {
+		_, err = nodes.LabelNode(helper.Apiclient, worker.Name, netmlbparameters.SpeakerNodeTestLabel, "")
+		Expect(err).ToNot(HaveOccurred())
+	}
+
+	Eventually(AreSpeakersReady, netmlbparameters.PodWaitingTime, netmlbparameters.Interval).
+		Should(BeTrue(), "Speaker pods are not ready")
 }

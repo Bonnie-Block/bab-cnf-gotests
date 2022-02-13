@@ -46,6 +46,18 @@ func DefineWithNodeNetworks(nodeName string, networks []string, namespace string
 	return podObject
 }
 
+// RedefineOnMaster defines pod attached to Master Node.
+func RedefineOnMaster(pod *corev1.Pod) *corev1.Pod {
+	pod.Spec.Tolerations = []corev1.Toleration{
+		{
+			Key:    "node-role.kubernetes.io/master",
+			Effect: "NoSchedule",
+		},
+	}
+
+	return pod
+}
+
 // DefineWithHostNetwork  defines pod attached to Host network.
 func DefineWithHostNetwork(nodeName string, namespace string, image string) *corev1.Pod {
 	podObject := getDefinition(namespace, image)
@@ -237,6 +249,13 @@ func RedefineWithObjectMeta(
 	if annotations != nil {
 		pod.ObjectMeta.Annotations = annotations
 	}
+
+	return pod
+}
+
+// RedefineWithLabel updates DefinePodOnNode() with label.
+func RedefineWithLabel(pod *corev1.Pod, labeltype string, labelName string) *corev1.Pod {
+	pod.ObjectMeta.Labels = map[string]string{labeltype: labelName}
 
 	return pod
 }

@@ -16,8 +16,13 @@ import (
 const (
 	TestNamespace                               = "cni-test"
 	DefaultNameSpace                            = "default"
-	AddressPool                                 = "brexpool"
+	AddressPoolL2                               = "layer2-pool"
+	Layer2                                      = "layer2"
+	SingleIPv4Stack                             = "singleIPv4Stack"
+	SingleIPv6Stack                             = "singleIPv6Stack"
+	DualIPStack                                 = "dualIPStack"
 	PodWaitingTime                time.Duration = 2 * time.Minute
+	Interval                                    = 2 * time.Second
 	Timeout                                     = 1800 * time.Second
 	AnnotationPrimaryIfaddr                     = "k8s.ovn.org/node-primary-ifaddr"
 	AnnotationL3GW                              = "k8s.ovn.org/l3-gateway-config"
@@ -29,8 +34,11 @@ const (
 	MetalLBOperatorNameSpace                    = "metallb-system"
 	MetalLBAddressPool                          = "metallb.universe.tf/address-pool"
 	MetalLBService                              = "metallb-service"
+	ExtTrafPolCluster                           = "Cluster"
+	ComponentSpeaker                            = "component=speaker"
 	BFDProfileName                              = "bfdprofile"
 	BGPPeerName                                 = "peer-sample"
+	AppLabel1                                   = "nginx1"
 	Asn1                                        = 64500
 	Asn2                                        = 64501
 	SpeakerNodeTestLabel                        = "metallbtest"
