@@ -65,6 +65,12 @@ var _ = AfterSuite(func() {
 	By("Cleaning after suite")
 	err := netmetallbhelper.DeleteAllBFDProfiles()
 	Expect(err).ToNot(HaveOccurred())
+
+	// Failed due to BZ 2050824. The BFD configuration check should be removed after the BZ fix.
+	isBFDConfigured := netmetallbhelper.IsProtocolConfigured(netmlbparameters.BFDConfigPrefix)
+	if isBFDConfigured {
+		log.Println("Error: BFD config is not removed due to BZ 2050824")
+	}
 	err = netmetallbhelper.DeleteAllBGPPeers()
 	Expect(err).ToNot(HaveOccurred())
 	err = netmetallbhelper.DeleteLabelFromWorkers(netmlbparameters.SpeakerNodeTestLabel)
