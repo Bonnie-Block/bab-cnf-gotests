@@ -120,7 +120,7 @@ var _ = Describe("CNF SRIOV: Bond CNI.", func() {
 			validSriovInterfaces, err := Config.GetSriovInterfaces(sriovInterfaces, 2)
 			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error determine SRIOV interfaces: %s", err))
 
-			isScaleSupported := netsriovhelper.DoSriovNodesSupportVFsNumber(netsriovparameters.ScaleVFsNumber,
+			isScaleSupported := netsriovhelper.IsScaleSupported(netsriovparameters.ScaleVFsNumber,
 				validSriovInterfaces)
 			if !isScaleSupported {
 				Skip(fmt.Sprintf("Requested interfaces %v are not supported scale VFs number - %d",

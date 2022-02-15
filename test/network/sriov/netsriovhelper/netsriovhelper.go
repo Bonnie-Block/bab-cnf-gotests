@@ -635,30 +635,48 @@ func WaitUntilPodInStatus(
 		fmt.Sprintf("Pod role %s. Invalid return code. Command: %s", podRole, execCommand))
 }
 
-func DoSriovNodesSupportVFsNumber(totalVFs int, sriovInterfaces []*sriovv1.InterfaceExt) bool {
+func doesSriovInerfaceSupportVFsNumber(totalVFs int, sriovInterface *sriovv1.InterfaceExt) bool {
 	var isSriovNodesSupportVFsNumber bool
 
 	nodeStates, err := Apiclient.SriovNetworkNodeStates(netsriovparameters.OperatorNamespace).
 		List(context.Background(), metav1.ListOptions{})
 	Expect(err).ToNot(HaveOccurred())
-	Expect(len(sriovInterfaces)).ToNot(BeNumerically("==", 0))
 	Expect(len(nodeStates.Items)).ToNot(BeNumerically("==", 0))
 
 	for _, nodeState := range nodeStates.Items {
 		for _, nodeInterface := range nodeState.Status.Interfaces {
-			for _, sriovInterface := range sriovInterfaces {
-				if nodeInterface.Name == sriovInterface.Name {
+			if nodeInterface.Name == sriovInterface.Name {
+				// Mellanox has known behavior that totalVfs == numVFs BZ 1855139
+				if strings.EqualFold(sriovInterface.Driver, "mlx5_core") {
+					// VF maximum number is 127 according to the Mellanox docs
+					// https://docs.nvidia.com/networking/pages/viewpage.action?pageId=39264752
+					if totalVFs > 127 {
+						return false
+					}
+				} else {
 					if nodeInterface.TotalVfs < totalVFs {
 						return false
 					}
-
-					isSriovNodesSupportVFsNumber = true
 				}
+
+				isSriovNodesSupportVFsNumber = true
 			}
 		}
 	}
 
 	return isSriovNodesSupportVFsNumber
+}
+
+func IsScaleSupported(totalVFs int, sriovInterfaces []*sriovv1.InterfaceExt) bool {
+	Expect(len(sriovInterfaces)).ToNot(BeNumerically("==", 0))
+
+	for _, sriovInterface := range sriovInterfaces {
+		if !doesSriovInerfaceSupportVFsNumber(totalVFs, sriovInterface) {
+			return false
+		}
+	}
+
+	return true
 }
 
 func SetupSriovConfig(sriovInfos *cluster.EnabledNodes, snoTimeoutMultiplier time.Duration) {
@@ -673,7 +691,7 @@ func SetupSriovConfig(sriovInfos *cluster.EnabledNodes, snoTimeoutMultiplier tim
 	}
 
 	validSriovInterfaces := validateSriovInterfaces(sriovInfos)
-	isScaleSupported = DoSriovNodesSupportVFsNumber(netsriovparameters.ScaleVFsNumber, validSriovInterfaces)
+	isScaleSupported = IsScaleSupported(netsriovparameters.ScaleVFsNumber, validSriovInterfaces)
 
 	if isScaleSupported {
 		vfsNumberDiffConfig = netsriovparameters.ScaleVFsNumber
