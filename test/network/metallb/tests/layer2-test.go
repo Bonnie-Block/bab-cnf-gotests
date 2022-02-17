@@ -87,7 +87,7 @@ var _ = Describe("CNF MetalLB", func() {
 		err = netmetallbhelper.DeleteLabelFromWorkers(netmlbparameters.SpeakerNodeTestLabel)
 		Expect(err).ToNot(HaveOccurred())
 
-		By("Should delete Metallb")
+		By("Should remove Metallb Configuration")
 		metallb := &metallbv1beta1.MetalLB{}
 		err = helper.Apiclient.Get(context.Background(), types.NamespacedName{Name: "metallb",
 			Namespace: netmlbparameters.MetalLBOperatorNameSpace}, metallb)

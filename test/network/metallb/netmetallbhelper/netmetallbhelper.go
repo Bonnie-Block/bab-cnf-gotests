@@ -10,7 +10,6 @@ import (
 	"reflect"
 	"regexp"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -21,7 +20,6 @@ import (
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/metallb/netmlbparameters"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/nethelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
@@ -428,38 +426,6 @@ func DefineBGPPeerWithBFD(peerAdress string, asn uint32, bfdProfile string) *met
 	}
 }
 
-// DefineBFDMLBConfigMap returns configmap definition with FRR BFD configuration.
-func DefineBFDMLBConfigMap(ipAddresses []string, configMapName string, asn int) *k8sv1.ConfigMap {
-	configMapData := make(map[string]string)
-	configMapData["daemons"] = netmlbparameters.DaemonsFile
-
-	bfdConfig, err := defineBFDConfig(ipAddresses, asn)
-	Expect(err).ToNot(HaveOccurred())
-
-	configMapData["frr.conf"] = bfdConfig
-	configMap := nethelper.DefineFRRConfigMap(configMapName, netmlbparameters.TestNamespace, configMapData)
-
-	return configMap
-}
-
-// defineBFDConfig returns string which represents BFD config file peering to all given IP addresses.
-func defineBFDConfig(neighborsIPAddresses []string, asn int) (string, error) {
-	if len(neighborsIPAddresses) < 1 {
-		return "", fmt.Errorf("list of neigbors ip addresses is empty")
-	}
-
-	asnStr := strconv.Itoa(asn)
-	bfdConfig := "bfd\n router bgp 64501\n"
-
-	for _, ipAddress := range neighborsIPAddresses {
-		bfdConfig += fmt.Sprintf(" neighbor %s remote-as %s\n neighbor %s bfd\n", ipAddress, asnStr, ipAddress)
-	}
-
-	bfdConfig += "!"
-
-	return bfdConfig, nil
-}
-
 type BGPDescription struct {
 	BGPState string `json:"bgpState"`
 }
@@ -540,30 +506,6 @@ func UpdateToDefaultSpeakerNodeSelector() error {
 			return err
 		}
 	}
-
-	return nil
-}
-
-// DeleteAllBGPPeers removes all BGPPeer CRs.
-func DeleteAllBGPPeers() error {
-	bgpPeerList := metallbv1beta1.BGPPeerList{}
-
-	err := helper.Apiclient.List(context.Background(), &bgpPeerList,
-		runtimeclient.InNamespace(netmlbparameters.MetalLBOperatorNameSpace))
-	if err != nil {
-		return err
-	}
-
-	for _, bgpPeer := range bgpPeerList.Items {
-		err = helper.Apiclient.Delete(context.Background(), &bgpPeer)
-		if err != nil {
-			return err
-		}
-	}
-
-	Eventually(func() bool {
-		return IsProtocolConfigured(netmlbparameters.BGPConfigPrefix)
-	}, 1*time.Minute, 2*time.Second).Should(BeFalse(), "BGP configuration is not removed")
 
 	return nil
 }

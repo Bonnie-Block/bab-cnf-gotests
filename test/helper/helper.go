@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net"
 	"os/exec"
 	"strings"
 	"time"
@@ -410,4 +411,33 @@ func isPodInCondition(pod *k8sv1.Pod, condition k8sv1.PodConditionType) bool {
 	}
 
 	return false
+}
+
+// GetNodeIPListByLabel returns a list with all the IP addresses of matching nodes for given label Selector.
+func GetNodeIPListByLabel(labelSelector string) ([]string, error) {
+	nodesList, err := nodes.GetByRole(Apiclient, labelSelector)
+	Expect(err).ToNot(HaveOccurred())
+
+	Expect(len(nodesList)).To(BeNumerically(">", 0),
+		fmt.Sprintf("no nodes matched the given label selector %s", labelSelector))
+
+	var nodesIP []string
+
+	for _, node := range nodesList {
+		for _, address := range node.Status.Addresses {
+			if address.Type == k8sv1.NodeInternalIP {
+				nodesIP = append(nodesIP, address.Address)
+
+				break
+			}
+		}
+
+		for _, v := range nodesIP {
+			if net.ParseIP(v) == nil {
+				return nil, fmt.Errorf("the environment IP variable is not a valid IP")
+			}
+		}
+	}
+
+	return nodesIP, nil
 }

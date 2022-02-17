@@ -9,6 +9,7 @@ import (
 
 	"github.com/metallb/metallb-operator/api/v1beta1"
 
+	metallbutils "github.com/metallb/metallb-operator/test/e2e/metallb"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/metallb/netmetallbhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/metallb/netmlbparameters"
@@ -21,6 +22,7 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 const (
@@ -44,9 +46,6 @@ var _ = Describe("BFD", func() {
 	execute.BeforeAll(func() {
 		By("Setup Metallb")
 		netmetallbhelper.SetupMetalLB()
-
-		By("Checking MetalLB operator is installed and running")
-		Eventually(netmetallbhelper.IsMetalLBAvailable, deployTimeout, interval).ShouldNot(HaveOccurred())
 	})
 
 	Context("Single hop", func() {
@@ -77,7 +76,7 @@ var _ = Describe("BFD", func() {
 
 			By("Creating BGP Peers")
 			bgpPeerDefinition = netmetallbhelper.DefineBGPPeerWithBFD(masterNode.Status.Addresses[0].Address,
-				netmlbparameters.Asn2, netmlbparameters.BFDProfileName)
+				netmlbparameters.EBGPASN, netmlbparameters.BFDProfileName)
 			err = helper.Apiclient.Create(context.Background(), bgpPeerDefinition)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -86,9 +85,9 @@ var _ = Describe("BFD", func() {
 			}, deployTimeout, interval).Should(BeTrue(), "BGP is not configured on the Speakers")
 
 			By("Creating FRR container on a Master node")
-			masterConfigMap = netmetallbhelper.DefineBFDMLBConfigMap(workerNodesAddresses,
+			masterConfigMap = netmetallbhelper.DefineFRRConfigMap(workerNodesAddresses,
 				netparameters.MasterConfigMapName,
-				netmlbparameters.Asn1)
+				netmlbparameters.IBGPASN, netmlbparameters.BFDConfigPrefix)
 			_, err = helper.Apiclient.ConfigMaps(netmlbparameters.TestNamespace).Create(
 				context.TODO(),
 				masterConfigMap,
@@ -99,6 +98,7 @@ var _ = Describe("BFD", func() {
 			masterNodePod = helper.WaitUntilPodCreatedAndRunning(frrPod, deployTimeout)
 
 			By("Checking that BGP and BFD sessions are established and up")
+
 			Eventually(func() bool {
 				return netmetallbhelper.IsBGPNeighborshipHasState(masterNodePod, firstWorkerNodeAddress,
 					netmlbparameters.BGPStateEstablished)
@@ -111,7 +111,7 @@ var _ = Describe("BFD", func() {
 
 		AfterEach(func() {
 			By("Cleaning after test")
-			err = netmetallbhelper.DeleteAllBGPPeers()
+			netmetallbhelper.DeleteAllBGPPeers()
 			Expect(err).ToNot(HaveOccurred())
 
 			err = helper.Apiclient.Delete(context.Background(), masterConfigMap)
@@ -122,10 +122,19 @@ var _ = Describe("BFD", func() {
 
 			err = netmetallbhelper.DeleteAllBFDProfiles()
 			Expect(err).ToNot(HaveOccurred())
+
 			// Failed due to BZ 2050824. The BFD configuration check should be removed after the BZ fix.
 			Eventually(func() bool {
 				return netmetallbhelper.IsProtocolConfigured(netmlbparameters.BFDConfigPrefix)
 			}, 1*time.Minute, 2*time.Second).Should(BeFalse(), "BFD configuration is not removed")
+
+			By("Should remove Metallb Configuration")
+			metallb := &v1beta1.MetalLB{}
+			err = helper.Apiclient.Get(context.Background(), types.NamespacedName{Name: "metallb",
+				Namespace: netmlbparameters.MetalLBOperatorNameSpace}, metallb)
+			Expect(err).ToNot(HaveOccurred())
+
+			metallbutils.Delete(metallb)
 		})
 
 		Context("basic functionality", func() {

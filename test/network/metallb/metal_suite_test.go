@@ -12,7 +12,6 @@ import (
 	"github.com/onsi/ginkgo/reporters"
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/metallb/netmetallbhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/metallb/netmlbparameters"
 	_ "gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/metallb/tests"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
@@ -61,16 +60,5 @@ var _ = AfterSuite(func() {
 	By(fmt.Sprintf("Clean test namespace %s", netmlbparameters.TestNamespace))
 	err := namespaces.DeleteAndWait(helper.Apiclient, netmlbparameters.TestNamespace,
 		netmlbparameters.Timeout)
-	Expect(err).ToNot(HaveOccurred())
-
-	err = netmetallbhelper.DeleteAllBFDProfiles()
-	// Failed due to BZ 2050824. The BFD configuration check should be removed after the BZ fix.
-	isBFDConfigured := netmetallbhelper.IsProtocolConfigured(netmlbparameters.BFDConfigPrefix)
-	if isBFDConfigured {
-		log.Println("Error: BFD config is not removed due to BZ 2050824")
-	}
-
-	Expect(err).ToNot(HaveOccurred())
-	err = netmetallbhelper.DeleteAllBGPPeers()
 	Expect(err).ToNot(HaveOccurred())
 })
