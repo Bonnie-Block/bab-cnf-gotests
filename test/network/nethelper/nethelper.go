@@ -2,9 +2,13 @@ package nethelper
 
 import (
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"net"
+	"time"
+
+	v1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/netparameters"
@@ -227,4 +231,90 @@ func IsBFDHasStatus(frrPod *k8sv1.Pod, bfdPeer string, status string) error {
 	}
 
 	return nil
+}
+
+// DefineDhcpServerOnNad creates nad with static ipam and dhcp server on top of it.
+func DefineDhcpServerOnNad(
+	namespace string, intName string, nodeName string, serverIP string, addressMap map[string]string) error {
+	vrfDefinitionDhcp := v1.NetworkAttachmentDefinition{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: "dhcp",
+			Namespace:    namespace,
+		},
+		Spec: v1.NetworkAttachmentDefinitionSpec{
+			Config: fmt.Sprintf(
+				`{"cniVersion": "0.4.0", "name": "macvlan-vrf", "plugins":`+
+					`[{"type": "macvlan","master": "%s","ipam": {"type": "static"}}]}`,
+				intName),
+		},
+	}
+
+	err := helper.Apiclient.Create(context.Background(), &vrfDefinitionDhcp)
+	if err != nil {
+		return err
+	}
+
+	ipAddr, subnet, err := net.ParseCIDR(fmt.Sprintf("%s/%s", serverIP, "24"))
+	if err != nil {
+		return err
+	}
+
+	bAddress, err := lastAddr(subnet)
+	if err != nil {
+		return err
+	}
+
+	helper.WaitUntilPodCreatedAndRunning(
+		DefineDhcpServerPod(namespace, vrfDefinitionDhcp.Name, nodeName,
+			ipAddr, subnet, bAddress, addressMap), 300*time.Second)
+
+	return nil
+}
+
+// DefineDhcpServerPod will create dhcp server pod and return it.
+func DefineDhcpServerPod(
+	namespace string, networkName string, nodeName string, serverIP net.IP,
+	subnet *net.IPNet, bAddress net.IP, addressMap map[string]string) *k8sv1.Pod {
+	var (
+		hosts string
+		index int
+	)
+
+	for key, value := range addressMap {
+		hosts += fmt.Sprintf(" host test%d \"{hardware ethernet %s; fixed-address %s; max-lease-time 7200;}\"",
+			index, key, value)
+		index++
+	}
+
+	return pod.RedefineAsPrivileged(
+		pod.RedefineWithVolume(
+			pod.RedefineWithInitContainer(
+				pod.RedefineWithCommand(
+					pod.RedefineAsNetRaw(
+						pod.RedefinePodWithNetwork(
+							pod.DefinePodOnNode(namespace, helper.Config.Network.TestContainerImage, nodeName),
+							fmt.Sprintf(`[{"name": "%s", "ips": ["%s/%s"]}]`,
+								networkName, serverIP, "8"),
+						),
+					),
+					[]string{"/bin/bash", "-c"}, []string{"/usr/sbin/dhcpd -cf /etc/dhcp/dhcpd.conf && sleep INF"}),
+				[]string{"bash", "-c", fmt.Sprintf("echo subnet %s netmask %s \"{option broadcast-address ",
+					subnet.IP, net.IP(subnet.Mask).String()) +
+					fmt.Sprintf("%s; default-lease-time 3600; allow duplicates; max-lease-time 7200; interface net1;}\"", bAddress) +
+					fmt.Sprintf("%s > /etc/dhcp/dhcpd.conf", hosts)}),
+			"dhcp", "/etc/dhcp/", k8sv1.VolumeSource{EmptyDir: &k8sv1.EmptyDirVolumeSource{}},
+			false),
+	)
+}
+
+func lastAddr(network *net.IPNet) (net.IP, error) {
+	if network.IP.To4() == nil {
+		return net.IP{}, fmt.Errorf("%s", "does not support IPv6 addresses.")
+	}
+
+	ip := make(net.IP, len(network.IP.To4()))
+	binary.BigEndian.PutUint32(
+		ip, binary.BigEndian.Uint32(network.IP.To4())|^binary.BigEndian.Uint32(net.IP(network.Mask).To4()))
+
+	return ip, nil
 }

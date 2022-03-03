@@ -52,7 +52,8 @@ var _ = Describe("CNF VRF", func() {
 				generalHelper.Config,
 				sriovInfos.Nodes,
 				netvrfparameters.TestSriovNetworkBlue,
-				netvrfparameters.TestSriovNetworkRed)
+				netvrfparameters.TestSriovNetworkRed,
+				netvrfparameters.VRFIpamStatic)
 		},
 		Entry(describe, netvrfparameters.SameNode, netvrfparameters.IPStackIPv4),
 		Entry(describe, netvrfparameters.DiffNode, netvrfparameters.IPStackIPv4),
@@ -68,7 +69,8 @@ var _ = Describe("CNF VRF", func() {
 				generalHelper.Config,
 				sriovInfos.Nodes,
 				netvrfparameters.TestSriovNetworkBlue,
-				netvrfparameters.TestSriovNetworkRed)
+				netvrfparameters.TestSriovNetworkRed,
+				netvrfparameters.VRFIpamStatic)
 		},
 		Entry(describe, netvrfparameters.SameNode, netvrfparameters.IPStackIPv4),
 		Entry(describe, netvrfparameters.DiffNode, netvrfparameters.IPStackIPv4),
@@ -86,7 +88,8 @@ var _ = Describe("CNF VRF", func() {
 				generalHelper.Config,
 				sriovInfos.Nodes,
 				netvrfparameters.TestSriovNetworkBlue,
-				netvrfparameters.TestSriovNetworkRed)
+				netvrfparameters.TestSriovNetworkRed,
+				netvrfparameters.VRFIpamStatic)
 		},
 		Entry(describe, netvrfparameters.SameNode, netvrfparameters.IPStackIPv4),
 		Entry(describe, netvrfparameters.DiffNode, netvrfparameters.IPStackIPv4),

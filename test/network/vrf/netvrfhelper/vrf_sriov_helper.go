@@ -123,7 +123,7 @@ func SetupSriovBeforeAll(config *config.Config, sriovInfos *cluster.EnabledNodes
 
 	By("Define SRIOV Networks")
 
-	ipam := `{"type": "static"}`
+	ipam := fmt.Sprintf(`{"type": "%s"}`, netvrfparameters.VRFIpamStatic)
 	err = nethelper.CreateSriovNetwork(
 		helper.Apiclient,
 		sriovInterfaces[sriovNetworkInterfaceIndexRed],

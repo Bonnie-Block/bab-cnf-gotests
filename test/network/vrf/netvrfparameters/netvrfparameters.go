@@ -11,24 +11,30 @@ import (
 )
 
 const (
-	ResourceNameVRF      = "sriovnicvrf"
-	ResourceNameVRFVf1   = "sriovnicvrfvf1"
-	ResourceNameVRFVf2   = "sriovnicvrfvf2"
-	TestSriovNetworkRed  = "test-vrf-sriov-network-red"
-	TestSriovNetworkBlue = "test-vrf-sriov-network-blue"
-	SriovPolicyName      = "test-sriov-policy-vrf"
-	SameNode             = "Same Node"
-	DiffNode             = "Different Node"
-	IPStackIPv4          = "ipv4"
-	IPStackIPv6          = "ipv6"
-	TestNamespace        = "vrf-cni-test"
-	PodWaitingTime       = 2 * time.Minute
-	VRFBlueName          = "blue"
-	VRFRedName           = "red"
-	WaitingTime          = 20 * time.Minute
-	TCPPort              = 8080
-	VRFClientIPAddress   = "10.255.255.1"
-	VRFServerIPAddress   = "10.255.255.2"
+	ResourceNameVRF         = "sriovnicvrf"
+	ResourceNameVRFVf1      = "sriovnicvrfvf1"
+	ResourceNameVRFVf2      = "sriovnicvrfvf2"
+	TestSriovNetworkRed     = "test-vrf-sriov-network-red"
+	TestSriovNetworkBlue    = "test-vrf-sriov-network-blue"
+	SriovPolicyName         = "test-sriov-policy-vrf"
+	SameNode                = "Same Node"
+	DiffNode                = "Different Node"
+	IPStackIPv4             = "ipv4"
+	IPStackIPv6             = "ipv6"
+	TestNamespace           = "vrf-cni-test"
+	PodWaitingTime          = 2 * time.Minute
+	VRFBlueName             = "blue"
+	VRFRedName              = "red"
+	WaitingTime             = 20 * time.Minute
+	TCPPort                 = 8080
+	VRFClientIPAddress      = "10.255.255.1"
+	VRFClientMacAddressBlue = "20:04:0f:f1:88:A1"
+	VRFClientMacAddressRed  = "20:04:0f:f1:88:B2"
+	VRFServerMacAddressBlue = "20:04:0f:f1:88:A3"
+	VRFServerMacAddressRed  = "20:04:0f:f1:88:B4"
+	VRFServerIPAddress      = "10.255.255.2"
+	VRFIpamDHCP             = "dhcp"
+	VRFIpamStatic           = "static"
 )
 
 var (

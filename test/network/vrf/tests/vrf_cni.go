@@ -43,11 +43,13 @@ var _ = Describe("CNF VRF", func() {
 		vrfBlue = netvrfhelper.AddVRFNad(
 			"test-vrf-blue",
 			validMacVlanInterfaces[0].Name,
-			netvrfparameters.VRFBlueName)
+			netvrfparameters.VRFBlueName,
+			netvrfparameters.VRFIpamStatic)
 		vrfRed = netvrfhelper.AddVRFNad(
 			"test-vrf-red",
 			validMacVlanInterfaces[0].Name,
-			netvrfparameters.VRFRedName)
+			netvrfparameters.VRFRedName,
+			netvrfparameters.VRFIpamStatic)
 	})
 
 	BeforeEach(func() {
@@ -69,7 +71,8 @@ var _ = Describe("CNF VRF", func() {
 				generalHelper.Config,
 				nodeListString,
 				vrfBlue.Name,
-				vrfRed.Name)
+				vrfRed.Name,
+				netvrfparameters.VRFIpamStatic)
 		},
 		Entry(describe, netvrfparameters.SameNode, netvrfparameters.IPStackIPv4),
 		Entry(describe, netvrfparameters.DiffNode, netvrfparameters.IPStackIPv4),
@@ -85,7 +88,8 @@ var _ = Describe("CNF VRF", func() {
 				generalHelper.Config,
 				nodeListString,
 				vrfBlue.Name,
-				vrfRed.Name)
+				vrfRed.Name,
+				netvrfparameters.VRFIpamStatic)
 		},
 		Entry(describe, netvrfparameters.SameNode, netvrfparameters.IPStackIPv4),
 		Entry(describe, netvrfparameters.DiffNode, netvrfparameters.IPStackIPv4),
@@ -103,7 +107,8 @@ var _ = Describe("CNF VRF", func() {
 				generalHelper.Config,
 				nodeListString,
 				vrfBlue.Name,
-				vrfRed.Name)
+				vrfRed.Name,
+				netvrfparameters.VRFIpamStatic)
 		},
 		Entry(describe, netvrfparameters.SameNode, netvrfparameters.IPStackIPv4),
 		Entry(describe, netvrfparameters.DiffNode, netvrfparameters.IPStackIPv4),

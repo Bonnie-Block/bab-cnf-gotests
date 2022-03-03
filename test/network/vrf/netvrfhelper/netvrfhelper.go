@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/nethelper"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -21,7 +23,7 @@ import (
 
 // TestVRFScenario verifies that VRF feature works as expected.
 func TestVRFScenario(node string, ipStack string, ipOverLap string, config *config.Config, nodes []string,
-	vrfNetworkBlue string, vrfNetworkRed string) {
+	vrfNetworkBlue string, vrfNetworkRed string, ipamType string) {
 	var (
 		podClientNodeLabel        string
 		podServerNodeLabel        string
@@ -120,21 +122,21 @@ func TestVRFScenario(node string, ipStack string, ipOverLap string, config *conf
 
 	By("Define client/server pods")
 
-	podClientIpamConfig := fmt.Sprintf(
-		`[{"name": "%s", "mac": "%s", "ips": ["%s/%s"]}, {"name": "%s", "mac": "%s", "ips": ["%s/%s"]}]`,
-		vrfNetworkBlue, "20:04:0f:f1:88:A1", podClientVRFBlueIPAddress, blueVRFNetworkPrefix, vrfNetworkRed,
-		"20:04:0f:f1:88:B2", podClientVRFRedIPAddress, redVRFNetworkPrefix,
-	)
+	podClientIpamConfig, podServerIpamConfig := defineClientServerIpamConfig(
+		ipamType, vrfNetworkBlue, vrfNetworkRed, podClientVRFBlueIPAddress,
+		blueVRFNetworkPrefix, podClientVRFRedIPAddress, redVRFNetworkPrefix,
+		podServerVRFBlueIPAddress, podServerVRFRedIPAddress)
+
+	if ipamType == netvrfparameters.VRFIpamDHCP {
+		runDHCPServer(podClientVRFBlueIPAddress, podServerVRFBlueIPAddress,
+			podClientVRFRedIPAddress, podServerVRFRedIPAddress, nodes[0])
+	}
+
 	podClient := pod.RedefineAsNetRaw(
 		pod.RedefinePodWithNetwork(
 			pod.DefinePodOnNode(netvrfparameters.TestNamespace, config.Network.TestContainerImage, podClientNodeLabel),
 			podClientIpamConfig,
 		),
-	)
-	podServerIpamConfig := fmt.Sprintf(
-		`[{"name": "%s", "mac": "%s", "ips": ["%s/%s"]}, {"name": "%s", "mac": "%s", "ips": ["%s/%s"]}]`,
-		vrfNetworkBlue, "20:04:0f:f1:88:A3", podServerVRFBlueIPAddress, blueVRFNetworkPrefix, vrfNetworkRed,
-		"20:04:0f:f1:88:B4", podServerVRFRedIPAddress, redVRFNetworkPrefix,
 	)
 	podServer := defineServerPodMultiHTTPContainers(config, podServerNodeLabel, podServerIpamConfig)
 
@@ -327,13 +329,13 @@ func getOverlapIP(nodeName string, podImage string) string {
 		return tempPod.Status.Phase
 	}, netvrfparameters.PodWaitingTime, time.Second).Should(Equal(k8sv1.PodRunning))
 
-	pod, err := globalHelper.Apiclient.Pods(netvrfparameters.TestNamespace).Get(
+	runningPod, err := globalHelper.Apiclient.Pods(netvrfparameters.TestNamespace).Get(
 		context.Background(),
 		tempPodDefinition.Name,
 		metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
-	return pod.Status.PodIP
+	return runningPod.Status.PodIP
 }
 
 func defineServerPodMultiHTTPContainers(
@@ -388,4 +390,46 @@ func defineServerPodMultiHTTPContainers(
 	})
 
 	return podServer
+}
+
+func runDHCPServer(podClientVRFBlueIPAddress string, podServerVRFBlueIPAddress string,
+	podClientVRFRedIPAddress string, podServerVRFRedIPAddress, nodeName string) {
+	By("Run dhcp server pod")
+
+	addressMap := map[string]string{
+		netvrfparameters.VRFClientMacAddressBlue: podClientVRFBlueIPAddress,
+		netvrfparameters.VRFServerMacAddressBlue: podServerVRFBlueIPAddress,
+		netvrfparameters.VRFClientMacAddressRed:  podClientVRFRedIPAddress,
+		netvrfparameters.VRFServerMacAddressRed:  podServerVRFRedIPAddress,
+	}
+	validMacVlanInterfaces := GetNodeValidMacVlanInterface(nodeName, globalHelper.Config, 1)
+	err := nethelper.DefineDhcpServerOnNad(
+		netvrfparameters.TestNamespace, validMacVlanInterfaces[0].Name, nodeName, "10.255.255.201",
+		addressMap)
+	Expect(err).ToNot(HaveOccurred())
+}
+
+func defineClientServerIpamConfig(
+	ipamType string, vrfNetworkBlue string, vrfNetworkRed string, podClientVRFBlueIPAddress string,
+	blueVRFNetworkPrefix string, podClientVRFRedIPAddress string, redVRFNetworkPrefix string,
+	podServerVRFBlueIPAddress string, podServerVRFRedIPAddress string) (string, string) {
+	podClientIpamConfig := fmt.Sprintf(
+		`[{"name": "%s", "mac": "%s", "ips": ["%s/%s"]}, {"name": "%s", "mac": "%s", "ips": ["%s/%s"]}]`,
+		vrfNetworkBlue, netvrfparameters.VRFClientMacAddressBlue, podClientVRFBlueIPAddress, blueVRFNetworkPrefix,
+		vrfNetworkRed, netvrfparameters.VRFClientMacAddressRed, podClientVRFRedIPAddress, redVRFNetworkPrefix)
+	podServerIpamConfig := fmt.Sprintf(
+		`[{"name": "%s", "mac": "%s", "ips": ["%s/%s"]}, {"name": "%s", "mac": "%s", "ips": ["%s/%s"]}]`,
+		vrfNetworkBlue, netvrfparameters.VRFServerMacAddressBlue, podServerVRFBlueIPAddress, blueVRFNetworkPrefix,
+		vrfNetworkRed, netvrfparameters.VRFServerMacAddressRed, podServerVRFRedIPAddress, redVRFNetworkPrefix)
+
+	if ipamType == netvrfparameters.VRFIpamDHCP {
+		podClientIpamConfig = fmt.Sprintf(`[{"name": "%s", "mac": "%s"}, {"name": "%s", "mac": "%s"}]`,
+			vrfNetworkBlue, netvrfparameters.VRFClientMacAddressBlue,
+			vrfNetworkRed, netvrfparameters.VRFClientMacAddressRed)
+		podServerIpamConfig = fmt.Sprintf(`[{"name": "%s", "mac": "%s"}, {"name": "%s", "mac": "%s"}]`,
+			vrfNetworkBlue, netvrfparameters.VRFServerMacAddressBlue,
+			vrfNetworkRed, netvrfparameters.VRFServerMacAddressRed)
+	}
+
+	return podClientIpamConfig, podServerIpamConfig
 }

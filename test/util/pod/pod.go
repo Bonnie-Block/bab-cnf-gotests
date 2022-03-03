@@ -109,6 +109,17 @@ func RedefineWithRestartPolicy(pod *corev1.Pod, restartPolicy corev1.RestartPoli
 	return pod
 }
 
+// RedefineWithInitContainer adds init container to pod's manifest.
+func RedefineWithInitContainer(pod *corev1.Pod, command []string) *corev1.Pod {
+	pod.Spec.InitContainers = []corev1.Container{{
+		Name:    "initcontainer",
+		Image:   pod.Spec.Containers[0].Image,
+		Command: command,
+	}}
+
+	return pod
+}
+
 // ExecCommand runs command in the pod and returns buffer output.
 func ExecCommand(clientSet *testclient.ClientSet, pod corev1.Pod, command []string) (bytes.Buffer, error) {
 	var buf bytes.Buffer
@@ -229,7 +240,17 @@ func RedefineWithVolume(
 	if readOnly {
 		volMount.ReadOnly = true
 	}
-	pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, volMount)
+
+	for index := range pod.Spec.Containers {
+		pod.Spec.Containers[index].VolumeMounts = append(pod.Spec.Containers[index].VolumeMounts, volMount)
+	}
+
+	if len(pod.Spec.InitContainers) > 0 {
+		for index := range pod.Spec.InitContainers {
+			pod.Spec.InitContainers[index].VolumeMounts = append(pod.Spec.InitContainers[index].VolumeMounts, volMount)
+		}
+	}
+
 	pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{Name: volumeMountName, VolumeSource: volumeSource})
 
 	return pod

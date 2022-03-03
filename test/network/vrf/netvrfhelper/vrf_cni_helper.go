@@ -39,7 +39,18 @@ func GetNodeValidMacVlanInterface(nodeName string, config *config.Config, reques
 }
 
 // AddVRFNad creates a Network Attachment Definition.
-func AddVRFNad(nadName string, ifName string, vrfName string) netattdefv1.NetworkAttachmentDefinition {
+func AddVRFNad(nadName string, ifName string, vrfName string, ipam string) netattdefv1.NetworkAttachmentDefinition {
+	ipamStatic := netvrfparameters.VRFIpamStatic
+
+	switch ipam {
+	case netvrfparameters.VRFIpamStatic:
+		ipam = ipamStatic
+	case netvrfparameters.VRFIpamDHCP:
+		ipam = netvrfparameters.VRFIpamDHCP
+	default:
+		ipam = netvrfparameters.VRFIpamStatic
+	}
+
 	vrfDefinition := netattdefv1.NetworkAttachmentDefinition{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: nadName,
@@ -47,8 +58,9 @@ func AddVRFNad(nadName string, ifName string, vrfName string) netattdefv1.Networ
 		},
 		Spec: netattdefv1.NetworkAttachmentDefinitionSpec{
 			Config: fmt.Sprintf(
-				`{"cniVersion": "0.4.0", "name": "macvlan-vrf", "plugins": [{"type": "macvlan","master": "%s","ipam": {"type": "static"}},{"type": "vrf","vrfname": "%s"}]}`,
+				`{"cniVersion": "0.4.0", "name": "macvlan-vrf", "plugins": [{"type": "macvlan","master": "%s","ipam": {"type": "%s"}},{"type": "vrf","vrfname": "%s"}]}`,
 				ifName,
+				ipam,
 				vrfName),
 		},
 	}
