@@ -39,7 +39,7 @@ var _ = Describe("CNF MetalLB", func() {
 	)
 
 	execute.BeforeAll(func() {
-		metallbIPList, err = helper.Config.GetMetallbVirtIPv4()
+		metallbIPList, err = helper.Config.GetMetallbVirtIP()
 		Expect(err).ToNot(HaveOccurred())
 
 		if len(metallbIPList) < 2 {
