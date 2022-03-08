@@ -54,7 +54,7 @@ func TestMetalLBBFD(scenario string, clientPod *k8sv1.Pod,
 	Eventually(func() error {
 		return nethelper.IsBFDHasStatus(clientPod, firstWorkerNodeAddress,
 			netmlbparameters.BFDStatusUp)
-	}, netmlbparameters.TimeoutBFD, netmlbparameters.Interval).ShouldNot(HaveOccurred())
+	}, netmlbparameters.TimeoutBFDBGP, netmlbparameters.Interval).ShouldNot(HaveOccurred())
 
 	Eventually(func() bool {
 		return IsBGPNeighborshipHasState(clientPod, secondWorkerNodeAddress,
@@ -63,7 +63,7 @@ func TestMetalLBBFD(scenario string, clientPod *k8sv1.Pod,
 	Eventually(func() error {
 		return nethelper.IsBFDHasStatus(clientPod, secondWorkerNodeAddress,
 			netmlbparameters.BFDStatusUp)
-	}, netmlbparameters.TimeoutBFD, netmlbparameters.Interval).ShouldNot(HaveOccurred())
+	}, netmlbparameters.TimeoutBFDBGP, netmlbparameters.Interval).ShouldNot(HaveOccurred())
 
 	By("Removing Speaker pod and checking that speaker pod is down")
 
@@ -96,7 +96,8 @@ func TestMetalLBBFD(scenario string, clientPod *k8sv1.Pod,
 		netmlbparameters.BGPStateEstablished)).To(BeTrue())
 
 	if scenario == netmlbparameters.ScenarioMultihop {
-		httpOutput, err := HTTPMlbPod(clientPod, netmlbparameters.MetalLBMultihopIPv4List[0], netmlbparameters.Wget)
+		httpOutput, err := HTTPMlbPod(clientPod, netmlbparameters.MetalLBMultihopIPv4List[0],
+			netmlbparameters.Wget, netparameters.IPV4Family, parameters.MainContainerName)
 		Expect(err).ToNot(HaveOccurred(), httpOutput)
 	}
 
@@ -123,7 +124,7 @@ func TestMetalLBBFD(scenario string, clientPod *k8sv1.Pod,
 	Eventually(func() error {
 		return nethelper.IsBFDHasStatus(clientPod, firstWorkerNodeAddress,
 			netmlbparameters.BFDStatusUp)
-	}, netmlbparameters.TimeoutBFD, netmlbparameters.Interval).ShouldNot(HaveOccurred())
+	}, netmlbparameters.TimeoutBFDBGP, netmlbparameters.Interval).ShouldNot(HaveOccurred())
 
 	Eventually(func() bool {
 		return IsBGPNeighborshipHasState(clientPod, secondWorkerNodeAddress,
@@ -132,14 +133,16 @@ func TestMetalLBBFD(scenario string, clientPod *k8sv1.Pod,
 	Eventually(func() error {
 		return nethelper.IsBFDHasStatus(clientPod, secondWorkerNodeAddress,
 			netmlbparameters.BFDStatusUp)
-	}, netmlbparameters.TimeoutBFD, netmlbparameters.Interval).ShouldNot(HaveOccurred())
+	}, netmlbparameters.TimeoutBFDBGP, netmlbparameters.Interval).ShouldNot(HaveOccurred())
 
 	if scenario == netmlbparameters.ScenarioMultihop {
-		httpOutput, err := HTTPMlbPod(clientPod, netmlbparameters.MetalLBMultihopIPv4List[0], netmlbparameters.Wget)
+		httpOutput, err := HTTPMlbPod(clientPod, netmlbparameters.MetalLBMultihopIPv4List[0],
+			netmlbparameters.Wget, netparameters.IPV4Family, parameters.MainContainerName)
 		Expect(err).ToNot(HaveOccurred(), httpOutput)
 	}
 }
 
+// CreateRoutesMap verifies number of speaker pods is equal to the next hop list.
 func CreateRoutesMap(podList k8sv1.PodList, nextHopList []string) (map[string]string, error) {
 	if len(podList.Items) == 0 {
 		return nil, fmt.Errorf("pod list is empty")
@@ -149,8 +152,16 @@ func CreateRoutesMap(podList k8sv1.PodList, nextHopList []string) (map[string]st
 		return nil, fmt.Errorf("nexthop IP addresses list is empty")
 	}
 
-	if len(podList.Items) != len(nextHopList) {
-		return nil, fmt.Errorf("number of destination IP addresses is not equal to number of pods")
+	if len(nextHopList) == 4 {
+		if len(podList.Items) != len(nextHopList)-2 {
+			return nil, fmt.Errorf("number of speaker IP addresses[%d] is not equal to number of pods[%d]",
+				len(podList.Items), len(podList.Items))
+		}
+	} else {
+		if len(podList.Items) != len(nextHopList) {
+			return nil, fmt.Errorf("number of speaker IP addresses[%d] is not equal to number of pods[%d]",
+				len(podList.Items), len(podList.Items))
+		}
 	}
 
 	routesMap := make(map[string]string)
@@ -176,7 +187,7 @@ func CreateBGPWithBFD(bgpProtocol string, bgpPeerAddress string) {
 
 	By("Creating BGP Peers")
 
-	bgpPeerDefinition := defineSpeakerBGPPeer(bgpPeerAddress,
+	bgpPeerDefinition := defineSpeakerBGPPeer(bgpPeerAddress, uint32(0),
 		bgpProtocol, netmlbparameters.BFDProfileName)
 
 	err = helper.Apiclient.Create(context.Background(), bgpPeerDefinition)

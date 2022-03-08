@@ -64,10 +64,10 @@ func definePodWithIpam(pod *corev1.Pod, mainNetwork string,
 	macAddress string,
 	ipam string) *corev1.Pod {
 	annotation := ""
-	subnet := netparameters.Ipv4Subnet
+	subnet := netparameters.IPV4Subnet
 
 	if strings.Contains(ipAddress, ":") {
-		subnet = netparameters.Ipv6Subnet
+		subnet = netparameters.IPV6Subnet
 	}
 
 	if len(slaveNetworkNames) > 0 {

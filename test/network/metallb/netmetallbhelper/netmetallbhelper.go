@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net"
 	"os/exec"
 	"reflect"
@@ -21,6 +20,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/metallb/netmlbparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/nethelper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/netparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
@@ -134,7 +134,8 @@ func WaitNetworkOperator() {
 // IsEnvVarMetallbIPinNodeExtNetRange validates that the enviromnental IP variable
 // is in the same IP range as the br-ex interface of the cluster under-test.
 // MetallB Down-stream tests will only run on clusters Helix 2,3 and 7.
-func IsEnvVarMetallbIPinNodeExtNetRange(cnfNodeLabel string, metallbEnvIP string) {
+func IsEnvVarMetallbIPinNodeExtNetRange(cnfNodeLabel string, ipStack string,
+	metallbEnvIPv4 string, metallbEnvIPv6 string) {
 	// Checks that the METALLB_ADDR_LIST is in the range of the cluster br-ex interface.
 	node := helper.GetNodeListStringByLabel(cnfNodeLabel)
 	Expect(len(node)).To(BeNumerically(">", 0), "No Node found in list")
@@ -144,23 +145,20 @@ func IsEnvVarMetallbIPinNodeExtNetRange(cnfNodeLabel string, metallbEnvIP string
 	Expect(err).ToNot(HaveOccurred())
 
 	val := event.Annotations[netmlbparameters.AnnotationPrimaryIfaddr]
+
 	// Output example [{ ipv4 : 10.46.56.13/24 }] len = 5
 	ipListOutput := strings.Split(val, "\"")
 
-	switch len(ipListOutput) {
-	case 5:
-		log.Println("Cluster is a Single Stack")
-	case 9:
-		log.Println("Cluster is a Dual Stack")
+	switch ipStack {
+	case netmlbparameters.SingleIPv4Stack:
+		loadBalancerIPValid(ipListOutput[3], metallbEnvIPv4)
+	case netmlbparameters.SingleIPv6Stack:
+		loadBalancerIPValid(ipListOutput[7], metallbEnvIPv6)
+	case netmlbparameters.DualIPStack:
+		loadBalancerIPValid(ipListOutput[3], metallbEnvIPv4)
+		loadBalancerIPValid(ipListOutput[7], metallbEnvIPv6)
 	default:
 		Fail("Incorrect IPStack output")
-	}
-
-	_, nodeNet, err := net.ParseCIDR(ipListOutput[3])
-	Expect(err).ToNot(HaveOccurred())
-
-	if !nodeNet.Contains(net.ParseIP(metallbEnvIP)) {
-		Skip("The environment IP variable is out of cluster br-ex IP range")
 	}
 }
 
@@ -248,7 +246,8 @@ func GetLBServiceAnnouncingNodeName() string {
 	var allEvents []string
 
 	serviceEvents, err := helper.Apiclient.Events(
-		netmlbparameters.TestNamespace).List(context.Background(), metav1.ListOptions{FieldSelector: "reason=nodeAssigned"})
+		netmlbparameters.TestNamespace).List(context.Background(),
+		metav1.ListOptions{FieldSelector: "reason=nodeAssigned"})
 	Expect(err).ToNot(HaveOccurred())
 
 	seriveSortedEvents := sortServiceTimeStamp(serviceEvents)
@@ -386,24 +385,45 @@ func IPAddBrEx(client k8sv1.Pod) ([]string, error) {
 }
 
 // HTTPMlbPod verifies that nginx web service is available via the external service IP.
-func HTTPMlbPod(client *k8sv1.Pod, destIPAddr string, method string) (string, error) {
-	var command string
+func HTTPMlbPod(
+	client *k8sv1.Pod,
+	destIPAddr string,
+	method string,
+	ipFamily string,
+	containerName string) (string, error) {
+	var (
+		command    string
+		httpStatus bytes.Buffer
+	)
 
 	switch method {
 	case netmlbparameters.Curl:
 		command = fmt.Sprint("curl ", destIPAddr)
+
+		if ipFamily == netmlbparameters.IPV6Family {
+			command = fmt.Sprint("curl ", "[", destIPAddr, "]")
+		}
+
 	case netmlbparameters.Wget:
 		command = fmt.Sprint("wget -qO- ", destIPAddr)
 	}
 
-	httpStatus, err := pod.ExecCommand(helper.Apiclient, *client,
-		[]string{"bash", "-c", command})
-	if err != nil {
-		return httpStatus.String(), err
-	}
+	if containerName == netmlbparameters.TestContainerName {
+		httpStatus, err := pod.ExecCommand(helper.Apiclient, *client, []string{"bash", "-c", command},
+			netmlbparameters.TestContainerName)
+		if err != nil {
+			return httpStatus.String(), err
+		}
 
-	if !strings.Contains(httpStatus.String(), "html") {
-		return httpStatus.String(), fmt.Errorf("unable to connect to nginx")
+		if !strings.Contains(httpStatus.String(), "html") {
+			return httpStatus.String(), fmt.Errorf("unable to connect to nginx")
+		}
+	} else {
+		httpStatus, err := pod.ExecCommand(helper.Apiclient, *client,
+			[]string{"bash", "-c", command})
+		if err != nil {
+			return httpStatus.String(), err
+		}
 	}
 
 	return httpStatus.String(), nil
@@ -772,22 +792,38 @@ func AddOrDeleteSpeakerStaticRoute(action string, speakerRoutesMap map[string]st
 }
 
 // ValidateIPs checks given IP addresses if they belong to IPFamily.
-func ValidateIPs(ipAddresses []string, ipFamily string) error {
+func ValidateIPs(ipAddressList []string, ipFamily string) error {
+	var (
+		ipAddresses []string
+		character   string
+		ipAddressV6 []string
+	)
+
+	clusterIPStack := ValidateClusterIPStack()
+	ipAddressV4 := []string{ipAddressList[0], ipAddressList[1]}
+
+	if clusterIPStack != netmlbparameters.SingleIPv4Stack {
+		ipAddressV6 = []string{ipAddressList[2], ipAddressList[3]}
+	}
+
+	switch ipFamily {
+	case netmlbparameters.SingleIPv4Stack:
+		ipAddresses = ipAddressV4
+		character = "."
+
+	case netmlbparameters.SingleIPv6Stack:
+		ipAddresses = ipAddressV6
+		character = ":"
+	}
+
 	for _, ipAddress := range ipAddresses {
-		IP := net.ParseIP(ipAddress)
-		if IP == nil {
+		ip := net.ParseIP(ipAddress)
+		if ip == nil {
 			return fmt.Errorf("%s is not valid IP", ipAddress)
 		}
 
-		switch ipFamily {
-		case netmlbparameters.SingleIPv4Stack:
-			if !strings.Contains(ipAddress, ".") {
-				return fmt.Errorf("%s is not from %s", ipAddress, ipFamily)
-			}
-		case netmlbparameters.SingleIPv6Stack:
-			if !strings.Contains(ipAddress, ":") {
-				return fmt.Errorf("%s is not from %s", ipAddress, ipFamily)
-			}
+		if !strings.Contains(ipAddress, character) {
+			return fmt.Errorf("%s is not from %s", ipAddress, ipFamily)
 		}
 	}
 
@@ -821,4 +857,44 @@ func appendIfMissing(slice []string, newItem string) []string {
 
 func uint32Ptr(n uint32) *uint32 {
 	return &n
+}
+
+// ValidateClusterIPStack verifies if the cluster is a SingleStack or DualStack.
+func ValidateClusterIPStack() string {
+	var clusterIPStack string
+
+	workerNodes, err := nodes.GetByRole(helper.Apiclient, parameters.RoleWorker)
+	Expect(err).ToNot(HaveOccurred())
+
+	clusterIPv4Address := nethelper.NodeIPsForFamily(workerNodes, netparameters.IPV4Family)
+	clusterIPv6Address := nethelper.NodeIPsForFamily(workerNodes, netmlbparameters.IPV6Family)
+
+	if len(clusterIPv6Address) == 0 {
+		clusterIPStack = netmlbparameters.SingleIPv4Stack
+	}
+
+	if len(clusterIPv4Address) == 0 && len(clusterIPv6Address) > 1 {
+		clusterIPStack = netmlbparameters.SingleIPv6Stack
+	}
+
+	if len(clusterIPv6Address) > 1 {
+		clusterIPStack = netmlbparameters.DualIPStack
+	}
+
+	return clusterIPStack
+}
+
+func loadBalancerIPValid(ipAddress string, lbIpaddress string) {
+	_, nodeNet, err := net.ParseCIDR(ipAddress)
+	Expect(err).ToNot(HaveOccurred())
+
+	if !nodeNet.Contains(net.ParseIP(lbIpaddress)) {
+		ipVersion := "IPv4"
+
+		if strings.Contains(lbIpaddress, ":") {
+			ipVersion = "IPv6"
+		}
+
+		Skip(fmt.Sprintf("The environment IP variable is out of cluster br-ex %s range", ipVersion))
+	}
 }

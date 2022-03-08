@@ -2,7 +2,6 @@ package tests
 
 import (
 	"context"
-	"net"
 	"strings"
 	"time"
 
@@ -90,7 +89,7 @@ var _ = Describe("BFD", func() {
 			Eventually(func() error {
 				return nethelper.IsBFDHasStatus(clientPodOnMasterNode, firstWorkerNodeAddress,
 					netmlbparameters.BFDStatusUp)
-			}, netmlbparameters.TimeoutBFD, netmlbparameters.Interval).ShouldNot(HaveOccurred())
+			}, netmlbparameters.TimeoutBFDBGP, netmlbparameters.Interval).ShouldNot(HaveOccurred())
 		})
 
 		AfterEach(func() {
@@ -187,7 +186,9 @@ var _ = Describe("BFD", func() {
 			}
 			netmetallbhelper.IsEnvVarMetallbIPinNodeExtNetRange(strings.Split(
 				helper.Config.General.CnfNodeLabel, "/")[1],
-				metalLBIPList[0])
+				netmlbparameters.SingleIPv4Stack,
+				metalLBIPList[0],
+				"")
 
 			speakerPodList, err := helper.Apiclient.Pods(netmlbparameters.MetalLBOperatorNameSpace).List(
 				context.Background(),
@@ -248,6 +249,7 @@ var _ = Describe("BFD", func() {
 
 		DescribeTable("should provide fast link failure detection",
 			func(bgpProtocol string, ipStack string) {
+
 				err = netmetallbhelper.ValidateIPs(append(metalLBIPList, firstWorkerNodeAddress), ipStack)
 				if err != nil {
 					Skip(err.Error())
@@ -257,7 +259,7 @@ var _ = Describe("BFD", func() {
 
 				By("Creating an Address Pool")
 				addresspoolDefinition := netmetallbhelper.DefineMetalLBAddressPool(netmlbparameters.MetalLBMultihopIPv4List,
-					netmlbparameters.Layer3,
+					netmlbparameters.BGP,
 					ipStack,
 					netmlbparameters.AddressPoolName)
 
@@ -270,7 +272,7 @@ var _ = Describe("BFD", func() {
 					ipStack,
 					netmlbparameters.AddressPoolName,
 					netmlbparameters.AppLabel1,
-					"Local")
+					netmlbparameters.ExtTrafPolLocal)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating nginx test pod")
@@ -279,10 +281,7 @@ var _ = Describe("BFD", func() {
 					netmlbparameters.AppLabel1)
 
 				By("Creating FRR router pods on a Master node")
-				_, nodeNet, err := net.ParseCIDR(metalLBIPList[0] + "/" + netparameters.Ipv4Subnet)
-				Expect(err).ToNot(HaveOccurred())
-
-				externalNADDefinition := netmetallbhelper.DefineExternalNAD(nodeNet.String())
+				externalNADDefinition := netmetallbhelper.DefineExternalNAD()
 				err = helper.Apiclient.Create(context.Background(), externalNADDefinition)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -328,10 +327,11 @@ var _ = Describe("BFD", func() {
 				Eventually(func() error {
 					return nethelper.IsBFDHasStatus(clientPodOnMasterNode, firstWorkerNodeAddress,
 						netmlbparameters.BFDStatusUp)
-				}, netmlbparameters.TimeoutBFD, netmlbparameters.Interval).ShouldNot(HaveOccurred())
+				}, netmlbparameters.TimeoutBFDBGP, netmlbparameters.Interval).ShouldNot(HaveOccurred())
 
 				httpOutput, err := netmetallbhelper.HTTPMlbPod(clientPodOnMasterNode,
-					netmlbparameters.MetalLBMultihopIPv4List[0], netmlbparameters.Wget)
+					netmlbparameters.MetalLBMultihopIPv4List[0],
+					netmlbparameters.Wget, netparameters.IPV4Family, parameters.MainContainerName)
 				Expect(err).ToNot(HaveOccurred(), httpOutput)
 
 				netmetallbhelper.TestMetalLBBFD(netmlbparameters.ScenarioMultihop,

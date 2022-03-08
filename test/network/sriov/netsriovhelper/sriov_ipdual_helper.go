@@ -50,7 +50,7 @@ func definePodWithStaticDualIpamAndDynamicMac(
 			"name": "%s",
 			"ips": ["%s/%s","%s/%s"]
 		}
-	]`, networkName, ip4address, netparameters.Ipv4Subnet, ip6address, netparameters.Ipv6Subnet)}
+	]`, networkName, ip4address, netparameters.IPV4Subnet, ip6address, netparameters.IPV6Subnet)}
 
 	return pod
 }
@@ -64,7 +64,7 @@ func definePodWithStaticMacAndDualIpam(
 			"mac": "%s",
 			"ips": ["%s/%s","%s/%s"]
 		}
-	]`, networkName, macAddress, ip4address, netparameters.Ipv4Subnet, ip6address, netparameters.Ipv6Subnet)}
+	]`, networkName, macAddress, ip4address, netparameters.IPV4Subnet, ip6address, netparameters.IPV6Subnet)}
 
 	return pod
 }

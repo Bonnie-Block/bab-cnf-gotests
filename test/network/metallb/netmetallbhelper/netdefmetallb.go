@@ -29,7 +29,7 @@ func defineBFDMLBConfigMap(ipAddresses []string, configMapName string, asn int, 
 	bfdConfig := defineBFDConfig(ipAddresses, asn, bgpProtocol)
 
 	configMapData["frr.conf"] = bfdConfig
-	configMap := nethelper.DefineFRRConfigMap(configMapName, netmlbparameters.TestNamespace, configMapData)
+	configMap := nethelper.DefineFRRBFDConfigMap(configMapName, netmlbparameters.TestNamespace, configMapData)
 
 	return configMap
 }
@@ -55,35 +55,44 @@ func defineBFDProfile(name string) *v1beta1.BFDProfile {
 
 // defineSpeakerBGPPeer defines the bgppeer config.  Speakers are always AS 64500.  For EBGP
 // connections the external FRR is changed.
-func defineSpeakerBGPPeer(externalAddress string, bgpProtocol string, bfdProfile string) *v1beta1.BGPPeer {
-	var (
-		asn          uint32
-		ebgpMultiHop bool
-	)
+func defineSpeakerBGPPeer(externalAddress string, asn uint32, bgpProtocol string, bfdProfile string) *v1beta1.BGPPeer {
+	var ebgpMultiHop bool
 
-	switch bgpProtocol {
-	case netmlbparameters.IBPGPProtocol:
-		asn = netmlbparameters.IBGPASN
-	case netmlbparameters.EBGPProtocol:
-		ebgpMultiHop = true
-		asn = netmlbparameters.EBGPASN
-	}
-
-	return &v1beta1.BGPPeer{
+	bgpPeer := &v1beta1.BGPPeer{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "testpeer-",
 			Namespace:    netmlbparameters.MetalLBOperatorNameSpace,
-		},
-		Spec: v1beta1.BGPPeerSpec{
-			MyASN:        netmlbparameters.IBGPASN,
-			ASN:          asn,
-			Address:      externalAddress,
-			Port:         179,
-			Password:     netmlbparameters.BGPPassword,
-			EBGPMultiHop: ebgpMultiHop,
-			BFDProfile:   bfdProfile,
-		},
+		}}
+
+	bgpSpec := &v1beta1.BGPPeerSpec{
+		Port:     179,
+		Password: netmlbparameters.BGPPassword,
+		Address:  externalAddress,
 	}
+
+	if bfdProfile != "" {
+		switch bgpProtocol {
+		case netmlbparameters.IBPGPProtocol:
+			asn = netmlbparameters.IBGPASN
+		case netmlbparameters.EBGPProtocol:
+			ebgpMultiHop = true
+			asn = netmlbparameters.EBGPASN
+		}
+
+		bgpSpec.MyASN = netmlbparameters.IBGPASN
+		bgpSpec.ASN = asn
+		bgpSpec.EBGPMultiHop = ebgpMultiHop
+		bgpSpec.BFDProfile = bfdProfile
+	}
+
+	if bfdProfile == "" {
+		bgpSpec.MyASN = asn
+		bgpSpec.ASN = netmlbparameters.IBGPASN
+	}
+
+	bgpPeer.Spec = *bgpSpec
+
+	return bgpPeer
 }
 
 // DefineRouterPod returns router pod definition for multihop scenario.
@@ -99,9 +108,9 @@ func DefineRouterPod(nodeName string,
 		[]string{"/bin/bash", "-c"},
 		[]string{fmt.Sprintf("ip route add %s via %s && sleep INF", serviceIP, speakerIP)})
 
-	subnet := netparameters.Ipv4Subnet
+	subnet := netparameters.IPV4Subnet
 	if strings.Contains(speakerIP, ":") {
-		subnet = netparameters.Ipv6Subnet
+		subnet = netparameters.IPV6Subnet
 	}
 
 	return pod.RedefinePodWithNetwork(pod.RedefineOnMaster(pod.RedefineAsPrivileged(routerPodDefinition)),
@@ -115,25 +124,23 @@ func defineFRRPodWithNetworkAndIP(masterNodeName string, ipAddress string, netwo
 	frrPod := nethelper.DefineFRRPod(masterNodeName, netmlbparameters.TestNamespace, false)
 
 	return pod.RedefinePodWithNetwork(frrPod, fmt.Sprintf(`[{"name": "%s","ips": ["%s/%s"]}]`,
-		networkName, ipAddress, netparameters.Ipv4Subnet))
+		networkName, ipAddress, netparameters.IPV4Subnet))
 }
 
 // DefineExternalNAD returns external Network Attachment Definition for multihop scenario.
-func DefineExternalNAD(hostRange string) *netattdefv1.NetworkAttachmentDefinition {
+func DefineExternalNAD() *netattdefv1.NetworkAttachmentDefinition {
 	return &netattdefv1.NetworkAttachmentDefinition{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      netmlbparameters.ExternalNADName,
 			Namespace: netmlbparameters.TestNamespace,
 		},
 		Spec: netattdefv1.NetworkAttachmentDefinitionSpec{
-			Config: fmt.Sprintf(
-				`{"cniVersion": "0.3.1",
-"name": "externalnad",
-"type": "macvlan",
-"master": "br-ex",
-"mode": "bridge",
-"ipam": {"type": "host-local", "ranges": [[{"subnet": "%s"}]]}}`,
-				hostRange),
+			Config: `{"cniVersion": "0.3.1",
+	"name": "externalnad",
+	"type": "macvlan",
+	"master": "br-ex",
+	"mode": "bridge",
+	"ipam": {"type": "static"}}`,
 		}}
 }
 

@@ -13,4 +13,6 @@ const (
 	PromNamespace = "openshift-monitoring"
 	// PromLocalURL is the Prometheus http API to get metrics.
 	PromLocalURL = "http://localhost:9090/api/v1/"
+	// MainContainerName is the container name of CNF test pod.
+	MainContainerName = "test"
 )

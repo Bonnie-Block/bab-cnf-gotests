@@ -13,6 +13,7 @@ import (
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/metallb/netmetallbhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/metallb/netmlbparameters"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/netparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
@@ -47,7 +48,9 @@ var _ = Describe("CNF MetalLB", func() {
 		}
 		netmetallbhelper.IsEnvVarMetallbIPinNodeExtNetRange(strings.Split(
 			helper.Config.General.CnfNodeLabel, "/")[1],
-			metallbIPList[0])
+			netmlbparameters.SingleIPv4Stack,
+			metallbIPList[0],
+			"")
 
 		masterNodeList, err := nodes.GetByRole(helper.Apiclient, parameters.RoleMaster)
 		Expect(err).ToNot(HaveOccurred())
@@ -105,7 +108,9 @@ var _ = Describe("CNF MetalLB", func() {
 		}
 		netmetallbhelper.IsEnvVarMetallbIPinNodeExtNetRange(strings.Split(
 			helper.Config.General.CnfNodeLabel, "/")[1],
-			metallbIPList[0])
+			netmlbparameters.SingleIPv4Stack,
+			metallbIPList[0],
+			"")
 
 		By("should create an Address Pool")
 		addresspool := netmetallbhelper.DefineMetalLBAddressPool(metallbIPList,
@@ -156,7 +161,8 @@ var _ = Describe("CNF MetalLB", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		By("should validate curl")
-		httpOutput, err := netmetallbhelper.HTTPMlbPod(testPod, metallbIPList[0], netmlbparameters.Curl)
+		httpOutput, err := netmetallbhelper.HTTPMlbPod(testPod, metallbIPList[0], netmlbparameters.Curl,
+			netparameters.IPV4Family, parameters.MainContainerName)
 		Expect(err).ToNot(HaveOccurred(), httpOutput)
 
 	})
@@ -173,7 +179,9 @@ var _ = Describe("CNF MetalLB", func() {
 		}
 		netmetallbhelper.IsEnvVarMetallbIPinNodeExtNetRange(strings.Split(
 			helper.Config.General.CnfNodeLabel, "/")[1],
-			metallbIPList[0])
+			netmlbparameters.SingleIPv4Stack,
+			metallbIPList[0],
+			"")
 
 		By("should create an Address Pool")
 		addresspool := netmetallbhelper.DefineMetalLBAddressPool(metallbIPList,
@@ -247,7 +255,8 @@ var _ = Describe("CNF MetalLB", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		By("should validate curl")
-		httpOutput, err := netmetallbhelper.HTTPMlbPod(testPod, metallbIPList[0], netmlbparameters.Curl)
+		httpOutput, err := netmetallbhelper.HTTPMlbPod(testPod, metallbIPList[0], netmlbparameters.Curl,
+			netparameters.IPV4Family, parameters.MainContainerName)
 		Expect(err).ToNot(HaveOccurred(), httpOutput)
 
 		By("After failure two Speaker pods are running")
@@ -276,7 +285,8 @@ var _ = Describe("CNF MetalLB", func() {
 		}, netmlbparameters.PodWaitingTime, netmlbparameters.Interval).Should(BeNil())
 
 		By("should validate curl")
-		httpOutput, err = netmetallbhelper.HTTPMlbPod(testPod, metallbIPList[0], netmlbparameters.Curl)
+		httpOutput, err = netmetallbhelper.HTTPMlbPod(testPod, metallbIPList[0], netmlbparameters.Curl,
+			netparameters.IPV4Family, parameters.MainContainerName)
 		Expect(err).ToNot(HaveOccurred(), httpOutput)
 	})
 })

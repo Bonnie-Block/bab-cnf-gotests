@@ -127,8 +127,9 @@ func IPFamilyForAddress(ip string) string {
 	return "ipv4"
 }
 
-// DefineFRRConfigMap returns configmap definition with FRR configuration.
-func DefineFRRConfigMap(configMapName string, testNamespace string, configMapData map[string]string) *k8sv1.ConfigMap {
+// DefineFRRBFDConfigMap returns configmap definition with FRR configuration.
+func DefineFRRBFDConfigMap(configMapName string, testNamespace string,
+	configMapData map[string]string) *k8sv1.ConfigMap {
 	configMapData["vtysh.conf"] = ""
 
 	configMap := &k8sv1.ConfigMap{

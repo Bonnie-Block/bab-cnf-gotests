@@ -13,42 +13,37 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/metallb/netmetallbhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/metallb/netmlbparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/nethelper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/netparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 
 	metallbutils "github.com/metallb/metallb-operator/test/e2e/metallb"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
-	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var _ = Describe("CNF MetalLB", func() {
 
-	var (
-		nodeListString []string
-		masterNode     k8sv1.Node
-	)
+	var nodeListString []string
 
 	execute.BeforeAll(func() {
 
-		masterNodeList, err := nodes.GetByRole(helper.Apiclient, parameters.RoleMaster)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(len(masterNodeList)).To(BeNumerically(">", 0))
-		masterNode = masterNodeList[0]
-
-		metallbIPList, err := helper.Config.GetMetallbVirtIP()
+		metalLBIPList, err := helper.Config.GetMetallbVirtIP()
 		Expect(err).ToNot(HaveOccurred())
 
-		if len(metallbIPList) < 2 {
+		if len(metalLBIPList) < 2 {
 			Skip("The environment IP variable is not set or less than 2")
 		}
 
 		netmetallbhelper.IsEnvVarMetallbIPinNodeExtNetRange(strings.Split(
 			helper.Config.General.CnfNodeLabel, "/")[1],
-			metallbIPList[0])
+			netmlbparameters.SingleIPv4Stack,
+			metalLBIPList[0],
+			"")
 
 		By(fmt.Sprintf("should select nodes by role %s ", parameters.RoleWorker))
 		workerNodeList, err := nodes.GetByRole(helper.Apiclient, parameters.RoleWorker)
@@ -79,7 +74,9 @@ var _ = Describe("CNF MetalLB", func() {
 		Expect(err).ToNot(HaveOccurred())
 		err = namespaces.CleanPods(netmlbparameters.TestNamespace, helper.Apiclient)
 		Expect(err).ToNot(HaveOccurred())
-		err = netmetallbhelper.DeleteConfigMap(netmlbparameters.MasterConfigMapName, netmlbparameters.TestNamespace)
+		err = netmetallbhelper.DeleteConfigMap(netparameters.MasterConfigMapName, netmlbparameters.TestNamespace)
+		Expect(err).ToNot(HaveOccurred())
+		err = nethelper.DeleteNADs([]string{netmlbparameters.ExternalNADName}, netmlbparameters.TestNamespace)
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Should remove Metallb Configuration")
@@ -94,21 +91,20 @@ var _ = Describe("CNF MetalLB", func() {
 
 	// 47182
 	It("MetalLB BGP Multi-Service Validation", func() {
-
 		By("should create a BGP addresspool for service 1")
-		addresspool := netmetallbhelper.DefineMetalLBAddressPool(netmlbparameters.AddressPoolS1v4,
+		addresspool := netmetallbhelper.DefineMetalLBAddressPool(netmlbparameters.AddressPoolS1,
 			netmlbparameters.BGP,
 			netmlbparameters.SingleIPv4Stack,
-			netmlbparameters.AddressPoolS1v4Name)
+			netmlbparameters.AddressPoolS1Name)
 
 		err := helper.Apiclient.Create(context.Background(), addresspool)
 		Expect(err).ToNot(HaveOccurred())
 
 		By("should create a BGP addresspool for service 2")
-		addresspool = netmetallbhelper.DefineMetalLBAddressPool(netmlbparameters.AddressPoolS2v4,
+		addresspool = netmetallbhelper.DefineMetalLBAddressPool(netmlbparameters.AddressPoolS2,
 			netmlbparameters.BGP,
 			netmlbparameters.SingleIPv4Stack,
-			netmlbparameters.AddressPoolS2v4Name)
+			netmlbparameters.AddressPoolS2Name)
 
 		err = helper.Apiclient.Create(context.Background(), addresspool)
 		Expect(err).ToNot(HaveOccurred())
@@ -117,9 +113,9 @@ var _ = Describe("CNF MetalLB", func() {
 		err = netmetallbhelper.DefineAndCreateLBService(
 			netmlbparameters.TestNamespace,
 			netmlbparameters.SingleIPv4Stack,
-			netmlbparameters.AddressPoolS1v4Name,
+			netmlbparameters.AddressPoolS1Name,
 			netmlbparameters.AppLabel1,
-			"Cluster")
+			netmlbparameters.ExtTrafPolCluster)
 		Expect(err).ToNot(HaveOccurred())
 
 		netmetallbhelper.DefineAndRunMlbClientPod(nodeListString[0],
@@ -134,9 +130,9 @@ var _ = Describe("CNF MetalLB", func() {
 		err = netmetallbhelper.DefineAndCreateLBService(
 			netmlbparameters.TestNamespace,
 			netmlbparameters.SingleIPv4Stack,
-			netmlbparameters.AddressPoolS2v4Name,
+			netmlbparameters.AddressPoolS2Name,
 			netmlbparameters.AppLabel2,
-			"Cluster")
+			netmlbparameters.ExtTrafPolCluster)
 		Expect(err).ToNot(HaveOccurred())
 
 		netmetallbhelper.DefineAndRunMlbClientPod(nodeListString[0],
@@ -148,49 +144,64 @@ var _ = Describe("CNF MetalLB", func() {
 			netmlbparameters.AppLabel2)
 
 		By("should create a IBGP Peer on Speakers")
-		masterNodesIPv4List, err := helper.GetNodeIPListByLabel(parameters.RoleMaster)
+		metalLBIPList, err := helper.Config.GetMetallbVirtIP()
 		Expect(err).ToNot(HaveOccurred())
-		err = netmetallbhelper.CreateSpeakerBGPPeer(masterNodesIPv4List[0], netmlbparameters.IBPGPProtocol)
+
+		masterNodeList, err := nodes.GetByRole(helper.Apiclient, parameters.RoleMaster)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(len(masterNodeList)).To(BeNumerically(">", 0))
+		masterNode := masterNodeList[0]
+
+		err = netmetallbhelper.CreateSpeakerBGPPeer(metalLBIPList[0],
+			netmlbparameters.IBPGPProtocol, uint32(netmlbparameters.IBGPASN))
 		Expect(err).ToNot(HaveOccurred())
 
 		By("should create external FRR container")
+		err = helper.Apiclient.Create(context.Background(), netmetallbhelper.DefineExternalNAD())
+		Expect(err).ToNot(HaveOccurred())
+
 		workerNodesAdresses, err := helper.GetNodeIPListByLabel(parameters.RoleWorker)
 		Expect(err).ToNot(HaveOccurred())
-		masterConfigMap := netmetallbhelper.DefineBGPFRRConfigMap(workerNodesAdresses,
-			netmlbparameters.MasterConfigMapName)
+		masterConfigMap := netmetallbhelper.DefineFRRBGPConfigMap(workerNodesAdresses,
+			netparameters.MasterConfigMapName,
+			netmlbparameters.IBGPASN,
+			netmlbparameters.BGP,
+			netmlbparameters.SingleIPv4Stack)
 		_, err = helper.Apiclient.ConfigMaps(netmlbparameters.TestNamespace).Create(
 			context.TODO(),
 			masterConfigMap,
 			metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
-		frrPod := nethelper.DefineFRRPod(masterNode.Name, netmlbparameters.TestNamespace, true)
-		masterNodePod := helper.WaitUntilPodCreatedAndRunning(frrPod, netmlbparameters.PodWaitingTime)
+		frrPod := netmetallbhelper.DefineFrrPodWithTestContainer(masterNode.Name, netmlbparameters.TestNamespace)
+		frrPodWithNAD := pod.RedefinePodWithNetwork(frrPod,
+			fmt.Sprintf(`[{"name": "%s", "ips": ["%s/%s"]}]`, netmlbparameters.ExternalNADName,
+				metalLBIPList[0], netparameters.IPV4Subnet))
+		masterNodeFRRPod := helper.WaitUntilPodCreatedAndRunning(frrPodWithNAD, netmlbparameters.PodWaitingTime)
 
 		By("Checking that BGP sessions are established")
 		Eventually(func() bool {
-			netmetallbhelper.CheckNeighborsStatus(masterNodePod, workerNodesAdresses)
+			netmetallbhelper.CheckNeighborsStatus(masterNodeFRRPod, netmlbparameters.SingleIPv4Stack,
+				workerNodesAdresses)
 
-			return netmetallbhelper.CheckNeighborsStatus(masterNodePod, workerNodesAdresses)
+			return netmetallbhelper.CheckNeighborsStatus(masterNodeFRRPod, netmlbparameters.SingleIPv4Stack,
+				workerNodesAdresses)
 		}, 1*time.Minute, netmlbparameters.Interval).Should(BeTrue())
 
 		By("should validate BGP routes to service")
-		routesV4 := []string{netmlbparameters.AddressPoolS1v4[0], netmlbparameters.AddressPoolS2v4[0]}
-		routeState := netmetallbhelper.CheckBGPRoutes(masterNodePod, workerNodesAdresses, routesV4)
-		Expect(routeState).To(BeTrue())
+		routesV4 := []string{netmlbparameters.AddressPoolS1[0], netmlbparameters.AddressPoolS2[0]}
+		err = netmetallbhelper.CheckBGPRoutes(masterNodeFRRPod, workerNodesAdresses,
+			routesV4, netparameters.IPV4Family)
+		Expect(err).ToNot(HaveOccurred())
 
 		By("should validate curl to service 1")
-		testPod := netmetallbhelper.DefineAndRunMlbPodMaster(masterNode.Name,
-			netmlbparameters.TestNamespace,
-			helper.Config.Network.TestContainerImage)
-
-		httpOutput, err := netmetallbhelper.HTTPMlbPod(testPod,
-			netmlbparameters.AddressPoolS1v4[0], netmlbparameters.Curl)
+		httpOutput, err := netmetallbhelper.HTTPMlbPod(frrPod, netmlbparameters.AddressPoolS1[0], netmlbparameters.Curl,
+			netparameters.IPV4Family, netmlbparameters.TestContainerName)
 		Expect(err).ToNot(HaveOccurred(), httpOutput)
 
 		By("should validate curl to service 2")
-		httpOutput, err = netmetallbhelper.HTTPMlbPod(testPod,
-			netmlbparameters.AddressPoolS2v4[0], netmlbparameters.Curl)
+		httpOutput, err = netmetallbhelper.HTTPMlbPod(frrPod, netmlbparameters.AddressPoolS2[0], netmlbparameters.Curl,
+			netparameters.IPV4Family, netmlbparameters.TestContainerName)
 		Expect(err).ToNot(HaveOccurred(), httpOutput)
 	})
 })

@@ -149,7 +149,7 @@ func DefineBFDConfigMap(ipAddresses []string, configMapName string) *k8sv1.Confi
 	configMapData["daemons"] = netbfdparameters.DaemonsFile
 	configMapData["frr.conf"] = defineBFDConfig(ipAddresses)
 
-	configMap := nethelper.DefineFRRConfigMap(configMapName, netbfdparameters.TestNamespace, configMapData)
+	configMap := nethelper.DefineFRRBFDConfigMap(configMapName, netbfdparameters.TestNamespace, configMapData)
 
 	return configMap
 }

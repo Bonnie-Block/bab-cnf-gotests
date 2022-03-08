@@ -1,10 +1,15 @@
 package netmlbparameters
 
-import "net"
+import (
+	"net"
+
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/nethelper"
+)
 
 var (
-	AddressPoolS1v4 = []string{"4.4.4.100", "4.4.4.101"}
-	AddressPoolS2v4 = []string{"5.5.5.100", "5.5.5.101"}
+	AddressPoolS1 = []string{"4.4.4.100", "4.4.4.101", "2001:4::100", "2001:4::101"}
+	AddressPoolS2 = []string{"5.5.5.100", "5.5.5.101", "2001:5::100", "2001:5::101"}
+	AddressPoolV6 = []string{"2001:4::100", "2001:4::101"}
 )
 
 const (
@@ -104,8 +109,11 @@ const (
     log file /tmp/frr.log debugging
     log timestamp precision 3
 
-    set ipv6 next-hop prefer-global
+    ipv6 nht resolve-via-default
 
+    route-map RMAP permit 10
+    set ipv6 next-hop prefer-global
+    
     router bgp 64500
       bgp router-id 10.10.10.10
       no bgp network import-check
@@ -115,9 +123,19 @@ const (
       neighbor {{.Addr1}} password bgp-test
       neighbor {{.Addr2}} remote-as {{.ASN}}
       neighbor {{.Addr2}} password bgp-test
+      neighbor {{.Addr3}} remote-as {{.ASN}}
+      neighbor {{.Addr3}} password bgp-test
+      neighbor {{.Addr4}} remote-as {{.ASN}}
+      neighbor {{.Addr4}} password bgp-test
       address-family ipv4 unicast
         neighbor {{.Addr1}} activate
         neighbor {{.Addr2}} activate
+        exit-address-family
+      address-family ipv6 unicast
+        neighbor {{.Addr3}} activate
+        neighbor {{.Addr3}} route-map RMAP in
+        neighbor {{.Addr4}} activate
+        neighbor {{.Addr4}} route-map RMAP in
         exit-address-family
       end
 
@@ -128,6 +146,8 @@ type (
 	NeighborConfig struct {
 		Addr1       string
 		Addr2       string
+		Addr3       string
+		Addr4       string
 		Password    string
 		IPFamily    string
 		ToAdvertise string
@@ -135,7 +155,6 @@ type (
 		MultiHop    bool
 		ASN         uint32
 	}
-
 	Neighbor struct {
 		IP          net.IP
 		Connected   bool
@@ -145,7 +164,6 @@ type (
 		PrefixSent  int
 		Port        int
 	}
-
 	FRRNeighbor struct {
 		RemoteAs     int    `json:"remoteAs"`
 		LocalAs      int    `json:"localAs"`
@@ -159,7 +177,6 @@ type (
 			SentPrefixCounter int `json:"sentPrefixCounter"`
 		} `json:"addressFamilyInfo"`
 	}
-
 	Route struct {
 		Destination *net.IPNet
 		NextHops    []net.IP
@@ -179,4 +196,30 @@ type (
 			Scope string `json:"scope"`
 		} `json:"nexthops"`
 	}
+
+	MetallbTestParameters struct {
+		TrafficPolicy string
+		IPStack       string
+	}
 )
+
+// NewBGPTestParameters constructor for BGPTestParameters.
+func NewBGPTestParameters(ipStack string, trafficPolicy string) (*MetallbTestParameters, error) {
+	BGPTestParameters := new(MetallbTestParameters)
+	err := nethelper.StrParamInListOfParams(ipStack, IPStackParameters)
+
+	if err != nil {
+		return nil, err
+	}
+
+	BGPTestParameters.IPStack = ipStack
+	err = nethelper.StrParamInListOfParams(trafficPolicy, TrafficPolicies)
+
+	if err != nil {
+		return nil, err
+	}
+
+	BGPTestParameters.TrafficPolicy = trafficPolicy
+
+	return BGPTestParameters, nil
+}
