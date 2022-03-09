@@ -7,29 +7,31 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"os/exec"
 	"reflect"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/pkg/errors"
-	apiErrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/metallb/netmlbparameters"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/nethelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 
 	metallbv1beta1 "github.com/metallb/metallb-operator/api/v1beta1"
 	metallbutils "github.com/metallb/metallb-operator/test/e2e/metallb"
+	operv1 "github.com/openshift/api/operator/v1"
+	"github.com/pkg/errors"
 
 	appsv1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -48,6 +50,85 @@ type result struct {
 }
 type metric struct {
 	Pod string
+}
+
+type BGPDescription struct {
+	BGPState string `json:"bgpState"`
+}
+
+var ChangedGWMode bool
+
+// RestoreNodeGWMode restores the NetworkOperator's share GW mode if it has been changed.
+func RestoreNodeGWMode() {
+	if ChangedGWMode {
+		SetLocalGWMode(false)
+		WaitNetworkOperator()
+	}
+}
+
+// GetGWMode returns the NetworkOperator's  GW mode: false - share GW mode, true - local GW mode.
+// This func should be changed (removed cmd) when
+// sriov-fec operator(https://github.com/smart-edge-open/openshift-operator/tree/main/sriov-fec)
+// bumps github.com/go-logr/logr to version more than 1.0.0.
+func GetGWMode() bool {
+	cmd := exec.Command("oc", "get",
+		"network.operator", "cluster",
+		"-o=jsonpath='{.spec.defaultNetwork.ovnKubernetesConfig.gatewayConfig.routingViaHost}'")
+
+	commandOutput, err := cmd.Output()
+	Expect(err).ToNot(HaveOccurred())
+
+	strState := strings.Trim(string(commandOutput), "'")
+
+	state, err := strconv.ParseBool(strState)
+	Expect(err).ToNot(HaveOccurred())
+
+	return state
+}
+
+// SetLocalGWMode set NetworkOperator's local GW mode if true, if false - share GW mode.
+// This func should be changed (removed cmd) when
+// sriov-fec operator(https://github.com/smart-edge-open/openshift-operator/tree/main/sriov-fec)
+// bumps github.com/go-logr/logr to version more than 1.0.0.
+func SetLocalGWMode(state bool) {
+	command := fmt.Sprintf("oc patch network.operator cluster -p '{\"spec\": {\"defaultNetwork\":"+
+		" {\"ovnKubernetesConfig\": {\"gatewayConfig\": {\"routingViaHost\": %t}}}}}' --type=merge", state)
+
+	commandOutput, err := exec.Command("/bin/sh", "-c", command).Output()
+	Expect(err).ToNot(HaveOccurred(), string(commandOutput))
+}
+
+// isNetworkOperatorInCondition parses NetworkOperator conditions.
+// Returns true if  NetworkOperator is in given condition, otherwise false.
+func isNetworkOperatorInCondition(condition string, status operv1.ConditionStatus) bool {
+	networkOperatorConfg := &operv1.Network{}
+	err := helper.Apiclient.Get(
+		context.TODO(), runtimeclient.ObjectKey{Name: "cluster"}, networkOperatorConfg)
+	Expect(err).ToNot(HaveOccurred())
+
+	for _, c := range networkOperatorConfg.Status.OperatorStatus.Conditions {
+		if c.Type == condition && c.Status == status {
+			return true
+		}
+	}
+
+	return false
+}
+
+// WaitNetworkOperator waits for NetworkOperator to become available.
+func WaitNetworkOperator() {
+	// Update started
+	Eventually(func() bool {
+		return isNetworkOperatorInCondition(operv1.OperatorStatusTypeProgressing, operv1.ConditionTrue)
+	}, 5*time.Second, netmlbparameters.Interval).Should(BeTrue())
+	// Update finished
+	Eventually(func() bool {
+		return isNetworkOperatorInCondition(operv1.OperatorStatusTypeProgressing, operv1.ConditionFalse)
+	}, 10*time.Minute, netmlbparameters.Interval).Should(BeTrue())
+	// Update finished successfully
+	Eventually(func() bool {
+		return isNetworkOperatorInCondition(operv1.OperatorStatusTypeAvailable, operv1.ConditionTrue)
+	}, 5*time.Second, 3*netmlbparameters.Interval).Should(BeTrue())
 }
 
 // IsEnvVarMetallbIPinNodeExtNetRange validates that the enviromnental IP variable
@@ -81,62 +162,6 @@ func IsEnvVarMetallbIPinNodeExtNetRange(cnfNodeLabel string, metallbEnvIP string
 	if !nodeNet.Contains(net.ParseIP(metallbEnvIP)) {
 		Skip("The environment IP variable is out of cluster br-ex IP range")
 	}
-}
-
-// CreateMetallb creates Metallb CR.
-func CreateMetallb() *metallbv1beta1.MetalLB {
-	metallb := defineMetallb()
-
-	err := helper.Apiclient.Get(context.Background(), runtimeclient.ObjectKey{Namespace: metallb.Namespace,
-		Name: metallb.Name}, metallb)
-	if apiErrors.IsNotFound(err) {
-		Expect(helper.Apiclient.Create(context.Background(), metallb)).Should(Succeed())
-	} else {
-		Expect(err).ToNot(HaveOccurred())
-	}
-
-	return metallb
-}
-
-// defineMetallb returns Metallb definition.
-func defineMetallb() *metallbv1beta1.MetalLB {
-	return &metallbv1beta1.MetalLB{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      netmlbparameters.MetalLBCRName,
-			Namespace: netmlbparameters.MetalLBOperatorNameSpace,
-		},
-		Spec: metallbv1beta1.MetalLBSpec{
-			SpeakerNodeSelector: netmlbparameters.SpeakerNodeSelectorWorker,
-		},
-	}
-}
-
-// DefineMetallbAddressPool defines a MetalLB L2 Address Pool using env IP var METALLB_ADDR_LIST
-// for the IP address range.
-func DefineMetalLBAddressPool(
-	metalLBIP []string, protocol string, iPStack string, addressPool string) *metallbv1beta1.AddressPool {
-	addrPool := metallbv1beta1.AddressPool{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      addressPool,
-			Namespace: netmlbparameters.MetalLBOperatorNameSpace,
-			Annotations: map[string]string{
-				netmlbparameters.MetalLBAddressPool: addressPool,
-			},
-		},
-		Spec: metallbv1beta1.AddressPoolSpec{
-			Protocol: protocol,
-			Addresses: []string{
-				fmt.Sprintln(metalLBIP[0], "-", metalLBIP[1]),
-			},
-		},
-	}
-
-	if iPStack == netmlbparameters.DualIPStack {
-		addrPool.Spec.Addresses = append(addrPool.Spec.Addresses,
-			fmt.Sprintln(metalLBIP[2], "-", metalLBIP[3]))
-	}
-
-	return &addrPool
 }
 
 // DefineAndCreateLBService create an external service using the MetalLB Address Pool allowing
@@ -360,13 +385,28 @@ func IPAddBrEx(client k8sv1.Pod) ([]string, error) {
 	return strings.Split(ipAddr.String(), ","), err
 }
 
-// CurlMlbPod verifies that nginx web service is available via the external service IP.
-func CurlMlbPod(client *k8sv1.Pod, destIPAddr string) {
-	curlStatus, err := pod.ExecCommand(helper.Apiclient, *client, []string{"bash", "-c", fmt.Sprint("curl ", destIPAddr)})
-	Expect(err).ToNot(HaveOccurred())
+// HTTPMlbPod verifies that nginx web service is available via the external service IP.
+func HTTPMlbPod(client *k8sv1.Pod, destIPAddr string, method string) (string, error) {
+	var command string
 
-	Expect(curlStatus.String()).Should(ContainSubstring("html"),
-		"Curl was unable to connect to nginx")
+	switch method {
+	case netmlbparameters.Curl:
+		command = fmt.Sprint("curl ", destIPAddr)
+	case netmlbparameters.Wget:
+		command = fmt.Sprint("wget -qO- ", destIPAddr)
+	}
+
+	httpStatus, err := pod.ExecCommand(helper.Apiclient, *client,
+		[]string{"bash", "-c", command})
+	if err != nil {
+		return httpStatus.String(), err
+	}
+
+	if !strings.Contains(httpStatus.String(), "html") {
+		return httpStatus.String(), fmt.Errorf("unable to connect to nginx")
+	}
+
+	return httpStatus.String(), nil
 }
 
 // IsMetalLBAvailable verifies that metallb installed and running.
@@ -392,64 +432,27 @@ func IsMetalLBAvailable() error {
 	return nil
 }
 
-// DefineBFDProfile returns BFDprofile definition.
-func DefineBFDProfile(name string) *metallbv1beta1.BFDProfile {
-	return &metallbv1beta1.BFDProfile{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: netmlbparameters.MetalLBOperatorNameSpace,
-		},
-		Spec: metallbv1beta1.BFDProfileSpec{
-			ReceiveInterval:  uint32Ptr(100),
-			TransmitInterval: uint32Ptr(100),
-			DetectMultiplier: uint32Ptr(3),
-			EchoInterval:     uint32Ptr(100),
-			EchoMode:         pointer.BoolPtr(true),
-			PassiveMode:      pointer.BoolPtr(false),
-			MinimumTTL:       uint32Ptr(5),
-		},
-	}
-}
-
-// DefineBGPPeerWithBFD returns BGPPeer definition with BFD configuration.
-func DefineBGPPeerWithBFD(peerAdress string, asn uint32, bfdProfile string) *metallbv1beta1.BGPPeer {
-	return &metallbv1beta1.BGPPeer{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      netmlbparameters.BGPPeerName,
-			Namespace: netmlbparameters.MetalLBOperatorNameSpace,
-		},
-		Spec: metallbv1beta1.BGPPeerSpec{
-			MyASN:      64500,
-			ASN:        asn,
-			Address:    peerAdress,
-			RouterID:   "10.10.10.10",
-			BFDProfile: bfdProfile,
-		},
-	}
-}
-
-type BGPDescription struct {
-	BGPState string `json:"bgpState"`
-}
-
 // IsBGPNeighborshipHasState verifies that BGP session on a pod has given state.
 func IsBGPNeighborshipHasState(frrPod *k8sv1.Pod, neighborIPAddress string, state string) bool {
-	bgpStateOut, err := pod.ExecCommand(helper.Apiclient, *frrPod,
-		[]string{"vtysh", "-u", "-c", "sh bgp neighbors json"})
-	Expect(err).ToNot(HaveOccurred())
-
 	result := map[string]BGPDescription{}
-	err = json.Unmarshal(bgpStateOut.Bytes(), &result)
-	Expect(err).ToNot(HaveOccurred(), bgpStateOut.String())
+
+	Eventually(func() error {
+		bgpStateOut, err := pod.ExecCommand(helper.Apiclient, *frrPod,
+			[]string{"vtysh", "-u", "-c", "sh bgp neighbors json"})
+		Expect(err).ToNot(HaveOccurred())
+
+		return json.Unmarshal(bgpStateOut.Bytes(), &result)
+	}, 5*time.Second, netmlbparameters.Interval).ShouldNot(HaveOccurred())
 
 	return result[neighborIPAddress].BGPState == state
 }
 
-// UpdateSpeakerNodeSelector updates SpeakerNodeSelector in Metallb CR.
-func UpdateSpeakerNodeSelector(namespace string, nodeSelector map[string]string) error {
+// updateSpeakerNodeSelector updates SpeakerNodeSelector in Metallb CR.
+func updateSpeakerNodeSelector(namespace string, nodeSelector map[string]string) error {
 	metallb := &metallbv1beta1.MetalLB{}
 
-	err := helper.Apiclient.Get(context.Background(), types.NamespacedName{Name: "metallb", Namespace: namespace}, metallb)
+	err := helper.Apiclient.Get(context.Background(),
+		types.NamespacedName{Name: netmlbparameters.MetalLBCRName, Namespace: namespace}, metallb)
 	if err != nil {
 		return err
 	}
@@ -480,11 +483,6 @@ func DeleteAllBFDProfiles() error {
 			return err
 		}
 	}
-
-	// Failed due to BZ 2050824. The BFD should be uncommented once the BZ is fixed
-	Eventually(func() bool {
-		return IsProtocolConfigured(netmlbparameters.BFDConfigPrefix)
-	}, 1*time.Minute, 2*time.Second).Should(BeFalse(), "BFD configuration is not removed")
 
 	return nil
 }
@@ -640,7 +638,7 @@ func ContainSameMetrics(metricsByPod map[string][]string, prometheusMetrics map[
 				// We only check if the element is present, but do not compare the values
 				// New values are reported periodically, and there is a risk of discrepancies
 				// in the values read from metalLB Speaker pods and the ones read from prometheus
-				if hasElement(podsWithMetric, podName) {
+				if nethelper.StrParamInListOfParams(podName, podsWithMetric) == nil {
 					continue
 				}
 			}
@@ -674,28 +672,6 @@ func IsProtocolConfigured(protocolPrefix string) bool {
 	}
 
 	return false
-}
-
-func appendIfMissing(slice []string, newItem string) []string {
-	if hasElement(slice, newItem) {
-		return slice
-	}
-
-	return append(slice, newItem)
-}
-
-func hasElement(slice []string, item string) bool {
-	for _, sliceItem := range slice {
-		if item == sliceItem {
-			return true
-		}
-	}
-
-	return false
-}
-
-func uint32Ptr(n uint32) *uint32 {
-	return &n
 }
 
 // SetupMetalLB deploys metallb.
@@ -739,8 +715,6 @@ func DeleteAllAddressPools() {
 		runtimeclient.InNamespace(netmlbparameters.MetalLBOperatorNameSpace))
 	Expect(err).ToNot(HaveOccurred())
 
-	Expect(len(apList.Items)).Should(BeNumerically(">=", 1))
-
 	for _, ap := range apList.Items {
 		err = helper.Apiclient.Delete(context.Background(), &ap)
 		Expect(err).ToNot(HaveOccurred())
@@ -753,13 +727,13 @@ func UpdateSpeakerNodeLabel() {
 	workerNodeList, err := nodes.GetByRole(helper.Apiclient, parameters.RoleWorker)
 	Expect(err).ToNot(HaveOccurred())
 
-	err = UpdateSpeakerNodeSelector(netmlbparameters.MetalLBOperatorNameSpace,
+	err = updateSpeakerNodeSelector(netmlbparameters.MetalLBOperatorNameSpace,
 		map[string]string{netmlbparameters.SpeakerNodeTestLabel: ""})
 	Expect(err).ToNot(HaveOccurred())
 	Eventually(func() bool {
 		speakerPodList, _ := helper.Apiclient.Pods(netmlbparameters.MetalLBOperatorNameSpace).List(
 			context.Background(),
-			metav1.ListOptions{LabelSelector: netmlbparameters.ComponentSpeaker},
+			metav1.ListOptions{LabelSelector: netmlbparameters.SpeakersLabelSelector},
 		)
 
 		return len(speakerPodList.Items) == len(workerNodeList)
@@ -772,4 +746,79 @@ func UpdateSpeakerNodeLabel() {
 
 	Eventually(AreSpeakersReady, netmlbparameters.PodWaitingTime, netmlbparameters.Interval).
 		Should(BeTrue(), "Speaker pods are not ready")
+}
+
+// AddOrDeleteSpeakerStaticRoute removes or creates static routs on all Speaker pods.
+func AddOrDeleteSpeakerStaticRoute(action string, speakerRoutesMap map[string]string) (string, error) {
+	var buffer bytes.Buffer
+
+	speakerPodList, err := helper.Apiclient.Pods(netmlbparameters.MetalLBOperatorNameSpace).List(
+		context.Background(),
+		metav1.ListOptions{LabelSelector: netmlbparameters.SpeakersLabelSelector},
+	)
+	if err != nil {
+		return "", err
+	}
+
+	for _, speakerPod := range speakerPodList.Items {
+		buffer, err = pod.ExecCommand(helper.Apiclient, speakerPod, []string{"ip", "route", action,
+			netmlbparameters.ClientIpv4IP + "/32", "via", speakerRoutesMap[speakerPod.Spec.NodeName]})
+		if err != nil {
+			return buffer.String(), err
+		}
+	}
+
+	return buffer.String(), nil
+}
+
+// ValidateIPs checks given IP addresses if they belong to IPFamily.
+func ValidateIPs(ipAddresses []string, ipFamily string) error {
+	for _, ipAddress := range ipAddresses {
+		IP := net.ParseIP(ipAddress)
+		if IP == nil {
+			return fmt.Errorf("%s is not valid IP", ipAddress)
+		}
+
+		switch ipFamily {
+		case netmlbparameters.SingleIPv4Stack:
+			if !strings.Contains(ipAddress, ".") {
+				return fmt.Errorf("%s is not from %s", ipAddress, ipFamily)
+			}
+		case netmlbparameters.SingleIPv6Stack:
+			if !strings.Contains(ipAddress, ":") {
+				return fmt.Errorf("%s is not from %s", ipAddress, ipFamily)
+			}
+		}
+	}
+
+	return nil
+}
+
+func DeleteConfigMap(configMapName string, namespace string) error {
+	configMap := &k8sv1.ConfigMap{}
+
+	err := helper.Apiclient.Get(context.Background(), runtimeclient.ObjectKey{Namespace: namespace,
+		Name: configMapName}, configMap)
+	if err != nil {
+		return err
+	}
+
+	err = helper.Apiclient.Delete(context.Background(), configMap)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func appendIfMissing(slice []string, newItem string) []string {
+	if nethelper.StrParamInListOfParams(newItem, slice) == nil {
+		return slice
+	}
+
+	return append(slice, newItem)
+}
+
+func uint32Ptr(n uint32) *uint32 {
+	return &n
 }

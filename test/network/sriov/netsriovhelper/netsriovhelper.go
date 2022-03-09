@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	. "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/netparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/sriov/netsriovparameters"
 	generalParameters "gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 
@@ -31,9 +32,7 @@ import (
 )
 
 const (
-	ipv4Subnet  int = 24
-	ipv6Subnet  int = 64
-	protocolUPD     = "udp"
+	protocolUPD = "udp"
 )
 
 // defineSriovNetworkStaticIPAM builds SriovNetwork resource.
@@ -65,10 +64,10 @@ func definePodWithIpam(pod *corev1.Pod, mainNetwork string,
 	macAddress string,
 	ipam string) *corev1.Pod {
 	annotation := ""
-	subnet := ipv4Subnet
+	subnet := netparameters.Ipv4Subnet
 
 	if strings.Contains(ipAddress, ":") {
-		subnet = ipv6Subnet
+		subnet = netparameters.Ipv6Subnet
 	}
 
 	if len(slaveNetworkNames) > 0 {
@@ -79,7 +78,7 @@ func definePodWithIpam(pod *corev1.Pod, mainNetwork string,
 
 	switch ipam {
 	case netsriovparameters.IpamStatic:
-		annotation += fmt.Sprintf(`{"name": "%s","ips": ["%s/%d"],"mac": "%s" }`,
+		annotation += fmt.Sprintf(`{"name": "%s","ips": ["%s/%s"],"mac": "%s" }`,
 			mainNetwork, ipAddress, subnet, macAddress)
 	case netsriovparameters.IpamWhereabouts:
 		annotation += fmt.Sprintf(`{"name": "%s"}`, mainNetwork)

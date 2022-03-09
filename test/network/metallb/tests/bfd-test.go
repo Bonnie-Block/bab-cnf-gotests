@@ -2,9 +2,12 @@ package tests
 
 import (
 	"context"
+	"net"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
 	"github.com/metallb/metallb-operator/api/v1beta1"
@@ -19,105 +22,85 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
-const (
-	timeout       = time.Second * 5
-	deployTimeout = time.Minute * 3
-	interval      = time.Second * 1
-)
-
 var (
-	bfdProfileDefinition    *v1beta1.BFDProfile
-	bgpPeerDefinition       *v1beta1.BGPPeer
-	masterNodePod           *k8sv1.Pod
-	masterConfigMap         *k8sv1.ConfigMap
 	firstWorkerNodeAddress  string
 	secondWorkerNodeAddress string
 	workerNodeList          []k8sv1.Node
-	err                     error
+	workerAddresses         []string
+	masterNode              k8sv1.Node
 )
 
 var _ = Describe("BFD", func() {
 	execute.BeforeAll(func() {
+		masterNodeList, err := nodes.GetByRole(helper.Apiclient, parameters.RoleMaster)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(len(masterNodeList)).To(BeNumerically(">", 0))
+		masterNode = masterNodeList[0]
+		workerNodeList, err = nodes.GetByRole(helper.Apiclient, parameters.RoleWorker)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(len(workerNodeList)).To(BeNumerically(">", 1))
+		workerAddresses = nethelper.NodeIPsForFamily(workerNodeList, netparameters.IPV4Family)
+		Expect(len(workerAddresses)).To(BeNumerically(">", 1))
+		firstWorkerNodeAddress = workerAddresses[0]
+		secondWorkerNodeAddress = workerAddresses[1]
+	})
+	BeforeEach(func() {
 		By("Setup Metallb")
 		netmetallbhelper.SetupMetalLB()
+
+		By("Checking MetalLB operator is installed and running")
+		Eventually(netmetallbhelper.IsMetalLBAvailable, netmlbparameters.Timeout, netmlbparameters.Interval).
+			ShouldNot(HaveOccurred())
+	})
+
+	AfterEach(func() {
+		By("Deleting MetalLB configuration")
+		_ = netmetallbhelper.DeleteLabelFromWorkers(netmlbparameters.SpeakerNodeTestLabel)
+		metallb := &v1beta1.MetalLB{}
+		err := helper.Apiclient.Get(context.Background(), types.NamespacedName{Name: netmlbparameters.MetalLBCRName,
+			Namespace: netmlbparameters.MetalLBOperatorNameSpace}, metallb)
+		Expect(err).ToNot(HaveOccurred())
+
+		metallbutils.Delete(metallb)
 	})
 
 	Context("Single hop", func() {
+		var clientPodOnMasterNode *k8sv1.Pod
 		BeforeEach(func() {
-			workerNodeList, err = nodes.GetByRole(helper.Apiclient, parameters.RoleWorker)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(len(workerNodeList)).To(BeNumerically(">", 1))
-			workerNodesAddresses := nethelper.NodeIPsForFamily(workerNodeList, netparameters.IPV4Family)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(len(workerNodesAddresses)).To(BeNumerically(">", 1))
-			firstWorkerNodeAddress = workerNodesAddresses[0]
-			secondWorkerNodeAddress = workerNodesAddresses[1]
-
-			masterNodeList, err := nodes.GetByRole(helper.Apiclient, parameters.RoleMaster)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(len(masterNodeList)).To(BeNumerically(">", 0))
-			masterNode := masterNodeList[0]
-
-			By("Creating BFD profile")
-			bfdProfileDefinition = netmetallbhelper.DefineBFDProfile(netmlbparameters.BFDProfileName)
-			err = helper.Apiclient.Create(context.Background(), bfdProfileDefinition)
-			Expect(err).ToNot(HaveOccurred())
-
-			Eventually(func() bool {
-				return netmetallbhelper.IsProtocolConfigured(netmlbparameters.BFDConfigPrefix)
-			}, deployTimeout, interval).
-				Should(BeTrue(), "BFD is not configured on the Speakers")
-
-			By("Creating BGP Peers")
-			bgpPeerDefinition = netmetallbhelper.DefineBGPPeerWithBFD(masterNode.Status.Addresses[0].Address,
-				netmlbparameters.EBGPASN, netmlbparameters.BFDProfileName)
-			err = helper.Apiclient.Create(context.Background(), bgpPeerDefinition)
-			Expect(err).ToNot(HaveOccurred())
-
-			Eventually(func() bool {
-				return netmetallbhelper.IsProtocolConfigured(netmlbparameters.BGPConfigPrefix)
-			}, deployTimeout, interval).Should(BeTrue(), "BGP is not configured on the Speakers")
-
-			By("Creating FRR container on a Master node")
-			masterConfigMap = netmetallbhelper.DefineFRRConfigMap(workerNodesAddresses,
-				netparameters.MasterConfigMapName,
-				netmlbparameters.IBGPASN, netmlbparameters.BFDConfigPrefix)
-			_, err = helper.Apiclient.ConfigMaps(netmlbparameters.TestNamespace).Create(
-				context.TODO(),
-				masterConfigMap,
-				metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			frrPod := nethelper.DefineFRRPod(masterNode.Name, netmlbparameters.TestNamespace)
-			masterNodePod = helper.WaitUntilPodCreatedAndRunning(frrPod, deployTimeout)
+			netmetallbhelper.CreateBGPWithBFD(netmlbparameters.EBGPProtocol, masterNode.Status.Addresses[0].Address)
+			clientPodOnMasterNode = netmetallbhelper.CreateClientOnMaster(netmlbparameters.EBGPProtocol,
+				workerAddresses,
+				netmlbparameters.ScenarioSingleHop,
+				masterNode.Name,
+				"")
 
 			By("Checking that BGP and BFD sessions are established and up")
 
 			Eventually(func() bool {
-				return netmetallbhelper.IsBGPNeighborshipHasState(masterNodePod, firstWorkerNodeAddress,
+				return netmetallbhelper.IsBGPNeighborshipHasState(clientPodOnMasterNode, firstWorkerNodeAddress,
 					netmlbparameters.BGPStateEstablished)
-			}, deployTimeout, interval).Should(BeTrue())
+			}, netmlbparameters.Timeout, netmlbparameters.Interval).Should(BeTrue())
 			Eventually(func() error {
-				return nethelper.IsBFDHasStatus(masterNodePod, firstWorkerNodeAddress,
+				return nethelper.IsBFDHasStatus(clientPodOnMasterNode, firstWorkerNodeAddress,
 					netmlbparameters.BFDStatusUp)
-			}, timeout, interval).ShouldNot(HaveOccurred())
+			}, netmlbparameters.TimeoutBFD, netmlbparameters.Interval).ShouldNot(HaveOccurred())
 		})
 
 		AfterEach(func() {
 			By("Cleaning after test")
-			netmetallbhelper.DeleteAllBGPPeers()
+			err := netmetallbhelper.DeleteAllBGPPeers()
+			Expect(err).ToNot(HaveOccurred())
+			err = netmetallbhelper.DeleteConfigMap(netparameters.MasterConfigMapName, netmlbparameters.TestNamespace)
 			Expect(err).ToNot(HaveOccurred())
 
-			err = helper.Apiclient.Delete(context.Background(), masterConfigMap)
-			Expect(err).ToNot(HaveOccurred())
-
-			err = helper.Apiclient.Delete(context.Background(), masterNodePod)
+			err = helper.Apiclient.Delete(context.Background(), clientPodOnMasterNode)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = netmetallbhelper.DeleteAllBFDProfiles()
@@ -130,7 +113,7 @@ var _ = Describe("BFD", func() {
 
 			By("Should remove Metallb Configuration")
 			metallb := &v1beta1.MetalLB{}
-			err = helper.Apiclient.Get(context.Background(), types.NamespacedName{Name: "metallb",
+			err = helper.Apiclient.Get(context.Background(), types.NamespacedName{Name: netmlbparameters.MetalLBCRName,
 				Namespace: netmlbparameters.MetalLBOperatorNameSpace}, metallb)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -139,7 +122,7 @@ var _ = Describe("BFD", func() {
 
 		Context("basic functionality", func() {
 			AfterEach(func() {
-				err = netmetallbhelper.DeleteLabelFromWorkers(netmlbparameters.SpeakerNodeTestLabel)
+				err := netmetallbhelper.DeleteLabelFromWorkers(netmlbparameters.SpeakerNodeTestLabel)
 				Expect(err).ToNot(HaveOccurred())
 
 				Eventually(func() int {
@@ -154,120 +137,19 @@ var _ = Describe("BFD", func() {
 				err = netmetallbhelper.UpdateToDefaultSpeakerNodeSelector()
 				Expect(err).ToNot(HaveOccurred())
 
-				Eventually(netmetallbhelper.AreSpeakersReady, deployTimeout, interval).
+				Eventually(netmetallbhelper.AreSpeakersReady, netmlbparameters.Timeout, netmlbparameters.Interval).
 					Should(BeTrue(), "Speaker pods are not ready")
 			})
 
 			It("should provide fast link failure detection ", func() {
-				By("Changing the label selector for Metallb and adding a label for Workers")
-				workerNodeList, err = nodes.GetByRole(helper.Apiclient, parameters.RoleWorker)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(len(workerNodeList)).To(BeNumerically(">", 1))
-				err = netmetallbhelper.UpdateSpeakerNodeSelector(netmlbparameters.MetalLBOperatorNameSpace,
-					map[string]string{netmlbparameters.SpeakerNodeTestLabel: ""})
-				Expect(err).ToNot(HaveOccurred())
-
-				Eventually(func() int {
-					speakerPodList, _ := helper.Apiclient.Pods(netmlbparameters.MetalLBOperatorNameSpace).List(
-						context.Background(),
-						metav1.ListOptions{LabelSelector: netmlbparameters.SpeakersLabelSelector},
-					)
-
-					return len(speakerPodList.Items)
-				}, 1*time.Minute, 1*time.Second).Should(BeNumerically("==", 0))
-
-				for _, worker := range workerNodeList {
-					_, err = nodes.LabelNode(helper.Apiclient, worker.Name, netmlbparameters.SpeakerNodeTestLabel, "")
-					Expect(err).ToNot(HaveOccurred())
-				}
-
-				Eventually(netmetallbhelper.AreSpeakersReady, deployTimeout, interval).
-					Should(BeTrue(), "Speaker pods are not ready")
-				By("Checking that BGP and BFD sessions are established and up")
-				Eventually(func() bool {
-					return netmetallbhelper.IsBGPNeighborshipHasState(masterNodePod, firstWorkerNodeAddress,
-						netmlbparameters.BGPStateEstablished)
-				}, deployTimeout, interval).Should(BeTrue())
-				Eventually(func() error {
-					return nethelper.IsBFDHasStatus(masterNodePod, firstWorkerNodeAddress,
-						netmlbparameters.BFDStatusUp)
-				}, timeout, interval).ShouldNot(HaveOccurred())
-
-				Eventually(func() bool {
-					return netmetallbhelper.IsBGPNeighborshipHasState(masterNodePod, secondWorkerNodeAddress,
-						netmlbparameters.BGPStateEstablished)
-				}, deployTimeout, interval).Should(BeTrue())
-				Eventually(func() error {
-					return nethelper.IsBFDHasStatus(masterNodePod, secondWorkerNodeAddress,
-						netmlbparameters.BFDStatusUp)
-				}, timeout, interval).ShouldNot(HaveOccurred())
-
-				By("Removing Speaker pod and checking that speaker pod is down")
-				workerNodeList, err = nodes.GetByRole(helper.Apiclient, parameters.RoleWorker)
-				Expect(len(workerNodeList)).To(BeNumerically(">", 1))
-				Expect(err).ToNot(HaveOccurred())
-
-				delete(workerNodeList[0].Labels, netmlbparameters.SpeakerNodeTestLabel)
-				_, err = helper.Apiclient.Nodes().Update(context.Background(), &workerNodeList[0], metav1.UpdateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				Eventually(func() int {
-					speakerPodList, _ := helper.Apiclient.Pods(netmlbparameters.MetalLBOperatorNameSpace).List(
-						context.Background(),
-						metav1.ListOptions{LabelSelector: "component=speaker"},
-					)
-
-					return len(speakerPodList.Items)
-				}, 1*time.Minute, 1*time.Second).Should(BeNumerically("==", len(workerNodeList)-1))
-
-				By("Checking that BGP and BFD sessions are down with one BGPpeer and continue to work with another")
-				Expect(nethelper.IsBFDHasStatus(masterNodePod, firstWorkerNodeAddress,
-					netmlbparameters.BFDStatusDown)).ShouldNot(HaveOccurred())
-				Expect(netmetallbhelper.IsBGPNeighborshipHasState(masterNodePod, firstWorkerNodeAddress,
-					netmlbparameters.BGPStateEstablished)).ToNot(BeTrue())
-
-				Expect(nethelper.IsBFDHasStatus(masterNodePod, secondWorkerNodeAddress,
-					netmlbparameters.BFDStatusUp)).ShouldNot(HaveOccurred())
-				Expect(netmetallbhelper.IsBGPNeighborshipHasState(masterNodePod, secondWorkerNodeAddress,
-					netmlbparameters.BGPStateEstablished)).To(BeTrue())
-
-				By("Bringing Speaker pod back and checking that speaker pods  are up and running")
-				_, err = nodes.LabelNode(helper.Apiclient,
-					workerNodeList[0].Name,
-					netmlbparameters.SpeakerNodeTestLabel, "")
-				Expect(err).ToNot(HaveOccurred())
-				Eventually(func() int {
-					speakerPodList, _ := helper.Apiclient.Pods(netmlbparameters.MetalLBOperatorNameSpace).List(
-						context.Background(),
-						metav1.ListOptions{LabelSelector: netmlbparameters.SpeakersLabelSelector},
-					)
-
-					return len(speakerPodList.Items)
-				}, 1*time.Minute, 1*time.Second).Should(BeNumerically("==", len(workerNodeList)))
-
-				By("Checking that BGP and BFD sessions are established and up")
-				Eventually(func() bool {
-					return netmetallbhelper.IsBGPNeighborshipHasState(masterNodePod, firstWorkerNodeAddress,
-						netmlbparameters.BGPStateEstablished)
-				}, deployTimeout, interval).Should(BeTrue())
-				Eventually(func() error {
-					return nethelper.IsBFDHasStatus(masterNodePod, firstWorkerNodeAddress,
-						netmlbparameters.BFDStatusUp)
-				}, timeout, interval).ShouldNot(HaveOccurred())
-
-				Eventually(func() bool {
-					return netmetallbhelper.IsBGPNeighborshipHasState(masterNodePod, secondWorkerNodeAddress,
-						netmlbparameters.BGPStateEstablished)
-				}, deployTimeout, interval).Should(BeTrue())
-				Eventually(func() error {
-					return nethelper.IsBFDHasStatus(masterNodePod, secondWorkerNodeAddress,
-						netmlbparameters.BFDStatusUp)
-				}, timeout, interval).ShouldNot(HaveOccurred())
+				netmetallbhelper.TestMetalLBBFD(netmlbparameters.ScenarioSingleHop,
+					clientPodOnMasterNode,
+					firstWorkerNodeAddress, secondWorkerNodeAddress)
 			})
 		})
 
 		It("provides Prometheus BFD metrics", func() {
-			_, err = namespaces.LabelNamespace(helper.Apiclient,
+			_, err := namespaces.LabelNamespace(helper.Apiclient,
 				netmlbparameters.MetalLBOperatorNameSpace,
 				netmlbparameters.MonitoringLabel,
 				"true")
@@ -284,7 +166,181 @@ var _ = Describe("BFD", func() {
 				podsPerPrometheusMetricKey := netmetallbhelper.CollectPrometheusMetrics(uniqueMetricKeys)
 
 				return netmetallbhelper.ContainSameMetrics(metalLBMonitoredEntriesByPod, podsPerPrometheusMetricKey)
-			}, deployTimeout, 2*interval).Should(Not(HaveOccurred()))
+			}, netmlbparameters.Timeout, 2*netmlbparameters.Interval).Should(Not(HaveOccurred()))
 		})
+	})
+
+	Context("Multihop", func() {
+		var (
+			metalLBIPList []string
+			err           error
+		)
+		speakerRoutesMap := make(map[string]string)
+
+		BeforeEach(func() {
+			By("Collecting information before test")
+			metalLBIPList, err = helper.Config.GetMetallbVirtIP()
+			Expect(err).ToNot(HaveOccurred())
+
+			if len(metalLBIPList) < 2 {
+				Skip("The environment IP variable is not set or less than 2")
+			}
+			netmetallbhelper.IsEnvVarMetallbIPinNodeExtNetRange(strings.Split(
+				helper.Config.General.CnfNodeLabel, "/")[1],
+				metalLBIPList[0])
+
+			speakerPodList, err := helper.Apiclient.Pods(netmlbparameters.MetalLBOperatorNameSpace).List(
+				context.Background(),
+				metav1.ListOptions{LabelSelector: netmlbparameters.SpeakersLabelSelector},
+			)
+			Expect(err).ToNot(HaveOccurred())
+
+			speakerRoutesMap, err = netmetallbhelper.CreateRoutesMap(*speakerPodList, metalLBIPList)
+			Expect(err).ToNot(HaveOccurred())
+
+			localGWMode := netmetallbhelper.GetGWMode()
+			// if false - share GW, if true - local GW
+			if !localGWMode {
+				By("Configuring Local GW mode")
+				netmetallbhelper.SetLocalGWMode(true)
+				netmetallbhelper.WaitNetworkOperator()
+				netmetallbhelper.ChangedGWMode = true
+			}
+			Expect(netmetallbhelper.GetGWMode()).To(BeTrue())
+		})
+
+		AfterEach(func() {
+			By("Cleaning after test")
+			outputString, err := netmetallbhelper.AddOrDeleteSpeakerStaticRoute("del", speakerRoutesMap)
+			Expect(err).ToNot(HaveOccurred(), outputString)
+
+			err = netmetallbhelper.DeleteAllBGPPeers()
+			Expect(err).ToNot(HaveOccurred())
+
+			err = netmetallbhelper.DeleteConfigMap(netparameters.MasterConfigMapName, netmlbparameters.TestNamespace)
+			Expect(err).ToNot(HaveOccurred())
+
+			netmetallbhelper.DeleteAllAddressPools()
+
+			err = netmetallbhelper.DeleteAllLBServices(netmlbparameters.TestNamespace)
+			Expect(err).ToNot(HaveOccurred())
+
+			err = nethelper.DeleteNADs([]string{netmlbparameters.ExternalNADName, netmlbparameters.InternalNADName},
+				netmlbparameters.TestNamespace)
+			Expect(err).ToNot(HaveOccurred())
+
+			err = namespaces.CleanPods(netmlbparameters.TestNamespace, helper.Apiclient)
+			Expect(err).ToNot(HaveOccurred())
+
+			err = netmetallbhelper.DeleteAllBFDProfiles()
+			Expect(err).ToNot(HaveOccurred())
+
+			// Failed due to BZ 2050824. The BFD configuration check should be removed after the BZ fix.
+			Eventually(func() bool {
+				return netmetallbhelper.IsProtocolConfigured(netmlbparameters.BFDConfigPrefix)
+			}, 1*time.Minute, 2*time.Second).Should(BeFalse(), "BFD configuration is not removed")
+
+			err = netmetallbhelper.DeleteLabelFromWorkers(netmlbparameters.SpeakerNodeTestLabel)
+			Expect(err).ToNot(HaveOccurred())
+
+			netmetallbhelper.RestoreNodeGWMode()
+		})
+
+		DescribeTable("should provide fast link failure detection",
+			func(bgpProtocol string, ipStack string) {
+				err = netmetallbhelper.ValidateIPs(append(metalLBIPList, firstWorkerNodeAddress), ipStack)
+				if err != nil {
+					Skip(err.Error())
+				}
+
+				netmetallbhelper.CreateBGPWithBFD(bgpProtocol, netmlbparameters.ClientIpv4IP)
+
+				By("Creating an Address Pool")
+				addresspoolDefinition := netmetallbhelper.DefineMetalLBAddressPool(netmlbparameters.MetalLBMultihopIPv4List,
+					netmlbparameters.Layer3,
+					ipStack,
+					netmlbparameters.AddressPoolName)
+
+				err := helper.Apiclient.Create(context.Background(), addresspoolDefinition)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Creating a MetalLB service")
+				err = netmetallbhelper.DefineAndCreateLBService(
+					netmlbparameters.TestNamespace,
+					ipStack,
+					netmlbparameters.AddressPoolName,
+					netmlbparameters.AppLabel1,
+					"Local")
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Creating nginx test pod")
+				netmetallbhelper.DefineAndRunMlbClientPod(workerNodeList[0].Name,
+					helper.Config.Network.TestContainerImage,
+					netmlbparameters.AppLabel1)
+
+				By("Creating FRR router pods on a Master node")
+				_, nodeNet, err := net.ParseCIDR(metalLBIPList[0] + "/" + netparameters.Ipv4Subnet)
+				Expect(err).ToNot(HaveOccurred())
+
+				externalNADDefinition := netmetallbhelper.DefineExternalNAD(nodeNet.String())
+				err = helper.Apiclient.Create(context.Background(), externalNADDefinition)
+				Expect(err).ToNot(HaveOccurred())
+
+				internalNADDefinition := netmetallbhelper.DefineInternalNAD()
+				err = helper.Apiclient.Create(context.Background(), internalNADDefinition)
+				Expect(err).ToNot(HaveOccurred())
+
+				frrRouterPodOnMaster1 := netmetallbhelper.DefineRouterPod(masterNode.Name,
+					netmlbparameters.MetalLBMultihopIPv4List[0], firstWorkerNodeAddress,
+					externalNADDefinition.Name, internalNADDefinition.Name,
+					metalLBIPList[0], netmlbparameters.InternalRouter1IPv4)
+				helper.WaitUntilPodCreatedAndRunning(frrRouterPodOnMaster1, netmlbparameters.PodWaitingTime)
+
+				frrRouterPodOnMaster2 := netmetallbhelper.DefineRouterPod(masterNode.Name,
+					netmlbparameters.MetalLBMultihopIPv4List[0], secondWorkerNodeAddress,
+					externalNADDefinition.Name, internalNADDefinition.Name,
+					metalLBIPList[1], netmlbparameters.InternalRouter2IPv4)
+				helper.WaitUntilPodCreatedAndRunning(frrRouterPodOnMaster2, netmlbparameters.PodWaitingTime)
+
+				clientPodOnMasterNode := netmetallbhelper.CreateClientOnMaster(bgpProtocol,
+					workerAddresses,
+					netmlbparameters.ScenarioMultihop,
+					masterNode.Name,
+					internalNADDefinition.Name)
+
+				// Add static routes from client towards Speaker via router internal IPs
+				for num, routerInternalIP := range []string{netmlbparameters.InternalRouter1IPv4,
+					netmlbparameters.InternalRouter2IPv4} {
+					buffer, err := pod.ExecCommand(helper.Apiclient, *clientPodOnMasterNode,
+						[]string{"ip", "route", "add", workerAddresses[num] + "/32", "via", routerInternalIP})
+					Expect(err).ToNot(HaveOccurred(), buffer.String())
+				}
+
+				By("Adding static routes to the speakers")
+				outputString, err := netmetallbhelper.AddOrDeleteSpeakerStaticRoute("add", speakerRoutesMap)
+				Expect(err).ToNot(HaveOccurred(), outputString)
+
+				By("Checking that BGP and BFD sessions are established and up")
+				Eventually(func() bool {
+					return netmetallbhelper.IsBGPNeighborshipHasState(clientPodOnMasterNode, firstWorkerNodeAddress,
+						netmlbparameters.BGPStateEstablished)
+				}, netmlbparameters.Timeout, netmlbparameters.Interval).Should(BeTrue())
+				Eventually(func() error {
+					return nethelper.IsBFDHasStatus(clientPodOnMasterNode, firstWorkerNodeAddress,
+						netmlbparameters.BFDStatusUp)
+				}, netmlbparameters.TimeoutBFD, netmlbparameters.Interval).ShouldNot(HaveOccurred())
+
+				httpOutput, err := netmetallbhelper.HTTPMlbPod(clientPodOnMasterNode,
+					netmlbparameters.MetalLBMultihopIPv4List[0], netmlbparameters.Wget)
+				Expect(err).ToNot(HaveOccurred(), httpOutput)
+
+				netmetallbhelper.TestMetalLBBFD(netmlbparameters.ScenarioMultihop,
+					clientPodOnMasterNode,
+					firstWorkerNodeAddress,
+					secondWorkerNodeAddress)
+			},
+			Entry("iBGP with IPv4", netmlbparameters.IBPGPProtocol, netmlbparameters.SingleIPv4Stack),
+			Entry("eBGP with IPv4", netmlbparameters.EBGPProtocol, netmlbparameters.SingleIPv4Stack),
+		)
 	})
 })

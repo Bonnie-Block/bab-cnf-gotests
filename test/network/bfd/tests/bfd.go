@@ -84,7 +84,7 @@ var _ = Describe("BFD", func() {
 			"daemonset failed to get into running state")
 
 		By("Creating FRR container on a Master node")
-		frrPod := nethelper.DefineFRRPod(masterNodes[0].Name, netbfdparameters.TestNamespace)
+		frrPod := nethelper.DefineFRRPod(masterNodes[0].Name, netbfdparameters.TestNamespace, true)
 		masterNodePod = helper.WaitUntilPodCreatedAndRunning(frrPod, netbfdparameters.WaitingTime)
 	})
 

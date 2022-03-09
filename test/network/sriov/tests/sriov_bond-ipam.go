@@ -10,6 +10,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	. "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/nethelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/sriov/netsriovhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/sriov/netsriovparameters"
 	generalParameters "gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
@@ -60,7 +61,8 @@ var _ = Describe("CNF SRIOV: Bond CNI.", func() {
 			}
 		})
 		AfterEach(func() {
-			err := netsriovhelper.DeleteBondNAD()
+			err := nethelper.DeleteNADs([]string{netsriovparameters.BondNadName},
+				netsriovparameters.OperatorTestNamespace)
 			Expect(err).ToNot(HaveOccurred())
 		})
 

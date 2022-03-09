@@ -11,6 +11,7 @@ import (
 	. "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/sriov/netsriovparameters"
 
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/netparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/cluster"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
@@ -47,9 +48,9 @@ func definePodWithStaticDualIpamAndDynamicMac(
 	pod.Annotations = map[string]string{"k8s.v1.cni.cncf.io/networks": fmt.Sprintf(`[
 		{
 			"name": "%s",
-			"ips": ["%s/%d","%s/%d"]
+			"ips": ["%s/%s","%s/%s"]
 		}
-	]`, networkName, ip4address, ipv4Subnet, ip6address, ipv6Subnet)}
+	]`, networkName, ip4address, netparameters.Ipv4Subnet, ip6address, netparameters.Ipv6Subnet)}
 
 	return pod
 }
@@ -61,9 +62,9 @@ func definePodWithStaticMacAndDualIpam(
 		{
 			"name": "%s", 
 			"mac": "%s",
-			"ips": ["%s/%d","%s/%d"]
+			"ips": ["%s/%s","%s/%s"]
 		}
-	]`, networkName, macAddress, ip4address, ipv4Subnet, ip6address, ipv6Subnet)}
+	]`, networkName, macAddress, ip4address, netparameters.Ipv4Subnet, ip6address, netparameters.Ipv6Subnet)}
 
 	return pod
 }

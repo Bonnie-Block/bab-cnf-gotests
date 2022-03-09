@@ -2,6 +2,7 @@ package metallb
 
 import (
 	"fmt"
+
 	"log"
 	"runtime"
 	"testing"
@@ -12,6 +13,7 @@ import (
 	"github.com/onsi/ginkgo/reporters"
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/metallb/netmetallbhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/metallb/netmlbparameters"
 	_ "gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/metallb/tests"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
@@ -56,9 +58,20 @@ var _ = BeforeSuite(func() {
 
 var _ = AfterSuite(func() {
 	By("Cleaning after suite")
+	netmetallbhelper.DeleteAllAddressPools()
 
 	By(fmt.Sprintf("Clean test namespace %s", netmlbparameters.TestNamespace))
 	err := namespaces.DeleteAndWait(helper.Apiclient, netmlbparameters.TestNamespace,
 		netmlbparameters.Timeout)
 	Expect(err).ToNot(HaveOccurred())
+
+	err = netmetallbhelper.DeleteAllBFDProfiles()
+	Expect(err).ToNot(HaveOccurred())
+
+	err = netmetallbhelper.DeleteAllBGPPeers()
+	Expect(err).ToNot(HaveOccurred())
+
+	_ = netmetallbhelper.DeleteLabelFromWorkers(netmlbparameters.SpeakerNodeTestLabel)
+
+	netmetallbhelper.RestoreNodeGWMode()
 })

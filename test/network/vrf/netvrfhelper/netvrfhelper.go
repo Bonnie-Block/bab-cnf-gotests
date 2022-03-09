@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/nethelper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/netparameters"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -59,7 +60,7 @@ func TestVRFScenario(node string, ipStack string, ipOverLap string, config *conf
 		}
 
 		if VRFParameters.Node == netvrfparameters.SameNode {
-			redVRFNetworkPrefix = "24"
+			redVRFNetworkPrefix = netparameters.Ipv4Subnet
 		} else if VRFParameters.Node == netvrfparameters.DiffNode {
 			redVRFNetworkPrefix = "8"
 		}
@@ -77,7 +78,7 @@ func TestVRFScenario(node string, ipStack string, ipOverLap string, config *conf
 
 		podClientVRFBlueIPAddress = netvrfparameters.VRFClientIPAddress
 		podServerVRFBlueIPAddress = netvrfparameters.VRFServerIPAddress
-		blueVRFNetworkPrefix = "24"
+		blueVRFNetworkPrefix = netparameters.Ipv4Subnet
 	case "overLapToVRF":
 		if ipStack == netvrfparameters.IPStackIPv4 {
 			By("Setting overlapping non-SDN IP Addresses for VRF Red")
@@ -86,15 +87,15 @@ func TestVRFScenario(node string, ipStack string, ipOverLap string, config *conf
 			podServerVRFBlueIPAddress = netvrfparameters.VRFServerIPAddress
 			podClientVRFRedIPAddress = "10.255.255.3"
 			podServerVRFRedIPAddress = "10.255.255.4"
-			blueVRFNetworkPrefix = "24"
-			redVRFNetworkPrefix = "24"
+			blueVRFNetworkPrefix = netparameters.Ipv4Subnet
+			redVRFNetworkPrefix = netparameters.Ipv4Subnet
 		} else {
 			podClientVRFBlueIPAddress = "2001:100::1"
 			podServerVRFBlueIPAddress = "2001:100::2"
 			podClientVRFRedIPAddress = "2001:100::3"
 			podServerVRFRedIPAddress = "2001:100::4"
-			redVRFNetworkPrefix = "64"
-			blueVRFNetworkPrefix = "64"
+			redVRFNetworkPrefix = netparameters.Ipv6Subnet
+			blueVRFNetworkPrefix = netparameters.Ipv6Subnet
 		}
 	case "nonOverLap":
 		if ipStack == netvrfparameters.IPStackIPv4 {
@@ -104,15 +105,15 @@ func TestVRFScenario(node string, ipStack string, ipOverLap string, config *conf
 			podServerVRFBlueIPAddress = netvrfparameters.VRFServerIPAddress
 			podClientVRFRedIPAddress = "192.168.255.3"
 			podServerVRFRedIPAddress = "192.168.255.4"
-			blueVRFNetworkPrefix = "24"
-			redVRFNetworkPrefix = "24"
+			blueVRFNetworkPrefix = netparameters.Ipv4Subnet
+			redVRFNetworkPrefix = netparameters.Ipv4Subnet
 		} else {
 			podClientVRFBlueIPAddress = "2201:100::1"
 			podServerVRFBlueIPAddress = "2201:100::2"
 			podClientVRFRedIPAddress = "2201:200::3"
 			podServerVRFRedIPAddress = "2201:200::4"
-			redVRFNetworkPrefix = "64"
-			blueVRFNetworkPrefix = "64"
+			redVRFNetworkPrefix = netparameters.Ipv6Subnet
+			blueVRFNetworkPrefix = netparameters.Ipv6Subnet
 		}
 	default:
 		{
@@ -244,7 +245,7 @@ func podHasCorrectVrfConfig(podName string, vrfMapsConfig []map[string]string) {
 			validateVRFRouteTableCommand := []string{"ip", "-6", "route", "show", "vrf", vrfMapConfig["vrfName"]}
 			Eventually(func() bool {
 				vrfRouteTable, _ := pod.ExecCommand(globalHelper.Apiclient, *runningPod, validateVRFRouteTableCommand)
-				_, ipnet, _ := net.ParseCIDR(vrfMapConfig["vrfClientIP"] + "/64")
+				_, ipnet, _ := net.ParseCIDR(vrfMapConfig["vrfClientIP"] + "/" + netparameters.Ipv6Subnet)
 
 				return strings.Contains(vrfRouteTable.String(), ipnet.String())
 			}, netvrfparameters.PodWaitingTime, 5*time.Second).Should(

@@ -156,7 +156,8 @@ var _ = Describe("CNF MetalLB", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		By("should validate curl")
-		netmetallbhelper.CurlMlbPod(testPod, metallbIPList[0])
+		httpOutput, err := netmetallbhelper.HTTPMlbPod(testPod, metallbIPList[0], netmlbparameters.Curl)
+		Expect(err).ToNot(HaveOccurred(), httpOutput)
 
 	})
 	// OCP-42751
@@ -223,7 +224,7 @@ var _ = Describe("CNF MetalLB", func() {
 		Eventually(func() bool {
 			speakerPodList, _ := helper.Apiclient.Pods(netmlbparameters.MetalLBOperatorNameSpace).List(
 				context.Background(),
-				metav1.ListOptions{LabelSelector: netmlbparameters.ComponentSpeaker},
+				metav1.ListOptions{LabelSelector: netmlbparameters.SpeakersLabelSelector},
 			)
 
 			return len(speakerPodList.Items) == 1
@@ -246,7 +247,8 @@ var _ = Describe("CNF MetalLB", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		By("should validate curl")
-		netmetallbhelper.CurlMlbPod(testPod, metallbIPList[0])
+		httpOutput, err := netmetallbhelper.HTTPMlbPod(testPod, metallbIPList[0], netmlbparameters.Curl)
+		Expect(err).ToNot(HaveOccurred(), httpOutput)
 
 		By("After failure two Speaker pods are running")
 
@@ -274,6 +276,7 @@ var _ = Describe("CNF MetalLB", func() {
 		}, netmlbparameters.PodWaitingTime, netmlbparameters.Interval).Should(BeNil())
 
 		By("should validate curl")
-		netmetallbhelper.CurlMlbPod(testPod, metallbIPList[0])
+		httpOutput, err = netmetallbhelper.HTTPMlbPod(testPod, metallbIPList[0], netmlbparameters.Curl)
+		Expect(err).ToNot(HaveOccurred(), httpOutput)
 	})
 })

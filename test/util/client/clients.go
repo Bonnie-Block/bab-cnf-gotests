@@ -8,7 +8,9 @@ import (
 	"github.com/golang/glog"
 	sriovv1 "github.com/k8snetworkplumbingwg/sriov-network-operator/api/v1"
 	clientsriovv1 "github.com/k8snetworkplumbingwg/sriov-network-operator/pkg/client/clientset/versioned/typed/sriovnetwork/v1"
+	metallbv1beta1 "github.com/metallb/metallb-operator/api/v1beta1"
 	performancev2 "github.com/openshift-kni/performance-addon-operators/api/v2"
+	operv1 "github.com/openshift/api/operator/v1"
 	clientconfigv1 "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 	mcv1 "github.com/openshift/machine-config-operator/pkg/apis/machineconfiguration.openshift.io/v1"
 	clientmachineconfigv1 "github.com/openshift/machine-config-operator/pkg/generated/clientset/versioned/typed/machineconfiguration.openshift.io/v1"
@@ -16,6 +18,7 @@ import (
 	olm2 "github.com/operator-framework/operator-lifecycle-manager/pkg/api/client/clientset/versioned/scheme"
 	olm "github.com/operator-framework/operator-lifecycle-manager/pkg/api/client/clientset/versioned/typed/operators/v1alpha1"
 	fecv2 "github.com/smart-edge-open/openshift-operator/sriov-fec/api/v2"
+	apiext "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	discovery "k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -23,10 +26,6 @@ import (
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	networkv1client "k8s.io/client-go/kubernetes/typed/networking/v1"
 	rbacv1client "k8s.io/client-go/kubernetes/typed/rbac/v1"
-
-	metallbv1alpha1 "github.com/metallb/metallb-operator/api/v1alpha1"
-	metallbv1beta1 "github.com/metallb/metallb-operator/api/v1beta1"
-	apiext "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -116,10 +115,6 @@ func New(kubeconfig string) *ClientSet {
 		panic(err)
 	}
 
-	if err := metallbv1alpha1.AddToScheme(crScheme); err != nil {
-		panic(err)
-	}
-
 	if err := metallbv1beta1.AddToScheme(crScheme); err != nil {
 		panic(err)
 	}
@@ -129,6 +124,10 @@ func New(kubeconfig string) *ClientSet {
 	}
 
 	if err := olm2.AddToScheme(crScheme); err != nil {
+		panic(err)
+	}
+
+	if err := operv1.AddToScheme(crScheme); err != nil {
 		panic(err)
 	}
 

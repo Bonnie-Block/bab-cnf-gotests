@@ -12,8 +12,6 @@ import (
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/netparameters"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 
 	sriovv1 "github.com/k8snetworkplumbingwg/sriov-network-operator/api/v1"
@@ -21,6 +19,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/cluster"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	goclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // SriovNetworkOptions additional options for SriovNetwork.
@@ -148,60 +147,24 @@ func DefineFRRConfigMap(configMapName string, testNamespace string, configMapDat
 }
 
 // DefineFRRPod returns Pod required for the FRR test setup.
-func DefineFRRPod(masterNodeName string, namespace string) *k8sv1.Pod {
-	pod := &k8sv1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "frr-pod",
-			Namespace: namespace,
-		},
-		Spec: k8sv1.PodSpec{
-			HostNetwork: true,
-			Volumes: []k8sv1.Volume{
-				{
-					Name: netparameters.MasterConfigMapName,
-					VolumeSource: k8sv1.VolumeSource{
-						ConfigMap: &k8sv1.ConfigMapVolumeSource{
-							LocalObjectReference: k8sv1.LocalObjectReference{
-								Name: netparameters.MasterConfigMapName,
-							},
-						},
-					},
-				},
-			},
-			NodeSelector: map[string]string{
-				parameters.LabelHostname: masterNodeName,
-			},
-			Tolerations: []k8sv1.Toleration{
-				{
-					Key:    fmt.Sprintf("%s/%s", nodes.LabelRole, parameters.RoleMaster),
-					Effect: "NoSchedule",
-				},
-			},
-			Containers: []k8sv1.Container{
-				{
-					Name:  "frr",
-					Image: helper.Config.Network.FrrImage,
-					VolumeMounts: []k8sv1.VolumeMount{
-						{
-							Name:      netparameters.MasterConfigMapName,
-							MountPath: "/etc/frr",
-						},
-					},
-					SecurityContext: &k8sv1.SecurityContext{
-						Capabilities: &k8sv1.Capabilities{
-							Add: []k8sv1.Capability{
-								"NET_ADMIN",
-								"NET_RAW",
-								"SYS_ADMIN",
-							},
-						},
-					},
-				},
-			},
-		},
+func DefineFRRPod(masterNodeName string, namespace string, hostNetwork bool) *k8sv1.Pod {
+	frrPod := pod.RedefineAsPrivileged(
+		pod.RedefineOnMaster(
+			pod.DefinePodOnNode(namespace, helper.Config.Network.FrrImage, masterNodeName)))
+	if hostNetwork {
+		frrPod = pod.RedefineWithHostNetwork(frrPod)
 	}
 
-	return pod
+	return pod.RedefineWithVolume(pod.RedefineWithCommand(frrPod, []string{}, []string{}),
+		netparameters.MasterConfigMapName,
+		"/etc/frr",
+		k8sv1.VolumeSource{
+			ConfigMap: &k8sv1.ConfigMapVolumeSource{
+				LocalObjectReference: k8sv1.LocalObjectReference{
+					Name: netparameters.MasterConfigMapName,
+				},
+			},
+		}, false)
 }
 
 type BFDDescription struct {
@@ -305,6 +268,25 @@ func DefineDhcpServerPod(
 			"dhcp", "/etc/dhcp/", k8sv1.VolumeSource{EmptyDir: &k8sv1.EmptyDirVolumeSource{}},
 			false),
 	)
+}
+
+// DeleteNADs removes all given Network Attachment Definition in given namespace.
+func DeleteNADs(nadNames []string, namespace string) error {
+	nad := &v1.NetworkAttachmentDefinition{}
+	for _, nadName := range nadNames {
+		err := helper.Apiclient.Get(context.Background(), goclient.ObjectKey{Namespace: namespace,
+			Name: nadName}, nad)
+		if err != nil {
+			return err
+		}
+
+		err = helper.Apiclient.Delete(context.Background(), nad)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func lastAddr(network *net.IPNet) (net.IP, error) {

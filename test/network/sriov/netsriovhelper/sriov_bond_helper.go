@@ -19,7 +19,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	goclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func TestBondScenario(
@@ -255,22 +254,4 @@ func defineSriovBondNetwork(name string, resourceName string) *sriovv1.SriovNetw
 	sriovNetwork.Spec.SpoofChk = "off"
 
 	return sriovNetwork
-}
-
-// DeleteBondNAD removes Bond interface Network Attachment Definition.
-func DeleteBondNAD() error {
-	nadBond := &netattdefv1.NetworkAttachmentDefinition{}
-
-	err := Apiclient.Get(context.Background(), goclient.ObjectKey{Namespace: netsriovparameters.OperatorTestNamespace,
-		Name: netsriovparameters.BondNadName}, nadBond)
-	if err != nil {
-		return err
-	}
-
-	err = Apiclient.Delete(context.Background(), nadBond)
-	if err != nil {
-		return err
-	}
-
-	return nil
 }

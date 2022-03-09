@@ -28,9 +28,8 @@ import (
 var _ = Describe("CNF MetalLB", func() {
 
 	var (
-		nodeListString  []string
-		masterNode      k8sv1.Node
-		masterConfigMap *k8sv1.ConfigMap
+		nodeListString []string
+		masterNode     k8sv1.Node
 	)
 
 	execute.BeforeAll(func() {
@@ -76,11 +75,11 @@ var _ = Describe("CNF MetalLB", func() {
 		netmetallbhelper.DeleteAllAddressPools()
 		err := netmetallbhelper.DeleteAllLBServices(netmlbparameters.TestNamespace)
 		Expect(err).ToNot(HaveOccurred())
-		netmetallbhelper.DeleteAllBGPPeers()
+		err = netmetallbhelper.DeleteAllBGPPeers()
 		Expect(err).ToNot(HaveOccurred())
 		err = namespaces.CleanPods(netmlbparameters.TestNamespace, helper.Apiclient)
 		Expect(err).ToNot(HaveOccurred())
-		err = helper.Apiclient.Delete(context.Background(), masterConfigMap)
+		err = netmetallbhelper.DeleteConfigMap(netmlbparameters.MasterConfigMapName, netmlbparameters.TestNamespace)
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Should remove Metallb Configuration")
@@ -151,23 +150,21 @@ var _ = Describe("CNF MetalLB", func() {
 		By("should create a IBGP Peer on Speakers")
 		masterNodesIPv4List, err := helper.GetNodeIPListByLabel(parameters.RoleMaster)
 		Expect(err).ToNot(HaveOccurred())
-		err = netmetallbhelper.CreateSpeakerBGPPeer(masterNodesIPv4List[0], uint32(netmlbparameters.IBGPASN))
+		err = netmetallbhelper.CreateSpeakerBGPPeer(masterNodesIPv4List[0], netmlbparameters.IBPGPProtocol)
 		Expect(err).ToNot(HaveOccurred())
 
 		By("should create external FRR container")
 		workerNodesAdresses, err := helper.GetNodeIPListByLabel(parameters.RoleWorker)
 		Expect(err).ToNot(HaveOccurred())
-		masterConfigMap = netmetallbhelper.DefineFRRConfigMap(workerNodesAdresses,
-			netmlbparameters.MasterConfigMapName,
-			netmlbparameters.IBGPASN,
-			netmlbparameters.BGP)
+		masterConfigMap := netmetallbhelper.DefineBGPFRRConfigMap(workerNodesAdresses,
+			netmlbparameters.MasterConfigMapName)
 		_, err = helper.Apiclient.ConfigMaps(netmlbparameters.TestNamespace).Create(
 			context.TODO(),
 			masterConfigMap,
 			metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
-		frrPod := nethelper.DefineFRRPod(masterNode.Name, netmlbparameters.TestNamespace)
+		frrPod := nethelper.DefineFRRPod(masterNode.Name, netmlbparameters.TestNamespace, true)
 		masterNodePod := helper.WaitUntilPodCreatedAndRunning(frrPod, netmlbparameters.PodWaitingTime)
 
 		By("Checking that BGP sessions are established")
@@ -187,9 +184,13 @@ var _ = Describe("CNF MetalLB", func() {
 			netmlbparameters.TestNamespace,
 			helper.Config.Network.TestContainerImage)
 
-		netmetallbhelper.CurlMlbPod(testPod, netmlbparameters.AddressPoolS1v4[0])
+		httpOutput, err := netmetallbhelper.HTTPMlbPod(testPod,
+			netmlbparameters.AddressPoolS1v4[0], netmlbparameters.Curl)
+		Expect(err).ToNot(HaveOccurred(), httpOutput)
 
 		By("should validate curl to service 2")
-		netmetallbhelper.CurlMlbPod(testPod, netmlbparameters.AddressPoolS2v4[0])
+		httpOutput, err = netmetallbhelper.HTTPMlbPod(testPod,
+			netmlbparameters.AddressPoolS2v4[0], netmlbparameters.Curl)
+		Expect(err).ToNot(HaveOccurred(), httpOutput)
 	})
 })
