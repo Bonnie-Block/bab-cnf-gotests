@@ -32,7 +32,7 @@ var _ = Describe("CNF VRF", func() {
 			testFail = fmt.Sprintf("Error discover SRIOV node info: %s", err)
 			Expect(err).ToNot(HaveOccurred(), testFail)
 		}
-		netvrfhelper.SetupSriovBeforeAll(generalHelper.Config, sriovInfos, true)
+		netvrfhelper.SetupSriovBeforeAll(generalHelper.Config, sriovInfos, netvrfparameters.VRFIpamStatic, true)
 	})
 
 	BeforeEach(func() {

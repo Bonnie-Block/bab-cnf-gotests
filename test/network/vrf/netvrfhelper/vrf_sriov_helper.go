@@ -46,7 +46,7 @@ func CleanResources() {
 }
 
 // SetupSriovBeforeAll prepare env before test.
-func SetupSriovBeforeAll(config *config.Config, sriovInfos *cluster.EnabledNodes, dual bool) {
+func SetupSriovBeforeAll(config *config.Config, sriovInfos *cluster.EnabledNodes, ipamType string, dual bool) {
 	var (
 		resourceNameRange                            = []string{netvrfparameters.ResourceNameVRF}
 		snoTimeoutMultiplier           time.Duration = 1
@@ -123,7 +123,7 @@ func SetupSriovBeforeAll(config *config.Config, sriovInfos *cluster.EnabledNodes
 
 	By("Define SRIOV Networks")
 
-	ipam := fmt.Sprintf(`{"type": "%s"}`, netvrfparameters.VRFIpamStatic)
+	ipam := fmt.Sprintf(`{"type": "%s"}`, ipamType)
 	err = nethelper.CreateSriovNetwork(
 		helper.Apiclient,
 		sriovInterfaces[sriovNetworkInterfaceIndexRed],

@@ -60,7 +60,7 @@ var _ = Describe("CNF VRF", func() {
 		Expect(err).ToNot(HaveOccurred())
 	})
 
-	// 36305
+	// 36325
 	DescribeTable("Integration: NAD, IPAM: dynamic, Interfaces: 1, Scheme: 2 Pods 2 VRFs ip network overlap",
 		func(node string, ipStack string) {
 			netvrfhelper.TestVRFScenario(
