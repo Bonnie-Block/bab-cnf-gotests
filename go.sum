@@ -1244,8 +1244,8 @@ github.com/openshift/imagebuilder v1.1.8/go.mod h1:9aJRczxCH0mvT6XQ+5STAQaPWz7Os
 github.com/openshift/library-go v0.0.0-20200421122923-c1de486c7d47/go.mod h1:CEI4oNUL/2Hext5N9Ut3lb5T3oUBSLcHKitn9NMnvHY=
 github.com/openshift/machine-config-operator v0.0.0-20210317203040-17ef0905ea26 h1:JVI0spvkdvNdYafFxEWcYbVuqJu4Q7HbLjd/EtaEuHA=
 github.com/openshift/machine-config-operator v0.0.0-20210317203040-17ef0905ea26/go.mod h1:k6nPHwa38pFpZXG9uK279i9O8yXLSaRpPZakaAKOHu4=
-github.com/openshift/metallb-operator v0.0.0-20211215122912-b151615b54ba h1:KcFlBaGma7a5JwNPQqnMbPakJnlej2HEZNqyyHOlcTU=
-github.com/openshift/metallb-operator v0.0.0-20211215122912-b151615b54ba/go.mod h1:OklSBaSeVcigNS4wtnHABJJlpSype7HZ7xg1gWDffh4=
+github.com/openshift/metallb-operator v0.0.0-20220215175843-29d52b7d88ee h1:Vd7fYuiaSZ1ZcTxbo1WBY09RautOjLOCeJHr4lZpDYA=
+github.com/openshift/metallb-operator v0.0.0-20220215175843-29d52b7d88ee/go.mod h1:OklSBaSeVcigNS4wtnHABJJlpSype7HZ7xg1gWDffh4=
 github.com/openshift/origin v0.0.0-20160503220234-8f127d736703/go.mod h1:0Rox5r9C8aQn6j1oAOQ0c1uC86mYbUFObzjBRvUKHII=
 github.com/openshift/prom-label-proxy v0.1.1-0.20191016113035-b8153a7f39f1/go.mod h1:p5MuxzsYP1JPsNGwtjtcgRHHlGziCJJfztff91nNixw=
 github.com/openshift/ptp-operator v0.0.0-20210110151302-58d8ffd4a37e h1:EkSbbYHfXvcUSAlrlu6ZZOUwNQcCsz3Qi1ZuT/6hpJ4=

@@ -19,16 +19,18 @@ package v1beta1
 import (
 	"context"
 	"fmt"
+	"net"
+
 	"github.com/pkg/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/validation/field"
-	"net"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"time"
 )
 
 // log is for logging bgppeer-webhook
@@ -81,18 +83,27 @@ func (bgpPeer *BGPPeer) ValidateDelete() error {
 func (bgpPeer *BGPPeer) validateBGPPeer(existingBGPPeersList *BGPPeerList, bgpFrrMode bool) error {
 	var allErrs field.ErrorList
 
-	if err := bgpPeer.validateBGPPeersRouterID(existingBGPPeersList); err != nil {
-		allErrs = append(allErrs, err)
-	}
 	if bgpFrrMode {
 		if err := bgpPeer.validateBGPPeersMyASN(existingBGPPeersList); err != nil {
 			allErrs = append(allErrs, err)
 		}
+		if err := bgpPeer.validateDuplicateBGPPeer(existingBGPPeersList); err != nil {
+			allErrs = append(allErrs, err)
+		}
+		if err := bgpPeer.validateBGPPeerMultiHop(); err != nil {
+			allErrs = append(allErrs, err)
+		}
 	}
-	if err := bgpPeer.validateBGPPeerConfig(existingBGPPeersList); err != nil {
+	if err := bgpPeer.validateBGPPeersKeepaliveTime(); err != nil {
 		allErrs = append(allErrs, err)
 	}
-	if err := bgpPeer.validateBGPPeersKeepaliveTime(existingBGPPeersList); err != nil {
+	if err := bgpPeer.validateBGPPeersRouterID(existingBGPPeersList, bgpFrrMode); err != nil {
+		allErrs = append(allErrs, err)
+	}
+	if err := bgpPeer.validateBGPPeerAddrConfig(); err != nil {
+		allErrs = append(allErrs, err)
+	}
+	if err := bgpPeer.validateBGPPeersHoldTime(existingBGPPeersList); err != nil {
 		allErrs = append(allErrs, err)
 	}
 	if len(allErrs) == 0 {
@@ -105,10 +116,9 @@ func (bgpPeer *BGPPeer) validateBGPPeer(existingBGPPeersList *BGPPeerList, bgpFr
 	return err
 }
 
-func (bgpPeer *BGPPeer) validateBGPPeersKeepaliveTime(existingBGPPeersList *BGPPeerList) *field.Error {
+func (bgpPeer *BGPPeer) validateBGPPeersKeepaliveTime() *field.Error {
 	holdTime := bgpPeer.Spec.HoldTime
 	keepaliveTime := bgpPeer.Spec.KeepaliveTime
-
 	// Keepalivetime is not set we can't do any validation, return without doing keepalive validation
 	if keepaliveTime.Duration == 0 {
 		return nil
@@ -116,25 +126,42 @@ func (bgpPeer *BGPPeer) validateBGPPeersKeepaliveTime(existingBGPPeersList *BGPP
 	// If we come here then user configured KeepaliveTime and we need to make sure holdTime is also configured
 	if holdTime.Duration == 0 {
 		return field.Invalid(field.NewPath("spec").Child("HoldTime"), holdTime,
-			fmt.Sprintf("Missing to configure HoldTime when changing KeepaliveTime to %s", keepaliveTime))
+			fmt.Sprintf("Missing to configure HoldTime when changing KeepaliveTime to %s", keepaliveTime.String()))
 	}
 	// keepalive must be lower than holdtime by RFC4271 Keepalive Timer algorithm
 	if keepaliveTime.Duration > holdTime.Duration {
 		return field.Invalid(field.NewPath("spec").Child("KeepaliveTime"), keepaliveTime,
-			fmt.Sprintf("Invalid keepalive time %s higher than holdtime %s", keepaliveTime, holdTime))
+			fmt.Sprintf("Invalid keepalive time %s higher than holdtime %s", keepaliveTime.String(), holdTime.String()))
 	}
 	return nil
 }
 
-func (bgpPeer *BGPPeer) validateBGPPeersRouterID(existingBGPPeersList *BGPPeerList) *field.Error {
-	routerID := bgpPeer.Spec.RouterID
+func (bgpPeer *BGPPeer) validateBGPPeersHoldTime(existingBGPPeersList *BGPPeerList) *field.Error {
+	holdTime := bgpPeer.Spec.HoldTime
+	if holdTime.Duration != 0 && holdTime.Duration < 3*time.Second {
+		return field.Invalid(field.NewPath("spec").Child("HoldTime"), holdTime,
+			fmt.Sprintf("Invalid hold time %s must be 0 or >=3s", holdTime.String()))
+	}
+	return nil
+}
 
+func (bgpPeer *BGPPeer) validateBGPPeersRouterID(existingBGPPeersList *BGPPeerList, bgpFrrMode bool) *field.Error {
+	routerID := bgpPeer.Spec.RouterID
 	if len(routerID) == 0 {
 		return nil
 	}
 	if net.ParseIP(routerID) == nil {
 		return field.Invalid(field.NewPath("spec").Child("RouterID"), routerID,
 			fmt.Sprintf("Invalid RouterID %s", routerID))
+	}
+	if bgpFrrMode {
+		for _, existingBGPPeer := range existingBGPPeersList.Items {
+			if bgpPeer.Name != existingBGPPeer.Name && routerID != existingBGPPeer.Spec.RouterID {
+				return field.Invalid(field.NewPath("spec").Child("RouterID"), routerID,
+					fmt.Sprintf("BGPPeers with different RouterID not supported in FRR mode, RouterID %s existing routerID %s",
+						routerID, existingBGPPeer.Spec.RouterID))
+			}
+		}
 	}
 	return nil
 }
@@ -152,12 +179,9 @@ func (bgpPeer *BGPPeer) validateBGPPeersMyASN(existingBGPPeersList *BGPPeerList)
 	return nil
 }
 
-func (bgpPeer *BGPPeer) validateBGPPeerConfig(existingBGPPeersList *BGPPeerList) *field.Error {
-	remoteASN := bgpPeer.Spec.ASN
-	myASN := bgpPeer.Spec.MyASN
+func (bgpPeer *BGPPeer) validateBGPPeerAddrConfig() *field.Error {
 	address := bgpPeer.Spec.Address
 	srcAddr := bgpPeer.Spec.SrcAddress
-
 	if net.ParseIP(address) == nil {
 		return field.Invalid(field.NewPath("spec").Child("Address"), address,
 			fmt.Sprintf("Invalid BGPPeer address %s", address))
@@ -167,12 +191,27 @@ func (bgpPeer *BGPPeer) validateBGPPeerConfig(existingBGPPeersList *BGPPeerList)
 		return field.Invalid(field.NewPath("spec").Child("SrcAddress"), srcAddr,
 			fmt.Sprintf("Invalid BGPPeer source address %s", srcAddr))
 	}
+	return nil
+}
 
+func (bgpPeer *BGPPeer) validateBGPPeerMultiHop() *field.Error {
+	myASN := bgpPeer.Spec.MyASN
+	remoteASN := bgpPeer.Spec.ASN
+	eBGPMultiHop := bgpPeer.Spec.EBGPMultiHop
+	if remoteASN == myASN && eBGPMultiHop {
+		return field.Invalid(field.NewPath("spec").Child("EBGPMultiHop"), eBGPMultiHop,
+			fmt.Sprintf("Invalid EBGPMultiHop parameter set for an ibgp peer %v", eBGPMultiHop))
+	}
+	return nil
+}
+
+func (bgpPeer *BGPPeer) validateDuplicateBGPPeer(existingBGPPeersList *BGPPeerList) *field.Error {
+	address := bgpPeer.Spec.Address
 	for _, BGPPeer := range existingBGPPeersList.Items {
-		if bgpPeer.Name != BGPPeer.Name && remoteASN == BGPPeer.Spec.ASN && address == BGPPeer.Spec.Address && myASN == BGPPeer.Spec.MyASN {
+		if bgpPeer.Name != BGPPeer.Name && address == BGPPeer.Spec.Address {
 			return field.Invalid(field.NewPath("spec").Child("Address"), address,
-				fmt.Sprintf("Duplicate BGPPeer %s ASN %d in the same BGP instance",
-					address, remoteASN))
+				fmt.Sprintf("Duplicate BGPPeer %s in the same BGP instance not supported in FRR mode",
+					address))
 		}
 	}
 	return nil
