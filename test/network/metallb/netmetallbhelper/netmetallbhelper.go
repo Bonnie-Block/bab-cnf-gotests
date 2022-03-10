@@ -265,7 +265,9 @@ func GetNodeIndex() map[string]int {
 	for nodeIndex, workerName := range workerNodeList {
 		if workerName == announcingNodeName && nodeIndex == 0 {
 			res["nonannouncerNodeIndex"] = 1
-		} else {
+		}
+
+		if workerName == announcingNodeName && nodeIndex == 1 {
 			res["announcerNodeIndex"] = 1
 		}
 	}

@@ -28,8 +28,9 @@ import (
 var _ = Describe("CNF MetalLB", func() {
 
 	var (
-		nodeListString []string
-		masterNode     k8sv1.Node
+		nodeListString  []string
+		masterNode      k8sv1.Node
+		masterConfigMap *k8sv1.ConfigMap
 	)
 
 	execute.BeforeAll(func() {
@@ -78,6 +79,8 @@ var _ = Describe("CNF MetalLB", func() {
 		netmetallbhelper.DeleteAllBGPPeers()
 		Expect(err).ToNot(HaveOccurred())
 		err = namespaces.CleanPods(netmlbparameters.TestNamespace, helper.Apiclient)
+		Expect(err).ToNot(HaveOccurred())
+		err = helper.Apiclient.Delete(context.Background(), masterConfigMap)
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Should remove Metallb Configuration")
@@ -154,7 +157,7 @@ var _ = Describe("CNF MetalLB", func() {
 		By("should create external FRR container")
 		workerNodesAdresses, err := helper.GetNodeIPListByLabel(parameters.RoleWorker)
 		Expect(err).ToNot(HaveOccurred())
-		masterConfigMap := netmetallbhelper.DefineFRRConfigMap(workerNodesAdresses,
+		masterConfigMap = netmetallbhelper.DefineFRRConfigMap(workerNodesAdresses,
 			netmlbparameters.MasterConfigMapName,
 			netmlbparameters.IBGPASN,
 			netmlbparameters.BGP)

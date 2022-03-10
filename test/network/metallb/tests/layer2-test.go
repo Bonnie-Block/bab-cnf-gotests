@@ -135,9 +135,8 @@ var _ = Describe("CNF MetalLB", func() {
 
 		By("should validate arping")
 		announcingNodeName := netmetallbhelper.GetLBServiceAnnouncingNodeName()
-		nonAnnouncerNodeIndex := netmetallbhelper.GetNodeIndex()
-		index := nonAnnouncerNodeIndex["nonAnnouncerNodeIndex"]
-		nonAnnouncerNodeName := workerNodesNameList[index]
+		nodeIndex := netmetallbhelper.GetNodeIndex()
+		nonAnnouncerNodeName := workerNodesNameList[nodeIndex["nonannouncerNodeIndex"]]
 
 		Eventually(func() bool {
 			announcingNodeName := netmetallbhelper.GetLBServiceAnnouncingNodeName()
