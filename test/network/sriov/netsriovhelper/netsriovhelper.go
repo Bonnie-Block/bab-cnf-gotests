@@ -601,7 +601,7 @@ func DefineClientPod(
 	return redefinePodWithInitCommandPolicy(
 		podDefinition,
 		podImage,
-		fmt.Sprintf("ping %s -c 3 -w 30", serverIP))
+		fmt.Sprintf("ping %s -c 3 -w 90", serverIP))
 }
 
 func redefinePodWithInitCommandPolicy(podObject *corev1.Pod, initImage string, command string) *corev1.Pod {
