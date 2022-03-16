@@ -76,6 +76,7 @@ var _ = Describe("CNF SRIOV", func() {
 				netsriovparameters.PodWaitingTime)
 		})
 
+		// 46528
 		It("Operator re-installation. Verify SR-IOV operator control plane is operational before removal", func() {
 			sriovPolicies, err := helper.Apiclient.SriovNetworkNodePolicies(parameters.SriovOperatorNamespace).List(
 				context.TODO(), metav1.ListOptions{})
@@ -101,6 +102,7 @@ var _ = Describe("CNF SRIOV", func() {
 			Expect(sriovNetworkInstalled).To(BeTrue())
 		})
 
+		// 46529
 		It("Operator re-installation. Verify SR-IOV operator data plane is operational before removal", func() {
 			clientPodCommand, err := netsriovhelper.DefineTestCommandParameters(
 				false, netsriovparameters.CommunicationProtocolUnicastICMP, netsriovparameters.MTUStandart,
@@ -112,6 +114,7 @@ var _ = Describe("CNF SRIOV", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
+		// 46530
 		It("Operator re-installation. Verify all SR-IOV components are deleted when operator is removed", func() {
 
 			By("Clean all SR-IOV policies and networks")
@@ -183,30 +186,33 @@ var _ = Describe("CNF SRIOV", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("Operator re-installation. Verify all SR-IOV components are deleted when operator is removed", func() {
+		// 46531
+		It("Operator re-installation. Validate that SR-IOV resources can not be deployed without SR-IOV operator",
+			func() {
 
-			By("Validate that SR-IOV operator namespace was removed")
-			_, err := helper.Apiclient.Namespaces().Get(
-				context.TODO(), parameters.SriovOperatorNamespace, metav1.GetOptions{})
-			Expect(err).To(HaveOccurred())
+				By("Validate that SR-IOV operator namespace was removed")
+				_, err := helper.Apiclient.Namespaces().Get(
+					context.TODO(), parameters.SriovOperatorNamespace, metav1.GetOptions{})
+				Expect(err).To(HaveOccurred())
 
-			By("Validate that SR-IOV api doesn't work")
-			tmpSriovPolicy := helper.DefineSriovPolicy(
-				"test-policy", parameters.SriovOperatorNamespace, sriovInterfaces[0], 5,
-				"0-1", 1500, "testresourceusual", "netdevice")
-			_, err = helper.Apiclient.SriovNetworkNodePolicies(parameters.SriovOperatorNamespace).Create(
-				context.TODO(),
-				tmpSriovPolicy,
-				metav1.CreateOptions{})
-			Expect(err).To(HaveOccurred())
-			_, err = helper.Apiclient.SriovNetworks(netsriovparameters.OperatorTestNamespace).Create(
-				context.TODO(),
-				netsriovhelper.DefineSriovNetwork("test-network", "testresourceusual"),
-				metav1.CreateOptions{},
-			)
-			Expect(err).To(HaveOccurred())
-		})
+				By("Validate that SR-IOV api doesn't work")
+				tmpSriovPolicy := helper.DefineSriovPolicy(
+					"test-policy", parameters.SriovOperatorNamespace, sriovInterfaces[0], 5,
+					"0-1", 1500, "testresourceusual", "netdevice")
+				_, err = helper.Apiclient.SriovNetworkNodePolicies(parameters.SriovOperatorNamespace).Create(
+					context.TODO(),
+					tmpSriovPolicy,
+					metav1.CreateOptions{})
+				Expect(err).To(HaveOccurred())
+				_, err = helper.Apiclient.SriovNetworks(netsriovparameters.OperatorTestNamespace).Create(
+					context.TODO(),
+					netsriovhelper.DefineSriovNetwork("test-network", "testresourceusual"),
+					metav1.CreateOptions{},
+				)
+				Expect(err).To(HaveOccurred())
+			})
 
+		// 46532
 		It("Operator re-installation. Validate that re-installed SR-IOV operator’s control plane is up and running.",
 			func() {
 
@@ -266,7 +272,8 @@ var _ = Describe("CNF SRIOV", func() {
 				netsriovhelper.SriovPreConfiguration()
 			})
 
-		It("Operator re-installation. Validate that re-installed SR-IOV operator’s control plane is up and running.",
+		// 46533
+		It("Operator re-installation. Validate that re-installed SR-IOV operator’s data plane is up and running",
 			func() {
 				By("Run Server pod")
 				sriovInfos, err := cluster.DiscoverSriov(helper.Apiclient, parameters.SriovOperatorNamespace)
