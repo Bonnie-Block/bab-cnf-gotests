@@ -86,7 +86,7 @@ The list of available features:
 * `CNF_GOTESTS_SRIOV_SMOKE` - If this variable is set to true then sriov suite will be running in smoke mode. Default value false. Allowed value: `export CNF_GOTESTS_SRIOV_SMOKE="true"`
 
 ##### MetalLB suite environment variables:
-* `METALLB_ADDR_LIST` - is used to create the metalLB L2 address pool. These addresses are specific to the Helix TLV lab. If no IP environmental variable is present the MetalLB L2 test cases are skipped.
+* `METALLB_ADDR_LIST` - is used to create the metalLB L2 and BGP service address pool. These addresses are specific to the Helix TLV lab. Addresses include both IPv4 and IPv6 for Single Stack and Dual Stack deployments. If no IP environmental variable is present all MetalLB test cases are skipped. 
 * `FRR_IMAGE` - path where to download the frr image (default `docker-registry.upshift.redhat.com/cng-gotests/frr:stable_7.5`)
 
 ##### CNF-TESTS suite environment variables:
