@@ -93,34 +93,16 @@ var _ = Describe("PTP", func() {
 		// 37056
 		It("from the same policy", func() {
 			for _, podEntry := range ptpRunningPods {
-				if podRole(podEntry, masterNodeLabel) {
+				Eventually(func() map[string]int {
+					ptpProcessesAndMetrics := amountPtpProcessesAndMetrics(podEntry)
 
-					Eventually(func() map[string]int {
-						ptpProcessesAndMetrics, err := amountPtpProcessesAndMetrics("master", podEntry)
-						Expect(err).NotTo(HaveOccurred())
-
-						return ptpProcessesAndMetrics
-					}, 1*time.Minute, 5*time.Second).Should(
-						Equal(map[string]int{"phc2sysMetric": 2, "ptp4lProc": 2, "phc2sysProc": 2}),
-						"Wrong amount of ptp4l or phc2sys  on a Master",
-					)
-
-				} else if podRole(podEntry, slaveNodeLabel) {
-
-					Eventually(func() map[string]int {
-						ptpProcessesAndMetrics, err := amountPtpProcessesAndMetrics("slave", podEntry)
-						Expect(err).NotTo(HaveOccurred())
-
-						return ptpProcessesAndMetrics
-					}, 1*time.Minute, 5*time.Second).Should(
-						Equal(map[string]int{"ptp4lMetric": 2, "ptp4lProc": 2, "phc2sysProc": 2}),
-						"Wrong amount of ptp4l or phc2sys  on a Slave",
-					)
-
-				}
+					return ptpProcessesAndMetrics
+				}, 1*time.Minute, 5*time.Second).Should(
+					Equal(map[string]int{"ptp4lMetric": 2, "ptp4lProc": 2, "phc2sysProc": 2}),
+					fmt.Sprintf("Wrong amount of ptp4l or phc2sys  on a %s", podEntry.Name),
+				)
 
 			}
-
 		})
 
 	})
@@ -404,31 +386,17 @@ func createConfigMultipleInterfaces(
 	return err
 }
 
-func amountPtpProcessesAndMetrics(role string, podEntry v1core.Pod) (map[string]int, error) {
+func amountPtpProcessesAndMetrics(podEntry v1core.Pod) map[string]int {
 	ptpMetrics, _ := pod.ExecCommand(Apiclient, podEntry, []string{"curl", "127.0.0.1:9091/metrics"})
 	psOutput, _ := pod.ExecCommand(Apiclient, podEntry, []string{"ps", "-C", "ptp4l", "-C", "phc2sys"})
 
-	if role == "master" {
-		phc2sysMetric := CountLinesByMatches(
-			ptpMetrics.String(),
-			"openshift_ptp_offset_ns",
-			"phc2sys",
-		)
-		ptp4lProc := CountLinesByMatches(psOutput.String(), "ptp4l")
-		phc2sysProc := CountLinesByMatches(psOutput.String(), "phc2sys")
+	ptp4lMetric := CountLinesByMatches(
+		ptpMetrics.String(),
+		"openshift_ptp_interface_role",
+		"ptp4l",
+	)
+	ptp4lProc := CountLinesByMatches(psOutput.String(), "ptp4l")
+	phc2sysProc := CountLinesByMatches(psOutput.String(), "phc2sys")
 
-		return map[string]int{"phc2sysMetric": phc2sysMetric, "ptp4lProc": ptp4lProc, "phc2sysProc": phc2sysProc}, nil
-	} else if role == "slave" {
-		ptp4lMetric := CountLinesByMatches(
-			ptpMetrics.String(),
-			"openshift_ptp_interface_role",
-			"ptp4l",
-		)
-		ptp4lProc := CountLinesByMatches(psOutput.String(), "ptp4l")
-		phc2sysProc := CountLinesByMatches(psOutput.String(), "phc2sys")
-
-		return map[string]int{"ptp4lMetric": ptp4lMetric, "ptp4lProc": ptp4lProc, "phc2sysProc": phc2sysProc}, nil
-	}
-
-	return nil, fmt.Errorf("wrong PTP role: %s  of Pod", role)
+	return map[string]int{"ptp4lMetric": ptp4lMetric, "ptp4lProc": ptp4lProc, "phc2sysProc": phc2sysProc}
 }
