@@ -272,13 +272,14 @@ var _ = Describe("BFD", func() {
 					ipStack,
 					netmlbparameters.AddressPoolName,
 					netmlbparameters.AppLabel1,
+					netmlbparameters.ProtocolTCP,
 					netmlbparameters.ExtTrafPolLocal)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating nginx test pod")
 				netmetallbhelper.DefineAndRunMlbClientPod(workerNodeList[0].Name,
 					helper.Config.Network.TestContainerImage,
-					netmlbparameters.AppLabel1)
+					netmlbparameters.AppLabel1, []string{netmlbparameters.ArgCommandNGINX})
 
 				By("Creating FRR router pods on a Master node")
 				externalNADDefinition := netmetallbhelper.DefineExternalNAD()

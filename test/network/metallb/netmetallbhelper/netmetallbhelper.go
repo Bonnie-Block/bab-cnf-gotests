@@ -164,19 +164,19 @@ func IsEnvVarMetallbIPinNodeExtNetRange(cnfNodeLabel string, ipStack string,
 
 // DefineAndCreateLBService create an external service using the MetalLB Address Pool allowing
 // connectivity from network host interface br-ex to the nginx pod on port 30101.
-func DefineAndCreateLBService(namespace string, iPStack string, addresspool string, appLabel string,
+func DefineAndCreateLBService(namespace string, iPStack string, addresspool string, appLabel string, protocolL4 string,
 	trafficPolicy k8sv1.ServiceExternalTrafficPolicyType) error {
-	var (
-		service  k8sv1.Service
-		ipFamily []k8sv1.IPFamily
-	)
-
+	portNum := int32(80)
+	protocol := k8sv1.ProtocolTCP
 	ipFamilyPolicy := k8sv1.IPFamilyPolicySingleStack
+	ipFamily := []k8sv1.IPFamily{"IPv4"}
+
+	if protocolL4 == netmlbparameters.ProtocolSCTP {
+		portNum = 50000
+		protocol = k8sv1.ProtocolSCTP
+	}
 
 	switch iPStack {
-	case netmlbparameters.SingleIPv4Stack:
-		ipFamily = []k8sv1.IPFamily{"IPv4"}
-
 	case netmlbparameters.SingleIPv6Stack:
 		ipFamily = []k8sv1.IPFamily{"IPv6"}
 
@@ -185,7 +185,7 @@ func DefineAndCreateLBService(namespace string, iPStack string, addresspool stri
 		ipFamilyPolicy = k8sv1.IPFamilyPolicyRequireDualStack
 	}
 
-	service = k8sv1.Service{
+	service := k8sv1.Service{
 
 		ObjectMeta: metav1.ObjectMeta{
 			Annotations: map[string]string{
@@ -200,11 +200,11 @@ func DefineAndCreateLBService(namespace string, iPStack string, addresspool stri
 			},
 			Ports: []k8sv1.ServicePort{
 				{
-					Protocol: k8sv1.ProtocolTCP,
-					Port:     80,
+					Protocol: protocol,
+					Port:     portNum,
 					TargetPort: intstr.IntOrString{
 						Type:   intstr.Int,
-						IntVal: 80,
+						IntVal: portNum,
 					},
 				},
 			},
@@ -329,13 +329,13 @@ func MLBTestPod(node string, ns string, image string) *k8sv1.Pod {
 	return runningPod
 }
 
-// DefineAndRunMlbClientPod with nginx listening on port 80.
-func DefineAndRunMlbClientPod(node string, image string, appLabel string) *k8sv1.Pod {
+// DefineAndRunMlbClientPod with nginx listening on port 80 and sctp on port 50000.
+func DefineAndRunMlbClientPod(node string, image string, appLabel string, argCommand []string) *k8sv1.Pod {
 	podDefNodeLabel := pod.RedefineWithLabel(
 		pod.DefinePodOnNode(netmlbparameters.TestNamespace, image, node), "app", appLabel)
 	podDefPrivCommand := pod.RedefineAsPrivileged(pod.RedefineWithCommand(podDefNodeLabel,
 		[]string{"/bin/bash", "-c"},
-		[]string{"nginx && sleep INF"}))
+		argCommand))
 	runningPod := helper.WaitUntilPodCreatedAndRunning(podDefPrivCommand, netmlbparameters.PodWaitingTime)
 
 	return runningPod
@@ -897,4 +897,17 @@ func loadBalancerIPValid(ipAddress string, lbIpaddress string) {
 
 		Skip(fmt.Sprintf("The environment IP variable is out of cluster br-ex %s range", ipVersion))
 	}
+}
+
+// ActivateSCTPModuleOnMaster creates privPods on the worker nodes and on MasterNode[0]. After it activates
+// the sctp module.
+func ActivateSCTPModuleOnMaster(masterNode k8sv1.Node) {
+	masterPrivPod := createPrivilegedPodMaster(helper.Config.Network.TestContainerImage, masterNode.Name)
+
+	_, err := helper.ExecCommandOnNodeWithHostBinaries(&masterNode, []string{"modprobe", "sctp"})
+	Expect(err).ToNot(HaveOccurred(), "Failed to load SCTP module")
+
+	output, err := pod.ExecCommand(helper.Apiclient, *masterPrivPod, []string{"/bin/bash", "-c", "lsmod | grep sctp"})
+	Expect(err).ToNot(HaveOccurred())
+	Expect(output.String()).To(ContainSubstring("libcrc32c"))
 }

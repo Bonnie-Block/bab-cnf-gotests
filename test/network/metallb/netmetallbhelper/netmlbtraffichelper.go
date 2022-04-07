@@ -12,14 +12,13 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/metallb/netmlbparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/nethelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/netparameters"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestBGPTable(ipStack string, trafficPolicyName string, bgpASN int) {
+func TestBGPTable(ipStack string, workerNodeList []k8sv1.Node, masterNodeList []k8sv1.Node,
+	trafficPolicyName string, bgpASN int) {
 	var workerNodeListString []string
 
 	clusterIPStack := ValidateClusterIPStack()
@@ -31,10 +30,6 @@ func TestBGPTable(ipStack string, trafficPolicyName string, bgpASN int) {
 	}
 
 	metalLBIPList, err := helper.Config.GetMetallbVirtIP()
-	Expect(err).ToNot(HaveOccurred())
-
-	workerNodeList, err := nodes.GetByRole(helper.Apiclient, parameters.RoleWorker)
-	Expect(len(workerNodeList)).To(BeNumerically(">", 1))
 	Expect(err).ToNot(HaveOccurred())
 
 	for _, node := range workerNodeList {
@@ -67,9 +62,6 @@ func TestBGPTable(ipStack string, trafficPolicyName string, bgpASN int) {
 		metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
-	masterNodeList, err := nodes.GetByRole(helper.Apiclient, parameters.RoleMaster)
-	Expect(err).ToNot(HaveOccurred())
-	Expect(len(masterNodeList)).To(BeNumerically(">", 0))
 	masterNode := masterNodeList[0]
 
 	frrPodWithNAD := pod.RedefinePodWithNetwork(DefineFrrPodWithTestContainer(
@@ -100,16 +92,26 @@ func TestBGPTable(ipStack string, trafficPolicyName string, bgpASN int) {
 		ipStack,
 		netmlbparameters.AddressPoolS1Name,
 		netmlbparameters.AppLabel1,
+		netmlbparameters.ProtocolTCP,
+		k8sv1.ServiceExternalTrafficPolicyType(trafficPolicyName))
+	Expect(err).ToNot(HaveOccurred())
+
+	err = DefineAndCreateLBService(
+		netmlbparameters.TestNamespace,
+		ipStack,
+		netmlbparameters.AddressPoolS1Name,
+		netmlbparameters.AppLabel1,
+		netmlbparameters.ProtocolSCTP,
 		k8sv1.ServiceExternalTrafficPolicyType(trafficPolicyName))
 	Expect(err).ToNot(HaveOccurred())
 
 	DefineAndRunMlbClientPod(workerNodeListString[0],
 		helper.Config.Network.TestContainerImage,
-		netmlbparameters.AppLabel1)
+		netmlbparameters.AppLabel1, []string{netmlbparameters.ArgCommandSCTPNGINX})
 
 	DefineAndRunMlbClientPod(workerNodeListString[1],
 		helper.Config.Network.TestContainerImage,
-		netmlbparameters.AppLabel1)
+		netmlbparameters.AppLabel1, []string{netmlbparameters.ArgCommandSCTPNGINX})
 
 	By("should create a BGP Peer on Speakers")
 
@@ -125,7 +127,7 @@ func TestBGPTable(ipStack string, trafficPolicyName string, bgpASN int) {
 	validateTraffic(masterNodeFRRPod, workerNodesAdresses, ipStack)
 }
 
-func validateTraffic(frrPod *k8sv1.Pod, nodeIPAdresses []string, ipStack string) {
+func validateTraffic(masterFRRPod *k8sv1.Pod, nodeIPAdresses []string, ipStack string) {
 	By("should validate BGP routes to service")
 
 	var routes []string
@@ -134,19 +136,24 @@ func validateTraffic(frrPod *k8sv1.Pod, nodeIPAdresses []string, ipStack string)
 
 	if ipStack == netmlbparameters.DualIPStack {
 		Eventually(func() error {
-			return CheckBGPRoutes(frrPod, nodeIPAdresses, routes,
+			return CheckBGPRoutes(masterFRRPod, nodeIPAdresses, routes,
 				netparameters.IPV4Family)
 		}, 2*time.Minute, netmlbparameters.TimeoutBFDBGP).ShouldNot(HaveOccurred())
 	}
 
 	Eventually(func() error {
-		return CheckBGPRoutes(frrPod, nodeIPAdresses, routes, ipFamily)
+		return CheckBGPRoutes(masterFRRPod, nodeIPAdresses, routes, ipFamily)
 	}, 2*time.Minute, netmlbparameters.TimeoutBFDBGP).ShouldNot(HaveOccurred())
 
 	By("should validate curl to service")
 
-	httpOutput, err := curlService(frrPod, ipStack)
-	Expect(err).ToNot(HaveOccurred(), httpOutput)
+	_, err := curlService(masterFRRPod, ipStack)
+	Expect(err).ToNot(HaveOccurred())
+
+	By("should validate SCTP to service")
+
+	err = sctpToService(masterFRRPod, ipStack)
+	Expect(err).ToNot(HaveOccurred())
 }
 
 func curlService(frrPod *k8sv1.Pod, ipStack string) (string, error) {
@@ -214,4 +221,32 @@ func defineAnnotationWithIPStack(ipStack string, metalLBIPList []string, cluster
 
 	return annotation + fmt.Sprintf(`["%s/%s","%s/%s"]}]`, metalLBIPList[0],
 		netparameters.IPV4Subnet, metalLBIPList[2], netparameters.IPV6Subnet)
+}
+
+func sctpToService(masterFRRPod *k8sv1.Pod, ipStack string) error {
+	var (
+		externalLBIPList []string
+	)
+
+	switch ipStack {
+	case netmlbparameters.DualIPStack:
+		externalLBIPList = append(externalLBIPList, netmlbparameters.AddressPoolS1[1], netmlbparameters.AddressPoolS1[3])
+	case netmlbparameters.SingleIPv4Stack:
+		externalLBIPList = append(externalLBIPList, netmlbparameters.AddressPoolS1[1])
+	case netmlbparameters.SingleIPv6Stack:
+		externalLBIPList = append(externalLBIPList, netmlbparameters.AddressPoolS1[3])
+	}
+
+	for _, exteranlLBIP := range externalLBIPList {
+		_, err := pod.ExecCommand(helper.Apiclient, *masterFRRPod, []string{"/bin/bash", "-c",
+			fmt.Sprintf(netmlbparameters.ArgCommandServerSCTP,
+				exteranlLBIP)},
+			netmlbparameters.TestContainerName)
+
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

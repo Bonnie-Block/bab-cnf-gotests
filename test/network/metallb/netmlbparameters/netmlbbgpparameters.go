@@ -140,6 +140,9 @@ const (
       end
 
     `
+	ArgCommandNGINX      = "nginx && sleep INF"
+	ArgCommandSCTPNGINX  = "nginx && /usr/bin/testcmd -listen -interface eth0 -port 50000 -protocol sctp"
+	ArgCommandServerSCTP = "/usr/bin/testcmd -server %s -interface eth0 -port 50000 -protocol sctp"
 )
 
 type (

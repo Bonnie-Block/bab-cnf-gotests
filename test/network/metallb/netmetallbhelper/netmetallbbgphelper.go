@@ -265,7 +265,6 @@ func CheckBGPRoutes(frrPod *k8sv1.Pod, neighborsIPAddresses []string, prefixList
 
 	routes, err := parseRoutes(bgpStateOut.String())
 	Expect(err).ToNot(HaveOccurred(), "Failed to parse %s", err)
-	fmt.Println(routes)
 
 	for _, prefix := range prefixList {
 		ipRoutes, routePrefix := routes[prefix]

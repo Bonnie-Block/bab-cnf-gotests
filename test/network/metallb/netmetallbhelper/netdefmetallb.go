@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	. "github.com/onsi/gomega"
 
@@ -13,6 +14,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/metallb/netmlbparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/nethelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/netparameters"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -239,4 +241,27 @@ bfd
 	bfdConfig += "exit-address-family\n!\nline vty\n!\nend\n"
 
 	return bfdConfig
+}
+
+// createPrivilegedPodMaster creates privileged test pods on master node.
+func createPrivilegedPodMaster(image string, masterNodeName string) *k8sv1.Pod {
+	podName := fmt.Sprintf("%s-%s", parameters.PrivPodNamespace, masterNodeName)
+
+	volumeType := k8sv1.HostPathUnset
+	volSource := k8sv1.VolumeSource{
+		HostPath: &k8sv1.HostPathVolumeSource{Path: "/", Type: &volumeType}}
+
+	masterprivilegedPod := pod.RedefineAsPrivileged(pod.DefinePodOnNode(
+		parameters.PrivPodNamespace, image, masterNodeName))
+	masterprivilegedPod = pod.RedefineWithVolume(
+		pod.RedefineWithHostPid(masterprivilegedPod),
+		"rootfs", "/rootfs", volSource, false,
+	)
+
+	masterprivilegedPod = helper.WaitUntilPodCreatedAndRunning(
+		pod.RedefineWithObjectMeta(pod.RedefineOnMaster(masterprivilegedPod), podName, "", nil), 2*time.Minute)
+
+	helper.WaitForPodsHealthy([]*k8sv1.Pod{masterprivilegedPod}, 1*time.Minute)
+
+	return masterprivilegedPod
 }

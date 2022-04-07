@@ -115,16 +115,17 @@ var _ = Describe("CNF MetalLB", func() {
 			netmlbparameters.SingleIPv4Stack,
 			netmlbparameters.AddressPoolS1Name,
 			netmlbparameters.AppLabel1,
+			netmlbparameters.ProtocolTCP,
 			netmlbparameters.ExtTrafPolCluster)
 		Expect(err).ToNot(HaveOccurred())
 
 		netmetallbhelper.DefineAndRunMlbClientPod(nodeListString[0],
 			helper.Config.Network.TestContainerImage,
-			netmlbparameters.AppLabel1)
+			netmlbparameters.AppLabel1, []string{netmlbparameters.ArgCommandNGINX})
 
 		netmetallbhelper.DefineAndRunMlbClientPod(nodeListString[1],
 			helper.Config.Network.TestContainerImage,
-			netmlbparameters.AppLabel1)
+			netmlbparameters.AppLabel1, []string{netmlbparameters.ArgCommandNGINX})
 
 		By("should create service 2 with 2 backend pods")
 		err = netmetallbhelper.DefineAndCreateLBService(
@@ -132,16 +133,17 @@ var _ = Describe("CNF MetalLB", func() {
 			netmlbparameters.SingleIPv4Stack,
 			netmlbparameters.AddressPoolS2Name,
 			netmlbparameters.AppLabel2,
+			netmlbparameters.ProtocolTCP,
 			netmlbparameters.ExtTrafPolCluster)
 		Expect(err).ToNot(HaveOccurred())
 
 		netmetallbhelper.DefineAndRunMlbClientPod(nodeListString[0],
 			helper.Config.Network.TestContainerImage,
-			netmlbparameters.AppLabel2)
+			netmlbparameters.AppLabel2, []string{netmlbparameters.ArgCommandNGINX})
 
 		netmetallbhelper.DefineAndRunMlbClientPod(nodeListString[1],
 			helper.Config.Network.TestContainerImage,
-			netmlbparameters.AppLabel2)
+			netmlbparameters.AppLabel2, []string{netmlbparameters.ArgCommandNGINX})
 
 		By("should create a IBGP Peer on Speakers")
 		metalLBIPList, err := helper.Config.GetMetallbVirtIP()

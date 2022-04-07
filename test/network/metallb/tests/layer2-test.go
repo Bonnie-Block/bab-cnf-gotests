@@ -127,16 +127,17 @@ var _ = Describe("CNF MetalLB", func() {
 			netmlbparameters.SingleIPv4Stack,
 			netmlbparameters.AddressPoolL2,
 			netmlbparameters.AppLabel1,
+			netmlbparameters.ProtocolTCP,
 			"Cluster")
 		Expect(err).ToNot(HaveOccurred())
 
 		By("should create nginx test pods")
 		netmetallbhelper.DefineAndRunMlbClientPod(nodeListString[0],
 			helper.Config.Network.TestContainerImage,
-			netmlbparameters.AppLabel1)
+			netmlbparameters.AppLabel1, []string{netmlbparameters.ArgCommandNGINX})
 		netmetallbhelper.DefineAndRunMlbClientPod(nodeListString[1],
 			helper.Config.Network.TestContainerImage,
-			netmlbparameters.AppLabel1)
+			netmlbparameters.AppLabel1, []string{netmlbparameters.ArgCommandNGINX})
 
 		By("should validate arping")
 		announcingNodeName := netmetallbhelper.GetLBServiceAnnouncingNodeName()
@@ -201,16 +202,17 @@ var _ = Describe("CNF MetalLB", func() {
 			netmlbparameters.SingleIPv4Stack,
 			netmlbparameters.AddressPoolL2,
 			netmlbparameters.AppLabel1,
+			netmlbparameters.ProtocolTCP,
 			netmlbparameters.ExtTrafPolCluster)
 		Expect(err).ToNot(HaveOccurred())
 
 		By("should create nginx test pods")
 		netmetallbhelper.DefineAndRunMlbClientPod(nodeListString[0],
 			helper.Config.Network.TestContainerImage,
-			netmlbparameters.AppLabel1)
+			netmlbparameters.AppLabel1, []string{netmlbparameters.ArgCommandNGINX})
 		netmetallbhelper.DefineAndRunMlbClientPod(nodeListString[1],
 			helper.Config.Network.TestContainerImage,
-			netmlbparameters.AppLabel1)
+			netmlbparameters.AppLabel1, []string{netmlbparameters.ArgCommandNGINX})
 
 		announcingNodeName := netmetallbhelper.GetLBServiceAnnouncingNodeName()
 		log.Printf("Node %s is the MetalLB service announcer node", announcingNodeName)

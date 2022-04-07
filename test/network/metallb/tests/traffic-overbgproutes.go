@@ -12,15 +12,23 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/metallb/netmlbparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/nethelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/netparameters"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 
 	metallbutils "github.com/metallb/metallb-operator/test/e2e/metallb"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
+	k8sv1 "k8s.io/api/core/v1"
 )
 
 var _ = Describe("MetalLB BGP", func() {
+
+	var (
+		workerNodeList []k8sv1.Node
+		masterNodeList []k8sv1.Node
+	)
 
 	describe := netmetallbhelper.CreateParametersInJSON
 
@@ -29,6 +37,7 @@ var _ = Describe("MetalLB BGP", func() {
 		var ipV6Address string
 
 		clusterIPStack := netmetallbhelper.ValidateClusterIPStack()
+
 		By(fmt.Sprintf("Running test on %s cluster", clusterIPStack))
 
 		metalLBIPList, err := helper.Config.GetMetallbVirtIP()
@@ -48,6 +57,18 @@ var _ = Describe("MetalLB BGP", func() {
 			clusterIPStack,
 			ipV4Address,
 			ipV6Address)
+
+		workerNodeList, err = nodes.GetByRole(helper.Apiclient, parameters.RoleWorker)
+		Expect(len(workerNodeList)).To(BeNumerically(">", 1))
+		Expect(err).ToNot(HaveOccurred())
+
+		masterNodeList, err = nodes.GetByRole(helper.Apiclient, parameters.RoleMaster)
+		Expect(len(masterNodeList)).Should(Equal(3))
+		Expect(err).ToNot(HaveOccurred())
+
+		By("should activate SCTP module")
+		netmetallbhelper.ActivateSCTPModuleOnMaster(masterNodeList[0])
+
 	})
 
 	BeforeEach(func() {
@@ -85,6 +106,8 @@ var _ = Describe("MetalLB BGP", func() {
 		func(ipStack string, trafficPolicy string) {
 			netmetallbhelper.TestBGPTable(
 				ipStack,
+				workerNodeList,
+				masterNodeList,
 				trafficPolicy,
 				netmlbparameters.IBGPASN)
 		},
@@ -101,6 +124,8 @@ var _ = Describe("MetalLB BGP", func() {
 		func(ipStack string, trafficPolicy string) {
 			netmetallbhelper.TestBGPTable(
 				ipStack,
+				workerNodeList,
+				masterNodeList,
 				trafficPolicy,
 				netmlbparameters.EBGPASN)
 		},

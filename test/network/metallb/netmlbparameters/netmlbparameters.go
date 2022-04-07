@@ -64,6 +64,8 @@ const (
 	ExtTrafPolLocal                           = "Local"
 	ExternalNADName                           = "external"
 	TestContainerName                         = "testcontainer"
+	ProtocolSCTP                              = "sctp"
+	ProtocolTCP                               = "tcp"
 )
 
 var (
