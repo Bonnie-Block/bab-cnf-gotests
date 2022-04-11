@@ -366,8 +366,8 @@ func CreateParametersInJSON(ipStack string, trafficPolicy string) string {
 	return string(params)
 }
 
-// RoutesForCommunity returns informations about routes in the given executor related to the given community.
-func RoutesForCommunity(frrPod *k8sv1.Pod, community string, ipFamily string) error {
+// ValidateRouteCommunity returns informations about routes in the given executor related to the given community.
+func ValidateRouteCommunity(frrPod *k8sv1.Pod, community string, ipFamily string) error {
 	res, err := pod.ExecCommand(helper.Apiclient, *frrPod, append(netmlbparameters.VtyshFRRCmdPrefix,
 		fmt.Sprintf("show bgp %s community %s json", ipFamily, community)))
 
@@ -443,4 +443,64 @@ func RemoveMetallbBGPTestSetup() {
 	)
 	Expect(err).ToNot(HaveOccurred())
 	metallbutils.Delete(metallb)
+}
+
+// ValidateLocalPref verifies local pref from FRR is equal to configured Local Pref.
+func ValidateLocalPref(frrPod *k8sv1.Pod, localPref uint32, ipFamily string) error {
+	res, err := pod.ExecCommand(helper.Apiclient, *frrPod,
+		append(netmlbparameters.VtyshFRRCmdPrefix, fmt.Sprintf("show ip bgp %s json", ipFamily)))
+	if err != nil {
+		return errors.Wrapf(err, "Failed to query routes")
+	}
+
+	toParse := netmlbparameters.IPInfo{}
+	err = json.Unmarshal(res.Bytes(), &toParse)
+
+	if err != nil {
+		return errors.Wrapf(err, "Failed to parse routes %s", res.String())
+	}
+
+	for _, frrRoutes := range toParse.Routes {
+		if frrRoutes[0].LocalPref != localPref {
+			return errors.Wrapf(err, "local pref is not equal to %d", localPref)
+		}
+	}
+
+	return err
+}
+
+// ValidateBGPTimers verifies BGP timers on the speakers equal the configured timers.
+func ValidateBGPTimers(speakerPods []k8sv1.Pod, timerSettings []int) error {
+	for _, speakerPod := range speakerPods {
+		vtyshRes, err := pod.ExecCommand(helper.Apiclient, speakerPod,
+			append(netmlbparameters.VtyshFRRCmdPrefix, "show ip bgp neighbor json"))
+		if err != nil {
+			return err
+		}
+
+		neighborList := map[string]netmlbparameters.FRRNeighbor{}
+		err = json.Unmarshal(vtyshRes.Bytes(), &neighborList)
+
+		if err != nil {
+			return err
+		}
+
+		for ipaddress, neigh := range neighborList {
+			ipAdd := net.ParseIP(ipaddress)
+
+			if ipAdd == nil {
+				return errors.Wrapf(err, "no valid IP address found in list")
+			}
+
+			if neigh.BgpHoldTimer != timerSettings[0] {
+				return errors.Wrapf(err, "incorrect BGP Timer found")
+			}
+
+			if neigh.BgpKeepAlive != timerSettings[1] {
+				return errors.Wrapf(err, "incorrect BGP KeepAlive Timer found")
+			}
+		}
+	}
+
+	return nil
 }

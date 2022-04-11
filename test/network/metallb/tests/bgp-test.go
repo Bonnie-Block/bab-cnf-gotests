@@ -89,8 +89,24 @@ var _ = Describe("MetalLB BGP", func() {
 			Entry("IPv6 with Prefix 64", netparameters.IPV6Family, netmlbparameters.PrefixLen64),
 		)
 	})
-	Context("metrics", func() {
-		BeforeEach(func() {
+
+	Context("updates", func() {
+		// 	47174
+		DescribeTable("Functional Verify bgp-advertisement updates",
+			func(ipStack string, prefixLen int32) {
+				netmetallbhelper.TestBGPAdvertismentTableUpdates(
+					masterNodeList,
+					workerNodeList,
+					metalLBIPList,
+					ipStack,
+					prefixLen)
+			},
+			Entry("IPv4 update Prefix to 28", netparameters.IPV4Family, netmlbparameters.PrefixLen32),
+			Entry("IPv6 update Prefix to 64", netparameters.IPV6Family, netmlbparameters.PrefixLen128),
+		)
+		// 47202
+		It("BGP Timer update", func() {
+
 			By("should create external FRR container")
 
 			masterNodeFRRPod := netmetallbhelper.CreateFRRContainerOnMaster(
@@ -112,28 +128,80 @@ var _ = Describe("MetalLB BGP", func() {
 				return netmetallbhelper.CheckNeighborsStatus(masterNodeFRRPod, netparameters.IPV4Family,
 					workerNodesAdresses)
 			}, 1*time.Minute, netmlbparameters.Interval).Should(BeTrue())
-		})
 
-		// 47202
-		It("provides Prometheus BGP metrics", func() {
-			_, err := namespaces.LabelNamespace(helper.Apiclient,
-				netmlbparameters.MetalLBOperatorNameSpace,
-				netmlbparameters.MonitoringLabel,
-				"true")
-			Expect(err).ToNot(HaveOccurred())
+			By("should verify default BGP Peer timers")
 			speakerPods, err := helper.Apiclient.Pods(netmlbparameters.MetalLBOperatorNameSpace).
 				List(context.Background(), metav1.ListOptions{
 					LabelSelector: netmlbparameters.SpeakersLabelSelector,
 				})
 			Expect(err).ToNot(HaveOccurred())
-			metalLBMonitoredEntriesByPod, uniqueMetricKeys := netmetallbhelper.CollectMetalLBMetricsByPod(speakerPods.Items,
-				"metallb_bgp_")
+
+			defaultTimerSettings := []int{netmlbparameters.BGPDefaultHoldTimer, netmlbparameters.BGPDefaultKeepAliveTimer}
+			Eventually(func() error {
+				return netmetallbhelper.ValidateBGPTimers(speakerPods.Items, defaultTimerSettings)
+			}, 1*time.Minute, netmlbparameters.Interval).Should(Not(HaveOccurred()))
+
+			By("should update default BGP Peer timers")
+			updatedTimerSettings := []int{netmlbparameters.BGPUpdatedHoldTimer, netmlbparameters.BGPUpdatedKeepAliveTimer}
+
+			err = netmetallbhelper.UpdateBGPPeerTimers()
+			Expect(err).ToNot(HaveOccurred())
+
+			err = netmetallbhelper.ResetBGPPeer(masterNodeFRRPod)
+			Expect(err).ToNot(HaveOccurred())
 
 			Eventually(func() error {
-				podsPerPrometheusMetricKey := netmetallbhelper.CollectPrometheusMetrics(uniqueMetricKeys)
+				return netmetallbhelper.ValidateBGPTimers(speakerPods.Items, updatedTimerSettings)
+			}, 1*time.Minute, netmlbparameters.Interval).Should(Not(HaveOccurred()))
 
-				return netmetallbhelper.ContainSameMetrics(metalLBMonitoredEntriesByPod, podsPerPrometheusMetricKey)
-			}, netmlbparameters.Timeout, 2*netmlbparameters.Interval).Should(Not(HaveOccurred()))
+		})
+
+		Context("metrics", func() {
+			BeforeEach(func() {
+				By("should create external FRR container")
+
+				masterNodeFRRPod := netmetallbhelper.CreateFRRContainerOnMaster(
+					workerNodeList,
+					masterNodeList,
+					metalLBIPList,
+					netparameters.IPV4Family,
+					netmlbparameters.IBGPASN)
+
+				By("should create a BGP Peer on Speakers")
+
+				workerNodesAdresses := nethelper.NodeIPsForFamily(workerNodeList, netparameters.IPV4Family)
+
+				err := netmetallbhelper.CreateSpeakerBGPPeerIPStack(netparameters.IPV4Family,
+					metalLBIPList, netmlbparameters.IBGPASN)
+				Expect(err).ToNot(HaveOccurred())
+
+				Eventually(func() bool {
+					return netmetallbhelper.CheckNeighborsStatus(masterNodeFRRPod, netparameters.IPV4Family,
+						workerNodesAdresses)
+				}, 1*time.Minute, netmlbparameters.Interval).Should(BeTrue())
+			})
+
+			// 47202
+			It("provides Prometheus BGP metrics", func() {
+				_, err := namespaces.LabelNamespace(helper.Apiclient,
+					netmlbparameters.MetalLBOperatorNameSpace,
+					netmlbparameters.MonitoringLabel,
+					"true")
+				Expect(err).ToNot(HaveOccurred())
+				speakerPods, err := helper.Apiclient.Pods(netmlbparameters.MetalLBOperatorNameSpace).
+					List(context.Background(), metav1.ListOptions{
+						LabelSelector: netmlbparameters.SpeakersLabelSelector,
+					})
+				Expect(err).ToNot(HaveOccurred())
+				metalLBMonitoredEntriesByPod, uniqueMetricKeys := netmetallbhelper.CollectMetalLBMetricsByPod(speakerPods.Items,
+					"metallb_bgp_")
+
+				Eventually(func() error {
+					podsPerPrometheusMetricKey := netmetallbhelper.CollectPrometheusMetrics(uniqueMetricKeys)
+
+					return netmetallbhelper.ContainSameMetrics(metalLBMonitoredEntriesByPod, podsPerPrometheusMetricKey)
+				}, netmlbparameters.Timeout, 2*netmlbparameters.Interval).Should(Not(HaveOccurred()))
+			})
 		})
 	})
 })

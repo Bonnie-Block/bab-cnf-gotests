@@ -174,13 +174,20 @@ type (
 		PrefixSent  int
 		Port        int
 	}
+	FRRInfo struct {
+		PeerInfo map[string][]FRRNeighbor
+	}
 	FRRNeighbor struct {
-		RemoteAs     int    `json:"remoteAs"`
-		LocalAs      int    `json:"localAs"`
-		BgpVersion   int    `json:"bgpVersion"`
-		BgpState     string `json:"bgpState"`
-		PortForeign  int    `json:"portForeign"`
-		MessageStats struct {
+		RemoteAs               int    `json:"remoteAs"`
+		LocalAs                int    `json:"localAs"`
+		BgpVersion             int    `json:"bgpVersion"`
+		BgpState               string `json:"bgpState"`
+		PortForeign            int    `json:"portForeign"`
+		BgpHoldTimer           int    `json:"bgpTimerHoldTimeMsecs"`
+		BgpKeepAlive           int    `json:"bgpTimerKeepAliveIntervalMsecs"`
+		BgpConfiguredHoldTime  int    `json:"bgpTimerConfiguredHoldTimeMsecs"`
+		BgpConfiguredKeepAlive int    `json:"bgpTimerConfiguredKeepAliveIntervalMsecs"`
+		MessageStats           struct {
 			UpdatesSent int `json:"updatesSent"`
 		} `json:"messageStats"`
 		AddressFamilyInfo map[string]struct {

@@ -49,13 +49,15 @@ const (
 	EBGPASN                                   = 64501
 	SpeakerNodeTestLabel                      = "metallbtest"
 	BGPStateEstablished                       = "Established"
+	BGPDefaultHoldTimer                       = 90000
+	BGPDefaultKeepAliveTimer                  = 30000
+	BGPUpdatedHoldTimer                       = 30000
+	BGPUpdatedKeepAliveTimer                  = 10000
 	MonitoringLabel                           = "openshift.io/cluster-monitoring"
 	BFDStatusUp                               = "up"
 	BFDStatusDown                             = "down"
 	BFDConfigPrefix                           = "bfd"
 	BGPConfigPrefix                           = "router bgp"
-	Wget                                      = "wget"
-	Curl                                      = "curl"
 	AddressPoolS1Name                         = "address-pools1"
 	AddressPoolS2Name                         = "address-pools2"
 	ExtTrafPolLocal                           = "Local"
@@ -68,9 +70,12 @@ const (
 	PrefixLen32                               = int32(32)
 	PrefixLen28                               = int32(28)
 	PrefixLen128                              = int32(128)
+	PrefixLen126                              = int32(126)
 	PrefixLen64                               = int32(64)
 	CommunityNoAdv                            = "65535:65282" // 0xFFFFFF02: NO_ADVERTISE
+	CustomCommunity                           = "500:500"
 	LocalPref400                              = uint32(400)
+	LocalPref500                              = uint32(500)
 )
 
 var (

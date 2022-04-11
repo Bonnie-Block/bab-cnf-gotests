@@ -18,8 +18,6 @@ import (
 
 func TestBGPTable(ipStack string, workerNodeList []k8sv1.Node, masterNodeList []k8sv1.Node,
 	trafficPolicyName string, bgpASN int) {
-	var workerNodeListString []string
-
 	clusterIPStack := ValidateClusterIPStack()
 	if clusterIPStack != netparameters.IPV4Family {
 		if ipStack != netparameters.IPV4Family &&
@@ -30,10 +28,6 @@ func TestBGPTable(ipStack string, workerNodeList []k8sv1.Node, masterNodeList []
 
 	metalLBIPList, err := helper.Config.GetMetallbVirtIP()
 	Expect(err).ToNot(HaveOccurred())
-
-	for _, node := range workerNodeList {
-		workerNodeListString = append(workerNodeListString, node.Name)
-	}
 
 	By("should create external FRR container")
 
@@ -47,14 +41,15 @@ func TestBGPTable(ipStack string, workerNodeList []k8sv1.Node, masterNodeList []
 		addresspoolIPList = netmlbparameters.AddressPoolV6
 	}
 
-	addresspool := DefineMetalLBAddressPool(
-		addresspoolIPList,
-		netmlbparameters.BGP,
-		ipStack,
-		netmlbparameters.AddressPoolS1Name,
-		netmlbparameters.PrefixLen32)
-
-	err = helper.Apiclient.Create(context.Background(), addresspool)
+	err = helper.Apiclient.Create(
+		context.Background(),
+		DefineMetalLBAddressPool(
+			addresspoolIPList,
+			netmlbparameters.BGP,
+			ipStack,
+			netmlbparameters.AddressPoolS1Name,
+			netmlbparameters.PrefixLen32),
+	)
 	Expect(err).ToNot(HaveOccurred())
 
 	By("should create service with 2 backend pods")
@@ -77,11 +72,11 @@ func TestBGPTable(ipStack string, workerNodeList []k8sv1.Node, masterNodeList []
 		k8sv1.ServiceExternalTrafficPolicyType(trafficPolicyName))
 	Expect(err).ToNot(HaveOccurred())
 
-	DefineAndRunMlbServerPod(workerNodeListString[0],
+	DefineAndRunMlbServerPod(workerNodeList[0].Name,
 		helper.Config.Network.TestContainerImage,
 		netmlbparameters.AppLabel1, []string{netmlbparameters.ArgCommandSCTPNGINX})
 
-	DefineAndRunMlbServerPod(workerNodeListString[1],
+	DefineAndRunMlbServerPod(workerNodeList[1].Name,
 		helper.Config.Network.TestContainerImage,
 		netmlbparameters.AppLabel1, []string{netmlbparameters.ArgCommandSCTPNGINX})
 
