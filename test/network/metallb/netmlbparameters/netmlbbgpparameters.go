@@ -7,9 +7,14 @@ import (
 )
 
 var (
-	AddressPoolS1 = []string{"4.4.4.100", "4.4.4.101", "2001:4::100", "2001:4::101"}
-	AddressPoolS2 = []string{"5.5.5.100", "5.5.5.101", "2001:5::100", "2001:5::101"}
-	AddressPoolV6 = []string{"2001:4::100", "2001:4::101"}
+	AddressPoolS1          = []string{"4.4.4.100", "4.4.4.101", "2001:4::100", "2001:4::101"}
+	AddressPoolS2          = []string{"5.5.5.100", "5.5.5.101", "2001:5::100", "2001:5::101"}
+	AddressPoolV6          = []string{"2001:4::100", "2001:4::101"}
+	AddressPoolV6Prefix128 = []string{"2001:10:10::100", "2001:10:10::1000"}
+	AddressPoolV6Prefix126 = []string{"2001:10:10::0"}
+	AddressPoolV4Prefix32  = []string{"192.168.100.1", "192.168.100.240"}
+	AddressPoolV4Prefix28  = []string{"192.168.100.0"}
+	VtyshFRRCmdPrefix      = []string{"vtysh", "-u", "-c"}
 )
 
 const (
@@ -183,7 +188,9 @@ type (
 	Route struct {
 		Destination *net.IPNet
 		NextHops    []net.IP
+		Prefix      string
 		LocalPref   uint32
+		PrefixLen   uint32
 	}
 
 	IPInfo struct {
@@ -194,6 +201,8 @@ type (
 		PeerID    string `json:"peerId"`
 		Valid     bool   `json:"valid"`
 		LocalPref uint32 `json:"locPrf"`
+		Prefix    string `json:"prefix"`
+		PrefixLen uint32 `json:"prefixLen"`
 		Nexthops  []struct {
 			IP    string `json:"ip"`
 			Scope string `json:"scope"`

@@ -12,16 +12,13 @@ import (
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/metallb/netmetallbhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/metallb/netmlbparameters"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/nethelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/netparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 
-	metallbutils "github.com/metallb/metallb-operator/test/e2e/metallb"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -65,48 +62,28 @@ var _ = Describe("CNF MetalLB", func() {
 	})
 
 	AfterEach(func() {
-
 		By("should delete AddressPool, Service, BGP Peers and test Pod after test")
-		netmetallbhelper.DeleteAllAddressPools()
-		err := netmetallbhelper.DeleteAllLBServices(netmlbparameters.TestNamespace)
-		Expect(err).ToNot(HaveOccurred())
-		err = netmetallbhelper.DeleteAllBGPPeers()
-		Expect(err).ToNot(HaveOccurred())
-		err = namespaces.CleanPods(netmlbparameters.TestNamespace, helper.Apiclient)
-		Expect(err).ToNot(HaveOccurred())
-		err = netmetallbhelper.DeleteConfigMap(netparameters.MasterConfigMapName, netmlbparameters.TestNamespace)
-		Expect(err).ToNot(HaveOccurred())
-		err = nethelper.DeleteNADs([]string{netmlbparameters.ExternalNADName}, netmlbparameters.TestNamespace)
-		Expect(err).ToNot(HaveOccurred())
-
-		By("Should remove Metallb Configuration")
-		metallb, err := metallbutils.Get(
-			netmlbparameters.MetalLBOperatorNameSpace,
-			netmlbparameters.UseMetallbResourcesFromFile,
-		)
-		Expect(err).ToNot(HaveOccurred())
-
-		metallbutils.Delete(metallb)
+		netmetallbhelper.RemoveMetallbBGPTestSetup()
 	})
 
 	// 47182
 	It("BGP Multi-Service Validation", func() {
 		By("should create a BGP addresspool for service 1")
-		addresspool := netmetallbhelper.DefineMetalLBAddressPool(netmlbparameters.AddressPoolS1,
-			netmlbparameters.BGP,
-			netmlbparameters.SingleIPv4Stack,
-			netmlbparameters.AddressPoolS1Name)
-
-		err := helper.Apiclient.Create(context.Background(), addresspool)
+		err := helper.Apiclient.Create(context.Background(),
+			netmetallbhelper.DefineMetalLBAddressPool(netmlbparameters.AddressPoolS1,
+				netmlbparameters.BGP,
+				netmlbparameters.SingleIPv4Stack,
+				netmlbparameters.AddressPoolS1Name,
+				netmlbparameters.PrefixLen32))
 		Expect(err).ToNot(HaveOccurred())
 
 		By("should create a BGP addresspool for service 2")
-		addresspool = netmetallbhelper.DefineMetalLBAddressPool(netmlbparameters.AddressPoolS2,
-			netmlbparameters.BGP,
-			netmlbparameters.SingleIPv4Stack,
-			netmlbparameters.AddressPoolS2Name)
-
-		err = helper.Apiclient.Create(context.Background(), addresspool)
+		err = helper.Apiclient.Create(context.Background(),
+			netmetallbhelper.DefineMetalLBAddressPool(netmlbparameters.AddressPoolS2,
+				netmlbparameters.BGP,
+				netmlbparameters.SingleIPv4Stack,
+				netmlbparameters.AddressPoolS2Name,
+				netmlbparameters.PrefixLen32))
 		Expect(err).ToNot(HaveOccurred())
 
 		By("should create service 1 with 2 backend pods")
@@ -192,8 +169,12 @@ var _ = Describe("CNF MetalLB", func() {
 
 		By("should validate BGP routes to service")
 		routesV4 := []string{netmlbparameters.AddressPoolS1[0], netmlbparameters.AddressPoolS2[0]}
-		err = netmetallbhelper.CheckBGPRoutes(masterNodeFRRPod, workerNodesAdresses,
-			routesV4, netparameters.IPV4Family)
+		err = netmetallbhelper.CheckBGPRoutes(
+			masterNodeFRRPod,
+			workerNodesAdresses,
+			routesV4,
+			netparameters.IPV4Family,
+			netmlbparameters.PrefixLen32)
 		Expect(err).ToNot(HaveOccurred())
 
 		By("should validate curl to service 1")

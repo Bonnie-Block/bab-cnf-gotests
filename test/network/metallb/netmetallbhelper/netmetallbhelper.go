@@ -321,14 +321,6 @@ func SpeakerNodeMac(metallbNode string) (string, error) {
 	return "", fmt.Errorf("failed to find service node mac")
 }
 
-// MLBTestPod creates a pod connected to the host network br-ex interface.
-func MLBTestPod(node string, ns string, image string) *k8sv1.Pod {
-	podDefPrivHostNet := pod.RedefineAsPrivileged(pod.DefineWithHostNetwork(node, ns, image))
-	runningPod := helper.WaitUntilPodCreatedAndRunning(podDefPrivHostNet, netmlbparameters.PodWaitingTime)
-
-	return runningPod
-}
-
 // DefineAndRunMlbClientPod with nginx listening on port 80 and sctp on port 50000.
 func DefineAndRunMlbClientPod(node string, image string, appLabel string, argCommand []string) *k8sv1.Pod {
 	podDefNodeLabel := pod.RedefineWithLabel(
@@ -339,6 +331,17 @@ func DefineAndRunMlbClientPod(node string, image string, appLabel string, argCom
 	runningPod := helper.WaitUntilPodCreatedAndRunning(podDefPrivCommand, netmlbparameters.PodWaitingTime)
 
 	return runningPod
+}
+
+// DefineAndRunMlbServerPod with nginx listening on port 80 and sctp on port 50000.
+func DefineAndRunMlbServerPod(node string, image string, appLabel string, argCommand []string) *k8sv1.Pod {
+	podDefNodeLabel := pod.RedefineWithLabel(
+		pod.DefinePodOnNode(netmlbparameters.TestNamespace, image, node), "app", appLabel)
+	podDefPrivCommand := pod.RedefineAsPrivileged(pod.RedefineWithCommand(podDefNodeLabel,
+		[]string{"/bin/bash", "-c"},
+		argCommand))
+
+	return helper.WaitUntilPodCreatedAndRunning(podDefPrivCommand, netmlbparameters.PodWaitingTime)
 }
 
 // DefineMlbPodMaster creates a pod on a Master node.
@@ -456,7 +459,7 @@ func IsBGPNeighborshipHasState(frrPod *k8sv1.Pod, neighborIPAddress string, stat
 
 	Eventually(func() error {
 		bgpStateOut, err := pod.ExecCommand(helper.Apiclient, *frrPod,
-			[]string{"vtysh", "-u", "-c", "sh bgp neighbors json"})
+			append(netmlbparameters.VtyshFRRCmdPrefix, "sh bgp neighbors json"))
 		Expect(err).ToNot(HaveOccurred())
 
 		return json.Unmarshal(bgpStateOut.Bytes(), &result)
@@ -867,15 +870,18 @@ func ValidateClusterIPStack() string {
 	clusterIPv4Address := nethelper.NodeIPsForFamily(workerNodes, netparameters.IPV4Family)
 	clusterIPv6Address := nethelper.NodeIPsForFamily(workerNodes, netmlbparameters.IPV6Family)
 
-	if len(clusterIPv6Address) != len(workerNodes) {
+	// "TODO: after fix of Bz https://bugzilla.redhat.com/show_bug.cgi?id=2073754
+	// replace if statement with following commented line".
+	//	if len(clusterIPv6Address) == 0 {
+	if len(clusterIPv6Address) != 2 {
 		clusterIPStack = netmlbparameters.SingleIPv4Stack
 	}
 
-	if len(clusterIPv4Address) == 0 && len(clusterIPv6Address) > 1 {
+	if len(clusterIPv4Address) == 0 && len(clusterIPv6Address) == 2 {
 		clusterIPStack = netmlbparameters.SingleIPv6Stack
 	}
 
-	if len(clusterIPv6Address) > 1 {
+	if len(clusterIPv6Address) == 2 {
 		clusterIPStack = netmlbparameters.DualIPStack
 	}
 

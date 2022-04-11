@@ -10,16 +10,11 @@ import (
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/metallb/netmetallbhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/metallb/netmlbparameters"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/nethelper"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/netparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
-
-	metallbutils "github.com/metallb/metallb-operator/test/e2e/metallb"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
 	k8sv1 "k8s.io/api/core/v1"
 )
 
@@ -33,7 +28,6 @@ var _ = Describe("MetalLB BGP", func() {
 	describe := netmetallbhelper.CreateParametersInJSON
 
 	execute.BeforeAll(func() {
-
 		var ipV6Address string
 
 		clusterIPStack := netmetallbhelper.ValidateClusterIPStack()
@@ -79,26 +73,7 @@ var _ = Describe("MetalLB BGP", func() {
 	AfterEach(func() {
 
 		By("should delete AddressPool, Service, BGP Peers and test Pod after test")
-		netmetallbhelper.DeleteAllAddressPools()
-		err := netmetallbhelper.DeleteAllLBServices(netmlbparameters.TestNamespace)
-		Expect(err).ToNot(HaveOccurred())
-		err = netmetallbhelper.DeleteAllBGPPeers()
-		Expect(err).ToNot(HaveOccurred())
-		err = namespaces.CleanPods(netmlbparameters.TestNamespace, helper.Apiclient)
-		Expect(err).ToNot(HaveOccurred())
-		err = nethelper.DeleteNADs([]string{netmlbparameters.ExternalNADName}, netmlbparameters.TestNamespace)
-		Expect(err).ToNot(HaveOccurred())
-		err = netmetallbhelper.DeleteConfigMap(netparameters.MasterConfigMapName, netmlbparameters.TestNamespace)
-		Expect(err).ToNot(HaveOccurred())
-
-		By("Should remove Metallb Configuration")
-		metallb, err := metallbutils.Get(
-			netmlbparameters.MetalLBOperatorNameSpace,
-			netmlbparameters.UseMetallbResourcesFromFile,
-		)
-		Expect(err).ToNot(HaveOccurred())
-
-		metallbutils.Delete(metallb)
+		netmetallbhelper.RemoveMetallbBGPTestSetup()
 	})
 
 	// 49447

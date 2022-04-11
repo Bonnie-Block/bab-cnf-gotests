@@ -259,10 +259,12 @@ var _ = Describe("BFD", func() {
 				netmetallbhelper.CreateBGPWithBFD(bgpProtocol, netmlbparameters.ClientIpv4IP)
 
 				By("Creating an Address Pool")
-				addresspoolDefinition := netmetallbhelper.DefineMetalLBAddressPool(netmlbparameters.MetalLBMultihopIPv4List,
+				addresspoolDefinition := netmetallbhelper.DefineMetalLBAddressPool(
+					netmlbparameters.MetalLBMultihopIPv4List,
 					netmlbparameters.BGP,
 					ipStack,
-					netmlbparameters.AddressPoolName)
+					netmlbparameters.AddressPoolName,
+					netmlbparameters.PrefixLen32)
 
 				err := helper.Apiclient.Create(context.Background(), addresspoolDefinition)
 				Expect(err).ToNot(HaveOccurred())

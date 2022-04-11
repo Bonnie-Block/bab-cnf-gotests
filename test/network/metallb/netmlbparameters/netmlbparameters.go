@@ -66,6 +66,12 @@ const (
 	TestContainerName                         = "testcontainer"
 	ProtocolSCTP                              = "sctp"
 	ProtocolTCP                               = "tcp"
+	PrefixLen32                               = int32(32)
+	PrefixLen28                               = int32(28)
+	PrefixLen128                              = int32(128)
+	PrefixLen64                               = int32(64)
+	CommunityNoAdv                            = "65535:65282" // 0xFFFFFF02: NO_ADVERTISE
+	LocalPref400                              = uint32(400)
 )
 
 var (

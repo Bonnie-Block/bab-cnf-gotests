@@ -162,7 +162,8 @@ func DefineInternalNAD() *netattdefv1.NetworkAttachmentDefinition {
 // DefineMetallbAddressPool defines a MetalLB L2 Address Pool using env IP var METALLB_ADDR_LIST
 // for the IP address range.
 func DefineMetalLBAddressPool(
-	metalLBIP []string, protocol string, iPStack string, addressPoolName string) *v1beta1.AddressPool {
+	metalLBIP []string, protocol string, iPStack string, addressPoolName string,
+	prefixLen int32) *v1beta1.AddressPool {
 	addrPool := v1beta1.AddressPool{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      addressPoolName,
@@ -179,9 +180,25 @@ func DefineMetalLBAddressPool(
 		},
 	}
 
-	if iPStack == netmlbparameters.DualIPStack {
-		addrPool.Spec.Addresses = append(addrPool.Spec.Addresses,
-			fmt.Sprintln(metalLBIP[2], "-", metalLBIP[3]))
+	if protocol == netmlbparameters.BGP {
+		switch iPStack {
+		case netmlbparameters.SingleIPv4Stack:
+			if prefixLen != 0 {
+				addrPool.Spec.BGPAdvertisements = append(addrPool.Spec.BGPAdvertisements,
+					v1beta1.BgpAdvertisement{AggregationLength: &prefixLen})
+			}
+		case netmlbparameters.SingleIPv6Stack:
+			if prefixLen != 0 {
+				addrPool.Spec.BGPAdvertisements = append(addrPool.Spec.BGPAdvertisements,
+					v1beta1.BgpAdvertisement{AggregationLengthV6: &prefixLen})
+			}
+		case netmlbparameters.DualIPStack:
+			addrPool.Spec.Addresses = append(addrPool.Spec.Addresses,
+				fmt.Sprintln(metalLBIP[2], "-", metalLBIP[3]))
+		}
+		addrPool.Spec.BGPAdvertisements = append(addrPool.Spec.BGPAdvertisements,
+			v1beta1.BgpAdvertisement{Communities: []string{netmlbparameters.CommunityNoAdv},
+				LocalPref: netmlbparameters.LocalPref400})
 	}
 
 	return &addrPool

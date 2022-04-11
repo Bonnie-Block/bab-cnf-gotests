@@ -108,12 +108,12 @@ var _ = Describe("CNF MetalLB", func() {
 			"")
 
 		By("should create an Address Pool")
-		addresspool := netmetallbhelper.DefineMetalLBAddressPool(metalLBIPList,
+		err = helper.Apiclient.Create(context.Background(), netmetallbhelper.DefineMetalLBAddressPool(
+			metalLBIPList,
 			netmlbparameters.Layer2,
 			netmlbparameters.SingleIPv4Stack,
-			netmlbparameters.AddressPoolL2)
-
-		err := helper.Apiclient.Create(context.Background(), addresspool)
+			netmlbparameters.AddressPoolL2,
+			netmlbparameters.PrefixLen32))
 		Expect(err).ToNot(HaveOccurred())
 
 		By("should create a MetalLB service")
@@ -180,12 +180,12 @@ var _ = Describe("CNF MetalLB", func() {
 			"")
 
 		By("should create an Address Pool")
-		addresspool := netmetallbhelper.DefineMetalLBAddressPool(metalLBIPList,
+		err = helper.Apiclient.Create(context.Background(), netmetallbhelper.DefineMetalLBAddressPool(
+			metalLBIPList,
 			netmlbparameters.Layer2,
 			netmlbparameters.SingleIPv4Stack,
-			netmlbparameters.AddressPoolL2)
-
-		err = helper.Apiclient.Create(context.Background(), addresspool)
+			netmlbparameters.AddressPoolL2,
+			netmlbparameters.PrefixLen32))
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Changing the label selector for Metallb and adding a label for Workers")

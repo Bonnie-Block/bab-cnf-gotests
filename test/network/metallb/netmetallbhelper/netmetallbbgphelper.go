@@ -14,11 +14,14 @@ import (
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	metallbv1beta1 "github.com/metallb/metallb-operator/api/v1beta1"
+	metallbutils "github.com/metallb/metallb-operator/test/e2e/metallb"
+	"github.com/pkg/errors"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/metallb/netmlbparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/nethelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/netparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
@@ -32,41 +35,6 @@ import (
 // CreateSpeakerBGPPeer creates BGP Peers on all worker nodes.
 func CreateSpeakerBGPPeer(externalAddress string, bgpProtocol string, asn uint32) error {
 	return helper.Apiclient.Create(context.Background(), defineSpeakerBGPPeer(externalAddress, asn, "", ""))
-}
-
-// DefineBGPFRRConfigMap returns configmap definition for the external FRR configuration.
-func DefineBGPFRRConfigMap(ipAddresses []string, configMapName string) *k8sv1.ConfigMap {
-	configMapData := make(map[string]string)
-
-	configMapData["daemons"] = netmlbparameters.DaemonsFile
-	configMapData["vtysh.conf"] = ""
-
-	temp, err := template.New("bgp Config Template").Parse(netmlbparameters.BgpConfigTemplate)
-	Expect(err).ToNot(HaveOccurred())
-
-	router := netmlbparameters.NeighborConfig{
-		Addr1:    ipAddresses[0],
-		Addr2:    ipAddresses[1],
-		ASN:      netmlbparameters.IBGPASN,
-		Password: netmlbparameters.BGPPassword}
-
-	var bfdConfig bytes.Buffer
-	err = temp.Execute(&bfdConfig, router)
-	Expect(err).ToNot(HaveOccurred())
-
-	configMapData["frr.conf"] = bfdConfig.String()
-
-	return &k8sv1.ConfigMap{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "ConfigMap",
-			APIVersion: "v1",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      configMapName,
-			Namespace: netmlbparameters.TestNamespace,
-		},
-		Data: configMapData,
-	}
 }
 
 // DefineFRRBGPConfigMap returns configmap definition for the external FRR BGP configuration.
@@ -124,7 +92,7 @@ func DefineFRRBGPConfigMap(ipAddresses []string, configMapName string, localAS i
 // executor.
 func CheckNeighborsStatus(frrPod *k8sv1.Pod, ipStack string, neighborsIPAddresses []string) bool {
 	neighborState, err := pod.ExecCommand(helper.Apiclient, *frrPod,
-		[]string{"vtysh", "-u", "-c", "show ip bgp neighbor json"})
+		append(netmlbparameters.VtyshFRRCmdPrefix, "show ip bgp neighbor json"))
 	Expect(err).ToNot(HaveOccurred())
 
 	parseNeigh := parseNeighbors(neighborState.String())
@@ -253,23 +221,33 @@ func parseNeighbors(vtyshRes string) []*netmlbparameters.Neighbor {
 
 // CheckBGPRoutes returns informations about routes in the external frr container
 // first for ipv4 routes and then for ipv6 routes.
-
-// CheckBGPRoutes returns informations about routes in the external frr container
-// first for ipv4 routes and then for ipv6 routes.
-func CheckBGPRoutes(frrPod *k8sv1.Pod, neighborsIPAddresses []string, prefixList []string, iPFamily string) error {
-	command := []string{"vtysh", "-u", "-c", fmt.Sprintf("show bgp %s json", iPFamily)}
-
+func CheckBGPRoutes(
+	frrPod *k8sv1.Pod,
+	neighborsIPAddresses []string,
+	routeList []string,
+	iPFamily string,
+	prefixLen int32) error {
 	// bgpStateOut example output after being parsed - map[4.4.4.100:{4.4.4.100/32 [10.46.55.116 10.46.55.115] 100}]
-	bgpStateOut, err := pod.ExecCommand(helper.Apiclient, *frrPod, command)
-	Expect(err).ToNot(HaveOccurred())
+	bgpStateOut, err := pod.ExecCommand(helper.Apiclient, *frrPod, append(netmlbparameters.VtyshFRRCmdPrefix,
+		fmt.Sprintf("show bgp %s json", iPFamily)))
+	if err != nil {
+		return err
+	}
 
 	routes, err := parseRoutes(bgpStateOut.String())
-	Expect(err).ToNot(HaveOccurred(), "Failed to parse %s", err)
+	if err != nil {
+		return err
+	}
 
-	for _, prefix := range prefixList {
-		ipRoutes, routePrefix := routes[prefix]
+	for _, route := range routeList {
+		ipRoutes, routePrefix := routes[route]
+
 		if !routePrefix {
-			return fmt.Errorf("route %s not found", prefix)
+			return fmt.Errorf("route %s not found", route)
+		}
+
+		if uint32(prefixLen) != ipRoutes.PrefixLen {
+			return fmt.Errorf("advertised prefix %d is not equal to %d", prefixLen, ipRoutes.PrefixLen)
 		}
 
 		ips := make([]net.IP, 0)
@@ -326,10 +304,13 @@ func parseRoutes(vtyshRes string) (map[string]netmlbparameters.Route, error) {
 			Destination: dest,
 			NextHops:    make([]net.IP, 0),
 		}
-		for _, n := range frrRoutes {
-			route.LocalPref = n.LocalPref
 
-			for _, nexthop := range n.Nexthops {
+		for _, frrRoute := range frrRoutes {
+			route.LocalPref = frrRoute.LocalPref
+			route.PrefixLen = frrRoute.PrefixLen
+			route.Prefix = frrRoute.Prefix
+
+			for _, nexthop := range frrRoute.Nexthops {
 				ipAdd := net.ParseIP(nexthop.IP)
 				if ipAdd == nil {
 					return nil, fmt.Errorf("failed to parse ip %s", nexthop.IP)
@@ -407,4 +388,83 @@ func CreateParametersInJSON(ipStack string, trafficPolicy string) string {
 		"trafficPolicy=%s", ipStack, trafficPolicy))
 
 	return string(params)
+}
+
+// RoutesForCommunity returns informations about routes in the given executor related to the given community.
+func RoutesForCommunity(frrPod *k8sv1.Pod, community string, ipFamily string) error {
+	res, err := pod.ExecCommand(helper.Apiclient, *frrPod, append(netmlbparameters.VtyshFRRCmdPrefix,
+		fmt.Sprintf("show bgp %s community %s json", ipFamily, community)))
+
+	if err != nil {
+		return errors.Wrapf(err, "Failed to query routes")
+	}
+
+	_, err = parseRoutes(res.String())
+	if err != nil {
+		return errors.Wrapf(err, "Failed to parse routes %s", res.String())
+	}
+
+	return nil
+}
+
+// CreateFRRContainerOnMaster creates a FRR container on the first master of the cluster.
+func CreateFRRContainerOnMaster(
+	workerNodeList []k8sv1.Node,
+	masterNodeList []k8sv1.Node,
+	metalLBIPList []string,
+	ipStack string,
+	bgpASN int) *k8sv1.Pod {
+	clusterIPStack := ValidateClusterIPStack()
+	workerNodesAdresses := nethelper.NodeIPsForFamily(workerNodeList, netparameters.IPV4Family)
+	workerNodesV6Adresses := nethelper.NodeIPsForFamily(workerNodeList, netmlbparameters.IPV6Family)
+	annotation := DefineAnnotationWithIPStack(ipStack, metalLBIPList, clusterIPStack)
+
+	if ipStack != netmlbparameters.SingleIPv4Stack {
+		workerNodesAdresses = append(workerNodesAdresses, workerNodesV6Adresses...)
+	}
+
+	err := helper.Apiclient.Create(context.Background(), DefineExternalNAD())
+	Expect(err).ToNot(HaveOccurred())
+
+	masterConfigMap := DefineFRRBGPConfigMap(workerNodesAdresses,
+		netparameters.MasterConfigMapName,
+		bgpASN,
+		netmlbparameters.BGP,
+		ipStack)
+
+	_, err = helper.Apiclient.ConfigMaps(netmlbparameters.TestNamespace).Create(
+		context.TODO(),
+		masterConfigMap,
+		metav1.CreateOptions{})
+	Expect(err).ToNot(HaveOccurred())
+
+	frrPodWithNAD := pod.RedefinePodWithNetwork(DefineFrrPodWithTestContainer(
+		masterNodeList[0].Name, netmlbparameters.TestNamespace), annotation)
+	masterNodeFRRPod := helper.WaitUntilPodCreatedAndRunning(frrPodWithNAD, netmlbparameters.PodWaitingTime)
+
+	return masterNodeFRRPod
+}
+
+func RemoveMetallbBGPTestSetup() {
+	DeleteAllAddressPools()
+
+	err := DeleteAllLBServices(netmlbparameters.TestNamespace)
+	Expect(err).ToNot(HaveOccurred())
+	err = DeleteAllBGPPeers()
+	Expect(err).ToNot(HaveOccurred())
+	err = namespaces.CleanPods(netmlbparameters.TestNamespace, helper.Apiclient)
+	Expect(err).ToNot(HaveOccurred())
+	err = nethelper.DeleteNADs([]string{netmlbparameters.ExternalNADName}, netmlbparameters.TestNamespace)
+	Expect(err).ToNot(HaveOccurred())
+	err = DeleteConfigMap(netparameters.MasterConfigMapName, netmlbparameters.TestNamespace)
+	Expect(err).ToNot(HaveOccurred())
+
+	By("Should remove Metallb Configuration")
+
+	metallb, err := metallbutils.Get(
+		netmlbparameters.MetalLBOperatorNameSpace,
+		netmlbparameters.UseMetallbResourcesFromFile,
+	)
+	Expect(err).ToNot(HaveOccurred())
+	metallbutils.Delete(metallb)
 }
