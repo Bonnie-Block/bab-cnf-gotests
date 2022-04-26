@@ -24,6 +24,7 @@ var (
 
 const (
 	ContainerName = "cloud-event-proxy"
+	AqmNamespace  = "amq-router"
 	FreeRun       = "FREERUN"
 	Locked        = "LOCKED"
 	HoldOver      = "HOLDOVER"

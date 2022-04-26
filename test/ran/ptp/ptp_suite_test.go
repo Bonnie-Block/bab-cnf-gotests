@@ -4,15 +4,17 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	"github.com/onsi/ginkgo/v2/types"
 	. "github.com/onsi/gomega"
-
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ptp/ranptphelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ptp/ranptpparameters"
 	_ "gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ptp/tests"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
-
 	testutils "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/utils"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"context"
+	"fmt"
 	"log"
 	"runtime"
 	"testing"
@@ -41,8 +43,27 @@ var _ = BeforeSuite(func() {
 	helper.CreatePrivilegedPods("")
 
 	// Check for a PTP namespace is exists
-	exists := namespaces.Exists(parameters.PtpOperatorNamespace, helper.Apiclient)
-	Expect(exists).To(BeTrue())
+	ptpNamespaceExists := namespaces.Exists(parameters.PtpOperatorNamespace, helper.Apiclient)
+	Expect(ptpNamespaceExists).To(BeTrue())
+
+	// Check for an aqm-router namespace is exists
+	aqmNamespaceExists := namespaces.Exists(parameters.PtpOperatorNamespace, helper.Apiclient)
+	Expect(aqmNamespaceExists).To(BeTrue())
+
+	ptpDaemonPods, err := helper.Apiclient.Pods(parameters.PtpOperatorNamespace).List(context.Background(),
+		metav1.ListOptions{
+			LabelSelector: parameters.PtpDaemonsetLabelSelector})
+	Expect(err).NotTo(HaveOccurred())
+
+	for _, ptpDaemonPod := range ptpDaemonPods.Items {
+		err = helper.IsPodHealthy(&ptpDaemonPod)
+		Expect(err).NotTo(HaveOccurred())
+
+		// Make suse event-proxy-container exists
+		if !ranptphelper.IsContainerExists(ptpDaemonPod, ranptpparameters.ContainerName) {
+			Skip(fmt.Sprintf("cannot run test if %s is not exists in the pod", ranptpparameters.ContainerName))
+		}
+	}
 })
 
 var _ = AfterSuite(func() {

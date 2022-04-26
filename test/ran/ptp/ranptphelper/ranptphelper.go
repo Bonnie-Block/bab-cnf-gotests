@@ -1,9 +1,6 @@
 package ranptphelper
 
 import (
-	"context"
-	"fmt"
-
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ptp/ranptpparameters"
@@ -12,6 +9,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"context"
+	"fmt"
+	"log"
 	"strings"
 	"time"
 )
@@ -121,4 +121,20 @@ func getEventsLogs(logs string, eventStrings []string) []string {
 	}
 
 	return eventStrings
+}
+
+// IsContainerExists check if a given contained, 'containerName', exists in a given pod, 'ptpPod'.
+// the function return 'true' if the container exists and 'false' if not.
+func IsContainerExists(ptpPod corev1.Pod, containerName string) bool {
+	containers := ptpPod.Status.ContainerStatuses
+
+	for _, container := range containers {
+		if container.Name == containerName {
+			log.Printf("found %s container\n", containerName)
+
+			return true
+		}
+	}
+
+	return false
 }

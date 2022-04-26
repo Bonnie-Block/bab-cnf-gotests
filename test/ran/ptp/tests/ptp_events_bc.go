@@ -56,7 +56,7 @@ var _ = Describe("PTP Events", func() {
 
 	Context("PTP event config", func() {
 		// 47047
-		XIt("should behave correctly for different thresholds on ordinaryClock", func() {
+		It("should behave correctly for different thresholds on ordinaryClock", func() {
 			// Get ptp daemon pods
 			ptpDaemonPods, err := helper.Apiclient.Pods(parameters.PtpOperatorNamespace).List(context.Background(),
 				metav1.ListOptions{
