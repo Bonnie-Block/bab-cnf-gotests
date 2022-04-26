@@ -17,6 +17,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 )
 
@@ -37,7 +38,7 @@ var _ = Describe("PTP Events", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		// Get the metrics details before changes_ptp_events_bc
-		err := ranptphelper.GetPTPMetrics(ptpDaemonPods.Items[0])
+		err = ranptphelper.GetPTPMetrics(ptpDaemonPods.Items[0])
 		Expect(err).NotTo(HaveOccurred())
 	})
 
@@ -55,7 +56,7 @@ var _ = Describe("PTP Events", func() {
 	})
 
 	Context("PTP event config", func() {
-		// 47047
+		// 49738 49743
 		It("should return to same stable status after delete daemon pod and node reboot ", func() {
 			// Get ptp daemon pods
 			ptpDaemonPods, err := helper.Apiclient.Pods(parameters.PtpOperatorNamespace).List(context.Background(),
@@ -131,6 +132,7 @@ var _ = Describe("PTP Events", func() {
 	})
 
 	Context("reset Interfaces", func() {
+		// 49743
 		It("should generate events when slave interface goes down and up", func() {
 			nodeToPtpDaemonPod := ranptphelper.NodesToPtpDaemonPods(workerNodesList, ptpDaemonPods)
 			ifaces, err := ranptphelper.GetInterfaces(ptpv1.Slave)
@@ -162,16 +164,22 @@ var _ = Describe("PTP Events", func() {
 						map[string]string{"type": "event.sync.ptp-status.ptp-state-change"}, 0)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(eventSlaveDown).Should(Equal(ranptpparameters.HoldOver))
+
 					// metrics check
 					log.Printf("Metrics check")
 					err = ranptphelper.GetPTPMetrics(*ptpDaemonPod)
 					Expect(err).NotTo(HaveOccurred())
 
+					for _, processState := range ranptpparameters.MetricMap[ranptpparameters.OpenshiftPtpClockState] {
+						if iface == processState.Interface {
+							Expect(processState.ClockStateValue).Should(Equal(ranptpparameters.HoldOverState))
+						}
+					}
+
 					timeout, err := ranptphelper.GetTimeoutVal()
 					Expect(err).NotTo(HaveOccurred())
-					timeout += 10 * time.Second
-					log.Printf("wait for thershold holdover + 10s timeout: %s\n", timeout)
-					time.Sleep(timeout)
+					timeout += 30 * time.Second
+					log.Printf("wait for thershold holdover to pass %s\n", timeout)
 
 					By(fmt.Sprintf("verify event [FREERUN] after salve interface "+
 						"%s goes down on node %s", iface, workerNode.Name))
@@ -220,7 +228,16 @@ var _ = Describe("PTP Events", func() {
 			}
 		})
 
+		// 49734
 		It("should have no effect when master interface goes down and up", func() {
+			configsList, err := helper.Apiclient.PtpConfigs(parameters.PtpOperatorNamespace).
+				List(context.Background(),
+					metav1.ListOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			if strings.Contains(configsList.Items[0].Name, "oc") {
+				Skip("ordinary clock configuration, skip test case")
+			}
+
 			nodeToPtpDaemonPod := ranptphelper.NodesToPtpDaemonPods(workerNodesList, ptpDaemonPods)
 			ifaces, err := ranptphelper.GetInterfaces(ptpv1.Master)
 			Expect(err).NotTo(HaveOccurred())
@@ -256,6 +273,7 @@ var _ = Describe("PTP Events", func() {
 	})
 
 	Context("rests process", func() {
+		// 49850
 		It("should recover the phc2sys process after killing it", func() {
 			nodeToPtpDaemonPod := ranptphelper.NodesToPtpDaemonPods(workerNodesList, ptpDaemonPods)
 			for workerNode, ptpDaemonPod := range nodeToPtpDaemonPod {
@@ -265,8 +283,10 @@ var _ = Describe("PTP Events", func() {
 				err = ranptphelper.KillPtpProcess(ptpDaemonPod, "phc2sys")
 				Expect(err).NotTo(HaveOccurred())
 
+				log.Printf("phc2sys PID %s killed", oldPID)
+				time.Sleep(10 * time.Second)
 				eventAfterKill, err := ranptphelper.GetEventValueFromEndOfEventByKeyValue(ptpDaemonPod,
-					map[string]string{"type": "event.sync.sync-status.os-clock-sync-state-change"}, 0)
+					map[string]string{"type": "event.sync.sync-status.os-clock-sync-state-change"}, 3)
 				Expect(err).NotTo(HaveOccurred())
 				newPID, err := ranptphelper.GetProcessPID(ptpDaemonPod, "phc2sys")
 				Expect(err).NotTo(HaveOccurred())
@@ -287,8 +307,16 @@ var _ = Describe("PTP Events", func() {
 			}
 		})
 
+		// 57197
 		It("should create a new ptp4l process after killing a ptp4l process that is not "+
 			"related to the phc2sy process", func() {
+			configsList, err := helper.Apiclient.PtpConfigs(parameters.PtpOperatorNamespace).
+				List(context.Background(),
+					metav1.ListOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			if len(configsList.Items) != 2 {
+				Skip("single nic configuration, skip test case")
+			}
 			nodeToPtpDaemonPod := ranptphelper.NodesToPtpDaemonPods(workerNodesList, ptpDaemonPods)
 			for workerNode, ptpDaemonPod := range nodeToPtpDaemonPod {
 				By(fmt.Sprintf("killing a ptp4l process on node %s", workerNode.Name))
@@ -300,7 +328,7 @@ var _ = Describe("PTP Events", func() {
 				err = ranptphelper.KillProcess(ptpDaemonPod, oldPTP4lPID)
 				Expect(err).NotTo(HaveOccurred())
 				event, err := ranptphelper.GetEventValueFromEndOfEventByKeyValue(ptpDaemonPod,
-					map[string]string{"type": "event.sync.ptp-status.ptp-state-change"}, 0)
+					map[string]string{"type": "event.sync.ptp-status.ptp-state-change"}, 3)
 				Expect(err).NotTo(HaveOccurred())
 				newPTP4lPID, err := ranptphelper.GetPTP4lPID(ptpDaemonPod, false)
 				Expect(err).NotTo(HaveOccurred())
@@ -325,7 +353,19 @@ var _ = Describe("PTP Events", func() {
 			}
 		})
 
+		// 49736
 		It("should reset both ptp4l after killing both of them", func() {
+			configsList, err := helper.Apiclient.PtpConfigs(parameters.PtpOperatorNamespace).
+				List(context.Background(),
+					metav1.ListOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			if strings.Contains(configsList.Items[0].Name, "oc") {
+				Skip("ordinary clock configuration, skip test case")
+			}
+			if len(configsList.Items) != 2 {
+				Skip("single nic configuration, skip test case")
+			}
+
 			nodeToPtpDaemonPod := ranptphelper.NodesToPtpDaemonPods(workerNodesList, ptpDaemonPods)
 			for workerNode, ptpDaemonPod := range nodeToPtpDaemonPod {
 				By(fmt.Sprintf("killing the two ptp4l processes on node %s", workerNode.Name))
@@ -340,15 +380,19 @@ var _ = Describe("PTP Events", func() {
 				// kill the ptp4l process that is related to phc2sys process
 				err = ranptphelper.KillProcess(ptpDaemonPod, oldPtp4l1)
 				Expect(err).NotTo(HaveOccurred())
+
+				log.Printf("phc2sys PID %s killed", oldPtp4l1)
+				time.Sleep(10 * time.Second)
+
 				oldEvent1, err := ranptphelper.GetEventValueFromEndOfEventByKeyValue(ptpDaemonPod,
-					map[string]string{"type": "event.sync.sync-status.os-clock-sync-state-change"}, 1)
+					map[string]string{"type": "event.sync.sync-status.os-clock-sync-state-change"}, 3)
 				Expect(err).NotTo(HaveOccurred())
 
 				// kill the ptp4l process that is NOT related to phc2sys process
 				err = ranptphelper.KillProcess(ptpDaemonPod, oldPtp4l2)
 				Expect(err).NotTo(HaveOccurred())
 				oldEvent2, err := ranptphelper.GetEventValueFromEndOfEventByKeyValue(ptpDaemonPod,
-					map[string]string{"type": "event.sync.ptp-status.ptp-state-change"}, 0)
+					map[string]string{"type": "event.sync.ptp-status.ptp-state-change"}, 3)
 				Expect(err).NotTo(HaveOccurred())
 
 				// the new ptp4l that is not related to the phc2sys process
@@ -386,8 +430,60 @@ var _ = Describe("PTP Events", func() {
 				Expect(newEvent2).Should(Equal(ranptpparameters.Locked))
 			}
 		})
+
+		// 49737
+		It("should recover the ptp4l process after the killing a ptp4l process that is related to phc2sys process", func() {
+			configsList, err := helper.Apiclient.PtpConfigs(parameters.PtpOperatorNamespace).
+				List(context.Background(),
+					metav1.ListOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			if len(configsList.Items) == 2 {
+				Skip("dual nic configuration, skip test case")
+			}
+			nodeToPtpDaemonPod := ranptphelper.NodesToPtpDaemonPods(workerNodesList, ptpDaemonPods)
+			for workerNode, ptpDaemonPod := range nodeToPtpDaemonPod {
+				By(fmt.Sprintf("killing a ptp4l process on node %s", workerNode.Name))
+				// get the ptp4l PID that is not related to the phc2sys
+				oldPTP4lPID, err := ranptphelper.GetPTP4lPID(ptpDaemonPod, true)
+				Expect(err).NotTo(HaveOccurred())
+				err = ranptphelper.KillProcess(ptpDaemonPod, oldPTP4lPID)
+				Expect(err).NotTo(HaveOccurred())
+				eventPtp4lChange, err := ranptphelper.GetEventValueFromEndOfEventByKeyValue(ptpDaemonPod,
+					map[string]string{"type": "event.sync.ptp-status.ptp-state-change"}, 3)
+				Expect(err).NotTo(HaveOccurred())
+				eventClockRTChange, err := ranptphelper.GetEventValueFromEndOfEventByKeyValue(ptpDaemonPod,
+					map[string]string{"type": "event.sync.sync-status.os-clock-sync-state-change"}, 3)
+				Expect(err).NotTo(HaveOccurred())
+
+				newPTP4lPID, err := ranptphelper.GetPTP4lPID(ptpDaemonPod, true)
+				Expect(err).NotTo(HaveOccurred())
+				newEventPtp4lChange, err := ranptphelper.GetEventValueFromEndOfEventByKeyValue(ptpDaemonPod,
+					map[string]string{"type": "event.sync.ptp-status.ptp-state-change"}, 0)
+				Expect(err).NotTo(HaveOccurred())
+				newEventClockRTChange, err := ranptphelper.GetEventValueFromEndOfEventByKeyValue(ptpDaemonPod,
+					map[string]string{"type": "event.sync.sync-status.os-clock-sync-state-change"}, 0)
+				Expect(err).NotTo(HaveOccurred())
+
+				By("validate the event ptp state changed to [FREERUN] after ptp4l process was killed")
+				Expect(eventPtp4lChange).Should(Equal(ranptpparameters.FreeRun))
+
+				By("validate the event CLOCK REALTIME state changed to [FREERUN] after ptp4l process was killed")
+				Expect(eventClockRTChange).Should(Equal(ranptpparameters.FreeRun))
+
+				By("validate a new ptp4l process reset")
+				Expect(newPTP4lPID).ShouldNot(Equal(oldPTP4lPID))
+
+				By("validate the event ptp state changed to [LOCKED] after ptp4l process reset")
+				Expect(newEventPtp4lChange).Should(Equal(ranptpparameters.Locked))
+
+				By("validate the event CLOCK REALTIME state changed to [LOCKED] after ptp4l process reset")
+				Expect(newEventClockRTChange).Should(Equal(ranptpparameters.Locked))
+
+			}
+		})
 	})
 	Context("change offset thresholds", func() {
+		// 49741
 		It("should change the slave clock state to free run after modify the offset threshold", func() {
 			nodeToPtpDaemonPod := ranptphelper.NodesToPtpDaemonPods(workerNodesList, ptpDaemonPods)
 			for workerNode, ptpDaemonPod := range nodeToPtpDaemonPod {
@@ -402,8 +498,9 @@ var _ = Describe("PTP Events", func() {
 				Expect(err).NotTo(HaveOccurred())
 				err = ranptphelper.SetThresholdsValAllConfigs(configsList, &ranptpparameters.ModifiedThresholdsValues)
 				Expect(err).NotTo(HaveOccurred())
-				timeout := 3 * time.Minute
-				log.Printf("waits %s minutes to update the thresholds values\n", timeout.String())
+
+				timeout := 5 * time.Minute
+				fmt.Printf("waits %s minutes to update the thresholds values\n", timeout.String())
 				time.Sleep(timeout)
 
 				By("validate new values")
@@ -420,7 +517,7 @@ var _ = Describe("PTP Events", func() {
 
 				By("validate ptp thresholds metrics values change to new values")
 				for _, thresholdMetrics := range ranptpparameters.MetricMap[ranptpparameters.OpenshiftPtpThreshold] {
-					err = thresholdsMetricsValsValidation(thresholdMetrics, ranptpparameters.ModifiedThresholdsValues)
+					err = ranptphelper.ThresholdsMetricsValsValidation(thresholdMetrics, ranptpparameters.ModifiedThresholdsValues)
 					Expect(err).NotTo(HaveOccurred())
 				}
 
@@ -438,8 +535,7 @@ var _ = Describe("PTP Events", func() {
 					err = ranptphelper.RestoreThresholdsValues(&ptpConfig)
 					Expect(err).NotTo(HaveOccurred())
 				}
-				log.Printf("waits %s minutes to update the thresholds values\n", timeout.String())
-				time.Sleep(timeout)
+
 				ptpConfigs, err = ranptphelper.GetPtpConfigs()
 				Expect(err).NotTo(HaveOccurred())
 
@@ -454,7 +550,7 @@ var _ = Describe("PTP Events", func() {
 
 					By("validate ptp thresholds metrics values returned to original values")
 					for _, thresholdMetrics := range ranptpparameters.MetricMap[ranptpparameters.OpenshiftPtpThreshold] {
-						err = thresholdsMetricsValsValidation(thresholdMetrics,
+						err = ranptphelper.ThresholdsMetricsValsValidation(thresholdMetrics,
 							*ranptpparameters.OriginalThresholdsValues[name])
 						Expect(err).NotTo(HaveOccurred())
 					}
@@ -471,31 +567,4 @@ var _ = Describe("PTP Events", func() {
 			}
 		})
 	})
-
 })
-
-// thresholdsMetricsValsValidation validates the correct clock threshold values inside the metrics.
-// arguments:		"thresholdMetrics"-	a single clock threshold metrics string.
-//
-//	"thresholdVals"-	the expected values.
-//
-// return value:	an error if the threshold value is not one of the clock threshold parameters.
-func thresholdsMetricsValsValidation(thresholdMetrics ranptpparameters.MetricDetails,
-	thresholdVals ptpv1.PtpClockThreshold) error {
-	switch thresholdMetrics.Threshold {
-	case ranptpparameters.HoldOverTimeout:
-		Expect(thresholdMetrics.Value).Should(Equal(thresholdVals.HoldOverTimeout))
-
-		return nil
-	case ranptpparameters.MaxOffsetThreshold:
-		Expect(thresholdMetrics.Value).Should(Equal(thresholdVals.MaxOffsetThreshold))
-
-		return nil
-	case ranptpparameters.MinOffsetThreshold:
-		Expect(thresholdMetrics.Value).Should(Equal(thresholdVals.MinOffsetThreshold))
-
-		return nil
-	default:
-		return fmt.Errorf("threshold value %s is undefined", thresholdMetrics.Threshold)
-	}
-}

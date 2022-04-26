@@ -83,7 +83,7 @@ func BytesToStrings(buff bytes.Buffer) []string {
 	return strs
 }
 
-// GetConfigFiles gets all ptp configuration files and store them inside the map which the key is the name of the
+// GetPtpConfigs gets all ptp configuration files and store them inside the map which the key is the name of the
 // configuration.
 // return value:	the map and an error if any occurred.
 func GetPtpConfigs() (map[string]ptpv1.PtpConfig, error) {

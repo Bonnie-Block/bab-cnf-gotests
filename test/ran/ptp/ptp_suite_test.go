@@ -86,12 +86,14 @@ var _ = AfterSuite(func() {
 				ranptpparameters.On)
 			Expect(err).NotTo(HaveOccurred())
 		}
-		log.Println("restore all clock thresholds to original values")
-		ptpConfigs, err := ranptphelper.GetPtpConfigs()
-		Expect(err).NotTo(HaveOccurred())
-		for _, ptpConfig := range ptpConfigs {
-			err := ranptphelper.RestoreThresholdsValues(&ptpConfig)
+		if nil != ranptpparameters.OriginalThresholdsValues {
+			log.Println("restore all clock thresholds to original values")
+			ptpConfigs, err := ranptphelper.GetPtpConfigs()
 			Expect(err).NotTo(HaveOccurred())
+			for _, ptpConfig := range ptpConfigs {
+				err := ranptphelper.RestoreThresholdsValues(&ptpConfig)
+				Expect(err).NotTo(HaveOccurred())
+			}
 		}
 	}
 	if namespaces.Exists(parameters.PrivPodNamespace, helper.Apiclient) {

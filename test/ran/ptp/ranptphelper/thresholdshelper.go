@@ -1,13 +1,14 @@
 package ranptphelper
 
 import (
+	"context"
+	"fmt"
+
 	ptpv1 "github.com/openshift/ptp-operator/api/v1"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ptp/ranptpparameters"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"context"
 )
 
 // SaveOriginalValues saves the original clock threshold values inside ranptpparameters.OriginalThresholdsValues map.
@@ -72,6 +73,10 @@ func setThresholdValues(ptpConfig *ptpv1.PtpConfig, newClockThresholds *ptpv1.Pt
 		PtpClockThreshold:     newClockThresholds,
 	}
 
+	fmt.Printf("MinOffsetThreshold: %d\nMaxOffsetThreshold: %d\nHoldOverTimeout: %d\n",
+		newProfile.PtpClockThreshold.MinOffsetThreshold,
+		newProfile.PtpClockThreshold.MaxOffsetThreshold,
+		newProfile.PtpClockThreshold.HoldOverTimeout)
 	ptpProfile = append(ptpProfile, newProfile)
 
 	policy := ptpv1.PtpConfig{
@@ -90,5 +95,43 @@ func setThresholdValues(ptpConfig *ptpv1.PtpConfig, newClockThresholds *ptpv1.Pt
 		return err
 	}
 
+	ptpConfigUpdated, err := helper.Apiclient.PtpConfigs(parameters.PtpOperatorNamespace).Get(context.Background(),
+		ptpConfig.Name, metav1.GetOptions{})
+	if nil != err {
+		return err
+	}
+
+	fmt.Printf("MinOffsetThreshold: %d\nMaxOffsetThreshold: %d\nHoldOverTimeout: %d\n",
+		ptpConfigUpdated.Spec.Profile[0].PtpClockThreshold.MinOffsetThreshold,
+		ptpConfigUpdated.Spec.Profile[0].PtpClockThreshold.MaxOffsetThreshold,
+		ptpConfigUpdated.Spec.Profile[0].PtpClockThreshold.HoldOverTimeout)
+
 	return nil
+}
+
+// ThresholdsMetricsValsValidation validates the correct clock threshold values inside the metrics.
+// arguments:		"thresholdMetrics"-	a single clock threshold metrics string.
+//                  "thresholdVals"-	the expected values.
+// return value:	an error if the threshold value is not one of the clock threshold parameters.
+func ThresholdsMetricsValsValidation(thresholdMetrics ranptpparameters.MetricDetails,
+	thresholdVals ptpv1.PtpClockThreshold) error {
+	switch thresholdMetrics.Threshold {
+	case ranptpparameters.HoldOverTimeout:
+		if thresholdMetrics.Value == thresholdVals.HoldOverTimeout {
+			return nil
+		}
+	case ranptpparameters.MaxOffsetThreshold:
+		if thresholdMetrics.Value == thresholdVals.MaxOffsetThreshold {
+			return nil
+		}
+	case ranptpparameters.MinOffsetThreshold:
+		if thresholdMetrics.Value != thresholdVals.MinOffsetThreshold {
+			return nil
+		}
+	default:
+		return fmt.Errorf("threshold value %s is undefined", thresholdMetrics.Threshold)
+	}
+
+	return fmt.Errorf("metric threshold %s value %d is not equal to %d",
+		thresholdMetrics.Threshold, thresholdMetrics.Value, thresholdVals.HoldOverTimeout)
 }

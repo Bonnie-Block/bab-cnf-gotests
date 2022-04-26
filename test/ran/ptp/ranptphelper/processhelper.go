@@ -80,10 +80,8 @@ func getPhc2sysConfigName(ptpPod *corev1.Pod) (string, error) {
 // GetPTP4lPID gets the wanted ptp4l process if it's the one that's related to the phc2sys or not
 // this function is used only for dual nic tests
 // arguments:       "ptpPod"-			a pod that run the ptp processes
-//
-//	"relatePHC2SYS"-	TRUE for the ptp process that related to the phc2sys process.
+//                  "relatePHC2SYS"-	TRUE for the ptp process that related to the phc2sys process.
 //						FALSE for the onr that isn't.
-//
 // return value:	a string with the ptp4l pid. and an error if any occurred.
 func GetPTP4lPID(ptpPod *corev1.Pod, relatePHC2SYS bool) (string, error) {
 	phc2sysConfigFile, err := getPhc2sysConfigName(ptpPod)
@@ -95,10 +93,6 @@ func GetPTP4lPID(ptpPod *corev1.Pod, relatePHC2SYS bool) (string, error) {
 
 	if nil != err {
 		return "", err
-	}
-
-	if len(ptp4lProcesses) != 2 {
-		return "", fmt.Errorf("more than 2 ptp4l processes exist")
 	}
 
 	if (strings.Contains(ptp4lProcesses[0], phc2sysConfigFile) && relatePHC2SYS) ||
