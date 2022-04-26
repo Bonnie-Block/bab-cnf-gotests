@@ -525,7 +525,7 @@ func definePTPDiscoveryModePolicy(config *config.Config) {
 
 	ptpPods, err := Apiclient.Pods(generalParam.PtpOperatorNamespace).List(
 		context.Background(),
-		metav1.ListOptions{LabelSelector: "app=linuxptp-daemon"})
+		metav1.ListOptions{LabelSelector: generalParam.PtpDaemonsetLabelSelector})
 	Expect(err).ToNot(HaveOccurred())
 
 	for _, pod := range ptpPods.Items {
@@ -558,7 +558,7 @@ func definePTPDiscoveryModePolicy(config *config.Config) {
 	Eventually(func() int {
 		ptpPods, err := Apiclient.Pods(generalParam.PtpOperatorNamespace).List(
 			context.Background(),
-			metav1.ListOptions{LabelSelector: "app=linuxptp-daemon"})
+			metav1.ListOptions{LabelSelector: generalParam.PtpDaemonsetLabelSelector})
 		Expect(err).ToNot(HaveOccurred())
 
 		return len(ptpPods.Items)
@@ -573,7 +573,7 @@ func definePTPDiscoveryModePolicy(config *config.Config) {
 			ptpPods, err := Apiclient.Pods(generalParam.PtpOperatorNamespace).List(
 				context.Background(),
 				metav1.ListOptions{
-					LabelSelector: "app=linuxptp-daemon",
+					LabelSelector: generalParam.PtpDaemonsetLabelSelector,
 					FieldSelector: fmt.Sprintf(
 						"spec.nodeName=%s",
 						ptpSlaveNode.NodeName)})

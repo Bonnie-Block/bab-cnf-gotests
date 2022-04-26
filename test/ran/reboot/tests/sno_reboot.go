@@ -52,7 +52,7 @@ var _ = Describe("SNO Reboot", func() {
 		Expect(workloadPods).NotTo(Equal(nil))
 
 		// Skip test suite if not all pods are healthy before reboot.
-		unhealthyPods := ranreboothelper.WaitForAllPodsHealthy(nil, 3*time.Minute, 5*time.Second, 0)
+		unhealthyPods := ranhelper.WaitForAllPodsHealthy(nil, 3*time.Minute, 5*time.Second, 0)
 		if len(unhealthyPods) > 0 {
 			Skip(fmt.Sprintln("Some pods are unhealthy before reboot: ", unhealthyPods))
 		}
@@ -105,21 +105,23 @@ func waitForClusterRecoverAndLogTime(rebootStartTime time.Time, node *corev1.Nod
 	// Wait for openshift to be reachable and record time
 	metricStartTime, metricCount = time.Now(), metricCount+1
 
-	ranreboothelper.WaitForClusterReachable()
+	err := ranhelper.WaitForClusterReachable()
+	Expect(err).ToNot(HaveOccurred())
+
 	writeToGinkgoReport(fmt.Sprintf("%s_%d_cluster_reachable", ranmetric, metricCount), time.Since(metricStartTime))
 
 	// Wait for workload pods to recover and record time
 	metricStartTime, metricCount = time.Now(), metricCount+1
 	interval := 5 * time.Second
 	// check mcps are updated
-	err := machineconfigpool.WaitForClusterStable(helper.Apiclient, 30*time.Minute, interval, 0)
+	err = machineconfigpool.WaitForClusterStable(helper.Apiclient, 30*time.Minute, interval, 0)
 	Expect(err).ToNot(HaveOccurred())
 	// check all nodes are Ready
 	err = nodes.WaitForNodesReady(helper.Apiclient, 10*time.Minute, interval)
 	Expect(err).ToNot(HaveOccurred())
 	// check all workload pods are recovered and stable
 	workloadStableDuration := 30 * time.Second
-	unhealthyWorkloadPods := ranreboothelper.WaitForAllPodsHealthy(
+	unhealthyWorkloadPods := ranhelper.WaitForAllPodsHealthy(
 		[]string{ran.NamespaceTesting},
 		45*time.Minute,
 		interval,
@@ -134,7 +136,7 @@ func waitForClusterRecoverAndLogTime(rebootStartTime time.Time, node *corev1.Nod
 	// Wait for all pods on cluster to recover and record time
 	metricStartTime, metricCount = time.Now().Add(-workloadStableDuration), metricCount+1
 	clusterStableDuration := 1 * time.Minute
-	unhealthyPods := ranreboothelper.WaitForAllPodsHealthy(
+	unhealthyPods := ranhelper.WaitForAllPodsHealthy(
 		nil, 30*time.Minute,
 		interval, clusterStableDuration,
 	)

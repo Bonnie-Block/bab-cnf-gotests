@@ -10,9 +10,10 @@ import (
 const (
 	ptpOperatorNamespace = "openshift-ptp"
 
-	PtpTestNamespace = "ptp-operator-test"
-	PtpDaemonsetName = "linuxptp-daemon"
-	PtpContainerName = "linuxptp-daemon-container"
+	PtpTestNamespace          = "ptp-operator-test"
+	PtpDaemonsetName          = "linuxptp-daemon"
+	PtpContainerName          = "linuxptp-daemon-container"
+	PtpDaemonsetLabelSelector = "app=linuxptp-daemon"
 )
 
 var (

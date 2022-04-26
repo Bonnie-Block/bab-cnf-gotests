@@ -55,7 +55,7 @@ var _ = Describe("PTP", func() {
 			By("Find all master and slave PTP pods")
 			ptpPods, err := Apiclient.Pods(parameters.PtpOperatorNamespace).List(
 				context.Background(),
-				metav1.ListOptions{LabelSelector: "app=linuxptp-daemon"},
+				metav1.ListOptions{LabelSelector: parameters.PtpDaemonsetLabelSelector},
 			)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(ptpPods.Items)).To(BeNumerically(">", 0),
@@ -180,7 +180,7 @@ func configurePTP() {
 
 	ptpPods, err := Apiclient.Pods(parameters.PtpOperatorNamespace).List(
 		context.Background(),
-		metav1.ListOptions{LabelSelector: "app=linuxptp-daemon"},
+		metav1.ListOptions{LabelSelector: parameters.PtpDaemonsetLabelSelector},
 	)
 	Expect(err).ToNot(HaveOccurred())
 
@@ -215,7 +215,7 @@ func configurePTP() {
 	Eventually(func() int {
 		ptpPods, err := Apiclient.Pods(parameters.PtpOperatorNamespace).List(
 			context.Background(),
-			metav1.ListOptions{LabelSelector: "app=linuxptp-daemon"},
+			metav1.ListOptions{LabelSelector: parameters.PtpDaemonsetLabelSelector},
 		)
 		Expect(err).ToNot(HaveOccurred())
 
@@ -225,7 +225,7 @@ func configurePTP() {
 	err = wait.PollImmediate(1*time.Second, 60*time.Second, func() (done bool, err error) {
 		ptpPods, err := Apiclient.Pods(parameters.PtpOperatorNamespace).List(context.Background(),
 			metav1.ListOptions{
-				LabelSelector: "app=linuxptp-daemon",
+				LabelSelector: parameters.PtpDaemonsetLabelSelector,
 				FieldSelector: fmt.Sprintf("spec.nodeName=%s", ptpSlaveNode.NodeName)},
 		)
 		Expect(err).ToNot(HaveOccurred())
