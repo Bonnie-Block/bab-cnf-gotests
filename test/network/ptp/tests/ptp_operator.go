@@ -14,7 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/utils/pointer"
 
-	ptpv1 "github.com/openshift/ptp-operator/pkg/apis/ptp/v1"
+	ptpv1 "github.com/openshift/ptp-operator/api/v1"
 
 	. "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/ptp/netptpparameters"

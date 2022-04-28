@@ -40,7 +40,7 @@ type KubernetesReporter struct {
 
 // CRData represents a cr to dump.
 type CRData struct {
-	Cr        runtime.Object
+	Cr        runtimeclient.ObjectList
 	Namespace *string
 }
 
@@ -256,7 +256,7 @@ func (r *KubernetesReporter) logLogs(since time.Time, dirName string) {
 	}
 }
 
-func (r *KubernetesReporter) logCustomCR(customResource runtime.Object, namespace *string, dirName string) {
+func (r *KubernetesReporter) logCustomCR(customResource runtimeclient.ObjectList, namespace *string, dirName string) {
 	logFile, err := logFileFor(r.reportPath, dirName, "crs")
 	if err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "failed to open crs file: %v\n", dirName)

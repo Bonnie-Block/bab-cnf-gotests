@@ -4,9 +4,8 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"time"
-
 	"strings"
+	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -21,7 +20,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 
-	metallbv1beta1 "github.com/metallb/metallb-operator/api/v1beta1"
+	metallboperatorv1beta1 "github.com/metallb/metallb-operator/api/v1beta1"
 	metallbutils "github.com/metallb/metallb-operator/test/e2e/metallb"
 
 	v1 "k8s.io/api/core/v1"
@@ -77,9 +76,13 @@ var _ = Describe("CNF MetalLB", func() {
 
 	AfterEach(func() {
 
-		By("should delete Address Pool and test Pod after test")
-		netmetallbhelper.DeleteAllAddressPools()
-		err := netmetallbhelper.DeleteAllLBServices(netmlbparameters.TestNamespace)
+		By("should delete IPAddressPool, L2Advertisement and test Pod after test")
+		netmetallbhelper.DeleteAllIPAddressPools()
+
+		err := netmetallbhelper.DeleteAllL2Advertisements()
+		Expect(err).ToNot(HaveOccurred())
+
+		err = netmetallbhelper.DeleteAllLBServices(netmlbparameters.TestNamespace)
 		Expect(err).ToNot(HaveOccurred())
 		err = namespaces.CleanPods(netmlbparameters.TestNamespace, helper.Apiclient)
 		Expect(err).ToNot(HaveOccurred())
@@ -89,7 +92,7 @@ var _ = Describe("CNF MetalLB", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Should remove Metallb Configuration")
-		metallb := &metallbv1beta1.MetalLB{}
+		metallb := &metallboperatorv1beta1.MetalLB{}
 		err = helper.Apiclient.Get(context.Background(), types.NamespacedName{Name: "metallb",
 			Namespace: netmlbparameters.MetalLBOperatorNameSpace}, metallb)
 		Expect(err).ToNot(HaveOccurred())
@@ -107,13 +110,16 @@ var _ = Describe("CNF MetalLB", func() {
 			metalLBIPList[0],
 			"")
 
-		By("should create an Address Pool")
-		err = helper.Apiclient.Create(context.Background(), netmetallbhelper.DefineMetalLBAddressPool(
-			metalLBIPList,
-			netmlbparameters.Layer2,
-			netparameters.IPV4Family,
-			netmlbparameters.AddressPoolL2,
-			netmlbparameters.PrefixLen32))
+		By("should create an IPAddressPool and L2Advertisement")
+		ipAddressPool := netmetallbhelper.DefineMetalLBIPAddressPool(metalLBIPList, netparameters.IPV4Family,
+			netmlbparameters.AddressPoolL2)
+
+		err := helper.Apiclient.Create(context.Background(), ipAddressPool)
+		Expect(err).ToNot(HaveOccurred())
+
+		l2Advertisement := netmetallbhelper.DefineL2Advertisement(netmlbparameters.L2AdvertisementName,
+			[]string{ipAddressPool.Name})
+		err = helper.Apiclient.Create(context.Background(), l2Advertisement)
 		Expect(err).ToNot(HaveOccurred())
 
 		By("should create a MetalLB service")
@@ -180,12 +186,16 @@ var _ = Describe("CNF MetalLB", func() {
 			"")
 
 		By("should create an Address Pool")
-		err = helper.Apiclient.Create(context.Background(), netmetallbhelper.DefineMetalLBAddressPool(
-			metalLBIPList,
-			netmlbparameters.Layer2,
+		ipAddressPool := netmetallbhelper.DefineMetalLBIPAddressPool(metalLBIPList,
 			netparameters.IPV4Family,
-			netmlbparameters.AddressPoolL2,
-			netmlbparameters.PrefixLen32))
+			netmlbparameters.AddressPoolL2)
+
+		err = helper.Apiclient.Create(context.Background(), ipAddressPool)
+		Expect(err).ToNot(HaveOccurred())
+
+		l2Advertisement := netmetallbhelper.DefineL2Advertisement(netmlbparameters.L2AdvertisementName,
+			[]string{ipAddressPool.Name})
+		err = helper.Apiclient.Create(context.Background(), l2Advertisement)
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Changing the label selector for Metallb and adding a label for Workers")

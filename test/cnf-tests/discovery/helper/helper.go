@@ -9,7 +9,7 @@ import (
 	"github.com/kelseyhightower/envconfig"
 	mcov1 "github.com/openshift/machine-config-operator/pkg/apis/machineconfiguration.openshift.io/v1"
 	mcoScheme "github.com/openshift/machine-config-operator/pkg/generated/clientset/versioned/scheme"
-	ptpv1 "github.com/openshift/ptp-operator/pkg/apis/ptp/v1"
+	ptpv1 "github.com/openshift/ptp-operator/api/v1"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/cnf-tests/discovery/parameters"
 	. "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	generalParameters "gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"

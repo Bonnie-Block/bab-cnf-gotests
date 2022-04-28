@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	ptpv1 "github.com/openshift/ptp-operator/pkg/apis/ptp/v1"
+	ptpv1 "github.com/openshift/ptp-operator/api/v1"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/cluster"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"

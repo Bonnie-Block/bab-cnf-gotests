@@ -8,7 +8,7 @@ import (
 	"github.com/golang/glog"
 	sriovv1 "github.com/k8snetworkplumbingwg/sriov-network-operator/api/v1"
 	clientsriovv1 "github.com/k8snetworkplumbingwg/sriov-network-operator/pkg/client/clientset/versioned/typed/sriovnetwork/v1"
-	metallbv1beta1 "github.com/metallb/metallb-operator/api/v1beta1"
+	metallboperatorv1beta1 "github.com/metallb/metallb-operator/api/v1beta1"
 	performancev2 "github.com/openshift-kni/performance-addon-operators/api/v2"
 	operv1 "github.com/openshift/api/operator/v1"
 	clientconfigv1 "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
@@ -17,7 +17,8 @@ import (
 	ptpv1 "github.com/openshift/ptp-operator/pkg/client/clientset/versioned/typed/ptp/v1"
 	olm2 "github.com/operator-framework/operator-lifecycle-manager/pkg/api/client/clientset/versioned/scheme"
 	olm "github.com/operator-framework/operator-lifecycle-manager/pkg/api/client/clientset/versioned/typed/operators/v1alpha1"
-	fecv2 "github.com/smart-edge-open/openshift-operator/sriov-fec/api/v2"
+	fecv2 "github.com/smart-edge-open/sriov-fec-operator/sriov-fec/api/v2"
+	metallbv1beta1 "go.universe.tf/metallb/api/v1beta1"
 	apiext "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	discovery "k8s.io/client-go/discovery"
@@ -112,6 +113,10 @@ func New(kubeconfig string) *ClientSet {
 	}
 
 	if err := apiext.AddToScheme(crScheme); err != nil {
+		panic(err)
+	}
+
+	if err := metallboperatorv1beta1.AddToScheme(crScheme); err != nil {
 		panic(err)
 	}
 

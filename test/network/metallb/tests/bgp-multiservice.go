@@ -67,23 +67,28 @@ var _ = Describe("CNF MetalLB", func() {
 	})
 
 	// 47182
-	It("BGP Multi-Service Validation", func() {
-		By("should create a BGP addresspool for service 1")
-		err := helper.Apiclient.Create(context.Background(),
-			netmetallbhelper.DefineMetalLBAddressPool(netmlbparameters.AddressPoolS1,
-				netmlbparameters.BGP,
-				netparameters.IPV4Family,
-				netmlbparameters.AddressPoolS1Name,
-				netmlbparameters.PrefixLen32))
+	It("MetalLB BGP Multi-Service Validation", func() {
+		By("should create an IPAddressPool and BGPAdvertisement for service 1")
+		ipAddressPool := netmetallbhelper.DefineMetalLBIPAddressPool(netmlbparameters.AddressPoolS1,
+			netparameters.IPV4Family,
+			netmlbparameters.AddressPoolS1Name)
+
+		err := helper.Apiclient.Create(context.Background(), ipAddressPool)
 		Expect(err).ToNot(HaveOccurred())
 
-		By("should create a BGP addresspool for service 2")
-		err = helper.Apiclient.Create(context.Background(),
-			netmetallbhelper.DefineMetalLBAddressPool(netmlbparameters.AddressPoolS2,
-				netmlbparameters.BGP,
-				netparameters.IPV4Family,
-				netmlbparameters.AddressPoolS2Name,
-				netmlbparameters.PrefixLen32))
+		By("should create an IPAddressPool and BGPAdvertisement for service 2")
+		ipAddressPool = netmetallbhelper.DefineMetalLBIPAddressPool(netmlbparameters.AddressPoolS2,
+			netparameters.IPV4Family,
+			netmlbparameters.AddressPoolS2Name)
+
+		bgpAdvertisement := netmetallbhelper.DefineBGPAdvertisement(
+			netmlbparameters.BGPAdvertisementName,
+			[]string{netmlbparameters.AddressPoolS1Name, netmlbparameters.AddressPoolS2Name},
+			netparameters.IPV4Family, netmlbparameters.PrefixLen32)
+		err = helper.Apiclient.Create(context.Background(), bgpAdvertisement)
+		Expect(err).ToNot(HaveOccurred())
+
+		err = helper.Apiclient.Create(context.Background(), ipAddressPool)
 		Expect(err).ToNot(HaveOccurred())
 
 		By("should create service 1 with 2 backend pods")
@@ -131,8 +136,7 @@ var _ = Describe("CNF MetalLB", func() {
 		Expect(len(masterNodeList)).To(BeNumerically(">", 0))
 		masterNode := masterNodeList[0]
 
-		err = netmetallbhelper.CreateSpeakerBGPPeer(metalLBIPList[0],
-			netmlbparameters.IBPGPProtocol, uint32(netmlbparameters.IBGPASN))
+		err = netmetallbhelper.CreateSpeakerBGPPeer(metalLBIPList[0], uint32(netmlbparameters.IBGPASN))
 		Expect(err).ToNot(HaveOccurred())
 
 		By("should create external FRR container")

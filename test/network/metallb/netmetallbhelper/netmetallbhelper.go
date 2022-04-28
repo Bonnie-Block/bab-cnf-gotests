@@ -17,6 +17,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	metallbv1beta1 "go.universe.tf/metallb/api/v1beta1"
+
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/metallb/netmlbparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/nethelper"
@@ -25,7 +27,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 
-	metallbv1beta1 "github.com/metallb/metallb-operator/api/v1beta1"
+	metallboperatorv1beta1 "github.com/metallb/metallb-operator/api/v1beta1"
 	metallbutils "github.com/metallb/metallb-operator/test/e2e/metallb"
 	operv1 "github.com/openshift/api/operator/v1"
 	"github.com/pkg/errors"
@@ -472,7 +474,7 @@ func IsBGPNeighborshipHasState(frrPod *k8sv1.Pod, neighborIPAddress string, stat
 
 // updateSpeakerNodeSelector updates SpeakerNodeSelector in Metallb CR.
 func updateSpeakerNodeSelector(namespace string, nodeSelector map[string]string) error {
-	metallb := &metallbv1beta1.MetalLB{}
+	metallb := &metallboperatorv1beta1.MetalLB{}
 
 	err := helper.Apiclient.Get(context.Background(),
 		types.NamespacedName{Name: netmlbparameters.MetalLBCRName, Namespace: namespace}, metallb)
@@ -512,7 +514,7 @@ func DeleteAllBFDProfiles() error {
 
 // UpdateToDefaultSpeakerNodeSelector updates a Metallb CR to the default SpeakerNodeSelector.
 func UpdateToDefaultSpeakerNodeSelector() error {
-	metallb := &metallbv1beta1.MetalLB{}
+	metallb := &metallboperatorv1beta1.MetalLB{}
 
 	err := helper.Apiclient.Get(context.Background(),
 		types.NamespacedName{Name: netmlbparameters.MetalLBCRName,
@@ -731,6 +733,19 @@ func SetupMetalLB() {
 		netmlbparameters.Interval).ShouldNot(HaveOccurred())
 }
 
+// DeleteAllIPAddressPools removes all IPaddresspools in metallb-system.
+func DeleteAllIPAddressPools() {
+	apList := metallbv1beta1.IPAddressPoolList{}
+	err := helper.Apiclient.List(context.Background(), &apList,
+		runtimeclient.InNamespace(netmlbparameters.MetalLBOperatorNameSpace))
+	Expect(err).ToNot(HaveOccurred())
+
+	for _, ap := range apList.Items {
+		err = helper.Apiclient.Delete(context.Background(), &ap)
+		Expect(err).ToNot(HaveOccurred())
+	}
+}
+
 // DeleteAllAddressPools removes all addresspools in metallb-system.
 func DeleteAllAddressPools() {
 	apList := metallbv1beta1.AddressPoolList{}
@@ -742,6 +757,26 @@ func DeleteAllAddressPools() {
 		err = helper.Apiclient.Delete(context.Background(), &ap)
 		Expect(err).ToNot(HaveOccurred())
 	}
+}
+
+// DeleteAllL2Advertisements removes all L2Advertisements in metallb-system.
+func DeleteAllL2Advertisements() error {
+	l2AdvertisementList := metallbv1beta1.L2AdvertisementList{}
+
+	err := helper.Apiclient.List(context.Background(), &l2AdvertisementList,
+		runtimeclient.InNamespace(netmlbparameters.MetalLBOperatorNameSpace))
+	if err != nil {
+		return err
+	}
+
+	for _, l2Advertisement := range l2AdvertisementList.Items {
+		err = helper.Apiclient.Delete(context.Background(), &l2Advertisement)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // UpdateSpeakerNodeLabel adds label metallbtest to the speaker nodes.  This label will be used in Metallb in order to

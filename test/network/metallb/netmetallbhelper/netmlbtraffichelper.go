@@ -34,23 +34,25 @@ func TestBGPTable(ipStack string, workerNodeList []k8sv1.Node, masterNodeList []
 	masterNodeFRRPod := CreateFRRContainerOnMaster(workerNodeList, masterNodeList, metalLBIPList, ipStack, bgpASN,
 		netmlbparameters.PropagateFalse)
 
-	By("should create a BGP addresspool")
+	By("should create an IPAddressPool and BGPAdvertisement for service")
 
-	addresspoolIPList := netmlbparameters.AddressPoolS1
+	ipAddressPoolIPList := netmlbparameters.AddressPoolS1
 
 	if ipStack == netparameters.IPV6Family {
-		addresspoolIPList = netmlbparameters.AddressPoolV6
+		ipAddressPoolIPList = netmlbparameters.AddressPoolV6
 	}
 
-	err = helper.Apiclient.Create(
-		context.Background(),
-		DefineMetalLBAddressPool(
-			addresspoolIPList,
-			netmlbparameters.BGP,
-			ipStack,
-			netmlbparameters.AddressPoolS1Name,
-			netmlbparameters.PrefixLen32),
-	)
+	ipAddressPool := DefineMetalLBIPAddressPool(
+		ipAddressPoolIPList,
+		ipStack,
+		netmlbparameters.AddressPoolS1Name)
+
+	err = helper.Apiclient.Create(context.Background(), ipAddressPool)
+	Expect(err).ToNot(HaveOccurred())
+
+	bgpAdvertisement := DefineBGPAdvertisement(netmlbparameters.BGPAdvertisementName, []string{ipAddressPool.Name},
+		ipStack, netmlbparameters.PrefixLen32)
+	err = helper.Apiclient.Create(context.Background(), bgpAdvertisement)
 	Expect(err).ToNot(HaveOccurred())
 
 	By("should create service with 2 backend pods")
@@ -176,19 +178,19 @@ func defineIPRouteFamily(ipStack string) ([]string, string) {
 // CreateSpeakerBGPPeerIPStack creates a BGP Peer CRD.
 func CreateSpeakerBGPPeerIPStack(ipStack string, metalLBIPList []string, bgpASN int) error {
 	if ipStack == netparameters.IPV4Family {
-		return CreateSpeakerBGPPeer(metalLBIPList[0], "", uint32(bgpASN))
+		return CreateSpeakerBGPPeer(metalLBIPList[0], uint32(bgpASN))
 	}
 
 	if ipStack == netparameters.IPV6Family {
-		return CreateSpeakerBGPPeer(metalLBIPList[2], "", uint32(bgpASN))
+		return CreateSpeakerBGPPeer(metalLBIPList[2], uint32(bgpASN))
 	}
 
-	err := CreateSpeakerBGPPeer(metalLBIPList[0], "", uint32(bgpASN))
+	err := CreateSpeakerBGPPeer(metalLBIPList[0], uint32(bgpASN))
 	if err == nil {
 		return err
 	}
 
-	return CreateSpeakerBGPPeer(metalLBIPList[2], "", uint32(bgpASN))
+	return CreateSpeakerBGPPeer(metalLBIPList[2], uint32(bgpASN))
 }
 
 // DefineAnnotationWithIPStack creates an IP annotation for the pod network.

@@ -8,13 +8,14 @@ import (
 	. "github.com/onsi/gomega"
 
 	netattdefv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
-	"github.com/metallb/metallb-operator/api/v1beta1"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/metallb/netmlbparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/nethelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/netparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
+
+	metallbv1beta1 "go.universe.tf/metallb/api/v1beta1"
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -36,13 +37,13 @@ func defineBFDMLBConfigMap(ipAddresses []string, configMapName string, asn int, 
 }
 
 // defineBFDProfile returns BFDprofile definition.
-func defineBFDProfile(name string) *v1beta1.BFDProfile {
-	return &v1beta1.BFDProfile{
+func defineBFDProfile(name string) *metallbv1beta1.BFDProfile {
+	return &metallbv1beta1.BFDProfile{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: netmlbparameters.MetalLBOperatorNameSpace,
 		},
-		Spec: v1beta1.BFDProfileSpec{
+		Spec: metallbv1beta1.BFDProfileSpec{
 			ReceiveInterval:  uint32Ptr(100),
 			TransmitInterval: uint32Ptr(100),
 			DetectMultiplier: uint32Ptr(3),
@@ -56,16 +57,18 @@ func defineBFDProfile(name string) *v1beta1.BFDProfile {
 
 // defineSpeakerBGPPeer defines the bgppeer config.  Speakers are always AS 64500.  For EBGP
 // connections the external FRR is changed.
-func defineSpeakerBGPPeer(externalAddress string, asn uint32, bgpProtocol string, bfdProfile string) *v1beta1.BGPPeer {
+func defineSpeakerBGPPeer(externalAddress string,
+	asn uint32, bgpProtocol string,
+	bfdProfile string) *metallbv1beta1.BGPPeer {
 	var ebgpMultiHop bool
 
-	bgpPeer := &v1beta1.BGPPeer{
+	bgpPeer := &metallbv1beta1.BGPPeer{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "testpeer-",
 			Namespace:    netmlbparameters.MetalLBOperatorNameSpace,
 		}}
 
-	bgpSpec := &v1beta1.BGPPeerSpec{
+	bgpSpec := &metallbv1beta1.BGPPeerSpec{
 		Port:     179,
 		Password: netmlbparameters.BGPPassword,
 		Address:  externalAddress,
@@ -156,49 +159,31 @@ func DefineInternalNAD() *netattdefv1.NetworkAttachmentDefinition {
 		}}
 }
 
-// DefineMetallbAddressPool defines a MetalLB L2 Address Pool using env IP var METALLB_ADDR_LIST
+// DefineMetalLBIPAddressPool defines a MetalLB IPAddressPool using env IP var METALLB_ADDR_LIST
 // for the IP address range.
-func DefineMetalLBAddressPool(
-	metalLBIP []string, protocol string, iPStack string, addressPoolName string,
-	prefixLen int32) *v1beta1.AddressPool {
-	addrPool := v1beta1.AddressPool{
+func DefineMetalLBIPAddressPool(
+	metalLBIP []string, ipStack string, ipAddressPoolName string) *metallbv1beta1.IPAddressPool {
+	IPAddrPool := metallbv1beta1.IPAddressPool{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      addressPoolName,
+			Name:      ipAddressPoolName,
 			Namespace: netmlbparameters.MetalLBOperatorNameSpace,
 			Annotations: map[string]string{
-				netmlbparameters.MetalLBAddressPool: addressPoolName,
+				netmlbparameters.MetalLBAddressPool: ipAddressPoolName,
 			},
 		},
-		Spec: v1beta1.AddressPoolSpec{
-			Protocol: protocol,
+		Spec: metallbv1beta1.IPAddressPoolSpec{
 			Addresses: []string{
 				fmt.Sprintln(metalLBIP[0], "-", metalLBIP[1]),
 			},
 		},
 	}
 
-	if protocol == netmlbparameters.BGP {
-		switch iPStack {
-		case netparameters.IPV4Family:
-			if prefixLen != 0 {
-				addrPool.Spec.BGPAdvertisements = append(addrPool.Spec.BGPAdvertisements,
-					v1beta1.BgpAdvertisement{AggregationLength: &prefixLen})
-			}
-		case netparameters.IPV6Family:
-			if prefixLen != 0 {
-				addrPool.Spec.BGPAdvertisements = append(addrPool.Spec.BGPAdvertisements,
-					v1beta1.BgpAdvertisement{AggregationLengthV6: &prefixLen})
-			}
-		case netparameters.DualIPFamily:
-			addrPool.Spec.Addresses = append(addrPool.Spec.Addresses,
-				fmt.Sprintln(metalLBIP[2], "-", metalLBIP[3]))
-		}
-		addrPool.Spec.BGPAdvertisements = append(addrPool.Spec.BGPAdvertisements,
-			v1beta1.BgpAdvertisement{Communities: []string{netmlbparameters.CommunityNoAdv},
-				LocalPref: netmlbparameters.LocalPref400})
+	if ipStack == netparameters.DualIPFamily {
+		IPAddrPool.Spec.Addresses = append(IPAddrPool.Spec.Addresses,
+			fmt.Sprintln(metalLBIP[2], "-", metalLBIP[3]))
 	}
 
-	return &addrPool
+	return &IPAddrPool
 }
 
 // defineBFDConfig returns string which represents BFD config file peering to all given IP addresses.
@@ -278,6 +263,50 @@ func createPrivilegedPodMaster(image string, masterNodeName string) *k8sv1.Pod {
 	helper.WaitForPodsHealthy([]*k8sv1.Pod{masterprivilegedPod}, 1*time.Minute)
 
 	return masterprivilegedPod
+}
+
+// DefineBGPAdvertisement returns BGPAdvertisement for list of IPAddressPoolnames.
+func DefineBGPAdvertisement(name string,
+	ipAddressPoolNames []string,
+	ipStack string,
+	prefixLenght int32) *metallbv1beta1.BGPAdvertisement {
+	bgpAdv := &metallbv1beta1.BGPAdvertisement{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: netmlbparameters.MetalLBOperatorNameSpace,
+		},
+		Spec: metallbv1beta1.BGPAdvertisementSpec{
+			IPAddressPools: ipAddressPoolNames,
+			Communities:    []string{netmlbparameters.CommunityNoAdv},
+			LocalPref:      100,
+		},
+	}
+
+	switch ipStack {
+	case netparameters.IPV4Family:
+		if prefixLenght != 0 {
+			bgpAdv.Spec.AggregationLength = &prefixLenght
+		}
+	case netparameters.IPV6Family:
+		if prefixLenght != 0 {
+			bgpAdv.Spec.AggregationLengthV6 = &prefixLenght
+		}
+	}
+
+	return bgpAdv
+}
+
+// DefineL2Advertisement returns L2Advertisement for list of ipAddressPoolnames.
+func DefineL2Advertisement(name string, ipAddressPoolNames []string) *metallbv1beta1.L2Advertisement {
+	return &metallbv1beta1.L2Advertisement{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: netmlbparameters.MetalLBOperatorNameSpace,
+		},
+		Spec: metallbv1beta1.L2AdvertisementSpec{
+			IPAddressPools: ipAddressPoolNames,
+		},
+	}
 }
 
 // DefineFrrPodWithTestContainer creates an FRR Pod with a test container.

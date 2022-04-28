@@ -62,10 +62,15 @@ var _ = BeforeSuite(func() {
 
 var _ = AfterSuite(func() {
 	By("Cleaning after suite")
-	netmetallbhelper.DeleteAllAddressPools()
+	netmetallbhelper.DeleteAllIPAddressPools()
+
+	err := netmetallbhelper.DeleteAllL2Advertisements()
+	Expect(err).ToNot(HaveOccurred())
+	err = netmetallbhelper.DeleteAllBGPAdvertisements()
+	Expect(err).ToNot(HaveOccurred())
 
 	By(fmt.Sprintf("Clean test namespace %s", netmlbparameters.TestNamespace))
-	err := namespaces.DeleteAndWait(helper.Apiclient, netmlbparameters.TestNamespace,
+	err = namespaces.DeleteAndWait(helper.Apiclient, netmlbparameters.TestNamespace,
 		netmlbparameters.Timeout)
 	Expect(err).ToNot(HaveOccurred())
 

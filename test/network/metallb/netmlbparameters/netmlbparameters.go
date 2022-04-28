@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"time"
 
-	metallbv1beta1 "github.com/metallb/metallb-operator/api/v1beta1"
+	metallbv1beta1 "go.universe.tf/metallb/api/v1beta1"
+
+	metallboperatorv1beta1 "github.com/metallb/metallb-operator/api/v1beta1"
 	mcfgv1 "github.com/openshift/machine-config-operator/pkg/apis/machineconfiguration.openshift.io/v1"
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/netparameters"
@@ -67,6 +69,8 @@ const (
 	TestContainerName                         = "testcontainer"
 	ProtocolSCTP                              = "sctp"
 	ProtocolTCP                               = "tcp"
+	BGPAdvertisementName                      = "bgpadvertisement"
+	L2AdvertisementName                       = "l2advertisement"
 	PrefixLen32                               = int32(32)
 	PrefixLen28                               = int32(28)
 	PrefixLen128                              = int32(128)
@@ -93,11 +97,13 @@ var (
 	// ReporterCrds tells to reporter what resources to collect.
 	ReporterCrds = []k8sreporter.CRData{
 		{Cr: &mcfgv1.MachineConfigPoolList{}},
-		{Cr: &metallbv1beta1.AddressPool{}},
+		{Cr: &metallbv1beta1.IPAddressPoolList{}},
+		{Cr: &metallbv1beta1.BGPAdvertisementList{}},
+		{Cr: &metallbv1beta1.L2AdvertisementList{}},
 		{Cr: &metallbv1beta1.AddressPoolList{}},
-		{Cr: &metallbv1beta1.BFDProfile{}},
-		{Cr: &metallbv1beta1.BGPPeer{}},
-		{Cr: &metallbv1beta1.MetalLB{}},
+		{Cr: &metallbv1beta1.BFDProfileList{}},
+		{Cr: &metallbv1beta1.BGPPeerList{}},
+		{Cr: &metallboperatorv1beta1.MetalLBList{}},
 	}
 
 	SpeakerNodeSelectorWorker = map[string]string{

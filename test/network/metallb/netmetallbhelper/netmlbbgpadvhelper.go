@@ -7,7 +7,8 @@ import (
 	"net"
 	"time"
 
-	"github.com/metallb/metallb-operator/api/v1beta1"
+	metallbv1beta1 "go.universe.tf/metallb/api/v1beta1"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/pkg/errors"
@@ -38,12 +39,17 @@ func TestBGPAdvertismentTable(ipStack string, metalLBIPList []string, workerNode
 
 	err := helper.Apiclient.Create(
 		context.Background(),
-		DefineMetalLBAddressPool(
+		DefineMetalLBIPAddressPool(
 			addresspoolIPList,
-			netmlbparameters.BGP,
 			ipStack,
-			netmlbparameters.AddressPoolS1Name,
-			prefixLenght),
+			netmlbparameters.AddressPoolS1Name),
+	)
+	Expect(err).ToNot(HaveOccurred())
+
+	err = helper.Apiclient.Create(
+		context.Background(),
+		DefineBGPAdvertisement(netmlbparameters.BGPAdvertisementName, []string{netmlbparameters.AddressPoolS1Name},
+			ipStack, prefixLenght),
 	)
 	Expect(err).ToNot(HaveOccurred())
 
@@ -97,7 +103,7 @@ func TestBGPAdvertismentTableUpdates(masterNodeList []k8sv1.Node, workerNodeList
 	masterNodeFRRPod := CreateFRRContainerOnMaster(workerNodeList, masterNodeList, metalLBIPList, ipStack,
 		netmlbparameters.IBGPASN, netmlbparameters.PropagateFalse)
 
-	By("should create a BGP addresspool")
+	By("should create a IPAddressPool and BGPAdvertisement")
 
 	addresspoolIPList := netmlbparameters.AddressPoolV4Prefix32
 
@@ -105,14 +111,20 @@ func TestBGPAdvertismentTableUpdates(masterNodeList []k8sv1.Node, workerNodeList
 		addresspoolIPList = netmlbparameters.AddressPoolV6Prefix128
 	}
 
-	addresspool := DefineMetalLBAddressPool(
+	ipAddressPool := DefineMetalLBIPAddressPool(
 		addresspoolIPList,
-		netmlbparameters.BGP,
 		ipStack,
-		netmlbparameters.AddressPoolS1Name,
-		prefixLenght)
+		netmlbparameters.AddressPoolS1Name)
 
-	err := helper.Apiclient.Create(context.Background(), addresspool)
+	err := helper.Apiclient.Create(context.Background(), ipAddressPool)
+	Expect(err).ToNot(HaveOccurred())
+
+	bgpAdvertisementDefinition := DefineBGPAdvertisement(
+		netmlbparameters.BGPAdvertisementName,
+		[]string{ipAddressPool.Name},
+		ipStack,
+		prefixLenght)
+	err = helper.Apiclient.Create(context.Background(), bgpAdvertisementDefinition)
 	Expect(err).ToNot(HaveOccurred())
 
 	By("should create service with 1 backend pods")
@@ -166,11 +178,11 @@ func TestBGPAdvertismentTableUpdates(masterNodeList []k8sv1.Node, workerNodeList
 
 	switch prefixLenght {
 	case netmlbparameters.PrefixLen32:
-		updateBGPAdvertisement(addresspool, netmlbparameters.PrefixLen28)
+		updateBGPAdvertisement(bgpAdvertisementDefinition, netmlbparameters.PrefixLen28)
 		prefixLenght = netmlbparameters.PrefixLen28
 
 	case netmlbparameters.PrefixLen128:
-		updateBGPAdvertisement(addresspool, netmlbparameters.PrefixLen126)
+		updateBGPAdvertisement(bgpAdvertisementDefinition, netmlbparameters.PrefixLen126)
 		prefixLenght = netmlbparameters.PrefixLen126
 	}
 
@@ -225,7 +237,7 @@ func validatePrefix(masterNodeFRRPod *k8sv1.Pod, workerNodesAdresses []string, i
 
 // UpdateBGPPeerTimers updates the timer setting on the speakers, which changes the time setting for all bgp peers.
 func UpdateBGPPeerTimers() error {
-	bgpPeerList := v1beta1.BGPPeerList{}
+	bgpPeerList := metallbv1beta1.BGPPeerList{}
 
 	err := helper.Apiclient.List(context.Background(), &bgpPeerList,
 		runtimeclient.InNamespace(netmlbparameters.MetalLBOperatorNameSpace))
@@ -254,16 +266,14 @@ func ResetBGPPeer(frrPod *k8sv1.Pod) error {
 	return nil
 }
 
-func updateBGPAdvertisement(addresspool *v1beta1.AddressPool, prefixLen int32) {
-	addresspool.Spec.BGPAdvertisements = []v1beta1.BgpAdvertisement{
-		{
-			Communities:       []string{netmlbparameters.CustomCommunity},
-			AggregationLength: &prefixLen,
-			LocalPref:         netmlbparameters.LocalPref500,
-		},
+func updateBGPAdvertisement(bgpAdvertisement *metallbv1beta1.BGPAdvertisement, prefixLen int32) {
+	bgpAdvertisement.Spec = metallbv1beta1.BGPAdvertisementSpec{
+		Communities:       []string{netmlbparameters.CustomCommunity},
+		AggregationLength: &prefixLen,
+		LocalPref:         netmlbparameters.LocalPref500,
 	}
 
-	err := helper.Apiclient.Update(context.Background(), addresspool)
+	err := helper.Apiclient.Update(context.Background(), bgpAdvertisement)
 	Expect(err).ToNot(HaveOccurred())
 }
 
@@ -280,7 +290,7 @@ func TestBGPBlockRouteAdvertisment(ipStack string, metalLBIPList []string, maste
 		workerNodeListString = append(workerNodeListString, node.Name)
 	}
 
-	By("should create a BGP addresspool")
+	By("should create a IPAddresspool and BGPAdvertisement")
 
 	addresspoolIPList := netmlbparameters.AddressPoolV4Prefix32
 
@@ -290,13 +300,19 @@ func TestBGPBlockRouteAdvertisment(ipStack string, metalLBIPList []string, maste
 
 	err := helper.Apiclient.Create(
 		context.Background(),
-		DefineMetalLBAddressPool(
+		DefineMetalLBIPAddressPool(
 			addresspoolIPList,
-			netmlbparameters.BGP,
 			ipStack,
-			netmlbparameters.AddressPoolS1Name,
-			netmlbparameters.PrefixLen32),
+			netmlbparameters.AddressPoolS1Name),
 	)
+	Expect(err).ToNot(HaveOccurred())
+
+	bgpAdvertisementDefinition := DefineBGPAdvertisement(
+		netmlbparameters.BGPAdvertisementName,
+		[]string{netmlbparameters.AddressPoolS1Name},
+		ipStack,
+		netmlbparameters.PrefixLen32)
+	err = helper.Apiclient.Create(context.Background(), bgpAdvertisementDefinition)
 	Expect(err).ToNot(HaveOccurred())
 
 	By("should create service")

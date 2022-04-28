@@ -2,8 +2,7 @@ package netacc100parameters
 
 import (
 	mcfgv1 "github.com/openshift/machine-config-operator/pkg/apis/machineconfiguration.openshift.io/v1"
-	fecv2 "github.com/smart-edge-open/openshift-operator/sriov-fec/api/v2"
-
+	fecv2 "github.com/smart-edge-open/sriov-fec-operator/sriov-fec/api/v2"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/k8sreporter"
 )
 

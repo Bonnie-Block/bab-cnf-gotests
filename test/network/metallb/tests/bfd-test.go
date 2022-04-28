@@ -9,8 +9,7 @@ import (
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
-	"github.com/metallb/metallb-operator/api/v1beta1"
-
+	metallboperatorv1beta1 "github.com/metallb/metallb-operator/api/v1beta1"
 	metallbutils "github.com/metallb/metallb-operator/test/e2e/metallb"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/metallb/netmetallbhelper"
@@ -62,7 +61,7 @@ var _ = Describe("BFD", func() {
 	AfterEach(func() {
 		By("Deleting MetalLB configuration")
 		_ = netmetallbhelper.DeleteLabelFromWorkers(netmlbparameters.SpeakerNodeTestLabel)
-		metallb := &v1beta1.MetalLB{}
+		metallb := &metallboperatorv1beta1.MetalLB{}
 		err := helper.Apiclient.Get(context.Background(), types.NamespacedName{Name: netmlbparameters.MetalLBCRName,
 			Namespace: netmlbparameters.MetalLBOperatorNameSpace}, metallb)
 		Expect(err).ToNot(HaveOccurred())
@@ -212,7 +211,10 @@ var _ = Describe("BFD", func() {
 			err = netmetallbhelper.DeleteConfigMap(netparameters.MasterConfigMapName, netmlbparameters.TestNamespace)
 			Expect(err).ToNot(HaveOccurred())
 
-			netmetallbhelper.DeleteAllAddressPools()
+			netmetallbhelper.DeleteAllIPAddressPools()
+
+			err = netmetallbhelper.DeleteAllBGPAdvertisements()
+			Expect(err).ToNot(HaveOccurred())
 
 			err = netmetallbhelper.DeleteAllLBServices(netmlbparameters.TestNamespace)
 			Expect(err).ToNot(HaveOccurred())
@@ -248,15 +250,20 @@ var _ = Describe("BFD", func() {
 
 				netmetallbhelper.CreateBGPWithBFD(bgpProtocol, netmlbparameters.ClientIpv4IP)
 
-				By("Creating an Address Pool")
-				addresspoolDefinition := netmetallbhelper.DefineMetalLBAddressPool(
-					netmlbparameters.MetalLBMultihopIPv4List,
-					netmlbparameters.BGP,
+				By("Creating an IPAddressPool and BGPAdvertisement")
+				ipAddressPoolDefinition := netmetallbhelper.DefineMetalLBIPAddressPool(netmlbparameters.MetalLBMultihopIPv4List,
 					ipStack,
-					netmlbparameters.AddressPoolName,
-					netmlbparameters.PrefixLen32)
+					netmlbparameters.AddressPoolName)
 
-				err := helper.Apiclient.Create(context.Background(), addresspoolDefinition)
+				err := helper.Apiclient.Create(context.Background(), ipAddressPoolDefinition)
+				Expect(err).ToNot(HaveOccurred())
+
+				bgpAdvertisementDefinition := netmetallbhelper.DefineBGPAdvertisement(
+					netmlbparameters.BGPAdvertisementName,
+					[]string{ipAddressPoolDefinition.Name},
+					ipStack,
+					netmlbparameters.PrefixLen32)
+				err = helper.Apiclient.Create(context.Background(), bgpAdvertisementDefinition)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating a MetalLB service")

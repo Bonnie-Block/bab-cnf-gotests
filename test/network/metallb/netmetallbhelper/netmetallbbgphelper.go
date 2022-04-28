@@ -11,9 +11,11 @@ import (
 	"text/template"
 	"time"
 
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 
-	metallbv1beta1 "github.com/metallb/metallb-operator/api/v1beta1"
 	metallbutils "github.com/metallb/metallb-operator/test/e2e/metallb"
 	"github.com/pkg/errors"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
@@ -23,19 +25,17 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 
+	metallbv1beta1 "go.universe.tf/metallb/api/v1beta1"
+
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
 )
 
 // CreateSpeakerBGPPeer creates BGP Peers on all worker nodes.
-func CreateSpeakerBGPPeer(externalAddress string, bgpProtocol string, asn uint32) error {
-	return helper.Apiclient.Create(context.Background(),
-		defineSpeakerBGPPeer(externalAddress, asn, "", ""))
+func CreateSpeakerBGPPeer(externalAddress string, asn uint32) error {
+	return helper.Apiclient.Create(context.Background(), defineSpeakerBGPPeer(externalAddress, asn, "", ""))
 }
 
 // DefineFRRBGPConfigMap returns configmap definition for the external FRR BGP configuration.
@@ -286,7 +286,7 @@ func CheckBGPRoutes(
 	return err
 }
 
-// parseRoute takes the result of a show bgp neighbor
+// parseRoutes takes the result of a show bgp neighbor
 // and parses the informations related to all the neighbours.
 func parseRoutes(vtyshRes string) (map[string]netmlbparameters.Route, error) {
 	toParse := netmlbparameters.IPInfo{}
@@ -354,6 +354,26 @@ func DeleteAllBGPPeers() error {
 	Eventually(func() bool {
 		return IsProtocolConfigured(netmlbparameters.BGPConfigPrefix)
 	}, 1*time.Minute, 2*time.Second).Should(BeFalse(), "BGP configuration is not removed")
+
+	return nil
+}
+
+// DeleteAllBGPAdvertisements removes all BGPAdvertisements in metallb-system.
+func DeleteAllBGPAdvertisements() error {
+	bgpAdvertisementList := metallbv1beta1.BGPAdvertisementList{}
+
+	err := helper.Apiclient.List(context.Background(), &bgpAdvertisementList,
+		runtimeclient.InNamespace(netmlbparameters.MetalLBOperatorNameSpace))
+	if err != nil {
+		return err
+	}
+
+	for _, bgpAdvertisement := range bgpAdvertisementList.Items {
+		err = helper.Apiclient.Delete(context.Background(), &bgpAdvertisement)
+		if err != nil {
+			return err
+		}
+	}
 
 	return nil
 }
@@ -428,9 +448,11 @@ func CreateFRRContainerOnMaster(
 }
 
 func RemoveMetallbBGPTestSetup() {
-	DeleteAllAddressPools()
+	DeleteAllIPAddressPools()
 
 	err := DeleteAllLBServices(netmlbparameters.TestNamespace)
+	Expect(err).ToNot(HaveOccurred())
+	err = DeleteAllBGPAdvertisements()
 	Expect(err).ToNot(HaveOccurred())
 	err = DeleteAllBGPPeers()
 	Expect(err).ToNot(HaveOccurred())

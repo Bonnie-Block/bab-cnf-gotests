@@ -17,7 +17,7 @@ import (
 	k8s "sigs.k8s.io/controller-runtime/pkg/client"
 
 	performancev2 "github.com/openshift-kni/performance-addon-operators/api/v2"
-	fecv2 "github.com/smart-edge-open/openshift-operator/sriov-fec/api/v2"
+	fecv2 "github.com/smart-edge-open/sriov-fec-operator/sriov-fec/api/v2"
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
