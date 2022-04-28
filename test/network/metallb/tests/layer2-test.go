@@ -11,18 +11,18 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/metallb/netmetallbhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/metallb/netmlbparameters"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/nethelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/netparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
-
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 
 	metallbv1beta1 "github.com/metallb/metallb-operator/api/v1beta1"
 	metallbutils "github.com/metallb/metallb-operator/test/e2e/metallb"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -33,23 +33,20 @@ var _ = Describe("CNF MetalLB", func() {
 
 	var (
 		nodeListString      []string
-		metallbIPList       []string
+		metalLBIPList       []string
 		masterNode          v1.Node
 		workerNodesNameList []string
 		err                 error
 	)
 
 	execute.BeforeAll(func() {
-		metallbIPList, err = helper.Config.GetMetallbVirtIP()
+		metalLBIPList, err = helper.Config.GetMetallbVirtIP()
 		Expect(err).ToNot(HaveOccurred())
 
-		if len(metallbIPList) < 2 {
-			Skip("The environment IP variable is not set or less than 2")
-		}
 		netmetallbhelper.IsEnvVarMetallbIPinNodeExtNetRange(strings.Split(
 			helper.Config.General.CnfNodeLabel, "/")[1],
 			netmlbparameters.SingleIPv4Stack,
-			metallbIPList[0],
+			metalLBIPList[0],
 			"")
 
 		masterNodeList, err := nodes.GetByRole(helper.Apiclient, parameters.RoleMaster)
@@ -86,8 +83,9 @@ var _ = Describe("CNF MetalLB", func() {
 		Expect(err).ToNot(HaveOccurred())
 		err = namespaces.CleanPods(netmlbparameters.TestNamespace, helper.Apiclient)
 		Expect(err).ToNot(HaveOccurred())
-
 		err = netmetallbhelper.DeleteLabelFromWorkers(netmlbparameters.SpeakerNodeTestLabel)
+		Expect(err).ToNot(HaveOccurred())
+		err = nethelper.DeleteNADs([]string{netmlbparameters.ExternalNADName}, netmlbparameters.TestNamespace)
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Should remove Metallb Configuration")
@@ -103,17 +101,14 @@ var _ = Describe("CNF MetalLB", func() {
 	// OCP-42936
 	It("Validate MetalLB Layer 2 functionality", func() {
 		By("should have valid environment IP variable for MetalLB address pool")
-		if len(metallbIPList) < 2 {
-			Skip("The environment IP variable is not set or less than 2")
-		}
 		netmetallbhelper.IsEnvVarMetallbIPinNodeExtNetRange(strings.Split(
 			helper.Config.General.CnfNodeLabel, "/")[1],
 			netmlbparameters.SingleIPv4Stack,
-			metallbIPList[0],
+			metalLBIPList[0],
 			"")
 
 		By("should create an Address Pool")
-		addresspool := netmetallbhelper.DefineMetalLBAddressPool(metallbIPList,
+		addresspool := netmetallbhelper.DefineMetalLBAddressPool(metalLBIPList,
 			netmlbparameters.Layer2,
 			netmlbparameters.SingleIPv4Stack,
 			netmlbparameters.AddressPoolL2)
@@ -154,38 +149,38 @@ var _ = Describe("CNF MetalLB", func() {
 			return netmetallbhelper.GetLBServiceAnnouncingNodeName() != nonAnnouncerNodeName
 		}, netmlbparameters.PodWaitingTime, netmlbparameters.Interval).Should(BeTrue())
 
-		testPod := netmetallbhelper.DefineAndRunMlbPodMaster(masterNode.Name,
-			netmlbparameters.TestNamespace,
-			helper.Config.Network.TestContainerImage)
+		err = helper.Apiclient.Create(context.Background(), netmetallbhelper.DefineExternalNAD())
+		Expect(err).ToNot(HaveOccurred())
 
-		err = netmetallbhelper.Arping(testPod, metallbIPList[0], announcingNodeName)
+		testPodDef, err := netmetallbhelper.DefineMlbPodMasterWithNetwork(masterNode.Name,
+			netmlbparameters.TestNamespace,
+			helper.Config.Network.TestContainerImage, netmlbparameters.ExternalNADName, metalLBIPList[1])
+
+		Expect(err).ToNot(HaveOccurred())
+		testPod := helper.WaitUntilPodCreatedAndRunning(testPodDef, netmlbparameters.PodWaitingTime)
+
+		err = netmetallbhelper.Arping(testPod, metalLBIPList[0], announcingNodeName)
 		Expect(err).ToNot(HaveOccurred())
 
 		By("should validate curl")
-		httpOutput, err := netmetallbhelper.HTTPMlbPod(testPod, metallbIPList[0], netmlbparameters.Curl,
-			netparameters.IPV4Family, parameters.MainContainerName)
-		Expect(err).ToNot(HaveOccurred(), httpOutput)
+		Eventually(func() error {
+			_, err := netmetallbhelper.HTTPMlbPod(testPod, metalLBIPList[1], metalLBIPList[0],
+				netparameters.IPV4Family, parameters.MainContainerName, netmlbparameters.Layer2)
 
+			return err
+		}, 1*time.Minute, 2*time.Second).ShouldNot(HaveOccurred(), "unable to curl")
 	})
 	// OCP-42751
 	It("Failure of MetalLB announcing speaker node", func() {
-
-		testPod := netmetallbhelper.DefineAndRunMlbPodMaster(masterNode.Name,
-			netmlbparameters.TestNamespace,
-			helper.Config.Network.TestContainerImage)
-
 		By("should have valid environment IP variable for MetalLB address pool")
-		if len(metallbIPList) < 2 {
-			Skip("The environment IP variable is not set or less than 2")
-		}
 		netmetallbhelper.IsEnvVarMetallbIPinNodeExtNetRange(strings.Split(
 			helper.Config.General.CnfNodeLabel, "/")[1],
 			netmlbparameters.SingleIPv4Stack,
-			metallbIPList[0],
+			metalLBIPList[0],
 			"")
 
 		By("should create an Address Pool")
-		addresspool := netmetallbhelper.DefineMetalLBAddressPool(metallbIPList,
+		addresspool := netmetallbhelper.DefineMetalLBAddressPool(metalLBIPList,
 			netmlbparameters.Layer2,
 			netmlbparameters.SingleIPv4Stack,
 			netmlbparameters.AddressPoolL2)
@@ -251,15 +246,29 @@ var _ = Describe("CNF MetalLB", func() {
 			fmt.Sprintf("Node %s is the new MetalLB service announcer node", announcingNodeDuringFailure))
 
 		By("should validate arping")
+
+		err = helper.Apiclient.Create(context.Background(), netmetallbhelper.DefineExternalNAD())
+		Expect(err).ToNot(HaveOccurred())
+
+		testPodDef, err := netmetallbhelper.DefineMlbPodMasterWithNetwork(masterNode.Name,
+			netmlbparameters.TestNamespace,
+			helper.Config.Network.TestContainerImage, netmlbparameters.ExternalNADName, metalLBIPList[1])
+
+		Expect(err).ToNot(HaveOccurred())
+		testPod := helper.WaitUntilPodCreatedAndRunning(testPodDef, netmlbparameters.PodWaitingTime)
+
 		announcingNodeDuringFailure = netmetallbhelper.GetLBServiceAnnouncingNodeName()
 		log.Printf("Node %s is the new MetalLB service announcer node", announcingNodeDuringFailure)
-		err = netmetallbhelper.Arping(testPod, metallbIPList[0], announcingNodeDuringFailure)
+		err = netmetallbhelper.Arping(testPod, metalLBIPList[0], announcingNodeDuringFailure)
 		Expect(err).ToNot(HaveOccurred())
 
 		By("should validate curl")
-		httpOutput, err := netmetallbhelper.HTTPMlbPod(testPod, metallbIPList[0], netmlbparameters.Curl,
-			netparameters.IPV4Family, parameters.MainContainerName)
-		Expect(err).ToNot(HaveOccurred(), httpOutput)
+		Eventually(func() error {
+			_, err := netmetallbhelper.HTTPMlbPod(testPod, metalLBIPList[1], metalLBIPList[0],
+				netparameters.IPV4Family, parameters.MainContainerName, netmlbparameters.Layer2)
+
+			return err
+		}, 1*time.Minute, 2*time.Second).ShouldNot(HaveOccurred(), "unable to curl")
 
 		By("After failure two Speaker pods are running")
 
@@ -283,12 +292,16 @@ var _ = Describe("CNF MetalLB", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(func() error {
-			return netmetallbhelper.Arping(testPod, metallbIPList[0], announcingNodeAfterFailure)
+			return netmetallbhelper.Arping(testPod, metalLBIPList[0], announcingNodeAfterFailure)
 		}, netmlbparameters.PodWaitingTime, netmlbparameters.Interval).Should(BeNil())
 
 		By("should validate curl")
-		httpOutput, err = netmetallbhelper.HTTPMlbPod(testPod, metallbIPList[0], netmlbparameters.Curl,
-			netparameters.IPV4Family, parameters.MainContainerName)
-		Expect(err).ToNot(HaveOccurred(), httpOutput)
+
+		Eventually(func() error {
+			_, err := netmetallbhelper.HTTPMlbPod(testPod, metalLBIPList[1], metalLBIPList[0],
+				netparameters.IPV4Family, parameters.MainContainerName, netmlbparameters.Layer2)
+
+			return err
+		}, 1*time.Minute, 2*time.Second).ShouldNot(HaveOccurred(), "unable to curl")
 	})
 })

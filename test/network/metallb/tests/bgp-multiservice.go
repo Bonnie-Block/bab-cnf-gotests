@@ -197,13 +197,22 @@ var _ = Describe("CNF MetalLB", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		By("should validate curl to service 1")
-		httpOutput, err := netmetallbhelper.HTTPMlbPod(frrPod, netmlbparameters.AddressPoolS1[0], netmlbparameters.Curl,
-			netparameters.IPV4Family, netmlbparameters.TestContainerName)
+		httpOutput, err := netmetallbhelper.HTTPMlbPod(frrPod, metalLBIPList[0], netmlbparameters.AddressPoolS1[0],
+			netparameters.IPV4Family, netmlbparameters.TestContainerName, netmlbparameters.BGP)
 		Expect(err).ToNot(HaveOccurred(), httpOutput)
+		Eventually(func() error {
+			_, err := netmetallbhelper.HTTPMlbPod(frrPod, metalLBIPList[0], netmlbparameters.AddressPoolS1[0],
+				netparameters.IPV4Family, netmlbparameters.TestContainerName, netmlbparameters.BGP)
+
+			return err
+		}, 1*time.Minute, 2*time.Second).ShouldNot(HaveOccurred(), "unable to curl")
 
 		By("should validate curl to service 2")
-		httpOutput, err = netmetallbhelper.HTTPMlbPod(frrPod, netmlbparameters.AddressPoolS2[0], netmlbparameters.Curl,
-			netparameters.IPV4Family, netmlbparameters.TestContainerName)
-		Expect(err).ToNot(HaveOccurred(), httpOutput)
+		Eventually(func() error {
+			_, err := netmetallbhelper.HTTPMlbPod(frrPod, metalLBIPList[0], netmlbparameters.AddressPoolS2[0],
+				netparameters.IPV4Family, netmlbparameters.TestContainerName, netmlbparameters.BGP)
+
+			return err
+		}, 1*time.Minute, 2*time.Second).ShouldNot(HaveOccurred(), "unable to curl")
 	})
 })

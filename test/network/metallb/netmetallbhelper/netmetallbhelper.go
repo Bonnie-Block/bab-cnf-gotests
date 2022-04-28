@@ -341,19 +341,35 @@ func DefineAndRunMlbClientPod(node string, image string, appLabel string, argCom
 	return runningPod
 }
 
-// DefineAndRunMlbPodMaster creates a pod on a Master node.
-func DefineAndRunMlbPodMaster(node string, ns string, image string) *k8sv1.Pod {
+// DefineMlbPodMaster creates a pod on a Master node.
+func DefineMlbPodMaster(node string, ns string, image string) *k8sv1.Pod {
 	podDefPrivHostNet := pod.RedefineAsPrivileged(pod.DefineWithHostNetwork(node, ns, image))
 	podMaster := pod.RedefineOnMaster(podDefPrivHostNet)
-	runningPod := helper.WaitUntilPodCreatedAndRunning(podMaster, netmlbparameters.PodWaitingTime)
 
-	return runningPod
+	return podMaster
+}
+
+func DefineMlbPodMasterWithNetwork(node string,
+	ns string,
+	image string,
+	nadName string,
+	ipAddress string) (*k8sv1.Pod, error) {
+	podMaster := DefineMlbPodMaster(node, ns, image)
+	podMaster.Spec.HostNetwork = false
+
+	_, subnet, err := nethelper.DefineIPFamily(ipAddress)
+	if err != nil {
+		return nil, err
+	}
+
+	return pod.RedefinePodWithNetwork(podMaster, fmt.Sprintf(`[{"name": "%s","ips": ["%s/%s"]}]`,
+		nadName, ipAddress, subnet)), nil
 }
 
 // Arping verifies only one node replies to arping and that the service node br-ex mac matches the output.
 func Arping(client *k8sv1.Pod, destIPAddr string, node string) error {
-	arpStatus, err := pod.ExecCommand(helper.Apiclient, *client, []string{"bash", "-c", fmt.Sprint("arping -I br-ex ",
-		destIPAddr, " -c2")})
+	arpStatus, err := pod.ExecCommand(helper.Apiclient, *client, []string{"bash", "-c", fmt.Sprint("arping -I net1 ",
+		destIPAddr, " -c3")})
 	Expect(err).ToNot(HaveOccurred())
 
 	macs := arpStatus.String()
@@ -365,8 +381,8 @@ func Arping(client *k8sv1.Pod, destIPAddr string, node string) error {
 			lineCount++
 		}
 	}
-
-	Expect(lineCount).To(Equal(2), "An incorrect number of arp replies were received")
+	// When using the NAD interface the mac address of eth0 is included in the arp replies adding an extra line count.
+	Expect(lineCount).To(Equal(4), "An incorrect number of arp replies were received")
 	// Verifies the output mac addresses matches the annoucing node mac address
 	nodeMac, err := SpeakerNodeMac(node)
 	Expect(strings.Join(output, "\n")).Should(ContainSubstring(strings.ToUpper(nodeMac)),
@@ -376,54 +392,36 @@ func Arping(client *k8sv1.Pod, destIPAddr string, node string) error {
 	return err
 }
 
-// Arping verifies only one node replies to arping and that the service node br-ex mac matches the output.
-func IPAddBrEx(client k8sv1.Pod) ([]string, error) {
-	ipAddr, err := pod.ExecCommand(helper.Apiclient, client, []string{"bash", "-c", "ip a show br-ex"})
-	Expect(err).ToNot(HaveOccurred())
-
-	return strings.Split(ipAddr.String(), ","), err
-}
-
 // HTTPMlbPod verifies that nginx web service is available via the external service IP.
 func HTTPMlbPod(
 	client *k8sv1.Pod,
+	sourceIPAddr string,
 	destIPAddr string,
-	method string,
 	ipFamily string,
-	containerName string) (string, error) {
+	containerName string, protocolLayer string) (string, error) {
 	var (
 		command    string
 		httpStatus bytes.Buffer
 	)
 
-	switch method {
-	case netmlbparameters.Curl:
-		command = fmt.Sprint("curl ", destIPAddr)
-
-		if ipFamily == netmlbparameters.IPV6Family {
-			command = fmt.Sprint("curl ", "[", destIPAddr, "]")
-		}
-
-	case netmlbparameters.Wget:
-		command = fmt.Sprint("wget -qO- ", destIPAddr)
+	if protocolLayer == netmlbparameters.Layer2 {
+		// This is a workaround a NAD issue in which the macvlan mac address is not being populated on the infra switch.
+		_, err := pod.ExecCommand(helper.Apiclient, *client, []string{"bash", "-c", fmt.Sprint("arping -I net1 ",
+			destIPAddr, " -c2")})
+		Expect(err).ToNot(HaveOccurred())
 	}
 
-	if containerName == netmlbparameters.TestContainerName {
-		httpStatus, err := pod.ExecCommand(helper.Apiclient, *client, []string{"bash", "-c", command},
-			netmlbparameters.TestContainerName)
-		if err != nil {
-			return httpStatus.String(), err
-		}
+	command = fmt.Sprintf("curl --interface %s %s --max-time 5", sourceIPAddr, destIPAddr)
 
-		if !strings.Contains(httpStatus.String(), "html") {
-			return httpStatus.String(), fmt.Errorf("unable to connect to nginx")
-		}
-	} else {
-		httpStatus, err := pod.ExecCommand(helper.Apiclient, *client,
-			[]string{"bash", "-c", command})
-		if err != nil {
-			return httpStatus.String(), err
-		}
+	if ipFamily == netmlbparameters.IPV6Family {
+		command = fmt.Sprint("curl --interface ", sourceIPAddr, "[", destIPAddr, "]", "--max-time 5")
+	}
+
+	httpStatus, err := pod.ExecCommand(helper.Apiclient, *client, []string{"bash", "-c", command},
+		containerName)
+
+	if err != nil {
+		return httpStatus.String(), fmt.Errorf("curl command failed")
 	}
 
 	return httpStatus.String(), nil
@@ -869,7 +867,7 @@ func ValidateClusterIPStack() string {
 	clusterIPv4Address := nethelper.NodeIPsForFamily(workerNodes, netparameters.IPV4Family)
 	clusterIPv6Address := nethelper.NodeIPsForFamily(workerNodes, netmlbparameters.IPV6Family)
 
-	if len(clusterIPv6Address) == 0 {
+	if len(clusterIPv6Address) != len(workerNodes) {
 		clusterIPStack = netmlbparameters.SingleIPv4Stack
 	}
 

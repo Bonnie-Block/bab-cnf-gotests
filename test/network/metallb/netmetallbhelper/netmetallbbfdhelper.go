@@ -97,9 +97,10 @@ func TestMetalLBBFD(scenario string, clientPod *k8sv1.Pod,
 		netmlbparameters.BGPStateEstablished)).To(BeTrue())
 
 	if scenario == netmlbparameters.ScenarioMultihop {
-		httpOutput, err := HTTPMlbPod(clientPod, netmlbparameters.MetalLBMultihopIPv4List[0],
-			netmlbparameters.Wget, netparameters.IPV4Family, parameters.MainContainerName)
-		Expect(err).ToNot(HaveOccurred(), httpOutput)
+		httpOutput, err := HTTPMlbPod(
+			clientPod, netmlbparameters.ClientIpv4IP, netmlbparameters.MetalLBMultihopIPv4List[0],
+			netparameters.IPV4Family, netmlbparameters.TestContainerName, netmlbparameters.BGP)
+		Expect(err).To(HaveOccurred(), httpOutput)
 	}
 
 	By("Bringing Speaker pod back and checking that speaker pods are up and running")
@@ -137,8 +138,9 @@ func TestMetalLBBFD(scenario string, clientPod *k8sv1.Pod,
 	}, netmlbparameters.TimeoutBFDBGP, netmlbparameters.Interval).ShouldNot(HaveOccurred())
 
 	if scenario == netmlbparameters.ScenarioMultihop {
-		httpOutput, err := HTTPMlbPod(clientPod, netmlbparameters.MetalLBMultihopIPv4List[0],
-			netmlbparameters.Wget, netparameters.IPV4Family, parameters.MainContainerName)
+		httpOutput, err := HTTPMlbPod(
+			clientPod, netmlbparameters.ClientIpv4IP, netmlbparameters.MetalLBMultihopIPv4List[0],
+			netparameters.IPV4Family, netmlbparameters.TestContainerName, netmlbparameters.BGP)
 		Expect(err).ToNot(HaveOccurred(), httpOutput)
 	}
 }

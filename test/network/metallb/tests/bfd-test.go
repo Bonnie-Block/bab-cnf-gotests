@@ -332,8 +332,9 @@ var _ = Describe("BFD", func() {
 				}, netmlbparameters.TimeoutBFDBGP, netmlbparameters.Interval).ShouldNot(HaveOccurred())
 
 				httpOutput, err := netmetallbhelper.HTTPMlbPod(clientPodOnMasterNode,
+					netmlbparameters.ClientIpv4IP,
 					netmlbparameters.MetalLBMultihopIPv4List[0],
-					netmlbparameters.Wget, netparameters.IPV4Family, parameters.MainContainerName)
+					netparameters.IPV4Family, netmlbparameters.TestContainerName, netmlbparameters.BGP)
 				Expect(err).ToNot(HaveOccurred(), httpOutput)
 
 				netmetallbhelper.TestMetalLBBFD(netmlbparameters.ScenarioMultihop,

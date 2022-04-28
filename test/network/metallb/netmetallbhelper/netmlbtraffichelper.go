@@ -29,6 +29,12 @@ func TestBGPTable(ipStack string, workerNodeList []k8sv1.Node, masterNodeList []
 		}
 	}
 
+	if clusterIPStack == netmlbparameters.SingleIPv4Stack {
+		if ipStack == netmlbparameters.SingleIPv6Stack || ipStack == netmlbparameters.DualIPStack {
+			Skip("cluster does not support IPv6 or Dual Stack.")
+		}
+	}
+
 	metalLBIPList, err := helper.Config.GetMetallbVirtIP()
 	Expect(err).ToNot(HaveOccurred())
 
@@ -41,7 +47,11 @@ func TestBGPTable(ipStack string, workerNodeList []k8sv1.Node, masterNodeList []
 	workerNodesAdresses := nethelper.NodeIPsForFamily(workerNodeList, netparameters.IPV4Family)
 	workerNodesV6Adresses := nethelper.NodeIPsForFamily(workerNodeList, netmlbparameters.IPV6Family)
 
-	annotation := defineAnnotationWithIPStack(ipStack, metalLBIPList, clusterIPStack)
+	annotation := DefineAnnotationWithIPStack(ipStack, metalLBIPList)
+
+	if annotation == "" {
+		Fail("no annotation string was created")
+	}
 
 	if ipStack != netmlbparameters.SingleIPv4Stack {
 		workerNodesAdresses = append(workerNodesAdresses, workerNodesV6Adresses...)
@@ -124,10 +134,10 @@ func TestBGPTable(ipStack string, workerNodeList []k8sv1.Node, masterNodeList []
 	}, 1*time.Minute, netmlbparameters.Interval).Should(BeTrue())
 
 	By("should validate Traffic")
-	validateTraffic(masterNodeFRRPod, workerNodesAdresses, ipStack)
+	validateTraffic(masterNodeFRRPod, workerNodesAdresses, metalLBIPList, ipStack)
 }
 
-func validateTraffic(masterFRRPod *k8sv1.Pod, nodeIPAdresses []string, ipStack string) {
+func validateTraffic(masterFRRPod *k8sv1.Pod, nodeIPAdresses []string, metalLBIPList []string, ipStack string) {
 	By("should validate BGP routes to service")
 
 	var routes []string
@@ -147,7 +157,7 @@ func validateTraffic(masterFRRPod *k8sv1.Pod, nodeIPAdresses []string, ipStack s
 
 	By("should validate curl to service")
 
-	_, err := curlService(masterFRRPod, ipStack)
+	_, err := curlService(masterFRRPod, ipStack, metalLBIPList)
 	Expect(err).ToNot(HaveOccurred())
 
 	By("should validate SCTP to service")
@@ -156,25 +166,25 @@ func validateTraffic(masterFRRPod *k8sv1.Pod, nodeIPAdresses []string, ipStack s
 	Expect(err).ToNot(HaveOccurred())
 }
 
-func curlService(frrPod *k8sv1.Pod, ipStack string) (string, error) {
+func curlService(frrPod *k8sv1.Pod, ipStack string, metalLBIPList []string) (string, error) {
 	switch ipStack {
 	case netmlbparameters.SingleIPv4Stack:
-		return HTTPMlbPod(frrPod, netmlbparameters.AddressPoolS1[0], netmlbparameters.Curl,
-			netparameters.IPV4Family, netmlbparameters.TestContainerName)
+		return HTTPMlbPod(frrPod, metalLBIPList[0], netmlbparameters.AddressPoolS1[0],
+			netparameters.IPV4Family, netmlbparameters.TestContainerName, netmlbparameters.BGP)
 
 	case netmlbparameters.SingleIPv6Stack:
-		return HTTPMlbPod(frrPod, netmlbparameters.AddressPoolS1[2], netmlbparameters.Curl,
-			netmlbparameters.IPV6Family, netmlbparameters.TestContainerName)
+		return HTTPMlbPod(frrPod, metalLBIPList[2], netmlbparameters.AddressPoolS1[2],
+			netmlbparameters.IPV6Family, netmlbparameters.TestContainerName, netmlbparameters.BGP)
 	}
 
-	httpOutput, err := HTTPMlbPod(frrPod, netmlbparameters.AddressPoolS1[2], netmlbparameters.Curl,
-		netmlbparameters.IPV6Family, netmlbparameters.TestContainerName)
+	httpOutput, err := HTTPMlbPod(frrPod, metalLBIPList[2], netmlbparameters.AddressPoolS1[2],
+		netmlbparameters.IPV6Family, netmlbparameters.TestContainerName, netmlbparameters.BGP)
 	if err != nil {
 		return httpOutput, err
 	}
 
-	return HTTPMlbPod(frrPod, netmlbparameters.AddressPoolS1[2], netmlbparameters.Curl,
-		netmlbparameters.IPV6Family, netmlbparameters.TestContainerName)
+	return HTTPMlbPod(frrPod, metalLBIPList[2], netmlbparameters.AddressPoolS1[2],
+		netmlbparameters.IPV6Family, netmlbparameters.TestContainerName, netmlbparameters.BGP)
 }
 
 func defineIPRouteFamily(ipStack string) ([]string, string) {
@@ -205,22 +215,20 @@ func createSpeakerBGPPeerIPStack(ipStack string, metalLBIPList []string, bgpASN 
 	return CreateSpeakerBGPPeer(metalLBIPList[2], "", uint32(bgpASN))
 }
 
-func defineAnnotationWithIPStack(ipStack string, metalLBIPList []string, clusterIPStack string) string {
+func DefineAnnotationWithIPStack(ipStack string, metalLBIPList []string) string {
 	annotation := `[{"name": "external", "ips": `
-	if ipStack == netmlbparameters.SingleIPv4Stack {
+
+	switch ipStack {
+	case netmlbparameters.SingleIPv4Stack:
 		return annotation + fmt.Sprintf(`["%s/%s"]}]`, metalLBIPList[0], netparameters.IPV4Subnet)
-	}
-
-	if clusterIPStack == netmlbparameters.SingleIPv4Stack {
-		Skip("Cluster does not support IPv6")
-	}
-
-	if ipStack == netmlbparameters.SingleIPv6Stack {
+	case netmlbparameters.SingleIPv6Stack:
 		return annotation + fmt.Sprintf(`["%s/%s"]}]`, metalLBIPList[2], netparameters.IPV6Subnet)
+	case netmlbparameters.DualIPStack:
+		return annotation + fmt.Sprintf(`["%s/%s","%s/%s"]}]`, metalLBIPList[0],
+			netparameters.IPV4Subnet, metalLBIPList[2], netparameters.IPV6Subnet)
 	}
 
-	return annotation + fmt.Sprintf(`["%s/%s","%s/%s"]}]`, metalLBIPList[0],
-		netparameters.IPV4Subnet, metalLBIPList[2], netparameters.IPV6Subnet)
+	return ""
 }
 
 func sctpToService(masterFRRPod *k8sv1.Pod, ipStack string) error {

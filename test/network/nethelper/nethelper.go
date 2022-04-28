@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"strings"
 	"time"
 
 	v1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
@@ -300,4 +301,20 @@ func lastAddr(network *net.IPNet) (net.IP, error) {
 		ip, binary.BigEndian.Uint32(network.IP.To4())|^binary.BigEndian.Uint32(net.IP(network.Mask).To4()))
 
 	return ip, nil
+}
+
+func DefineIPFamily(ipAddress string) (ipFamily string, subnet string, err error) {
+	if net.ParseIP(ipAddress) == nil {
+		return "", "", fmt.Errorf("not valid IP %s", ipAddress)
+	}
+
+	subnet = netparameters.IPV4Subnet
+	ipFamily = netparameters.IPV4Family
+
+	if strings.Contains(ipAddress, ":") {
+		subnet = netparameters.IPV6Subnet
+		ipFamily = netparameters.IPV4Family
+	}
+
+	return ipFamily, subnet, nil
 }

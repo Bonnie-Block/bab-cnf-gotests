@@ -123,7 +123,7 @@ func DefineRouterPod(nodeName string,
 
 // defineFRRPodWithNetworkAndIP returns frr pod definition with network and IP.
 func defineFRRPodWithNetworkAndIP(masterNodeName string, ipAddress string, networkName string) *k8sv1.Pod {
-	frrPod := nethelper.DefineFRRPod(masterNodeName, netmlbparameters.TestNamespace, false)
+	frrPod := DefineFrrPodWithTestContainer(masterNodeName, netmlbparameters.TestNamespace)
 
 	return pod.RedefinePodWithNetwork(frrPod, fmt.Sprintf(`[{"name": "%s","ips": ["%s/%s"]}]`,
 		networkName, ipAddress, netparameters.IPV4Subnet))
