@@ -143,7 +143,8 @@ var _ = Describe("CNF MetalLB", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		By("should create external FRR container")
-		err = helper.Apiclient.Create(context.Background(), netmetallbhelper.DefineExternalNAD())
+		err = helper.Apiclient.Create(context.Background(),
+			netmetallbhelper.DefineMacVlanNAD(netmlbparameters.ExternalNADName, netmlbparameters.BREXInterface))
 		Expect(err).ToNot(HaveOccurred(),
 			fmt.Sprintf("An unexpected error occurred during br-ex NetworkAttachmentDefinition creation: %s", err))
 

@@ -129,25 +129,25 @@ func defineFRRPodWithNetworkAndIP(masterNodeName string, ipAddress string, netwo
 		networkName, ipAddress, subnet))
 }
 
-// DefineExternalNAD returns external Network Attachment Definition for multihop scenario.
-func DefineExternalNAD() *netattdefv1.NetworkAttachmentDefinition {
+// DefineMacVlanNAD returns macvlan Network Attachment Definition.
+func DefineMacVlanNAD(nadName string, masterInterface string) *netattdefv1.NetworkAttachmentDefinition {
 	return &netattdefv1.NetworkAttachmentDefinition{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      netmlbparameters.ExternalNADName,
+			Name:      nadName,
 			Namespace: netmlbparameters.TestNamespace,
 		},
 		Spec: netattdefv1.NetworkAttachmentDefinitionSpec{
-			Config: `{"cniVersion": "0.3.1",
-	"name": "externalnad",
+			Config: fmt.Sprintf(`{"cniVersion": "0.3.1",
+	"name": "%s",
 	"type": "macvlan",
-	"master": "br-ex",
+	"master": "%s",
 	"mode": "bridge",
-	"ipam": {"type": "static"}}`,
+	"ipam": {"type": "static"}}`, nadName, masterInterface),
 		}}
 }
 
-// DefineInternalNAD returns external Network Attachment Definition for multihop scenario.
-func DefineInternalNAD() *netattdefv1.NetworkAttachmentDefinition {
+// DefineBridgeNAD returns bridge Network Attachment Definition.
+func DefineBridgeNAD() *netattdefv1.NetworkAttachmentDefinition {
 	return &netattdefv1.NetworkAttachmentDefinition{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      netmlbparameters.InternalNADName,

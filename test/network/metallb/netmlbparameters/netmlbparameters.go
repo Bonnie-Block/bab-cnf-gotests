@@ -28,6 +28,8 @@ const (
 	ClientIpv4IP                              = "172.16.0.1"
 	InternalRouter1IPv4                       = "172.16.0.253"
 	InternalRouter2IPv4                       = "172.16.0.254"
+	IPSecondaryInterface1                     = "3.3.3.10"
+	IPSecondaryInterface2                     = "3.3.3.20"
 	ScenarioMultihop                          = "multi-hop"
 	ScenarioSingleHop                         = "single-hop"
 	PodWaitingTime              time.Duration = 2 * time.Minute
@@ -71,6 +73,7 @@ const (
 	ProtocolTCP                               = "tcp"
 	BGPAdvertisementName                      = "bgpadvertisement"
 	L2AdvertisementName                       = "l2advertisement"
+	BREXInterface                             = "br-ex"
 	PrefixLen32                               = int32(32)
 	PrefixLen28                               = int32(28)
 	PrefixLen128                              = int32(128)

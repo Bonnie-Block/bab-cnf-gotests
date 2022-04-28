@@ -345,7 +345,7 @@ func DefineMlbPodMaster(node string, ns string, image string) *k8sv1.Pod {
 	return podMaster
 }
 
-func DefineMlbPodMasterWithNetwork(node string,
+func DefineMlbPodWithNetwork(node string,
 	ns string,
 	image string,
 	nadName string,
@@ -419,7 +419,7 @@ func HTTPMlbPod(
 		containerName)
 
 	if err != nil {
-		return httpStatus.String(), fmt.Errorf("curl command failed")
+		return httpStatus.String(), fmt.Errorf("curl command failed - %w", err)
 	}
 
 	return httpStatus.String(), nil
@@ -704,6 +704,7 @@ func SetupMetalLB() {
 
 	if err != nil {
 		metallb.Spec.SpeakerNodeSelector = netmlbparameters.SpeakerNodeSelectorWorker
+		metallb.Spec.LogLevel = metallboperatorv1beta1.LogLevelDebug
 		Expect(helper.Apiclient.Create(context.Background(), metallb)).Should(Succeed())
 	}
 
@@ -914,6 +915,41 @@ func ActivateSCTPModuleOnMaster(masterNode k8sv1.Node) {
 	output, err := pod.ExecCommand(helper.Apiclient, *masterPrivPod, []string{"/bin/bash", "-c", "lsmod | grep sctp"})
 	Expect(err).ToNot(HaveOccurred())
 	Expect(output.String()).To(ContainSubstring("libcrc32c"))
+}
+
+// AddOrDeleteNodeSecIPAddViaSpeaker removes or adds IP address to the secondary Node interface via speaker pod.
+func AddOrDeleteNodeSecIPAddViaSpeaker(action string,
+	workerNodeName string,
+	ipaddress string,
+	secInterface string) (string, error) {
+	fieldSelector := fmt.Sprintf("spec.nodeName=%s", workerNodeName)
+
+	speakerPodList, err := helper.Apiclient.Pods(netmlbparameters.MetalLBOperatorNameSpace).List(
+		context.Background(),
+		metav1.ListOptions{
+			LabelSelector: netmlbparameters.SpeakersLabelSelector, FieldSelector: fieldSelector},
+	)
+	if err != nil {
+		return "", fmt.Errorf("failed to get MetalLB speaker pods: %w", err)
+	}
+
+	if len(speakerPodList.Items) != 1 {
+		return "", fmt.Errorf("wrong number of speakers(%d) on the worker node %s",
+			len(speakerPodList.Items), workerNodeName)
+	}
+
+	_, subnet, err := nethelper.DefineIPFamily(ipaddress)
+	if err != nil {
+		return "", err
+	}
+
+	buffer, err := pod.ExecCommand(helper.Apiclient, speakerPodList.Items[0], []string{"ip", "add", action,
+		netmlbparameters.IPSecondaryInterface1 + "/" + subnet, "dev", secInterface})
+	if err != nil {
+		return buffer.String(), err
+	}
+
+	return buffer.String(), err
 }
 
 // GetMetalLBIPByFamily returns mettalLB IP addresses  from env var METALLB_ADDR_LIST sorted by IPFamily.

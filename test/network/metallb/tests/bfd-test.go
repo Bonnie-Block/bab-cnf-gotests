@@ -75,7 +75,8 @@ var _ = Describe("BFD", func() {
 			"")
 
 		By("Creating external br-ex NetworkAttachmentDefinition")
-		err = helper.Apiclient.Create(context.Background(), netmetallbhelper.DefineExternalNAD())
+		err = helper.Apiclient.Create(context.Background(),
+			netmetallbhelper.DefineMacVlanNAD(netmlbparameters.ExternalNADName, netmlbparameters.BREXInterface))
 		Expect(err).ToNot(HaveOccurred(),
 			fmt.Sprintf("An unexpected error occurred during br-ex NetworkAttachmentDefinition creation: %s", err))
 	})
@@ -295,7 +296,7 @@ var _ = Describe("BFD", func() {
 					netmlbparameters.AppLabel1, []string{netmlbparameters.ArgCommandNGINX})
 
 				By("Creating FRR router pods on a Master node")
-				internalNADDefinition := netmetallbhelper.DefineInternalNAD()
+				internalNADDefinition := netmetallbhelper.DefineBridgeNAD()
 				err = helper.Apiclient.Create(context.Background(), internalNADDefinition)
 				Expect(err).ToNot(HaveOccurred())
 

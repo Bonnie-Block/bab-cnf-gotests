@@ -426,7 +426,9 @@ func CreateFRRContainerOnMaster(
 		workerNodesAdresses = append(workerNodesAdresses, workerNodesV6Adresses...)
 	}
 
-	err := helper.Apiclient.Create(context.Background(), DefineExternalNAD())
+	err := helper.Apiclient.Create(context.Background(),
+		DefineMacVlanNAD(netmlbparameters.ExternalNADName,
+			netmlbparameters.BREXInterface))
 	Expect(err).ToNot(HaveOccurred())
 
 	masterConfigMap := DefineFRRBGPConfigMap(

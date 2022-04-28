@@ -155,11 +155,12 @@ var _ = Describe("CNF MetalLB", func() {
 			return netmetallbhelper.GetLBServiceAnnouncingNodeName() != nonAnnouncerNodeName
 		}, netmlbparameters.PodWaitingTime, netmlbparameters.Interval).Should(BeTrue())
 
-		err = helper.Apiclient.Create(context.Background(), netmetallbhelper.DefineExternalNAD())
+		err = helper.Apiclient.Create(context.Background(),
+			netmetallbhelper.DefineMacVlanNAD(netmlbparameters.ExternalNADName, netmlbparameters.BREXInterface))
 		Expect(err).ToNot(HaveOccurred(),
 			fmt.Sprintf("An unexpected error occurred during br-ex NetworkAttachmentDefinition creation: %s", err))
 
-		testPodDef, err := netmetallbhelper.DefineMlbPodMasterWithNetwork(masterNode.Name,
+		testPodDef, err := netmetallbhelper.DefineMlbPodWithNetwork(masterNode.Name,
 			netmlbparameters.TestNamespace,
 			helper.Config.Network.TestContainerImage, netmlbparameters.ExternalNADName, metalLBIPList[1])
 
@@ -258,11 +259,12 @@ var _ = Describe("CNF MetalLB", func() {
 
 		By("should validate arping")
 
-		err = helper.Apiclient.Create(context.Background(), netmetallbhelper.DefineExternalNAD())
+		err = helper.Apiclient.Create(context.Background(),
+			netmetallbhelper.DefineMacVlanNAD(netmlbparameters.ExternalNADName, netmlbparameters.BREXInterface))
 		Expect(err).ToNot(HaveOccurred(),
 			fmt.Sprintf("An unexpected error occurred during br-ex NetworkAttachmentDefinition creation: %s", err))
 
-		testPodDef, err := netmetallbhelper.DefineMlbPodMasterWithNetwork(masterNode.Name,
+		testPodDef, err := netmetallbhelper.DefineMlbPodWithNetwork(masterNode.Name,
 			netmlbparameters.TestNamespace,
 			helper.Config.Network.TestContainerImage, netmlbparameters.ExternalNADName, metalLBIPList[1])
 
