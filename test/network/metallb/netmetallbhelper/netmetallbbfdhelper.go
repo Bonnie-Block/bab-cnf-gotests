@@ -99,7 +99,7 @@ func TestMetalLBBFD(scenario string, clientPod *k8sv1.Pod,
 
 	if scenario == netmlbparameters.ScenarioMultihop {
 		httpOutput, err := HTTPMlbPod(
-			clientPod, netmlbparameters.ClientIpv4IP, netmlbparameters.MetalLBMultihopIPv4List[0],
+			clientPod, netmlbparameters.ClientIpv4IP, netmlbparameters.IPv4AddressesLBList[0],
 			netparameters.IPV4Family, netmlbparameters.TestContainerName, netmlbparameters.BGP)
 		// If externalTrafficPolicy is Local, the server pod should be unreachable.
 		switch externalTrafficPolicy {
@@ -146,7 +146,7 @@ func TestMetalLBBFD(scenario string, clientPod *k8sv1.Pod,
 
 	if scenario == netmlbparameters.ScenarioMultihop {
 		httpOutput, err := HTTPMlbPod(
-			clientPod, netmlbparameters.ClientIpv4IP, netmlbparameters.MetalLBMultihopIPv4List[0],
+			clientPod, netmlbparameters.ClientIpv4IP, netmlbparameters.IPv4AddressesLBList[0],
 			netparameters.IPV4Family, netmlbparameters.TestContainerName, netmlbparameters.BGP)
 		Expect(err).ToNot(HaveOccurred(), httpOutput)
 	}
@@ -203,11 +203,9 @@ func CreateBGPWithBFD(bgpProtocol string, bgpPeerAddress string) {
 
 func CreateClientOnMaster(bgpProtocol string,
 	bgpPeerAddresses []string,
-	scenario string,
+	clientIP string,
 	masterNodeName string,
-	internalNADName string) *k8sv1.Pod {
-	By("Creating FRR client pod on a Master node")
-
+	nadName string) *k8sv1.Pod {
 	masterConfigMap := defineBFDMLBConfigMap(bgpPeerAddresses,
 		netparameters.MasterConfigMapName,
 		netmlbparameters.IBGPASN, bgpProtocol)
@@ -217,18 +215,9 @@ func CreateClientOnMaster(bgpProtocol string,
 		metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
-	var clientPodDefinition *k8sv1.Pod
-
-	switch scenario {
-	case netmlbparameters.ScenarioMultihop:
-		clientPodDefinition = defineFRRPodWithNetworkAndIP(masterNodeName,
-			netmlbparameters.ClientIpv4IP,
-			internalNADName)
-	case netmlbparameters.ScenarioSingleHop:
-		clientPodDefinition = nethelper.DefineFRRPod(masterNodeName, netmlbparameters.TestNamespace, true)
-	default:
-		Fail("wrong scenario name")
-	}
+	clientPodDefinition := defineFRRPodWithNetworkAndIP(masterNodeName,
+		clientIP,
+		nadName)
 
 	return helper.WaitUntilPodCreatedAndRunning(clientPodDefinition, netmlbparameters.Timeout)
 }

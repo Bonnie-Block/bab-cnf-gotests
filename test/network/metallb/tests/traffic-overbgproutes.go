@@ -36,7 +36,8 @@ var _ = Describe("MetalLB BGP", func() {
 		By(fmt.Sprintf("Running test on %s cluster", clusterIPStack))
 
 		ipv4metalLBIPList, ipv6metalLBIPList, err := netmetallbhelper.GetMetalLBIPByFamily()
-		Expect(err).ToNot(HaveOccurred())
+		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("An unexpected error occurred while"+
+			" determining the IP addresses from the METALLB_ADDR_LIST environment variable.: %s", err))
 
 		if clusterIPStack == netparameters.DualIPFamily {
 			Expect(len(ipv6metalLBIPList)).To(BeNumerically(">", 0))

@@ -108,7 +108,7 @@ var (
 
 	SpeakerNodeSelectorWorker = map[string]string{
 		fmt.Sprintf("%s/%s", nodes.LabelRole, parameters.RoleWorker): ""}
-	MetalLBMultihopIPv4List = []string{"3.3.3.1", "3.3.3.5"}
+	IPv4AddressesLBList = []string{"3.3.3.1", "3.3.3.5"}
 
 	TrafficPolicies = []string{string(k8sv1.ServiceExternalTrafficPolicyTypeLocal),
 		string(k8sv1.ServiceExternalTrafficPolicyTypeCluster)}

@@ -402,9 +402,11 @@ func HTTPMlbPod(
 
 	if protocolLayer == netmlbparameters.Layer2 {
 		// This is a workaround a NAD issue in which the macvlan mac address is not being populated on the infra switch.
-		_, err := pod.ExecCommand(helper.Apiclient, *client, []string{"bash", "-c", fmt.Sprint("arping -I net1 ",
+		arpOutput, err := pod.ExecCommand(helper.Apiclient, *client, []string{"bash", "-c", fmt.Sprint("arping -I net1 ",
 			destIPAddr, " -c2")})
-		Expect(err).ToNot(HaveOccurred())
+		if err != nil {
+			return arpOutput.String(), fmt.Errorf("arpping command failed - %w", err)
+		}
 	}
 
 	command = fmt.Sprintf("curl --interface %s %s --max-time 5", sourceIPAddr, destIPAddr)
@@ -716,7 +718,7 @@ func SetupMetalLB() {
 		return isMetalLBControllerRunning
 	}, netmlbparameters.PodWaitingTime, netmlbparameters.Interval).Should(BeTrue())
 
-	By("Checking MetalLB operator is installed and running")
+	By("Checking if MetalLB operator is installed and running")
 	Eventually(IsMetalLBAvailable,
 		netmlbparameters.PodWaitingTime,
 		netmlbparameters.Interval).ShouldNot(HaveOccurred())

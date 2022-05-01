@@ -89,7 +89,7 @@ var _ = Describe("CNF MetalLB", func() {
 		err = netmetallbhelper.DeleteLabelFromWorkers(netmlbparameters.SpeakerNodeTestLabel)
 		Expect(err).ToNot(HaveOccurred())
 		err = nethelper.DeleteNADs([]string{netmlbparameters.ExternalNADName}, netmlbparameters.TestNamespace)
-		Expect(err).ToNot(HaveOccurred())
+		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Failed to delete NADs.: %s", err))
 
 		By("Should remove Metallb Configuration")
 		metallb := &metallboperatorv1beta1.MetalLB{}
@@ -156,7 +156,8 @@ var _ = Describe("CNF MetalLB", func() {
 		}, netmlbparameters.PodWaitingTime, netmlbparameters.Interval).Should(BeTrue())
 
 		err = helper.Apiclient.Create(context.Background(), netmetallbhelper.DefineExternalNAD())
-		Expect(err).ToNot(HaveOccurred())
+		Expect(err).ToNot(HaveOccurred(),
+			fmt.Sprintf("An unexpected error occurred during br-ex NetworkAttachmentDefinition creation: %s", err))
 
 		testPodDef, err := netmetallbhelper.DefineMlbPodMasterWithNetwork(masterNode.Name,
 			netmlbparameters.TestNamespace,
@@ -258,7 +259,8 @@ var _ = Describe("CNF MetalLB", func() {
 		By("should validate arping")
 
 		err = helper.Apiclient.Create(context.Background(), netmetallbhelper.DefineExternalNAD())
-		Expect(err).ToNot(HaveOccurred())
+		Expect(err).ToNot(HaveOccurred(),
+			fmt.Sprintf("An unexpected error occurred during br-ex NetworkAttachmentDefinition creation: %s", err))
 
 		testPodDef, err := netmetallbhelper.DefineMlbPodMasterWithNetwork(masterNode.Name,
 			netmlbparameters.TestNamespace,

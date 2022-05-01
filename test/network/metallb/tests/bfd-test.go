@@ -2,6 +2,7 @@ package tests
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -33,6 +34,8 @@ var (
 	workerNodeList          []k8sv1.Node
 	workerAddresses         []string
 	masterNode              k8sv1.Node
+	ipv4metalLBIPList       []string
+	err                     error
 )
 
 var _ = Describe("BFD", func() {
@@ -53,31 +56,54 @@ var _ = Describe("BFD", func() {
 		By("Setup Metallb")
 		netmetallbhelper.SetupMetalLB()
 
-		By("Checking MetalLB operator is installed and running")
+		By("Checking if MetalLB operator is installed and running")
 		Eventually(netmetallbhelper.IsMetalLBAvailable, netmlbparameters.Timeout, netmlbparameters.Interval).
 			ShouldNot(HaveOccurred())
+
+		By("Validating parameters")
+		ipv4metalLBIPList, _, err = netmetallbhelper.GetMetalLBIPByFamily()
+		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("An unexpected error occurred while"+
+			" determining the IP addresses from the METALLB_ADDR_LIST environment variable.: %s", err))
+		if len(ipv4metalLBIPList) < 2 {
+			Skip("There are not enough IPv4 addresses configured in env variables METALLB_ADDR_LIST")
+		}
+
+		netmetallbhelper.IsEnvVarMetallbIPinNodeExtNetRange(strings.Split(
+			helper.Config.General.CnfNodeLabel, "/")[1],
+			netparameters.IPV4Family,
+			ipv4metalLBIPList[0],
+			"")
+
+		By("Creating external br-ex NetworkAttachmentDefinition")
+		err = helper.Apiclient.Create(context.Background(), netmetallbhelper.DefineExternalNAD())
+		Expect(err).ToNot(HaveOccurred(),
+			fmt.Sprintf("An unexpected error occurred during br-ex NetworkAttachmentDefinition creation: %s", err))
 	})
 
 	AfterEach(func() {
 		By("Deleting MetalLB configuration")
 		_ = netmetallbhelper.DeleteLabelFromWorkers(netmlbparameters.SpeakerNodeTestLabel)
 		metallb := &metallboperatorv1beta1.MetalLB{}
-		err := helper.Apiclient.Get(context.Background(), types.NamespacedName{Name: netmlbparameters.MetalLBCRName,
+		err = helper.Apiclient.Get(context.Background(), types.NamespacedName{Name: netmlbparameters.MetalLBCRName,
 			Namespace: netmlbparameters.MetalLBOperatorNameSpace}, metallb)
 		Expect(err).ToNot(HaveOccurred())
 
 		metallbutils.Delete(metallb)
+
+		err = nethelper.DeleteNADs([]string{netmlbparameters.ExternalNADName},
+			netmlbparameters.TestNamespace)
+		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Failed to delete NADs.: %s", err))
 	})
 
 	Context("Single hop", func() {
 		var clientPodOnMasterNode *k8sv1.Pod
 		BeforeEach(func() {
-			netmetallbhelper.CreateBGPWithBFD(netmlbparameters.EBGPProtocol, masterNode.Status.Addresses[0].Address)
+			netmetallbhelper.CreateBGPWithBFD(netmlbparameters.EBGPProtocol, ipv4metalLBIPList[0])
 			clientPodOnMasterNode = netmetallbhelper.CreateClientOnMaster(netmlbparameters.EBGPProtocol,
 				workerAddresses,
-				netmlbparameters.ScenarioSingleHop,
+				ipv4metalLBIPList[0],
 				masterNode.Name,
-				"")
+				netmlbparameters.ExternalNADName)
 
 			By("Checking that BGP and BFD sessions are established and up")
 
@@ -161,27 +187,11 @@ var _ = Describe("BFD", func() {
 	})
 
 	Context("Multihop", func() {
-		var (
-			ipv4metalLBIPList []string
-			err               error
-		)
 		speakerRoutesMap := make(map[string]string)
 		describe := netmetallbhelper.DescribeBFDParameters
 
 		BeforeEach(func() {
 			By("Collecting information before test")
-			ipv4metalLBIPList, _, err = netmetallbhelper.GetMetalLBIPByFamily()
-			Expect(err).ToNot(HaveOccurred())
-			if len(ipv4metalLBIPList) < 2 {
-				Skip("there are not enough environment IPv4 addresses")
-			}
-
-			netmetallbhelper.IsEnvVarMetallbIPinNodeExtNetRange(strings.Split(
-				helper.Config.General.CnfNodeLabel, "/")[1],
-				netparameters.IPV4Family,
-				ipv4metalLBIPList[0],
-				"")
-
 			speakerPodList, err := helper.Apiclient.Pods(netmlbparameters.MetalLBOperatorNameSpace).List(
 				context.Background(),
 				metav1.ListOptions{LabelSelector: netmlbparameters.SpeakersLabelSelector},
@@ -208,6 +218,9 @@ var _ = Describe("BFD", func() {
 				netmlbparameters.ClientIpv4IP)
 			Expect(err).ToNot(HaveOccurred(), outputString)
 
+			err = netmetallbhelper.DeleteAllLBServices(netmlbparameters.TestNamespace)
+			Expect(err).ToNot(HaveOccurred())
+
 			err = netmetallbhelper.DeleteAllBGPPeers()
 			Expect(err).ToNot(HaveOccurred())
 
@@ -219,12 +232,9 @@ var _ = Describe("BFD", func() {
 			err = netmetallbhelper.DeleteAllBGPAdvertisements()
 			Expect(err).ToNot(HaveOccurred())
 
-			err = netmetallbhelper.DeleteAllLBServices(netmlbparameters.TestNamespace)
-			Expect(err).ToNot(HaveOccurred())
-
-			err = nethelper.DeleteNADs([]string{netmlbparameters.ExternalNADName, netmlbparameters.InternalNADName},
+			err = nethelper.DeleteNADs([]string{netmlbparameters.InternalNADName},
 				netmlbparameters.TestNamespace)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Failed to delete NADs.: %s", err))
 
 			err = namespaces.CleanPods(netmlbparameters.TestNamespace, helper.Apiclient)
 			Expect(err).ToNot(HaveOccurred())
@@ -254,7 +264,7 @@ var _ = Describe("BFD", func() {
 				netmetallbhelper.CreateBGPWithBFD(bgpProtocol, netmlbparameters.ClientIpv4IP)
 
 				By("Creating an IPAddressPool and BGPAdvertisement")
-				ipAddressPoolDefinition := netmetallbhelper.DefineMetalLBIPAddressPool(netmlbparameters.MetalLBMultihopIPv4List,
+				ipAddressPoolDefinition := netmetallbhelper.DefineMetalLBIPAddressPool(netmlbparameters.IPv4AddressesLBList,
 					ipStack,
 					netmlbparameters.AddressPoolName)
 
@@ -285,29 +295,25 @@ var _ = Describe("BFD", func() {
 					netmlbparameters.AppLabel1, []string{netmlbparameters.ArgCommandNGINX})
 
 				By("Creating FRR router pods on a Master node")
-				externalNADDefinition := netmetallbhelper.DefineExternalNAD()
-				err = helper.Apiclient.Create(context.Background(), externalNADDefinition)
-				Expect(err).ToNot(HaveOccurred())
-
 				internalNADDefinition := netmetallbhelper.DefineInternalNAD()
 				err = helper.Apiclient.Create(context.Background(), internalNADDefinition)
 				Expect(err).ToNot(HaveOccurred())
 
 				frrRouterPodOnMaster1 := netmetallbhelper.DefineRouterPod(masterNode.Name,
-					netmlbparameters.MetalLBMultihopIPv4List[0], firstWorkerNodeAddress,
-					externalNADDefinition.Name, internalNADDefinition.Name,
+					netmlbparameters.IPv4AddressesLBList[0], firstWorkerNodeAddress,
+					netmlbparameters.ExternalNADName, internalNADDefinition.Name,
 					ipv4metalLBIPList[0], netmlbparameters.InternalRouter1IPv4)
 				helper.WaitUntilPodCreatedAndRunning(frrRouterPodOnMaster1, netmlbparameters.PodWaitingTime)
 
 				frrRouterPodOnMaster2 := netmetallbhelper.DefineRouterPod(masterNode.Name,
-					netmlbparameters.MetalLBMultihopIPv4List[0], secondWorkerNodeAddress,
-					externalNADDefinition.Name, internalNADDefinition.Name,
+					netmlbparameters.IPv4AddressesLBList[0], secondWorkerNodeAddress,
+					netmlbparameters.ExternalNADName, internalNADDefinition.Name,
 					ipv4metalLBIPList[1], netmlbparameters.InternalRouter2IPv4)
 				helper.WaitUntilPodCreatedAndRunning(frrRouterPodOnMaster2, netmlbparameters.PodWaitingTime)
 
 				clientPodOnMasterNode := netmetallbhelper.CreateClientOnMaster(bgpProtocol,
 					workerAddresses,
-					netmlbparameters.ScenarioMultihop,
+					netmlbparameters.ClientIpv4IP,
 					masterNode.Name,
 					internalNADDefinition.Name)
 
@@ -336,7 +342,7 @@ var _ = Describe("BFD", func() {
 
 				httpOutput, err := netmetallbhelper.HTTPMlbPod(clientPodOnMasterNode,
 					netmlbparameters.ClientIpv4IP,
-					netmlbparameters.MetalLBMultihopIPv4List[0],
+					netmlbparameters.IPv4AddressesLBList[0],
 					netparameters.IPV4Family, netmlbparameters.TestContainerName, netmlbparameters.BGP)
 				Expect(err).ToNot(HaveOccurred(), httpOutput)
 

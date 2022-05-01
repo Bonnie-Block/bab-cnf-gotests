@@ -27,7 +27,8 @@ func TestBGPTable(ipStack string, workerNodeList []k8sv1.Node, masterNodeList []
 	}
 
 	ipv4metalLBIPList, ipv6metalLBIPList, err := GetMetalLBIPByFamily()
-	Expect(err).ToNot(HaveOccurred())
+	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("An unexpected error occurred while"+
+		" determining the IP addresses from the METALLB_ADDR_LIST environment variable.: %s", err))
 
 	By("should create external FRR container")
 

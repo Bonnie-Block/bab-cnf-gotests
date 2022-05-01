@@ -186,6 +186,25 @@ func DefineMetalLBIPAddressPool(
 	return &IPAddrPool
 }
 
+// DefineMetallbAddressPool defines a MetalLB L2 Address Pool using env IP var METALLB_ADDR_LIST
+// for the IP address range.
+func DefineMetalLBAddressPool(
+	metalLBIPAdresses []string, protocol string, addressPoolName string) *metallbv1beta1.AddressPool {
+	return &metallbv1beta1.AddressPool{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      addressPoolName,
+			Namespace: netmlbparameters.MetalLBOperatorNameSpace,
+			Annotations: map[string]string{
+				netmlbparameters.MetalLBAddressPool: addressPoolName,
+			},
+		},
+		Spec: metallbv1beta1.AddressPoolSpec{
+			Protocol:  protocol,
+			Addresses: metalLBIPAdresses,
+		},
+	}
+}
+
 // defineBFDConfig returns string which represents BFD config file peering to all given IP addresses.
 func defineBFDConfig(neighborsIPAddresses []string, asn int, bgpProtocol string) string {
 	asnStr := strconv.Itoa(asn)

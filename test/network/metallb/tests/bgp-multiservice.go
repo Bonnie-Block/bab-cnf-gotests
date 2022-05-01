@@ -34,9 +34,11 @@ var _ = Describe("CNF MetalLB", func() {
 	execute.BeforeAll(func() {
 
 		ipv4metalLBIPList, _, err = netmetallbhelper.GetMetalLBIPByFamily()
-		Expect(err).ToNot(HaveOccurred())
+		Expect(err).ToNot(HaveOccurred(),
+			fmt.Sprintf("An unexpected error occurred while"+
+				" determining the IP addresses from the METALLB_ADDR_LIST environment variable.: %s", err))
 		if len(ipv4metalLBIPList) < 2 {
-			Skip("there are not enough environment IPv4 addresses")
+			Skip("There are not enough IPv4 addresses configured in env variable METALLB_ADDR_LIST")
 		}
 
 		netmetallbhelper.IsEnvVarMetallbIPinNodeExtNetRange(strings.Split(
@@ -142,7 +144,8 @@ var _ = Describe("CNF MetalLB", func() {
 
 		By("should create external FRR container")
 		err = helper.Apiclient.Create(context.Background(), netmetallbhelper.DefineExternalNAD())
-		Expect(err).ToNot(HaveOccurred())
+		Expect(err).ToNot(HaveOccurred(),
+			fmt.Sprintf("An unexpected error occurred during br-ex NetworkAttachmentDefinition creation: %s", err))
 
 		workerNodesAdresses, err := helper.GetNodeIPListByLabel(parameters.RoleWorker)
 		Expect(err).ToNot(HaveOccurred())

@@ -37,7 +37,8 @@ var _ = Describe("MetalLB BGP", func() {
 		var ipV6Address string
 
 		ipv4metalLBIPList, ipv6metalLBIPList, err = netmetallbhelper.GetMetalLBIPByFamily()
-		Expect(err).ToNot(HaveOccurred())
+		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("An unexpected error occurred while"+
+			" determining the IP addresses from the METALLB_ADDR_LIST environment variable.: %s", err))
 
 		By(fmt.Sprintf("should select nodes by role %s ", parameters.RoleWorker))
 		workerNodeList, err = nodes.GetByRole(helper.Apiclient, parameters.RoleWorker)
