@@ -82,7 +82,7 @@ var _ = Describe("CNF VRF", func() {
 	})
 
 	// 36325
-	DescribeTable("Integration: NAD, IPAM: Whereabouts, Interfaces: 1, VRF Scheme: 2 Pods 2 VRFs ip network overlap",
+	DescribeTable("Integration: NAD, IPAM: Whereabouts, Interfaces: 1, Scheme: 2 Pods 2 VRFs ip network overlap",
 		func(node string, ipStack string) {
 			netvrfhelper.TestVRFWAIPScenario(
 				node,
