@@ -90,7 +90,7 @@ var _ = Describe("CNF MetalLB", func() {
 	})
 
 	// 47182
-	It("MetalLB BGP Multi-Service Validation", func() {
+	It("BGP Multi-Service Validation", func() {
 		By("should create a BGP addresspool for service 1")
 		addresspool := netmetallbhelper.DefineMetalLBAddressPool(netmlbparameters.AddressPoolS1,
 			netmlbparameters.BGP,
