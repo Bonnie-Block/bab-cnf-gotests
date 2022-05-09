@@ -130,7 +130,7 @@ func TestVRFScenario(node string, ipStack string, ipOverLap string, config *conf
 
 	if ipamType == netvrfparameters.VRFIpamDHCP {
 		runDHCPServer(podClientVRFBlueIPAddress, podServerVRFBlueIPAddress,
-			podClientVRFRedIPAddress, podServerVRFRedIPAddress, nodes[0])
+			podClientVRFRedIPAddress, podServerVRFRedIPAddress, VRFParameters.Node, nodes)
 	}
 
 	podClient := pod.RedefineAsNetRaw(
@@ -394,7 +394,7 @@ func defineServerPodMultiHTTPContainers(
 }
 
 func runDHCPServer(podClientVRFBlueIPAddress string, podServerVRFBlueIPAddress string,
-	podClientVRFRedIPAddress string, podServerVRFRedIPAddress, nodeName string) {
+	podClientVRFRedIPAddress string, podServerVRFRedIPAddress string, nodeMode string, nodes []string) {
 	By("Run dhcp server pod")
 
 	addressMap := map[string]string{
@@ -403,11 +403,18 @@ func runDHCPServer(podClientVRFBlueIPAddress string, podServerVRFBlueIPAddress s
 		netvrfparameters.VRFClientMacAddressRed:  podClientVRFRedIPAddress,
 		netvrfparameters.VRFServerMacAddressRed:  podServerVRFRedIPAddress,
 	}
-	validMacVlanInterfaces := GetNodeValidMacVlanInterface(nodeName, globalHelper.Config, 1)
+	validMacVlanInterfaces := GetNodeValidMacVlanInterface(nodes[0], globalHelper.Config, 1)
 	err := nethelper.DefineDhcpServerOnNad(
-		netvrfparameters.TestNamespace, validMacVlanInterfaces[0].Name, nodeName, "10.255.255.201",
+		netvrfparameters.TestNamespace, validMacVlanInterfaces[0].Name, nodes[0], "10.255.255.201",
 		addressMap)
 	Expect(err).ToNot(HaveOccurred())
+
+	if nodeMode == netvrfparameters.DiffNode {
+		err = nethelper.DefineDhcpServerOnNad(
+			netvrfparameters.TestNamespace, validMacVlanInterfaces[0].Name, nodes[1], "10.255.255.202",
+			addressMap)
+		Expect(err).ToNot(HaveOccurred())
+	}
 }
 
 func defineClientServerIpamConfig(
