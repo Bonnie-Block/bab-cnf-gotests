@@ -207,10 +207,16 @@ func getUnhealthyPods(namespace string) (map[string]string, error) {
 
 	for _, pod := range pods.Items {
 		err = helper.IsPodHealthy(&pod)
-		if err != nil && !(pod.Status.Phase == corev1.PodFailed && pod.Spec.RestartPolicy == corev1.RestartPolicyNever) {
+		if err != nil {
 			// Ignore failed pod with restart policy never. This could happen in image pruner or installer pods that
-			// will never restart after completed. And could stuck in error in various conditions after initial completion.
-			unhealthyPods[pod.Name] = err.Error()
+			// will never restart. For those pods, instead of restarting the same pod, a new pod will be created
+			// to complete the task.
+			// Temp: Also excludes collector pods under logging namespace. As we don't have a valid logging server
+			// configured, the pod gets stuck in Crashloopback. Remove this after RAN team figures out a workaround.
+			if !((pod.Status.Phase == corev1.PodFailed && pod.Spec.RestartPolicy == corev1.RestartPolicyNever) ||
+				pod.Namespace == "openshift-logging" && strings.HasPrefix(pod.Name, "collector")) {
+				unhealthyPods[pod.Name] = err.Error()
+			}
 		}
 	}
 
