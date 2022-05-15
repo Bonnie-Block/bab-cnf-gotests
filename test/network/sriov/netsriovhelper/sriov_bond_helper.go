@@ -123,6 +123,9 @@ func TestBondScenario(
 	Expect(err).ToNot(HaveOccurred())
 	Expect(isBondInterfaceConfigured).To(BeTrue(), "Bond interface has wrong number of slaves")
 
+	// Uncomment once BZ 2082360 is fixed
+	// err = verifyPodAnnotation(clientPod, ipAddrClient, "")
+	// Expect(err).ToNot(HaveOccurred())
 	By(fmt.Sprintf("Checking traffic - %s", protocol))
 
 	_, err = pod.ExecCommand(Apiclient, *clientPod, clientTestCommand)
@@ -255,3 +258,27 @@ func defineSriovBondNetwork(name string, resourceName string) *sriovv1.SriovNetw
 
 	return sriovNetwork
 }
+
+// Uncomment once BZ 2082360 is fixed
+// // verifyPodAnnotation verifies that the testPod annotation includes the given IP and MAC.
+// func verifyPodAnnotation(testPod *corev1.Pod, ipAddress string, mac string) error {
+//	var err error
+//
+//	testPod, err = Apiclient.Pods(testPod.GetNamespace()).
+//		Get(context.Background(), testPod.GetName(), metav1.GetOptions{})
+//	if err != nil {
+//		return err
+//	}
+//
+//	networkStatus := testPod.Annotations["k8s.v1.cni.cncf.io/networks-status"]
+//
+//	if !strings.Contains(networkStatus, ipAddress) {
+//		return fmt.Errorf("IP %s is not in pod annotation", ipAddress)
+//	}
+//
+//	if mac != "" && !strings.Contains(networkStatus, mac) {
+//		return fmt.Errorf("MAC %s is not in pod annotation", mac)
+//	}
+//
+//	return nil
+// }
