@@ -175,6 +175,7 @@ var _ = Describe("BFD", func() {
 			err           error
 		)
 		speakerRoutesMap := make(map[string]string)
+		describe := netmetallbhelper.DescribeBFDParameters
 
 		BeforeEach(func() {
 			By("Collecting information before test")
@@ -340,8 +341,8 @@ var _ = Describe("BFD", func() {
 					firstWorkerNodeAddress,
 					secondWorkerNodeAddress)
 			},
-			Entry("iBGP with IPv4", netmlbparameters.IBPGPProtocol, netmlbparameters.SingleIPv4Stack),
-			Entry("eBGP with IPv4", netmlbparameters.EBGPProtocol, netmlbparameters.SingleIPv4Stack),
+			Entry(describe, netmlbparameters.IBPGPProtocol, netmlbparameters.SingleIPv4Stack),
+			Entry(describe, netmlbparameters.EBGPProtocol, netmlbparameters.SingleIPv4Stack),
 		)
 	})
 })

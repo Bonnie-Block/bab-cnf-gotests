@@ -22,7 +22,7 @@ const (
 	SingleIPv6Stack                           = "singleIPv6Stack"
 	DualIPStack                               = "dualIPStack"
 	EBGPProtocol                              = "eBGP"
-	IBPGPProtocol                             = "ibgp"
+	IBPGPProtocol                             = "iBGP"
 	ClientIpv4IP                              = "172.16.0.1"
 	InternalRouter1IPv4                       = "172.16.0.253"
 	InternalRouter2IPv4                       = "172.16.0.254"
@@ -93,6 +93,7 @@ var (
 	TrafficPolicies   = []string{ExtTrafPolCluster, ExtTrafPolLocal}
 	IPStackParameters = []string{SingleIPv4Stack, SingleIPv6Stack,
 		DualIPStack}
+	BGPPeers = []string{EBGPProtocol, IBPGPProtocol}
 )
 
 // MlbTestParameters contains test parameters for MetalLB tests.

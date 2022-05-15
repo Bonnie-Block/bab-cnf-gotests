@@ -2,6 +2,7 @@ package netmetallbhelper
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	. "github.com/onsi/ginkgo"
@@ -228,4 +229,16 @@ func CreateClientOnMaster(bgpProtocol string,
 	}
 
 	return helper.WaitUntilPodCreatedAndRunning(clientPodDefinition, netmlbparameters.Timeout)
+}
+
+func DescribeBFDParameters(bgpPeer string, ipStack string) string {
+	metallbBFDTestParameters, err := netmlbparameters.NewMetallbBFDTestParameters(bgpPeer, ipStack)
+	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("error in parameters: BGPPeer=%s, "+
+		"IPStack=%s", bgpPeer, ipStack))
+
+	myPrams, err := json.Marshal(metallbBFDTestParameters)
+	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("error in parameters: BGPPeer=%s, "+
+		"IPStack=%s", bgpPeer, ipStack))
+
+	return string(myPrams)
 }

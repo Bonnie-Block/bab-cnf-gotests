@@ -204,6 +204,11 @@ type (
 		TrafficPolicy string
 		IPStack       string
 	}
+
+	MetallbBFDTestParameters struct {
+		BGPPeer string
+		IPStack string
+	}
 )
 
 // NewBGPTestParameters constructor for BGPTestParameters.
@@ -225,4 +230,25 @@ func NewBGPTestParameters(ipStack string, trafficPolicy string) (*MetallbTestPar
 	BGPTestParameters.TrafficPolicy = trafficPolicy
 
 	return BGPTestParameters, nil
+}
+
+// NewMetallbBFDTestParameters constructor for MetallbBFDTestParameters.
+func NewMetallbBFDTestParameters(bgpPeer string, ipStack string) (*MetallbBFDTestParameters, error) {
+	BFDTestParameters := new(MetallbBFDTestParameters)
+	err := nethelper.StrParamInListOfParams(ipStack, IPStackParameters)
+
+	if err != nil {
+		return nil, err
+	}
+
+	BFDTestParameters.IPStack = ipStack
+	err = nethelper.StrParamInListOfParams(bgpPeer, BGPPeers)
+
+	if err != nil {
+		return nil, err
+	}
+
+	BFDTestParameters.BGPPeer = bgpPeer
+
+	return BFDTestParameters, nil
 }
