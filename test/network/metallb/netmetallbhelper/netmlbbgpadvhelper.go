@@ -24,7 +24,7 @@ func TestBGPAdvertismentTable(ipStack string, metalLBIPList []string, workerNode
 
 	addresspoolIPList := netmlbparameters.AddressPoolV4Prefix32
 
-	if ipStack == netmlbparameters.SingleIPv6Stack {
+	if ipStack == netparameters.IPV6Family {
 		addresspoolIPList = netmlbparameters.AddressPoolV6Prefix128
 	}
 
@@ -59,10 +59,10 @@ func TestBGPAdvertismentTable(ipStack string, metalLBIPList []string, workerNode
 	ipFamily := netparameters.IPV4Family
 	workerNodesAdresses := nethelper.NodeIPsForFamily(workerNodeList, netparameters.IPV4Family)
 
-	if ipStack != netmlbparameters.SingleIPv4Stack {
-		workerNodesV6Adresses := nethelper.NodeIPsForFamily(workerNodeList, netmlbparameters.IPV6Family)
+	if ipStack != netparameters.IPV4Family {
+		workerNodesV6Adresses := nethelper.NodeIPsForFamily(workerNodeList, netparameters.IPV6Family)
 		workerNodesAdresses = append(workerNodesAdresses, workerNodesV6Adresses...)
-		ipFamily = netmlbparameters.IPV6Family
+		ipFamily = netparameters.IPV6Family
 	}
 
 	err = CreateSpeakerBGPPeerIPStack(ipStack, metalLBIPList, netmlbparameters.IBGPASN)
@@ -89,7 +89,7 @@ func validatePrefix(masterNodeFRRPod *k8sv1.Pod, workerNodesAdresses []string, i
 	)
 
 	switch ipStack {
-	case netmlbparameters.SingleIPv4Stack:
+	case netparameters.IPV4Family:
 		routes = []string{netmlbparameters.AddressPoolV4Prefix28[0]}
 		if prefixLenght == netmlbparameters.PrefixLen32 {
 			routes = []string{netmlbparameters.AddressPoolV4Prefix32[0]}
@@ -97,13 +97,13 @@ func validatePrefix(masterNodeFRRPod *k8sv1.Pod, workerNodesAdresses []string, i
 
 		ipFamily = netparameters.IPV4Family
 
-	case netmlbparameters.SingleIPv6Stack:
+	case netparameters.IPV6Subnet:
 		routes = []string{netmlbparameters.AddressPoolV6Prefix126[0]}
 		if prefixLenght != netmlbparameters.PrefixLen128 {
 			routes = []string{netmlbparameters.AddressPoolV6Prefix128[0]}
 		}
 
-		ipFamily = netmlbparameters.IPV6Family
+		ipFamily = netparameters.IPV6Family
 	}
 
 	Eventually(func() error {

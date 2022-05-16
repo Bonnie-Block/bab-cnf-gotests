@@ -50,7 +50,7 @@ var _ = Describe("MetalLB BGP", func() {
 		By(fmt.Sprintf("Running test on %s cluster", clusterIPStack))
 
 		ipV4Address := metalLBIPList[0]
-		if clusterIPStack == netmlbparameters.DualIPStack {
+		if clusterIPStack == netparameters.DualIPFamily {
 			ipV6Address = metalLBIPList[2]
 		}
 
@@ -83,10 +83,10 @@ var _ = Describe("MetalLB BGP", func() {
 					masterNodeList,
 					prefixLen)
 			},
-			Entry("IPv4 with Prefix 32", netmlbparameters.SingleIPv4Stack, netmlbparameters.PrefixLen32),
-			Entry("IPv4 with Prefix 28", netmlbparameters.SingleIPv4Stack, netmlbparameters.PrefixLen28),
-			Entry("IPv6 with Prefix 128", netmlbparameters.SingleIPv6Stack, netmlbparameters.PrefixLen128),
-			Entry("IPv6 with Prefix 64", netmlbparameters.SingleIPv6Stack, netmlbparameters.PrefixLen64),
+			Entry("IPv4 with Prefix 32", netparameters.IPV4Family, netmlbparameters.PrefixLen32),
+			Entry("IPv4 with Prefix 28", netparameters.IPV4Family, netmlbparameters.PrefixLen28),
+			Entry("IPv6 with Prefix 128", netparameters.IPV6Family, netmlbparameters.PrefixLen128),
+			Entry("IPv6 with Prefix 64", netparameters.IPV6Family, netmlbparameters.PrefixLen64),
 		)
 	})
 	Context("metrics", func() {
@@ -97,19 +97,19 @@ var _ = Describe("MetalLB BGP", func() {
 				workerNodeList,
 				masterNodeList,
 				metalLBIPList,
-				netmlbparameters.SingleIPv4Stack,
+				netparameters.IPV4Family,
 				netmlbparameters.IBGPASN)
 
 			By("should create a BGP Peer on Speakers")
 
 			workerNodesAdresses := nethelper.NodeIPsForFamily(workerNodeList, netparameters.IPV4Family)
 
-			err := netmetallbhelper.CreateSpeakerBGPPeerIPStack(netmlbparameters.SingleIPv4Stack,
+			err := netmetallbhelper.CreateSpeakerBGPPeerIPStack(netparameters.IPV4Family,
 				metalLBIPList, netmlbparameters.IBGPASN)
 			Expect(err).ToNot(HaveOccurred())
 
 			Eventually(func() bool {
-				return netmetallbhelper.CheckNeighborsStatus(masterNodeFRRPod, netmlbparameters.SingleIPv4Stack,
+				return netmetallbhelper.CheckNeighborsStatus(masterNodeFRRPod, netparameters.IPV4Family,
 					workerNodesAdresses)
 			}, 1*time.Minute, netmlbparameters.Interval).Should(BeTrue())
 		})

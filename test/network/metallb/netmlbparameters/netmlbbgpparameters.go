@@ -4,6 +4,8 @@ import (
 	"net"
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/nethelper"
+
+	k8sv1 "k8s.io/api/core/v1"
 )
 
 var (
@@ -215,8 +217,9 @@ type (
 	}
 
 	MetallbBFDTestParameters struct {
-		BGPPeer string
-		IPStack string
+		BGPPeer       string
+		IPStack       string
+		TrafficPolicy k8sv1.ServiceExternalTrafficPolicyType
 	}
 )
 
@@ -242,7 +245,8 @@ func NewBGPTestParameters(ipStack string, trafficPolicy string) (*MetallbTestPar
 }
 
 // NewMetallbBFDTestParameters constructor for MetallbBFDTestParameters.
-func NewMetallbBFDTestParameters(bgpPeer string, ipStack string) (*MetallbBFDTestParameters, error) {
+func NewMetallbBFDTestParameters(bgpPeer string,
+	ipStack string, externalTrafficPolicy k8sv1.ServiceExternalTrafficPolicyType) (*MetallbBFDTestParameters, error) {
 	BFDTestParameters := new(MetallbBFDTestParameters)
 	err := nethelper.StrParamInListOfParams(ipStack, IPStackParameters)
 
@@ -258,6 +262,13 @@ func NewMetallbBFDTestParameters(bgpPeer string, ipStack string) (*MetallbBFDTes
 	}
 
 	BFDTestParameters.BGPPeer = bgpPeer
+	err = nethelper.StrParamInListOfParams(string(externalTrafficPolicy), TrafficPolicies)
+
+	if err != nil {
+		return nil, err
+	}
+
+	BFDTestParameters.TrafficPolicy = externalTrafficPolicy
 
 	return BFDTestParameters, nil
 }

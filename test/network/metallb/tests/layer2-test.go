@@ -45,7 +45,7 @@ var _ = Describe("CNF MetalLB", func() {
 
 		netmetallbhelper.IsEnvVarMetallbIPinNodeExtNetRange(strings.Split(
 			helper.Config.General.CnfNodeLabel, "/")[1],
-			netmlbparameters.SingleIPv4Stack,
+			netparameters.IPV4Family,
 			metalLBIPList[0],
 			"")
 
@@ -103,7 +103,7 @@ var _ = Describe("CNF MetalLB", func() {
 		By("should have valid environment IP variable for MetalLB address pool")
 		netmetallbhelper.IsEnvVarMetallbIPinNodeExtNetRange(strings.Split(
 			helper.Config.General.CnfNodeLabel, "/")[1],
-			netmlbparameters.SingleIPv4Stack,
+			netparameters.IPV4Family,
 			metalLBIPList[0],
 			"")
 
@@ -111,7 +111,7 @@ var _ = Describe("CNF MetalLB", func() {
 		err = helper.Apiclient.Create(context.Background(), netmetallbhelper.DefineMetalLBAddressPool(
 			metalLBIPList,
 			netmlbparameters.Layer2,
-			netmlbparameters.SingleIPv4Stack,
+			netparameters.IPV4Family,
 			netmlbparameters.AddressPoolL2,
 			netmlbparameters.PrefixLen32))
 		Expect(err).ToNot(HaveOccurred())
@@ -119,7 +119,7 @@ var _ = Describe("CNF MetalLB", func() {
 		By("should create a MetalLB service")
 		err = netmetallbhelper.DefineAndCreateLBService(
 			netmlbparameters.TestNamespace,
-			netmlbparameters.SingleIPv4Stack,
+			netparameters.IPV4Family,
 			netmlbparameters.AddressPoolL2,
 			netmlbparameters.AppLabel1,
 			netmlbparameters.ProtocolTCP,
@@ -175,7 +175,7 @@ var _ = Describe("CNF MetalLB", func() {
 		By("should have valid environment IP variable for MetalLB address pool")
 		netmetallbhelper.IsEnvVarMetallbIPinNodeExtNetRange(strings.Split(
 			helper.Config.General.CnfNodeLabel, "/")[1],
-			netmlbparameters.SingleIPv4Stack,
+			netparameters.IPV4Family,
 			metalLBIPList[0],
 			"")
 
@@ -183,7 +183,7 @@ var _ = Describe("CNF MetalLB", func() {
 		err = helper.Apiclient.Create(context.Background(), netmetallbhelper.DefineMetalLBAddressPool(
 			metalLBIPList,
 			netmlbparameters.Layer2,
-			netmlbparameters.SingleIPv4Stack,
+			netparameters.IPV4Family,
 			netmlbparameters.AddressPoolL2,
 			netmlbparameters.PrefixLen32))
 		Expect(err).ToNot(HaveOccurred())
@@ -194,7 +194,7 @@ var _ = Describe("CNF MetalLB", func() {
 		By("should create a MetalLB service")
 		err = netmetallbhelper.DefineAndCreateLBService(
 			netmlbparameters.TestNamespace,
-			netmlbparameters.SingleIPv4Stack,
+			netparameters.IPV4Family,
 			netmlbparameters.AddressPoolL2,
 			netmlbparameters.AppLabel1,
 			netmlbparameters.ProtocolTCP,

@@ -291,18 +291,6 @@ func DeleteNADs(nadNames []string, namespace string) error {
 	return nil
 }
 
-func lastAddr(network *net.IPNet) (net.IP, error) {
-	if network.IP.To4() == nil {
-		return net.IP{}, fmt.Errorf("%s", "does not support IPv6 addresses.")
-	}
-
-	ip := make(net.IP, len(network.IP.To4()))
-	binary.BigEndian.PutUint32(
-		ip, binary.BigEndian.Uint32(network.IP.To4())|^binary.BigEndian.Uint32(net.IP(network.Mask).To4()))
-
-	return ip, nil
-}
-
 func DefineIPFamily(ipAddress string) (ipFamily string, subnet string, err error) {
 	if net.ParseIP(ipAddress) == nil {
 		return "", "", fmt.Errorf("not valid IP %s", ipAddress)
@@ -317,4 +305,16 @@ func DefineIPFamily(ipAddress string) (ipFamily string, subnet string, err error
 	}
 
 	return ipFamily, subnet, nil
+}
+
+func lastAddr(network *net.IPNet) (net.IP, error) {
+	if network.IP.To4() == nil {
+		return net.IP{}, fmt.Errorf("%s", "does not support IPv6 addresses.")
+	}
+
+	ip := make(net.IP, len(network.IP.To4()))
+	binary.BigEndian.PutUint32(
+		ip, binary.BigEndian.Uint32(network.IP.To4())|^binary.BigEndian.Uint32(net.IP(network.Mask).To4()))
+
+	return ip, nil
 }

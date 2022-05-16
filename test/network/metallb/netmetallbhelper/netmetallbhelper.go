@@ -150,11 +150,11 @@ func IsEnvVarMetallbIPinNodeExtNetRange(cnfNodeLabel string, ipStack string,
 	ipListOutput := strings.Split(val, "\"")
 
 	switch ipStack {
-	case netmlbparameters.SingleIPv4Stack:
+	case netparameters.IPV4Family:
 		loadBalancerIPValid(ipListOutput[3], metallbEnvIPv4)
-	case netmlbparameters.SingleIPv6Stack:
+	case netparameters.IPV6Family:
 		loadBalancerIPValid(ipListOutput[7], metallbEnvIPv6)
-	case netmlbparameters.DualIPStack:
+	case netparameters.DualIPFamily:
 		loadBalancerIPValid(ipListOutput[3], metallbEnvIPv4)
 		loadBalancerIPValid(ipListOutput[7], metallbEnvIPv6)
 	default:
@@ -177,10 +177,10 @@ func DefineAndCreateLBService(namespace string, iPStack string, addresspool stri
 	}
 
 	switch iPStack {
-	case netmlbparameters.SingleIPv6Stack:
+	case netparameters.IPV6Family:
 		ipFamily = []k8sv1.IPFamily{"IPv6"}
 
-	case netmlbparameters.DualIPStack:
+	case netparameters.DualIPFamily:
 		ipFamily = []k8sv1.IPFamily{"IPv4", "IPv6"}
 		ipFamilyPolicy = k8sv1.IPFamilyPolicyRequireDualStack
 	}
@@ -416,7 +416,7 @@ func HTTPMlbPod(
 
 	command = fmt.Sprintf("curl --interface %s %s --max-time 5", sourceIPAddr, destIPAddr)
 
-	if ipFamily == netmlbparameters.IPV6Family {
+	if ipFamily == netparameters.IPV6Family {
 		command = fmt.Sprint("curl --interface ", sourceIPAddr, "[", destIPAddr, "]", "--max-time 5")
 	}
 
@@ -770,7 +770,7 @@ func UpdateSpeakerNodeLabel() {
 }
 
 // AddOrDeleteSpeakerStaticRoute removes or creates static routs on all Speaker pods.
-func AddOrDeleteSpeakerStaticRoute(action string, speakerRoutesMap map[string]string) (string, error) {
+func AddOrDeleteSpeakerStaticRoute(action string, nextHopMap map[string]string, destIP string) (string, error) {
 	var buffer bytes.Buffer
 
 	speakerPodList, err := helper.Apiclient.Pods(netmlbparameters.MetalLBOperatorNameSpace).List(
@@ -782,8 +782,9 @@ func AddOrDeleteSpeakerStaticRoute(action string, speakerRoutesMap map[string]st
 	}
 
 	for _, speakerPod := range speakerPodList.Items {
-		buffer, err = pod.ExecCommand(helper.Apiclient, speakerPod, []string{"ip", "route", action,
-			netmlbparameters.ClientIpv4IP + "/32", "via", speakerRoutesMap[speakerPod.Spec.NodeName]})
+		buffer, err = pod.ExecCommand(helper.Apiclient,
+			speakerPod,
+			[]string{"ip", "route", action, destIP, "via", nextHopMap[speakerPod.Spec.NodeName]})
 		if err != nil {
 			return buffer.String(), err
 		}
@@ -794,36 +795,23 @@ func AddOrDeleteSpeakerStaticRoute(action string, speakerRoutesMap map[string]st
 
 // ValidateIPs checks given IP addresses if they belong to IPFamily.
 func ValidateIPs(ipAddressList []string, ipFamily string) error {
-	var (
-		ipAddresses []string
-		character   string
-		ipAddressV6 []string
-	)
-
-	clusterIPStack := ValidateClusterIPStack()
-	ipAddressV4 := []string{ipAddressList[0], ipAddressList[1]}
-
-	if clusterIPStack != netmlbparameters.SingleIPv4Stack {
-		ipAddressV6 = []string{ipAddressList[2], ipAddressList[3]}
-	}
+	var ipAddresses []string
 
 	switch ipFamily {
-	case netmlbparameters.SingleIPv4Stack:
-		ipAddresses = ipAddressV4
-		character = "."
+	case netparameters.IPV4Family:
+		ipAddresses = []string{ipAddressList[0], ipAddressList[1]}
 
-	case netmlbparameters.SingleIPv6Stack:
-		ipAddresses = ipAddressV6
-		character = ":"
+	case netparameters.IPV6Family:
+		ipAddresses = []string{ipAddressList[2], ipAddressList[3]}
 	}
 
 	for _, ipAddress := range ipAddresses {
-		ip := net.ParseIP(ipAddress)
-		if ip == nil {
-			return fmt.Errorf("%s is not valid IP", ipAddress)
+		ipStack, _, err := nethelper.DefineIPFamily(ipAddress)
+		if err != nil {
+			return err
 		}
 
-		if !strings.Contains(ipAddress, character) {
+		if ipStack != ipFamily {
 			return fmt.Errorf("%s is not from %s", ipAddress, ipFamily)
 		}
 	}
@@ -848,18 +836,6 @@ func DeleteConfigMap(configMapName string, namespace string) error {
 	return nil
 }
 
-func appendIfMissing(slice []string, newItem string) []string {
-	if nethelper.StrParamInListOfParams(newItem, slice) == nil {
-		return slice
-	}
-
-	return append(slice, newItem)
-}
-
-func uint32Ptr(n uint32) *uint32 {
-	return &n
-}
-
 // ValidateClusterIPStack verifies if the cluster is a SingleStack or DualStack.
 func ValidateClusterIPStack() string {
 	var clusterIPStack string
@@ -868,21 +844,21 @@ func ValidateClusterIPStack() string {
 	Expect(err).ToNot(HaveOccurred())
 
 	clusterIPv4Address := nethelper.NodeIPsForFamily(workerNodes, netparameters.IPV4Family)
-	clusterIPv6Address := nethelper.NodeIPsForFamily(workerNodes, netmlbparameters.IPV6Family)
+	clusterIPv6Address := nethelper.NodeIPsForFamily(workerNodes, netparameters.IPV6Family)
 
 	// "TODO: after fix of Bz https://bugzilla.redhat.com/show_bug.cgi?id=2073754
 	// replace if statement with following commented line".
 	//	if len(clusterIPv6Address) == 0 {
 	if len(clusterIPv6Address) != 2 {
-		clusterIPStack = netmlbparameters.SingleIPv4Stack
+		clusterIPStack = netparameters.IPV4Family
 	}
 
 	if len(clusterIPv4Address) == 0 && len(clusterIPv6Address) == 2 {
-		clusterIPStack = netmlbparameters.SingleIPv6Stack
+		clusterIPStack = netparameters.IPV6Family
 	}
 
 	if len(clusterIPv6Address) == 2 {
-		clusterIPStack = netmlbparameters.DualIPStack
+		clusterIPStack = netparameters.DualIPFamily
 	}
 
 	return clusterIPStack
@@ -893,11 +869,7 @@ func loadBalancerIPValid(ipAddress string, lbIpaddress string) {
 	Expect(err).ToNot(HaveOccurred())
 
 	if !nodeNet.Contains(net.ParseIP(lbIpaddress)) {
-		ipVersion := "IPv4"
-
-		if strings.Contains(lbIpaddress, ":") {
-			ipVersion = "IPv6"
-		}
+		ipVersion, _, _ := nethelper.DefineIPFamily(lbIpaddress)
 
 		Skip(fmt.Sprintf("The environment IP variable is out of cluster br-ex %s range", ipVersion))
 	}
@@ -914,4 +886,16 @@ func ActivateSCTPModuleOnMaster(masterNode k8sv1.Node) {
 	output, err := pod.ExecCommand(helper.Apiclient, *masterPrivPod, []string{"/bin/bash", "-c", "lsmod | grep sctp"})
 	Expect(err).ToNot(HaveOccurred())
 	Expect(output.String()).To(ContainSubstring("libcrc32c"))
+}
+
+func appendIfMissing(slice []string, newItem string) []string {
+	if nethelper.StrParamInListOfParams(newItem, slice) == nil {
+		return slice
+	}
+
+	return append(slice, newItem)
+}
+
+func uint32Ptr(n uint32) *uint32 {
+	return &n
 }

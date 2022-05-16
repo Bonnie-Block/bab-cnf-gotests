@@ -143,7 +143,7 @@ var _ = Describe("BFD", func() {
 			It("should provide fast link failure detection ", func() {
 				netmetallbhelper.TestMetalLBBFD(netmlbparameters.ScenarioSingleHop,
 					clientPodOnMasterNode,
-					firstWorkerNodeAddress, secondWorkerNodeAddress)
+					firstWorkerNodeAddress, secondWorkerNodeAddress, netmlbparameters.ExtTrafPolLocal)
 			})
 		})
 
@@ -182,12 +182,9 @@ var _ = Describe("BFD", func() {
 			metalLBIPList, err = helper.Config.GetMetallbVirtIP()
 			Expect(err).ToNot(HaveOccurred())
 
-			if len(metalLBIPList) < 2 {
-				Skip("The environment IP variable is not set or less than 2")
-			}
 			netmetallbhelper.IsEnvVarMetallbIPinNodeExtNetRange(strings.Split(
 				helper.Config.General.CnfNodeLabel, "/")[1],
-				netmlbparameters.SingleIPv4Stack,
+				netparameters.IPV4Family,
 				metalLBIPList[0],
 				"")
 
@@ -213,7 +210,8 @@ var _ = Describe("BFD", func() {
 
 		AfterEach(func() {
 			By("Cleaning after test")
-			outputString, err := netmetallbhelper.AddOrDeleteSpeakerStaticRoute("del", speakerRoutesMap)
+			outputString, err := netmetallbhelper.AddOrDeleteSpeakerStaticRoute("del", speakerRoutesMap,
+				netmlbparameters.ClientIpv4IP)
 			Expect(err).ToNot(HaveOccurred(), outputString)
 
 			err = netmetallbhelper.DeleteAllBGPPeers()
@@ -249,7 +247,7 @@ var _ = Describe("BFD", func() {
 		})
 
 		DescribeTable("should provide fast link failure detection",
-			func(bgpProtocol string, ipStack string) {
+			func(bgpProtocol string, ipStack string, externalTrafficPolicy k8sv1.ServiceExternalTrafficPolicyType) {
 
 				err = netmetallbhelper.ValidateIPs(append(metalLBIPList, firstWorkerNodeAddress), ipStack)
 				if err != nil {
@@ -276,7 +274,7 @@ var _ = Describe("BFD", func() {
 					netmlbparameters.AddressPoolName,
 					netmlbparameters.AppLabel1,
 					netmlbparameters.ProtocolTCP,
-					netmlbparameters.ExtTrafPolLocal)
+					externalTrafficPolicy)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating nginx test pod")
@@ -315,12 +313,13 @@ var _ = Describe("BFD", func() {
 				for num, routerInternalIP := range []string{netmlbparameters.InternalRouter1IPv4,
 					netmlbparameters.InternalRouter2IPv4} {
 					buffer, err := pod.ExecCommand(helper.Apiclient, *clientPodOnMasterNode,
-						[]string{"ip", "route", "add", workerAddresses[num] + "/32", "via", routerInternalIP})
+						[]string{"ip", "route", "add", workerAddresses[num], "via", routerInternalIP})
 					Expect(err).ToNot(HaveOccurred(), buffer.String())
 				}
 
 				By("Adding static routes to the speakers")
-				outputString, err := netmetallbhelper.AddOrDeleteSpeakerStaticRoute("add", speakerRoutesMap)
+				outputString, err := netmetallbhelper.AddOrDeleteSpeakerStaticRoute("add", speakerRoutesMap,
+					netmlbparameters.ClientIpv4IP)
 				Expect(err).ToNot(HaveOccurred(), outputString)
 
 				By("Checking that BGP and BFD sessions are established and up")
@@ -342,10 +341,17 @@ var _ = Describe("BFD", func() {
 				netmetallbhelper.TestMetalLBBFD(netmlbparameters.ScenarioMultihop,
 					clientPodOnMasterNode,
 					firstWorkerNodeAddress,
-					secondWorkerNodeAddress)
+					secondWorkerNodeAddress,
+					externalTrafficPolicy)
 			},
-			Entry(describe, netmlbparameters.IBPGPProtocol, netmlbparameters.SingleIPv4Stack),
-			Entry(describe, netmlbparameters.EBGPProtocol, netmlbparameters.SingleIPv4Stack),
+			Entry(describe, netmlbparameters.IBPGPProtocol, netparameters.IPV4Family,
+				k8sv1.ServiceExternalTrafficPolicyTypeCluster),
+			Entry(describe, netmlbparameters.IBPGPProtocol, netparameters.IPV4Family,
+				k8sv1.ServiceExternalTrafficPolicyTypeLocal),
+			Entry(describe, netmlbparameters.EBGPProtocol, netparameters.IPV4Family,
+				k8sv1.ServiceExternalTrafficPolicyTypeCluster),
+			Entry(describe, netmlbparameters.EBGPProtocol, netparameters.IPV4Family,
+				k8sv1.ServiceExternalTrafficPolicyTypeLocal),
 		)
 	})
 })

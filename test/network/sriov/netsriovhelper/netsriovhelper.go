@@ -16,10 +16,11 @@ import (
 	. "github.com/onsi/gomega"
 
 	. "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/netparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/sriov/netsriovparameters"
 	generalParameters "gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/nethelper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/netparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/cluster"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
@@ -64,11 +65,7 @@ func definePodWithIpam(pod *corev1.Pod, mainNetwork string,
 	macAddress string,
 	ipam string) *corev1.Pod {
 	annotation := ""
-	subnet := netparameters.IPV4Subnet
-
-	if strings.Contains(ipAddress, ":") {
-		subnet = netparameters.IPV6Subnet
-	}
+	_, subnet, _ := nethelper.DefineIPFamily(ipAddress)
 
 	if len(slaveNetworkNames) > 0 {
 		for _, slave := range slaveNetworkNames {
@@ -378,14 +375,11 @@ func DefineTestCommandParameters(
 	testPort int,
 	testInterface string) ([]string, error) {
 	var (
-		testCommand     = []string{"testcmd"}
-		protocolOption  string
-		protocolVersion = 4
+		testCommand    = []string{"testcmd"}
+		protocolOption string
 	)
 
-	if strings.Contains(serverIP, ":") {
-		protocolVersion = 6
-	}
+	protocolVersion, _, _ := nethelper.DefineIPFamily(serverIP)
 
 	switch protocol {
 	case netsriovparameters.CommunicationProtocolUnicastICMP:
@@ -406,7 +400,7 @@ func DefineTestCommandParameters(
 		protocolOption = protocolUPD
 		serverIP = netsriovparameters.MulticastIPAddress
 
-		if protocolVersion == 6 {
+		if protocolVersion == netparameters.IPV6Family {
 			serverIP = netsriovparameters.MulticastIPv6Address
 		}
 		testCommand = append(

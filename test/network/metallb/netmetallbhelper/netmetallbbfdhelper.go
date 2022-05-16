@@ -20,7 +20,8 @@ import (
 )
 
 func TestMetalLBBFD(scenario string, clientPod *k8sv1.Pod,
-	firstWorkerNodeAddress string, secondWorkerNodeAddress string) {
+	firstWorkerNodeAddress string, secondWorkerNodeAddress string,
+	externalTrafficPolicy k8sv1.ServiceExternalTrafficPolicyType) {
 	By("Changing the label selector for Metallb and adding a label for Workers")
 
 	workerNodeList, err := nodes.GetByRole(helper.Apiclient, parameters.RoleWorker)
@@ -100,7 +101,13 @@ func TestMetalLBBFD(scenario string, clientPod *k8sv1.Pod,
 		httpOutput, err := HTTPMlbPod(
 			clientPod, netmlbparameters.ClientIpv4IP, netmlbparameters.MetalLBMultihopIPv4List[0],
 			netparameters.IPV4Family, netmlbparameters.TestContainerName, netmlbparameters.BGP)
-		Expect(err).To(HaveOccurred(), httpOutput)
+		// If externalTrafficPolicy is Local, the server pod should be unreachable.
+		switch externalTrafficPolicy {
+		case k8sv1.ServiceExternalTrafficPolicyTypeLocal:
+			Expect(err).To(HaveOccurred(), httpOutput)
+		case k8sv1.ServiceExternalTrafficPolicyTypeCluster:
+			Expect(err).ToNot(HaveOccurred(), httpOutput)
+		}
 	}
 
 	By("Bringing Speaker pod back and checking that speaker pods are up and running")
@@ -233,8 +240,10 @@ func CreateClientOnMaster(bgpProtocol string,
 	return helper.WaitUntilPodCreatedAndRunning(clientPodDefinition, netmlbparameters.Timeout)
 }
 
-func DescribeBFDParameters(bgpPeer string, ipStack string) string {
-	metallbBFDTestParameters, err := netmlbparameters.NewMetallbBFDTestParameters(bgpPeer, ipStack)
+func DescribeBFDParameters(bgpPeer string, ipStack string,
+	externalTrafficPolicy k8sv1.ServiceExternalTrafficPolicyType) string {
+	metallbBFDTestParameters, err := netmlbparameters.NewMetallbBFDTestParameters(bgpPeer, ipStack,
+		externalTrafficPolicy)
 	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("error in parameters: BGPPeer=%s, "+
 		"IPStack=%s", bgpPeer, ipStack))
 

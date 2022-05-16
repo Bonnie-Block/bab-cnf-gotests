@@ -7,9 +7,12 @@ import (
 	metallbv1beta1 "github.com/metallb/metallb-operator/api/v1beta1"
 	mcfgv1 "github.com/openshift/machine-config-operator/pkg/apis/machineconfiguration.openshift.io/v1"
 
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/netparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/k8sreporter"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
+
+	k8sv1 "k8s.io/api/core/v1"
 )
 
 const (
@@ -18,15 +21,11 @@ const (
 	AddressPoolL2                             = "layer2-pool"
 	Layer2                                    = "layer2"
 	BGP                                       = "bgp"
-	SingleIPv4Stack                           = "singleIPv4Stack"
-	SingleIPv6Stack                           = "singleIPv6Stack"
-	DualIPStack                               = "dualIPStack"
 	EBGPProtocol                              = "eBGP"
 	IBPGPProtocol                             = "iBGP"
 	ClientIpv4IP                              = "172.16.0.1"
 	InternalRouter1IPv4                       = "172.16.0.253"
 	InternalRouter2IPv4                       = "172.16.0.254"
-	IPV6Family                                = "ipv6"
 	ScenarioMultihop                          = "multi-hop"
 	ScenarioSingleHop                         = "single-hop"
 	PodWaitingTime              time.Duration = 2 * time.Minute
@@ -41,7 +40,6 @@ const (
 	MetalLBCRName                             = "metallb"
 	MetalLBOperatorNameSpace                  = "metallb-system"
 	MetalLBAddressPool                        = "metallb.universe.tf/address-pool"
-	ExtTrafPolCluster                         = "Cluster"
 	SpeakersLabelSelector                     = "component=speaker"
 	BFDProfileName                            = "bfdprofile"
 	BGPPassword                               = "bgp-test"
@@ -58,11 +56,12 @@ const (
 	BGPConfigPrefix                           = "router bgp"
 	Wget                                      = "wget"
 	Curl                                      = "curl"
-	InternalNADName                           = "internal"
 	AddressPoolS1Name                         = "address-pools1"
 	AddressPoolS2Name                         = "address-pools2"
 	ExtTrafPolLocal                           = "Local"
+	ExtTrafPolCluster                         = "Cluster"
 	ExternalNADName                           = "external"
+	InternalNADName                           = "internal"
 	TestContainerName                         = "testcontainer"
 	ProtocolSCTP                              = "sctp"
 	ProtocolTCP                               = "tcp"
@@ -96,9 +95,10 @@ var (
 		fmt.Sprintf("%s/%s", nodes.LabelRole, parameters.RoleWorker): ""}
 	MetalLBMultihopIPv4List = []string{"3.3.3.1", "3.3.3.5"}
 
-	TrafficPolicies   = []string{ExtTrafPolCluster, ExtTrafPolLocal}
-	IPStackParameters = []string{SingleIPv4Stack, SingleIPv6Stack,
-		DualIPStack}
+	TrafficPolicies = []string{string(k8sv1.ServiceExternalTrafficPolicyTypeLocal),
+		string(k8sv1.ServiceExternalTrafficPolicyTypeCluster)}
+	IPStackParameters = []string{netparameters.IPV4Family, netparameters.IPV6Family,
+		netparameters.DualIPFamily}
 	BGPPeers = []string{EBGPProtocol, IBPGPProtocol}
 )
 

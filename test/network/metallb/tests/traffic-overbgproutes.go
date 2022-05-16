@@ -10,6 +10,7 @@ import (
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/metallb/netmetallbhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/metallb/netmlbparameters"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/netparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 
@@ -42,7 +43,7 @@ var _ = Describe("MetalLB BGP", func() {
 		}
 
 		ipV4Address := metalLBIPList[0]
-		if clusterIPStack == netmlbparameters.DualIPStack {
+		if clusterIPStack == netparameters.DualIPFamily {
 			ipV6Address = metalLBIPList[2]
 		}
 
@@ -86,12 +87,12 @@ var _ = Describe("MetalLB BGP", func() {
 				trafficPolicy,
 				netmlbparameters.IBGPASN)
 		},
-		Entry(describe, netmlbparameters.SingleIPv4Stack, netmlbparameters.ExtTrafPolLocal),
-		Entry(describe, netmlbparameters.SingleIPv4Stack, netmlbparameters.ExtTrafPolCluster),
-		Entry(describe, netmlbparameters.SingleIPv6Stack, netmlbparameters.ExtTrafPolLocal),
-		Entry(describe, netmlbparameters.SingleIPv6Stack, netmlbparameters.ExtTrafPolCluster),
-		Entry(describe, netmlbparameters.DualIPStack, netmlbparameters.ExtTrafPolLocal),
-		Entry(describe, netmlbparameters.DualIPStack, netmlbparameters.ExtTrafPolCluster),
+		Entry(describe, netparameters.IPV4Family, netmlbparameters.ExtTrafPolLocal),
+		Entry(describe, netparameters.IPV4Family, netmlbparameters.ExtTrafPolCluster),
+		Entry(describe, netparameters.IPV6Family, netmlbparameters.ExtTrafPolLocal),
+		Entry(describe, netparameters.IPV6Family, netmlbparameters.ExtTrafPolCluster),
+		Entry(describe, netparameters.DualIPFamily, netmlbparameters.ExtTrafPolLocal),
+		Entry(describe, netparameters.DualIPFamily, netmlbparameters.ExtTrafPolCluster),
 	)
 
 	// 49449
@@ -104,11 +105,11 @@ var _ = Describe("MetalLB BGP", func() {
 				trafficPolicy,
 				netmlbparameters.EBGPASN)
 		},
-		Entry(describe, netmlbparameters.SingleIPv4Stack, netmlbparameters.ExtTrafPolLocal),
-		Entry(describe, netmlbparameters.SingleIPv4Stack, netmlbparameters.ExtTrafPolCluster),
-		Entry(describe, netmlbparameters.SingleIPv6Stack, netmlbparameters.ExtTrafPolLocal),
-		Entry(describe, netmlbparameters.SingleIPv6Stack, netmlbparameters.ExtTrafPolCluster),
-		Entry(describe, netmlbparameters.DualIPStack, netmlbparameters.ExtTrafPolLocal),
-		Entry(describe, netmlbparameters.DualIPStack, netmlbparameters.ExtTrafPolCluster),
+		Entry(describe, netparameters.IPV4Family, netmlbparameters.ExtTrafPolLocal),
+		Entry(describe, netparameters.IPV4Family, netmlbparameters.ExtTrafPolCluster),
+		Entry(describe, netparameters.IPV6Family, netmlbparameters.ExtTrafPolLocal),
+		Entry(describe, netparameters.IPV6Family, netmlbparameters.ExtTrafPolCluster),
+		Entry(describe, netparameters.DualIPFamily, netmlbparameters.ExtTrafPolLocal),
+		Entry(describe, netparameters.DualIPFamily, netmlbparameters.ExtTrafPolCluster),
 	)
 })

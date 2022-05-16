@@ -3,7 +3,6 @@ package netmetallbhelper
 import (
 	"fmt"
 	"strconv"
-	"strings"
 	"time"
 
 	. "github.com/onsi/gomega"
@@ -110,10 +109,7 @@ func DefineRouterPod(nodeName string,
 		[]string{"/bin/bash", "-c"},
 		[]string{fmt.Sprintf("ip route add %s via %s && sleep INF", serviceIP, speakerIP)})
 
-	subnet := netparameters.IPV4Subnet
-	if strings.Contains(speakerIP, ":") {
-		subnet = netparameters.IPV6Subnet
-	}
+	_, subnet, _ := nethelper.DefineIPFamily(speakerIP)
 
 	return pod.RedefinePodWithNetwork(pod.RedefineOnMaster(pod.RedefineAsPrivileged(routerPodDefinition)),
 		fmt.Sprintf(`[{"name": "%s","ips": ["%s/%s"]},{"name": "%s","ips": ["%s/%s"]}]`,
@@ -124,9 +120,10 @@ func DefineRouterPod(nodeName string,
 // defineFRRPodWithNetworkAndIP returns frr pod definition with network and IP.
 func defineFRRPodWithNetworkAndIP(masterNodeName string, ipAddress string, networkName string) *k8sv1.Pod {
 	frrPod := DefineFrrPodWithTestContainer(masterNodeName, netmlbparameters.TestNamespace)
+	_, subnet, _ := nethelper.DefineIPFamily(ipAddress)
 
 	return pod.RedefinePodWithNetwork(frrPod, fmt.Sprintf(`[{"name": "%s","ips": ["%s/%s"]}]`,
-		networkName, ipAddress, netparameters.IPV4Subnet))
+		networkName, ipAddress, subnet))
 }
 
 // DefineExternalNAD returns external Network Attachment Definition for multihop scenario.
@@ -182,17 +179,17 @@ func DefineMetalLBAddressPool(
 
 	if protocol == netmlbparameters.BGP {
 		switch iPStack {
-		case netmlbparameters.SingleIPv4Stack:
+		case netparameters.IPV4Family:
 			if prefixLen != 0 {
 				addrPool.Spec.BGPAdvertisements = append(addrPool.Spec.BGPAdvertisements,
 					v1beta1.BgpAdvertisement{AggregationLength: &prefixLen})
 			}
-		case netmlbparameters.SingleIPv6Stack:
+		case netparameters.IPV6Family:
 			if prefixLen != 0 {
 				addrPool.Spec.BGPAdvertisements = append(addrPool.Spec.BGPAdvertisements,
 					v1beta1.BgpAdvertisement{AggregationLengthV6: &prefixLen})
 			}
-		case netmlbparameters.DualIPStack:
+		case netparameters.DualIPFamily:
 			addrPool.Spec.Addresses = append(addrPool.Spec.Addresses,
 				fmt.Sprintln(metalLBIP[2], "-", metalLBIP[3]))
 		}
@@ -281,4 +278,28 @@ func createPrivilegedPodMaster(image string, masterNodeName string) *k8sv1.Pod {
 	helper.WaitForPodsHealthy([]*k8sv1.Pod{masterprivilegedPod}, 1*time.Minute)
 
 	return masterprivilegedPod
+}
+
+// DefineFrrPodWithTestContainer creates an FRR Pod with a test container.
+func DefineFrrPodWithTestContainer(masterNodeName string, namespace string) *k8sv1.Pod {
+	frrPod := nethelper.DefineFRRPod(masterNodeName, namespace, false)
+
+	frrPod.Spec.Containers = append(frrPod.Spec.Containers,
+		k8sv1.Container{
+			Name:  netmlbparameters.TestContainerName,
+			Image: helper.Config.Network.TestContainerImage,
+			SecurityContext: &k8sv1.SecurityContext{
+				Capabilities: &k8sv1.Capabilities{
+					Add: []k8sv1.Capability{
+						"NET_ADMIN",
+						"NET_RAW",
+						"SYS_ADMIN",
+					},
+				},
+			},
+			Command: parameters.SleepCommand,
+		},
+	)
+
+	return frrPod
 }

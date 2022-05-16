@@ -52,17 +52,17 @@ func DefineFRRBGPConfigMap(ipAddresses []string, configMapName string, localAS i
 		Expect(err).ToNot(HaveOccurred())
 
 		switch ipStack {
-		case netmlbparameters.SingleIPv4Stack:
+		case netparameters.IPV4Family:
 			router = netmlbparameters.NeighborConfig{
 				Addr1: ipAddresses[0],
 				Addr2: ipAddresses[1]}
 
-		case netmlbparameters.SingleIPv6Stack:
+		case netparameters.IPV6Family:
 			router = netmlbparameters.NeighborConfig{
 				Addr3: ipAddresses[2],
 				Addr4: ipAddresses[3]}
 
-		case netmlbparameters.DualIPStack:
+		case netparameters.DualIPFamily:
 			router = netmlbparameters.NeighborConfig{
 				Addr1: ipAddresses[0],
 				Addr2: ipAddresses[1],
@@ -105,7 +105,7 @@ func CheckNeighborsStatus(frrPod *k8sv1.Pod, ipStack string, neighborsIPAddresse
 	Expect(err).ToNot(HaveOccurred())
 
 	switch ipStack {
-	case netmlbparameters.SingleIPv4Stack:
+	case netparameters.IPV4Family:
 		if len(parseNeigh) != len(workerNodeList) {
 			fmt.Printf("Expected %d neighbours, got %d\n", len(workerNodeList), len(parseNeigh))
 
@@ -124,7 +124,7 @@ func CheckNeighborsStatus(frrPod *k8sv1.Pod, ipStack string, neighborsIPAddresse
 			return false
 		}
 
-	case netmlbparameters.SingleIPv6Stack:
+	case netparameters.IPV6Family:
 		if len(parseNeigh) != len(workerNodeList) {
 			fmt.Printf("Expected %d neighbours, got %d\n", len(workerNodeList), len(parseNeigh))
 
@@ -143,7 +143,7 @@ func CheckNeighborsStatus(frrPod *k8sv1.Pod, ipStack string, neighborsIPAddresse
 			return false
 		}
 
-	case netmlbparameters.DualIPStack:
+	case netparameters.DualIPFamily:
 		if len(parseNeigh) != len(workerNodeList)*2 {
 			fmt.Printf("Expected 4 IPv64neighbours, got %d\n", len(parseNeigh))
 
@@ -267,7 +267,7 @@ func CheckBGPRoutes(
 			}
 		}
 
-		if iPFamily == netmlbparameters.IPV6Family {
+		if iPFamily == netparameters.IPV6Family {
 			if !ips[0].Equal(net.ParseIP(neighborsIPAddresses[2])) {
 				return fmt.Errorf("neighbour %s ip not matching", neighborsIPAddresses[2])
 			}
@@ -353,30 +353,6 @@ func DeleteAllBGPPeers() error {
 	return nil
 }
 
-// DefineFrrPodWithTestContainer creates an FRR Pod with a test container.
-func DefineFrrPodWithTestContainer(masterNodeName string, namespace string) *k8sv1.Pod {
-	frrPod := nethelper.DefineFRRPod(masterNodeName, namespace, false)
-
-	frrPod.Spec.Containers = append(frrPod.Spec.Containers,
-		k8sv1.Container{
-			Name:  netmlbparameters.TestContainerName,
-			Image: helper.Config.Network.TestContainerImage,
-			SecurityContext: &k8sv1.SecurityContext{
-				Capabilities: &k8sv1.Capabilities{
-					Add: []k8sv1.Capability{
-						"NET_ADMIN",
-						"NET_RAW",
-						"SYS_ADMIN",
-					},
-				},
-			},
-			Command: parameters.SleepCommand,
-		},
-	)
-
-	return frrPod
-}
-
 // CreateParametersInJSON validates given parameters and returns json formatted string.
 func CreateParametersInJSON(ipStack string, trafficPolicy string) string {
 	BGPParameters, err := netmlbparameters.NewBGPTestParameters(ipStack, trafficPolicy)
@@ -416,10 +392,10 @@ func CreateFRRContainerOnMaster(
 	bgpASN int) *k8sv1.Pod {
 	clusterIPStack := ValidateClusterIPStack()
 	workerNodesAdresses := nethelper.NodeIPsForFamily(workerNodeList, netparameters.IPV4Family)
-	workerNodesV6Adresses := nethelper.NodeIPsForFamily(workerNodeList, netmlbparameters.IPV6Family)
+	workerNodesV6Adresses := nethelper.NodeIPsForFamily(workerNodeList, netparameters.IPV6Family)
 	annotation := DefineAnnotationWithIPStack(ipStack, metalLBIPList, clusterIPStack)
 
-	if ipStack != netmlbparameters.SingleIPv4Stack {
+	if ipStack != netparameters.IPV4Family {
 		workerNodesAdresses = append(workerNodesAdresses, workerNodesV6Adresses...)
 	}
 

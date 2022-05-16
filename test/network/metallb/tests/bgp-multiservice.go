@@ -38,7 +38,7 @@ var _ = Describe("CNF MetalLB", func() {
 
 		netmetallbhelper.IsEnvVarMetallbIPinNodeExtNetRange(strings.Split(
 			helper.Config.General.CnfNodeLabel, "/")[1],
-			netmlbparameters.SingleIPv4Stack,
+			netparameters.IPV4Family,
 			metalLBIPList[0],
 			"")
 
@@ -72,7 +72,7 @@ var _ = Describe("CNF MetalLB", func() {
 		err := helper.Apiclient.Create(context.Background(),
 			netmetallbhelper.DefineMetalLBAddressPool(netmlbparameters.AddressPoolS1,
 				netmlbparameters.BGP,
-				netmlbparameters.SingleIPv4Stack,
+				netparameters.IPV4Family,
 				netmlbparameters.AddressPoolS1Name,
 				netmlbparameters.PrefixLen32))
 		Expect(err).ToNot(HaveOccurred())
@@ -81,7 +81,7 @@ var _ = Describe("CNF MetalLB", func() {
 		err = helper.Apiclient.Create(context.Background(),
 			netmetallbhelper.DefineMetalLBAddressPool(netmlbparameters.AddressPoolS2,
 				netmlbparameters.BGP,
-				netmlbparameters.SingleIPv4Stack,
+				netparameters.IPV4Family,
 				netmlbparameters.AddressPoolS2Name,
 				netmlbparameters.PrefixLen32))
 		Expect(err).ToNot(HaveOccurred())
@@ -89,7 +89,7 @@ var _ = Describe("CNF MetalLB", func() {
 		By("should create service 1 with 2 backend pods")
 		err = netmetallbhelper.DefineAndCreateLBService(
 			netmlbparameters.TestNamespace,
-			netmlbparameters.SingleIPv4Stack,
+			netparameters.IPV4Family,
 			netmlbparameters.AddressPoolS1Name,
 			netmlbparameters.AppLabel1,
 			netmlbparameters.ProtocolTCP,
@@ -107,7 +107,7 @@ var _ = Describe("CNF MetalLB", func() {
 		By("should create service 2 with 2 backend pods")
 		err = netmetallbhelper.DefineAndCreateLBService(
 			netmlbparameters.TestNamespace,
-			netmlbparameters.SingleIPv4Stack,
+			netparameters.IPV4Family,
 			netmlbparameters.AddressPoolS2Name,
 			netmlbparameters.AppLabel2,
 			netmlbparameters.ProtocolTCP,
@@ -145,7 +145,7 @@ var _ = Describe("CNF MetalLB", func() {
 			netparameters.MasterConfigMapName,
 			netmlbparameters.IBGPASN,
 			netmlbparameters.BGP,
-			netmlbparameters.SingleIPv4Stack)
+			netparameters.IPV4Family)
 		_, err = helper.Apiclient.ConfigMaps(netmlbparameters.TestNamespace).Create(
 			context.TODO(),
 			masterConfigMap,
@@ -160,10 +160,10 @@ var _ = Describe("CNF MetalLB", func() {
 
 		By("Checking that BGP sessions are established")
 		Eventually(func() bool {
-			netmetallbhelper.CheckNeighborsStatus(masterNodeFRRPod, netmlbparameters.SingleIPv4Stack,
+			netmetallbhelper.CheckNeighborsStatus(masterNodeFRRPod, netparameters.IPV4Family,
 				workerNodesAdresses)
 
-			return netmetallbhelper.CheckNeighborsStatus(masterNodeFRRPod, netmlbparameters.SingleIPv4Stack,
+			return netmetallbhelper.CheckNeighborsStatus(masterNodeFRRPod, netparameters.IPV4Family,
 				workerNodesAdresses)
 		}, 1*time.Minute, netmlbparameters.Interval).Should(BeTrue())
 
