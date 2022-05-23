@@ -725,6 +725,7 @@ func SetupMetalLB() {
 
 	if err != nil {
 		metallb.Spec.SpeakerNodeSelector = netmlbparameters.SpeakerNodeSelectorWorker
+		metallb.Spec.LogLevel = metallboperatorv1beta1.LogLevelDebug
 		Expect(helper.Apiclient.Create(context.Background(), metallb)).Should(Succeed())
 	}
 
@@ -1020,6 +1021,41 @@ func AddOrDeleteNodeSecIPAddViaSpeaker(action string,
 
 	buffer, err := pod.ExecCommand(helper.Apiclient, speakerPodList.Items[0], []string{"ip", "add", action,
 		netmlbparameters.IPSecondaryInterface1 + "/" + subnet, "dev", secInterface}, netmlbparameters.FRRContainerName)
+	if err != nil {
+		return buffer.String(), err
+	}
+
+	return buffer.String(), err
+}
+
+// AddOrDeleteNodeSecIPAddViaSpeaker removes or adds IP address to the secondary Node interface via speaker pod.
+func AddOrDeleteNodeSecIPAddViaSpeaker(action string,
+	workerNodeName string,
+	ipaddress string,
+	secInterface string) (string, error) {
+	fieldSelector := fmt.Sprintf("spec.nodeName=%s", workerNodeName)
+
+	speakerPodList, err := helper.Apiclient.Pods(netmlbparameters.MetalLBOperatorNameSpace).List(
+		context.Background(),
+		metav1.ListOptions{
+			LabelSelector: netmlbparameters.SpeakersLabelSelector, FieldSelector: fieldSelector},
+	)
+	if err != nil {
+		return "", fmt.Errorf("failed to get MetalLB speaker pods: %w", err)
+	}
+
+	if len(speakerPodList.Items) != 1 {
+		return "", fmt.Errorf("wrong number of speakers(%d) on the worker node %s",
+			len(speakerPodList.Items), workerNodeName)
+	}
+
+	_, subnet, err := nethelper.DefineIPFamily(ipaddress)
+	if err != nil {
+		return "", err
+	}
+
+	buffer, err := pod.ExecCommand(helper.Apiclient, speakerPodList.Items[0], []string{"ip", "add", action,
+		netmlbparameters.IPSecondaryInterface1 + "/" + subnet, "dev", secInterface})
 	if err != nil {
 		return buffer.String(), err
 	}

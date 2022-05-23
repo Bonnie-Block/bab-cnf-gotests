@@ -11,8 +11,13 @@ import (
 )
 
 const (
+<<<<<<< HEAD
 	ModeOn  int = 1
 	ModeOff int = 2
+=======
+	On  int = 1
+	Off int = 2
+>>>>>>> 6db12c57 (Add PTP events for boundary clock)
 )
 
 var (
@@ -60,7 +65,11 @@ func GetSocket() (bool, error) {
 		return false, err
 	}
 
+<<<<<<< HEAD
 	return result.Variables[0].Value == ModeOn, nil
+=======
+	return result.Variables[0].Value == On, nil
+>>>>>>> 6db12c57 (Add PTP events for boundary clock)
 }
 
 // SetSocket returns true if socket is on or error if exist.
@@ -79,5 +88,9 @@ func SetSocket(value int) (bool, error) {
 		return false, err
 	}
 
+<<<<<<< HEAD
 	return setResult.Variables[0].Value == ModeOn, nil
+=======
+	return setResult.Variables[0].Value == On, nil
+>>>>>>> 6db12c57 (Add PTP events for boundary clock)
 }

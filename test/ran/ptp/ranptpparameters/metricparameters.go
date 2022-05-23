@@ -10,6 +10,7 @@ type RoleMap map[string]string
 
 const (
 <<<<<<< HEAD
+<<<<<<< HEAD
 	FreeRunState  ClockState = 0
 	LockedState   ClockState = 1
 	HoldOverState ClockState = 2
@@ -24,6 +25,8 @@ const (
 	Down ProcessStatus = 0
 	Up   ProcessStatus = 1
 =======
+=======
+>>>>>>> 6db12c57 (Add PTP events for boundary clock)
 	FREERUN  ClockStateDef = 0
 	LOCKED   ClockStateDef = 1
 	HOLDOVER ClockStateDef = 2
@@ -41,6 +44,7 @@ const (
 	DOWN ProcessStatusDef = 0
 	UP   ProcessStatusDef = 1
 )
+<<<<<<< HEAD
 >>>>>>> 02b3c769 (Infa tests)
 
 	PTP4L   Process = 1
@@ -103,6 +107,20 @@ type MetricDetails struct {
 	Code               int           `json:"code"`
 	Threshold          string        `json:"threshold"`
 =======
+=======
+
+const (
+	PHC2SYS Process = 2
+	PTP4L   Process = 1
+)
+
+const (
+	SUCCESS Status = 0
+	FAILED  Status = 1
+	ACTIVE  Status = 2
+)
+
+>>>>>>> 6db12c57 (Add PTP events for boundary clock)
 var (
 	MerticsTypes = []string{
 		"cne_api_events_published",
@@ -230,5 +248,8 @@ type ProcessStatus struct {
 type promHttpHandlerRequests struct {
 	Code  int `json:"code"`
 	Value int `json:"value"`
+<<<<<<< HEAD
 >>>>>>> 02b3c769 (Infa tests)
+=======
+>>>>>>> 6db12c57 (Add PTP events for boundary clock)
 }

@@ -5,6 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 
+<<<<<<< HEAD
+=======
+	cniTypes "github.com/containernetworking/cni/pkg/types"
+>>>>>>> 6db12c57 (Add PTP events for boundary clock)
 	nadv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -15,6 +19,7 @@ type (
 		Mac bool `json:"mac,omitempty"`
 	}
 
+<<<<<<< HEAD
 	Link struct {
 		Name string `json:"name,omitempty"`
 	}
@@ -30,12 +35,22 @@ type (
 
 	Plugin struct {
 		LinksInContainer bool              `json:"linksInContainer,omitempty"`
+=======
+	Plugin struct {
+		CNIVersion       string            `json:"cniVersion,omitempty"`
+		Name             string            `json:"name,omitempty"`
+		Type             string            `json:"type,omitempty"`
+		Bridge           string            `json:"bridge,omitempty"`
+		Master           string            `json:"master,omitempty"`
+		Ipam             *cniTypes.IPAM    `json:"ipam,omitempty"`
+>>>>>>> 6db12c57 (Add PTP events for boundary clock)
 		IPMasq           bool              `json:"ipMasq,omitempty"`
 		IsGateway        bool              `json:"isGateway,omitempty"`
 		IsDefaultGateway bool              `json:"isDefaultGateway,omitempty"`
 		ForceAddress     bool              `json:"forceAddress,omitempty"`
 		HairpinMode      bool              `json:"hairpinMode,omitempty"`
 		PromiscMode      bool              `json:"promiscMode,omitempty"`
+<<<<<<< HEAD
 		FailOverMac      int               `json:"failOverMac,omitempty"`
 		CNIVersion       string            `json:"cniVersion,omitempty"`
 		Name             string            `json:"name,omitempty"`
@@ -69,6 +84,28 @@ type (
 		Definition        nadv1.NetworkAttachmentDefinition
 		metaPluginConfigs []Plugin
 		ipam              *IPAM
+=======
+		Capabilities     *Capability       `json:"capabilities,omitempty"`
+		Vlan             string            `json:"vlan,omitempty"`
+		Mtu              string            `json:"mtu,omitempty"`
+		VrfName          string            `json:"vrfName,omitempty"`
+		Sysctl           map[string]string `json:"sysctl,omitempty"`
+	}
+
+	MasterPlugin struct {
+		CniVersion string         `json:"cniVersion,omitempty"`
+		Name       string         `json:"name,omitempty"`
+		Type       string         `json:"type,omitempty"`
+		Master     string         `json:"master,omitempty"`
+		Ipam       *cniTypes.IPAM `json:"ipam,omitempty"`
+		Plugins    *[]Plugin      `json:"plugins,omitempty"`
+	}
+
+	NetworkAttachmentDefinitionBuilder struct {
+		definition        nadv1.NetworkAttachmentDefinition
+		metaPluginConfigs []Plugin
+		ipam              *cniTypes.IPAM
+>>>>>>> 6db12c57 (Add PTP events for boundary clock)
 		errorMsg          string
 	}
 )
@@ -77,7 +114,11 @@ type (
 func NewNadBuilder(name string, namespace string) *NetworkAttachmentDefinitionBuilder {
 	return &NetworkAttachmentDefinitionBuilder{
 		metaPluginConfigs: []Plugin{},
+<<<<<<< HEAD
 		Definition: nadv1.NetworkAttachmentDefinition{
+=======
+		definition: nadv1.NetworkAttachmentDefinition{
+>>>>>>> 6db12c57 (Add PTP events for boundary clock)
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
 				Namespace: namespace,
@@ -90,7 +131,11 @@ func NewNadBuilder(name string, namespace string) *NetworkAttachmentDefinitionBu
 }
 
 // WithIpam adds ipam to NetworkAttachmentDefinition resource.
+<<<<<<< HEAD
 func (b *NetworkAttachmentDefinitionBuilder) WithIpam(ipam *IPAM) *NetworkAttachmentDefinitionBuilder {
+=======
+func (b *NetworkAttachmentDefinitionBuilder) WithIpam(ipam *cniTypes.IPAM) *NetworkAttachmentDefinitionBuilder {
+>>>>>>> 6db12c57 (Add PTP events for boundary clock)
 	b.ipam = ipam
 
 	return b
@@ -114,6 +159,7 @@ func (b *NetworkAttachmentDefinitionBuilder) WithPlugin(plugin *Plugin) *Network
 	return b
 }
 
+<<<<<<< HEAD
 // BuildWithMasterPluginString adds master plugin sting to NetworkAttachmentDefinition resource.
 func (b *NetworkAttachmentDefinitionBuilder) BuildWithMasterPluginString(
 	masterPlugin string) (*NetworkAttachmentDefinitionBuilder, error) {
@@ -130,6 +176,8 @@ func (b *NetworkAttachmentDefinitionBuilder) BuildWithMasterPluginString(
 	return b, nil
 }
 
+=======
+>>>>>>> 6db12c57 (Add PTP events for boundary clock)
 // WithPlugins adds list of plugins to NetworkAttachmentDefinition resource.
 func (b *NetworkAttachmentDefinitionBuilder) WithPlugins(plugins []*Plugin) *NetworkAttachmentDefinitionBuilder {
 	for _, plugin := range plugins {
@@ -147,7 +195,11 @@ func (b *NetworkAttachmentDefinitionBuilder) Build() (*NetworkAttachmentDefiniti
 
 	nadConfig := MasterPlugin{}
 	nadConfig.CniVersion = "0.4.0"
+<<<<<<< HEAD
 	nadConfig.Name = b.Definition.Name
+=======
+	nadConfig.Name = b.definition.Name
+>>>>>>> 6db12c57 (Add PTP events for boundary clock)
 	nadConfig.Ipam = b.ipam
 	nadConfig.Plugins = &b.metaPluginConfigs
 
@@ -166,14 +218,22 @@ func (b *NetworkAttachmentDefinitionBuilder) Build() (*NetworkAttachmentDefiniti
 		return nil, fmt.Errorf("can not marshal cni config")
 	}
 
+<<<<<<< HEAD
 	b.Definition.Spec.Config = string(nadConfigJSONString)
+=======
+	b.definition.Spec.Config = string(nadConfigJSONString)
+>>>>>>> 6db12c57 (Add PTP events for boundary clock)
 
 	return b, nil
 }
 
 // GetString prints NetworkAttachmentDefinition resource.
 func (b *NetworkAttachmentDefinitionBuilder) GetString() (string, error) {
+<<<<<<< HEAD
 	nadByte, err := json.MarshalIndent(b.Definition, "", "    ")
+=======
+	nadByte, err := json.MarshalIndent(b.definition, "", "    ")
+>>>>>>> 6db12c57 (Add PTP events for boundary clock)
 	if err != nil {
 		return "", err
 	}
@@ -183,7 +243,11 @@ func (b *NetworkAttachmentDefinitionBuilder) GetString() (string, error) {
 
 // Create creates NetworkAttachmentDefinition resource.
 func (b *NetworkAttachmentDefinitionBuilder) Create(clientSet *client.ClientSet) error {
+<<<<<<< HEAD
 	if b.Definition.Spec.Config == "" {
+=======
+	if b.definition.Spec.Config == "" {
+>>>>>>> 6db12c57 (Add PTP events for boundary clock)
 		return fmt.Errorf("error to create network-attachment-definitions object because it's config is empty")
 	}
 
@@ -191,7 +255,11 @@ func (b *NetworkAttachmentDefinitionBuilder) Create(clientSet *client.ClientSet)
 		return fmt.Errorf(b.errorMsg)
 	}
 
+<<<<<<< HEAD
 	err := clientSet.Create(context.TODO(), &b.Definition)
+=======
+	err := clientSet.Create(context.TODO(), &b.definition)
+>>>>>>> 6db12c57 (Add PTP events for boundary clock)
 	if err != nil {
 		return fmt.Errorf("fail to create NAD object due to: %w", err)
 	}
@@ -200,7 +268,11 @@ func (b *NetworkAttachmentDefinitionBuilder) Create(clientSet *client.ClientSet)
 }
 
 // DefineMacVlanPlugin returns mac-vlan plugin config.
+<<<<<<< HEAD
 func DefineMacVlanPlugin(master string, ipam *IPAM) *Plugin {
+=======
+func DefineMacVlanPlugin(master string, ipam *cniTypes.IPAM) *Plugin {
+>>>>>>> 6db12c57 (Add PTP events for boundary clock)
 	return &Plugin{
 		Type:   "macvlan",
 		Master: master,
@@ -237,6 +309,7 @@ func DefineTuningPluginWithSysctl(sysctlConfig map[string]string) *Plugin {
 }
 
 // DefineStaticIpam returns static ipam config.
+<<<<<<< HEAD
 func DefineStaticIpam() *IPAM {
 	return DefineIpam("static")
 }
@@ -292,3 +365,10 @@ func DefineBondPlugin(ipam *IPAM, bondPorts []string, bondMode string) *Plugin {
 
 	return bondPlugin
 }
+=======
+func DefineStaticIpam() *cniTypes.IPAM {
+	return &cniTypes.IPAM{
+		Type: "static",
+	}
+}
+>>>>>>> 6db12c57 (Add PTP events for boundary clock)

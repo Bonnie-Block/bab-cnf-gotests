@@ -383,6 +383,7 @@ func NewMetallbCRDTestParameters(externalTrafficPolicy k8sv1.ServiceExternalTraf
 
 	return CRDTestParameters, nil
 }
+<<<<<<< HEAD
 
 // NewMetallbTestParamIPStack constructor for Metallb TestParameters.
 func NewMetallbTestParamIPStack(ipStack string) (*MetallbPoolTestParameters, error) {
@@ -410,3 +411,5 @@ func NewMetallbTestParamIPStackPrefix(ipStack string, prefixLenght int32) (*Meta
 
 	return BGPTestParameters, nil
 }
+=======
+>>>>>>> 6db12c57 (Add PTP events for boundary clock)

@@ -6,11 +6,18 @@ import (
 	"testing"
 	"time"
 
+<<<<<<< HEAD
 	"github.com/onsi/ginkgo/v2/types"
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 
 	. "github.com/onsi/ginkgo/v2"
+=======
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
+
+	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/reporters"
+>>>>>>> 6db12c57 (Add PTP events for boundary clock)
 	. "github.com/onsi/gomega"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/cni/netcniparameters"
@@ -29,8 +36,14 @@ const (
 var _, currentFile, _, _ = runtime.Caller(0)
 
 func TestVrf(t *testing.T) {
+<<<<<<< HEAD
 	_, reporterConfig := GinkgoConfiguration()
 	reporterConfig.JUnitReport = helper.Config.GetReportPath(currentFile)
+=======
+	_, currentFile, _, _ := runtime.Caller(0)
+	junitPath := helper.Config.GetReportPath(currentFile)
+	dumpFile := helper.Config.GetDumpFailedTestReportLocation(currentFile)
+>>>>>>> 6db12c57 (Add PTP events for boundary clock)
 
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "CNI tests", reporterConfig)
@@ -61,8 +74,11 @@ var _ = AfterSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 	By("Waiting until SRIOV become stable")
 	helper.WaitForSRIOVStable(parameters.SriovOperatorNamespace, waitingTime, snoTimeoutMultiplier)
+<<<<<<< HEAD
 })
 
 var _ = ReportAfterEach(func(report types.SpecReport) {
 	testutils.ReportIfFailed(report, currentFile, netcniparameters.ReporterNamespacesToDump, netcniparameters.ReporterCrds)
+=======
+>>>>>>> 6db12c57 (Add PTP events for boundary clock)
 })
