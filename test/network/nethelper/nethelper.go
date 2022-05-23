@@ -301,7 +301,7 @@ func DefineIPFamily(ipAddress string) (ipFamily string, subnet string, err error
 
 	if strings.Contains(ipAddress, ":") {
 		subnet = netparameters.IPV6Subnet
-		ipFamily = netparameters.IPV4Family
+		ipFamily = netparameters.IPV6Family
 	}
 
 	return ipFamily, subnet, nil
