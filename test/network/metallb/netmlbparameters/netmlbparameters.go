@@ -76,6 +76,10 @@ const (
 	CustomCommunity                           = "500:500"
 	LocalPref400                              = uint32(400)
 	LocalPref500                              = uint32(500)
+	AcceptedPrefixCounter                     = "AcceptedPrefixCounter"
+	SentPrefixCounter                         = "SentPrefixCounter"
+	PropagateFalse                            = "propagateFalse"
+	PropagateTrue                             = "propagateTrue"
 )
 
 var (

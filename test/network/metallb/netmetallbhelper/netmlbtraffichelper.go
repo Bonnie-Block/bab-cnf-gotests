@@ -31,7 +31,8 @@ func TestBGPTable(ipStack string, workerNodeList []k8sv1.Node, masterNodeList []
 
 	By("should create external FRR container")
 
-	masterNodeFRRPod := CreateFRRContainerOnMaster(workerNodeList, masterNodeList, metalLBIPList, ipStack, bgpASN)
+	masterNodeFRRPod := CreateFRRContainerOnMaster(workerNodeList, masterNodeList, metalLBIPList, ipStack, bgpASN,
+		netmlbparameters.PropagateFalse)
 
 	By("should create a BGP addresspool")
 

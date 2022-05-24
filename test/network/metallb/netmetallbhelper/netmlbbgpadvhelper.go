@@ -2,11 +2,15 @@ package netmetallbhelper
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"net"
 	"time"
 
 	"github.com/metallb/metallb-operator/api/v1beta1"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/pkg/errors"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/metallb/netmlbparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/nethelper"
@@ -22,7 +26,7 @@ func TestBGPAdvertismentTable(ipStack string, metalLBIPList []string, workerNode
 	By("should create external FRR container")
 
 	masterNodeFRRPod := CreateFRRContainerOnMaster(workerNodeList, masterNodeList, metalLBIPList, ipStack,
-		netmlbparameters.IBGPASN)
+		netmlbparameters.IBGPASN, netmlbparameters.PropagateFalse)
 
 	By("should create a BGP addresspool")
 
@@ -91,7 +95,7 @@ func TestBGPAdvertismentTableUpdates(masterNodeList []k8sv1.Node, workerNodeList
 	By("should create external FRR container")
 
 	masterNodeFRRPod := CreateFRRContainerOnMaster(workerNodeList, masterNodeList, metalLBIPList, ipStack,
-		netmlbparameters.IBGPASN)
+		netmlbparameters.IBGPASN, netmlbparameters.PropagateFalse)
 
 	By("should create a BGP addresspool")
 
@@ -261,4 +265,149 @@ func updateBGPAdvertisement(addresspool *v1beta1.AddressPool, prefixLen int32) {
 
 	err := helper.Apiclient.Update(context.Background(), addresspool)
 	Expect(err).ToNot(HaveOccurred())
+}
+
+func TestBGPBlockRouteAdvertisment(ipStack string, metalLBIPList []string, masterNodeList []k8sv1.Node,
+	workerNodeList []k8sv1.Node) {
+	By("should create external FRR container")
+
+	masterNodeFRRPod := CreateFRRContainerOnMaster(workerNodeList, masterNodeList, metalLBIPList, ipStack,
+		netmlbparameters.IBGPASN, netmlbparameters.PropagateTrue)
+
+	var workerNodeListString []string
+
+	for _, node := range workerNodeList {
+		workerNodeListString = append(workerNodeListString, node.Name)
+	}
+
+	By("should create a BGP addresspool")
+
+	addresspoolIPList := netmlbparameters.AddressPoolV4Prefix32
+
+	if ipStack == netparameters.IPV6Family {
+		addresspoolIPList = netmlbparameters.AddressPoolV6Prefix128
+	}
+
+	err := helper.Apiclient.Create(
+		context.Background(),
+		DefineMetalLBAddressPool(
+			addresspoolIPList,
+			netmlbparameters.BGP,
+			ipStack,
+			netmlbparameters.AddressPoolS1Name,
+			netmlbparameters.PrefixLen32),
+	)
+	Expect(err).ToNot(HaveOccurred())
+
+	By("should create service")
+
+	err = DefineAndCreateLBService(
+		netmlbparameters.TestNamespace,
+		ipStack,
+		netmlbparameters.AddressPoolS1Name,
+		netmlbparameters.AppLabel1,
+		netmlbparameters.ProtocolTCP,
+		netmlbparameters.ExtTrafPolCluster)
+	Expect(err).ToNot(HaveOccurred())
+
+	By("should create 2 backend pods")
+
+	DefineAndRunMlbServerPod(workerNodeListString[0],
+		helper.Config.Network.TestContainerImage,
+		netmlbparameters.AppLabel1, []string{netmlbparameters.ArgCommandNGINX})
+
+	DefineAndRunMlbServerPod(workerNodeListString[1],
+		helper.Config.Network.TestContainerImage,
+		netmlbparameters.AppLabel1, []string{netmlbparameters.ArgCommandNGINX})
+
+	By("should create a BGP Peer on Speakers")
+
+	workerNodesAdresses := nethelper.NodeIPsForFamily(workerNodeList, netparameters.IPV4Family)
+	workerNodesV6Adresses := nethelper.NodeIPsForFamily(workerNodeList, netparameters.IPV6Family)
+
+	if ipStack != netparameters.IPV4Family {
+		workerNodesAdresses = append(workerNodesAdresses, workerNodesV6Adresses...)
+	}
+
+	err = CreateSpeakerBGPPeerIPStack(ipStack, metalLBIPList, netmlbparameters.IBGPASN)
+	Expect(err).ToNot(HaveOccurred())
+
+	Eventually(func() bool {
+		return CheckNeighborsStatus(masterNodeFRRPod, ipStack,
+			workerNodesAdresses)
+	}, 1*time.Minute, netmlbparameters.Interval).Should(BeTrue())
+
+	Eventually(func() bool {
+		return CheckNeighborsStatus(masterNodeFRRPod, ipStack,
+			workerNodesAdresses)
+	}, 1*time.Minute, netmlbparameters.Interval).Should(BeTrue())
+
+	By("should validate BGP route is advertised from external FRR")
+
+	masterFRRSlice := []k8sv1.Pod{*masterNodeFRRPod}
+
+	sentPrefixes, err := parseAddressFamilyInfo(masterFRRSlice, netmlbparameters.SentPrefixCounter)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(sentPrefixes).ToNot(Equal(0))
+	By("should validate BGP route is not received on Speakers")
+
+	speakerPods, err := helper.Apiclient.Pods(netmlbparameters.MetalLBOperatorNameSpace).
+		List(context.Background(), metav1.ListOptions{
+			LabelSelector: netmlbparameters.SpeakersLabelSelector,
+		})
+	Expect(err).ToNot(HaveOccurred())
+
+	acceptedPrefixes, err := parseAddressFamilyInfo(speakerPods.Items, netmlbparameters.AcceptedPrefixCounter)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(acceptedPrefixes).To(Equal(0))
+}
+
+func parseAddressFamilyInfo(frrPods []k8sv1.Pod, addressFamilyInfo string) (int, error) {
+	vtyshRes, err := pod.ExecCommand(helper.Apiclient, frrPods[0],
+		append(netmlbparameters.VtyshFRRCmdPrefix, "sh bgp neighbors json"))
+	if err != nil {
+		return 0, err
+	}
+
+	neighborList := map[string]netmlbparameters.FRRNeighbor{}
+	err = json.Unmarshal(vtyshRes.Bytes(), &neighborList)
+
+	if err != nil {
+		return 0, errors.Wrap(err, "unable to unmarshal output map")
+	}
+
+	for k, neigh := range neighborList {
+		ipAdd := net.ParseIP(k)
+		if ipAdd == nil {
+			return 0, err
+		}
+
+		return getPrefixCounter(addressFamilyInfo, neigh)
+	}
+
+	return 0, nil
+}
+
+// getPrefixCounter returns either the number of sent prefixes from the external FRR or
+// the number of received prefixes from the Speakers.
+func getPrefixCounter(prefixType string, neigh netmlbparameters.FRRNeighbor) (int, error) {
+	for _, prefixCounter := range neigh.AddressFamilyInfo {
+		switch prefixType {
+		case netmlbparameters.SentPrefixCounter:
+			if prefixCounter.SentPrefixCounter == 0 {
+				return 0, fmt.Errorf("no prefix are advertised")
+			}
+
+			return prefixCounter.SentPrefixCounter, nil
+
+		case netmlbparameters.AcceptedPrefixCounter:
+			if prefixCounter.AcceptedPrefixCounter != 0 {
+				return 0, fmt.Errorf("the speaker received prefix from external FRR")
+			}
+
+			return prefixCounter.AcceptedPrefixCounter, nil
+		}
+	}
+
+	return 0, nil
 }
