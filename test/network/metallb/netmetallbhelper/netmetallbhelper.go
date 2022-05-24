@@ -587,7 +587,7 @@ func CollectMetalLBMetricsByPod(speakerPods []k8sv1.Pod, prefix string) (map[str
 		)
 
 		Eventually(func() error {
-			stdout, err = pod.ExecCommand(helper.Apiclient, speakerPod, []string{"curl", "localhost:7473/metrics"})
+			stdout, err = pod.ExecCommand(helper.Apiclient, speakerPod, []string{"curl", "localhost:29151/metrics"})
 			if len(strings.Split(stdout.String(), "\n")) == 0 {
 				return fmt.Errorf("empty response")
 			}
