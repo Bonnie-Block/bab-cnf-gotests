@@ -171,3 +171,21 @@ Below is an e2e flow example for RAN cpu test:
 8. Export KUBECONFIG - `export KUBECONFIG=/path/to/kubeconfig`
 
 9. Run feature tests - `make test-features`
+
+## Conventions
+
+### Test Configuration
+The testing repository has several resources for a test to get its arguments, as additional credentials,
+namespaces names, and timeout definitions.
+
+The main file loading the configuration is https://gitlab.cee.redhat.com/cnf/cnf-gotests/-/blob/master/config/config.yaml 
+
+This file is read by this source code: https://gitlab.cee.redhat.com/cnf/cnf-gotests/-/blob/master/test/util/config/config.go where a configuration structure is defined. 
+
+Additional parameters are to be added under the test package in a subdir suffixed by parameters like:
+
+https://gitlab.cee.redhat.com/cnf/cnf-gotests/-/blob/master/test/ran/cpu/rancpuparameters/rancpuparameters.go
+
+### Code conventions
+In the case of a helper function that encounters an unexpected response, the function should log an error with the function name the error happened to assist with later test failure analysis.
+If the function can not resolve this error, it should return an error to the caller function, which should take action due to the error.
