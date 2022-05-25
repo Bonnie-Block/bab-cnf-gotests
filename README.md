@@ -189,3 +189,13 @@ https://gitlab.cee.redhat.com/cnf/cnf-gotests/-/blob/master/test/ran/cpu/rancpup
 ### Code conventions
 In the case of a helper function that encounters an unexpected response, the function should log an error with the function name the error happened to assist with later test failure analysis.
 If the function can not resolve this error, it should return an error to the caller function, which should take action due to the error.
+
+## Troubleshooting
+### When running `ginkgo` I get this error: `flag provided but not defined: -ginkgo.timeout`
+
+Reason: You installed ginkgo version 2+, and this repository supports only version 1.x
+Fix: go install github.com/onsi/ginkgo/ginkgo@v1.16.5
+
+### Error using k8s.io during development of new tests
+Reason: Go version is below 1.17, and the k8s.io dependencies need go 1.17+
+Fix: Download latest go https://go.dev/dl/ and open it in your home dir and add path to it: export PATH=~/go/bin:$PATH to your ~/.bashrc file and source this file.
