@@ -174,17 +174,62 @@ Below is an e2e flow example for RAN cpu test:
 
 ## Conventions
 
+### Project structure
+
+```text
+├── cnf-gotests                   # cnf-gotests-client container image dependencies
+	 ├── test
+	 └── testcmd                   # testcmd utility  
+├── config                        # Config files
+├── hack                          # Makefile Scripts
+├── test                          # Test features folder
+	 ├── accelerator               # Test suites for accelerator features
+	 	 ├── acc100
+	 	 └── netacceleratorhelper
+	 ├── cnf-tests                 # Test suites for cnf-test image features
+	 	 └── discovery
+	 ├── helper                    # Common test functions
+	 ├── network                   # Test suites for network features
+	 	 ├── bfd
+	 	 ├── ptp
+	 	 ├── nethelper             # Common network test functions
+	 	 ├── netparameters         # Common network parameters
+	 	 └── vrf
+	 ├── parameters                # Common parameters
+	 ├── ran
+	 	 ├── cpu
+	 	 ├── kpi
+	 	 ├── ranhelper             # Common RAN parameters
+	 	 └── workloadpartitioning
+	 └── util                      # Common utils functions. These utils are based on Kubernetes api calls
+	     ├── client
+	     └── utils
+└── vendor                        # Dependencies folder
+```
+
+### Committing new code
+#### The following is a step-by-step example of forking workflow:
+1. A developer forks the [cnf-gotests] https://gitlab.cee.redhat.com/cnf/cnf-gotests project
+2. A new local feature branch is created
+3. The developer makes changes on the new branch.
+4. New commits are created for the changes.
+5. The branch gets pushed to the developer's own server-side copy.
+6. Changes are tested.
+7. The developer opens a pull request(PR) from the new branch to the cnf-gotests.
+8. The pull request gets approved for merge and is merged into the cnf-gotests.
+
+**Note:** Dependencies residing in the vendor directory will be seperated to a commit from the code commit
+
 ### Test Configuration
 The testing repository has several resources for a test to get its arguments, as additional credentials,
 namespaces names, and timeout definitions.
 
-The main file loading the configuration is https://gitlab.cee.redhat.com/cnf/cnf-gotests/-/blob/master/config/config.yaml 
-
+The main file loading the configuration is located in [./config/config.go](https://gitlab.cee.redhat.com/cnf/cnf-gotests/-/blob/master/config/config.yaml)
 This file is read by this source code: https://gitlab.cee.redhat.com/cnf/cnf-gotests/-/blob/master/test/util/config/config.go where a configuration structure is defined. 
 
 Additional parameters are to be added under the test package in a subdir suffixed by parameters like:
 
-https://gitlab.cee.redhat.com/cnf/cnf-gotests/-/blob/master/test/ran/cpu/rancpuparameters/rancpuparameters.go
+[test/ran/cpu/rancpuparameters/rancpuparameters.go](https://gitlab.cee.redhat.com/cnf/cnf-gotests/-/blob/master/test/ran/cpu/rancpuparameters/rancpuparameters.go)
 
 ### Code conventions
 In the case of a helper function that encounters an unexpected response, the function should log an error with the function name the error happened to assist with later test failure analysis.
