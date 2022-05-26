@@ -61,7 +61,8 @@ var _ = Describe("CNF SRIOV", func() {
 			clientPodDefinition := netsriovhelper.DefineClientPod(netsriovparameters.CommunicationProtocolUnicastICMP,
 				sriovInfos.Nodes, netsriovparameters.SriovNetworkUsualMTUName, nil,
 				netsriovparameters.ClientPodIP, netsriovparameters.ClientMacAddress,
-				helper.Config.Network.TestContainerImage, parameters.SleepCommand, netsriovparameters.IpamStatic)
+				helper.Config.Network.TestContainerImage, parameters.SleepCommand, netsriovparameters.IpamStatic,
+				netsriovparameters.TestInterfaceName)
 
 			clientPod, err = helper.Apiclient.Pods(netsriovparameters.OperatorTestNamespace).Create(
 				context.Background(),
@@ -290,7 +291,7 @@ var _ = Describe("CNF SRIOV", func() {
 					netsriovparameters.CommunicationProtocolUnicastICMP, sriovInfos.Nodes,
 					netsriovparameters.SriovNetworkUsualMTUName, nil, netsriovparameters.ClientPodIP,
 					netsriovparameters.ClientMacAddress, helper.Config.Network.TestContainerImage,
-					parameters.SleepCommand, netsriovparameters.IpamStatic)
+					parameters.SleepCommand, netsriovparameters.IpamStatic, netsriovparameters.TestInterfaceName)
 
 				clientPod, err := helper.Apiclient.Pods(netsriovparameters.OperatorTestNamespace).Create(
 					context.Background(),

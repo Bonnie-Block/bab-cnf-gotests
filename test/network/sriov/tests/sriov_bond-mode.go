@@ -171,7 +171,8 @@ var _ = Describe("CNF SRIOV: Bond CNI.", func() {
 				"",
 				Config.Network.TestContainerImage,
 				generalParameters.SleepCommand,
-				netsriovparameters.IpamStatic)
+				netsriovparameters.IpamStatic,
+				netsriovparameters.TestBondInterfaceName)
 
 			clientTestCommand, err = netsriovhelper.DefineTestCommandParameters(
 				false,

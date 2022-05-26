@@ -78,7 +78,8 @@ func TestBondScenario(
 		"",
 		Config.Network.TestContainerImage,
 		parameters.SleepCommand,
-		ipam)
+		ipam,
+		netsriovparameters.TestBondInterfaceName)
 
 	By("Creating Server Pod")
 	RunServerPod(
@@ -186,10 +187,10 @@ func DefineBondNad(nadName string,
 		},
 		Spec: netattdefv1.NetworkAttachmentDefinitionSpec{
 			Config: fmt.Sprintf(
-				`{"type": "bond", "cniVersion": "0.3.1", "name": "%s", "ifname": "%s",
+				`{"type": "bond", "cniVersion": "0.3.1", "name": "%s",
 "mode": "%s", "failOverMac": 1, "linksInContainer": true, "miimon": "100", "mtu": %d,
 "links": [%s], "capabilities": {"ips": true}, `,
-				netsriovparameters.BondNadName, netsriovparameters.TestBondInterfaceName, bondType, mtu, slaveInterfaces),
+				netsriovparameters.BondNadName, bondType, mtu, slaveInterfaces),
 		}}
 
 	switch ipam {

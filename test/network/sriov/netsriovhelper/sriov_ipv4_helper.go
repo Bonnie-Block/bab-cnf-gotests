@@ -54,7 +54,8 @@ func TestSriovIPv4Scenario(
 		clientMacAddress,
 		config.Network.TestContainerImage,
 		clientTestCommand,
-		netsriovparameters.IpamStatic)
+		netsriovparameters.IpamStatic,
+		netsriovparameters.TestInterfaceName)
 
 	By("Creating Server Pod")
 	RunServerPod(
@@ -136,7 +137,8 @@ func TestSriovIPv4Scenario(
 		clientMacAddress,
 		config.Network.TestContainerImage,
 		clientTestCommand,
-		netsriovparameters.IpamStatic)
+		netsriovparameters.IpamStatic,
+		netsriovparameters.TestInterfaceName)
 	clientPodNegative, err := Apiclient.Pods(netsriovparameters.OperatorTestNamespace).Create(
 		context.Background(),
 		clientPodDefinitionNegative,

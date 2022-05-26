@@ -63,7 +63,8 @@ func definePodWithIpam(pod *corev1.Pod, mainNetwork string,
 	slaveNetworkNames []string,
 	ipAddress string,
 	macAddress string,
-	ipam string) *corev1.Pod {
+	ipam string,
+	interfaceName string) *corev1.Pod {
 	annotation := ""
 	_, subnet, _ := nethelper.DefineIPFamily(ipAddress)
 
@@ -75,10 +76,10 @@ func definePodWithIpam(pod *corev1.Pod, mainNetwork string,
 
 	switch ipam {
 	case netsriovparameters.IpamStatic:
-		annotation += fmt.Sprintf(`{"name": "%s","ips": ["%s/%s"],"mac": "%s" }`,
-			mainNetwork, ipAddress, subnet, macAddress)
+		annotation += fmt.Sprintf(`{"name": "%s", "interface": "%s", "ips": ["%s/%s"],"mac": "%s" }`,
+			mainNetwork, interfaceName, ipAddress, subnet, macAddress)
 	case netsriovparameters.IpamWhereabouts:
-		annotation += fmt.Sprintf(`{"name": "%s"}`, mainNetwork)
+		annotation += fmt.Sprintf(`{"name": "%s", "interface": "%s"}`, mainNetwork, interfaceName)
 	}
 
 	pod.Annotations = map[string]string{"k8s.v1.cni.cncf.io/networks": fmt.Sprintf(`[%s]`, annotation)}
@@ -101,8 +102,10 @@ func definePodCommandWithIpamAndMac(
 	ipaddress string,
 	macAddress string,
 	podCommand []string,
-	ipam string) *corev1.Pod {
-	podDefinition = definePodWithIpam(podDefinition, mainNetwork, slaveNetworkNames, ipaddress, macAddress, ipam)
+	ipam string,
+	interfaceName string) *corev1.Pod {
+	podDefinition = definePodWithIpam(podDefinition, mainNetwork, slaveNetworkNames,
+		ipaddress, macAddress, ipam, interfaceName)
 
 	return definePodCommand(podDefinition, podCommand)
 }
@@ -352,7 +355,8 @@ func RunServerPod(
 		serverMacAddress,
 		config.Network.TestContainerImage,
 		serverCommand,
-		ipam)
+		ipam,
+		interfaceName)
 
 	serverPod, err := Apiclient.Pods(
 		netsriovparameters.OperatorTestNamespace).Create(
@@ -512,7 +516,8 @@ func defineServerPod(
 	macAddress string,
 	podImage string,
 	podCommand []string,
-	ipam string) *corev1.Pod {
+	ipam string,
+	interfaceName string) *corev1.Pod {
 	podDefinition := pod.RedefineWithRestartPolicy(
 		pod.DefineWithNodeNetworks(
 			nodeSelector[0],
@@ -530,7 +535,7 @@ func defineServerPod(
 		slaveNetworkNames,
 		ipaddress,
 		macAddress,
-		podCommand, ipam)
+		podCommand, ipam, interfaceName)
 
 	if strings.Contains(ipaddress, ":") {
 		podDefinition = redefinePodWithInitCommandPolicy(podDefinition, podImage,
@@ -551,7 +556,8 @@ func DefineClientPod(
 	macAddress string,
 	podImage string,
 	podCommand []string,
-	ipam string) *corev1.Pod {
+	ipam string,
+	interfaceName string) *corev1.Pod {
 	var podDefinition *corev1.Pod
 
 	if len(nodeSelector) > 1 {
@@ -584,7 +590,7 @@ func DefineClientPod(
 		slaveNetworkNames,
 		ipaddress,
 		macAddress,
-		podCommand, ipam)
+		podCommand, ipam, interfaceName)
 	serverIP := netsriovparameters.ServerPodIP
 
 	if strings.Contains(ipaddress, ":") {
