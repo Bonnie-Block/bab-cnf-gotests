@@ -177,34 +177,35 @@ Below is an e2e flow example for RAN cpu test:
 ### Project structure
 
 ```text
-├── cnf-gotests                   # cnf-gotests-client container image dependencies
-	 ├── test
-	 └── testcmd                   # testcmd utility  
+├── cnf-gotests                   # cnf-gotests-client container image dependencies 
+│   ├── test
+│   └── testcmd                   # testcmd utility  
 ├── config                        # Config files
-├── hack                          # Makefile Scripts
+├── hack                          # Makefile Scripts 
 ├── test                          # Test features folder
-	 ├── accelerator               # Test suites for accelerator features
-	 	 ├── acc100
-	 	 └── netacceleratorhelper
-	 ├── cnf-tests                 # Test suites for cnf-test image features
-	 	 └── discovery
-	 ├── helper                    # Common test functions
-	 ├── network                   # Test suites for network features
-	 	 ├── bfd
-	 	 ├── ptp
-	 	 ├── nethelper             # Common network test functions
-	 	 ├── netparameters         # Common network parameters
-	 	 └── vrf
-	 ├── parameters                # Common parameters
-	 ├── ran
-	 	 ├── cpu
-	 	 ├── kpi
-	 	 ├── ranhelper             # Common RAN parameters
-	 	 └── workloadpartitioning
-	 └── util                      # Common utils functions. These utils are based on Kubernetes api calls
-	     ├── client
-	     └── utils
-└── vendor                        # Dependencies folder
+│   ├── accelerator               # Test suites for accelerator features
+│   │   ├── acc100
+│   │   └── netacceleratorhelper
+│   ├── cnf-tests                 # Test suites for cnf-test image features
+│   │   └── discovery
+│   ├── helper                    # Common test functions 
+│   ├── network                   # Test suites for network features
+│   │   ├── bfd
+│   │   ├── ptp
+│   │   ├── nethelper             # Common network test functions
+│   │   ├── netparameters         # Common network parameters
+│   │   └── vrf
+│   ├── parameters                # Common parameters
+│   ├── ran
+│   │   ├── cpu
+│   │   ├── kpi
+│   │   ├── ranhelper             # Common RAN parameters
+│   │   └── workloadpartitioning
+│   └── util                      # Common utils functions. These utils are based on Kubernetes api calls
+│       ├── client
+│       └── utils
+└── vendor                        # Dependencies folder 
+
 ```
 
 ### Committing new code
