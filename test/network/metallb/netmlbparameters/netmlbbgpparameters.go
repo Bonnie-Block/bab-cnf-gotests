@@ -147,6 +147,53 @@ const (
       end
 
     `
+
+	BgpRoutePropagate = `
+	debug bgp updates
+	debug bgp neighbor
+	debug bgp nht
+	debug bfd peer
+	
+	log file /tmp/frr.log debugging
+	log timestamp precision 3
+	
+	ipv6 nht resolve-via-default
+	
+	route-map RMAP permit 10
+	set ipv6 next-hop prefer-global
+
+	interface lo
+	ip address 4.4.4.254/32
+
+	router bgp 64500
+	bgp router-id 10.10.10.10
+	no bgp network import-check
+	no bgp ebgp-requires-policy
+	no bgp default ipv4-unicast
+	neighbor {{.Addr1}} remote-as {{.ASN}}
+	neighbor {{.Addr1}} password bgp-test
+	neighbor {{.Addr2}} remote-as {{.ASN}}
+	neighbor {{.Addr2}} password bgp-test
+	neighbor {{.Addr3}} remote-as {{.ASN}}
+	neighbor {{.Addr3}} password bgp-test
+	neighbor {{.Addr4}} remote-as {{.ASN}}
+	neighbor {{.Addr4}} password bgp-test
+	address-family ipv4 unicast
+	neighbor {{.Addr1}} activate
+	neighbor {{.Addr2}} activate
+	redistribute connected
+	exit-address-family
+	address-family ipv6 unicast
+	neighbor {{.Addr3}} activate
+	neighbor {{.Addr3}} route-map RMAP in
+	neighbor {{.Addr4}} activate
+	neighbor {{.Addr4}} route-map RMAP in
+	redistribute connected
+	exit-address-family
+	end
+
+	`
+
 	ArgCommandNGINX      = "nginx && sleep INF"
 	ArgCommandSCTPNGINX  = "nginx && /usr/bin/testcmd -listen -interface eth0 -port 50000 -protocol sctp"
 	ArgCommandServerSCTP = "/usr/bin/testcmd -server %s -interface eth0 -port 50000 -protocol sctp"
@@ -191,7 +238,8 @@ type (
 			UpdatesSent int `json:"updatesSent"`
 		} `json:"messageStats"`
 		AddressFamilyInfo map[string]struct {
-			SentPrefixCounter int `json:"sentPrefixCounter"`
+			SentPrefixCounter     int `json:"sentPrefixCounter"`
+			AcceptedPrefixCounter int `json:"acceptedPrefixCounter"`
 		} `json:"addressFamilyInfo"`
 	}
 	Route struct {
