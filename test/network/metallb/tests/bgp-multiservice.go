@@ -144,8 +144,8 @@ var _ = Describe("CNF MetalLB", func() {
 		masterConfigMap := netmetallbhelper.DefineFRRBGPConfigMap(workerNodesAdresses,
 			netparameters.MasterConfigMapName,
 			netmlbparameters.IBGPASN,
-			netmlbparameters.BGP,
-			netparameters.IPV4Family)
+			netparameters.IPV4Family,
+			netmlbparameters.PropagateFalse)
 		_, err = helper.Apiclient.ConfigMaps(netmlbparameters.TestNamespace).Create(
 			context.TODO(),
 			masterConfigMap,
