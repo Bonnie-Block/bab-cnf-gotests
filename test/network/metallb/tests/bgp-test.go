@@ -88,6 +88,19 @@ var _ = Describe("MetalLB BGP", func() {
 			Entry("IPv6 with Prefix 128", netparameters.IPV6Family, netmlbparameters.PrefixLen128),
 			Entry("IPv6 with Prefix 64", netparameters.IPV6Family, netmlbparameters.PrefixLen64),
 		)
+
+		// 47203
+		DescribeTable("Verify external FRR BGP Peer cannot propagate routes to Speaker",
+			func(ipStack string) {
+				netmetallbhelper.TestBGPBlockRouteAdvertisment(
+					ipStack,
+					metalLBIPList,
+					masterNodeList,
+					workerNodeList)
+			},
+			Entry("IPv4 propagate route", netparameters.IPV4Family),
+			Entry("IPv6 propagate route", netparameters.IPV6Family),
+		)
 	})
 
 	Context("updates", func() {
@@ -114,7 +127,8 @@ var _ = Describe("MetalLB BGP", func() {
 				masterNodeList,
 				metalLBIPList,
 				netparameters.IPV4Family,
-				netmlbparameters.IBGPASN)
+				netmlbparameters.IBGPASN,
+				netmlbparameters.PropagateFalse)
 
 			By("should create a BGP Peer on Speakers")
 
@@ -165,7 +179,8 @@ var _ = Describe("MetalLB BGP", func() {
 					masterNodeList,
 					metalLBIPList,
 					netparameters.IPV4Family,
-					netmlbparameters.IBGPASN)
+					netmlbparameters.IBGPASN,
+					netmlbparameters.PropagateFalse)
 
 				By("should create a BGP Peer on Speakers")
 

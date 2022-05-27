@@ -34,12 +34,13 @@ import (
 
 // CreateSpeakerBGPPeer creates BGP Peers on all worker nodes.
 func CreateSpeakerBGPPeer(externalAddress string, bgpProtocol string, asn uint32) error {
-	return helper.Apiclient.Create(context.Background(), defineSpeakerBGPPeer(externalAddress, asn, "", ""))
+	return helper.Apiclient.Create(context.Background(),
+		defineSpeakerBGPPeer(externalAddress, asn, "", ""))
 }
 
 // DefineFRRBGPConfigMap returns configmap definition for the external FRR BGP configuration.
 func DefineFRRBGPConfigMap(ipAddresses []string, configMapName string, localAS int,
-	protocol string, ipStack string) *k8sv1.ConfigMap {
+	ipStack string, routePropagate ...string) *k8sv1.ConfigMap {
 	configMapData := make(map[string]string)
 
 	var router netmlbparameters.NeighborConfig
@@ -47,41 +48,45 @@ func DefineFRRBGPConfigMap(ipAddresses []string, configMapName string, localAS i
 	configMapData["daemons"] = netmlbparameters.DaemonsFile
 	configMapData["vtysh.conf"] = ""
 
-	if protocol == netmlbparameters.BGP {
-		temp, err := template.New("bgp Config Template").Parse(netmlbparameters.BgpConfigTemplate)
+	temp, err := template.New("bgp Config Template").Parse(netmlbparameters.BgpConfigTemplate)
+
+	if routePropagate[0] == netmlbparameters.PropagateTrue {
+		temp, err = template.New("bgp Config Template").Parse(netmlbparameters.BgpRoutePropagate)
 		Expect(err).ToNot(HaveOccurred())
-
-		switch ipStack {
-		case netparameters.IPV4Family:
-			router = netmlbparameters.NeighborConfig{
-				Addr1: ipAddresses[0],
-				Addr2: ipAddresses[1]}
-
-		case netparameters.IPV6Family:
-			router = netmlbparameters.NeighborConfig{
-				Addr3: ipAddresses[2],
-				Addr4: ipAddresses[3]}
-
-		case netparameters.DualIPFamily:
-			router = netmlbparameters.NeighborConfig{
-				Addr1: ipAddresses[0],
-				Addr2: ipAddresses[1],
-				Addr3: ipAddresses[2],
-				Addr4: ipAddresses[3]}
-
-		default:
-			Fail("Invalid or no IPStack is configured")
-		}
-
-		router.ASN = uint32(localAS)
-		router.Password = netmlbparameters.BGPPassword
-
-		var bfdConfig bytes.Buffer
-		err = temp.Execute(&bfdConfig, router)
-		Expect(err).ToNot(HaveOccurred())
-
-		configMapData["frr.conf"] = bfdConfig.String()
 	}
+
+	Expect(err).ToNot(HaveOccurred())
+
+	switch ipStack {
+	case netparameters.IPV4Family:
+		router = netmlbparameters.NeighborConfig{
+			Addr1: ipAddresses[0],
+			Addr2: ipAddresses[1]}
+
+	case netparameters.IPV6Family:
+		router = netmlbparameters.NeighborConfig{
+			Addr3: ipAddresses[2],
+			Addr4: ipAddresses[3]}
+
+	case netparameters.DualIPFamily:
+		router = netmlbparameters.NeighborConfig{
+			Addr1: ipAddresses[0],
+			Addr2: ipAddresses[1],
+			Addr3: ipAddresses[2],
+			Addr4: ipAddresses[3]}
+
+	default:
+		Fail("Invalid or no IPStack is configured")
+	}
+
+	router.ASN = uint32(localAS)
+	router.Password = netmlbparameters.BGPPassword
+
+	var bfdConfig bytes.Buffer
+	err = temp.Execute(&bfdConfig, router)
+	Expect(err).ToNot(HaveOccurred())
+
+	configMapData["frr.conf"] = bfdConfig.String()
 
 	bgpConfigMap := nethelper.DefineFRRBFDConfigMap(configMapName, netmlbparameters.TestNamespace, configMapData)
 
@@ -389,7 +394,8 @@ func CreateFRRContainerOnMaster(
 	masterNodeList []k8sv1.Node,
 	metalLBIPList []string,
 	ipStack string,
-	bgpASN int) *k8sv1.Pod {
+	bgpASN int,
+	routePropagate ...string) *k8sv1.Pod {
 	clusterIPStack := ValidateClusterIPStack()
 	workerNodesAdresses := nethelper.NodeIPsForFamily(workerNodeList, netparameters.IPV4Family)
 	workerNodesV6Adresses := nethelper.NodeIPsForFamily(workerNodeList, netparameters.IPV6Family)
@@ -402,11 +408,11 @@ func CreateFRRContainerOnMaster(
 	err := helper.Apiclient.Create(context.Background(), DefineExternalNAD())
 	Expect(err).ToNot(HaveOccurred())
 
-	masterConfigMap := DefineFRRBGPConfigMap(workerNodesAdresses,
+	masterConfigMap := DefineFRRBGPConfigMap(
+		workerNodesAdresses,
 		netparameters.MasterConfigMapName,
 		bgpASN,
-		netmlbparameters.BGP,
-		ipStack)
+		ipStack, routePropagate[0])
 
 	_, err = helper.Apiclient.ConfigMaps(netmlbparameters.TestNamespace).Create(
 		context.TODO(),
