@@ -2,7 +2,6 @@ package metallb
 
 import (
 	"fmt"
-
 	"log"
 	"runtime"
 	"testing"

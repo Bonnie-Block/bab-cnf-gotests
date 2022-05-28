@@ -63,6 +63,8 @@ func RestoreNodeGWMode() {
 	if ChangedGWMode {
 		SetLocalGWMode(false)
 		WaitNetworkOperator()
+
+		ChangedGWMode = false
 	}
 }
 
@@ -120,7 +122,7 @@ func WaitNetworkOperator() {
 	// Update started
 	Eventually(func() bool {
 		return isNetworkOperatorInCondition(operv1.OperatorStatusTypeProgressing, operv1.ConditionTrue)
-	}, 5*time.Second, netmlbparameters.Interval).Should(BeTrue())
+	}, 20*time.Second, netmlbparameters.Interval).Should(BeTrue())
 	// Update finished
 	Eventually(func() bool {
 		return isNetworkOperatorInCondition(operv1.OperatorStatusTypeProgressing, operv1.ConditionFalse)
