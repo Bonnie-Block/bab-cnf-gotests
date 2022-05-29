@@ -6,11 +6,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
-	"os/exec"
 	"reflect"
 	"regexp"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -71,35 +69,26 @@ func RestoreNodeGWMode() {
 }
 
 // GetGWMode returns the NetworkOperator's  GW mode: false - share GW mode, true - local GW mode.
-// This func should be changed (removed cmd) when
-// sriov-fec operator(https://github.com/smart-edge-open/openshift-operator/tree/main/sriov-fec)
-// bumps github.com/go-logr/logr to version more than 1.0.0.
 func GetGWMode() bool {
-	cmd := exec.Command("oc", "get",
-		"network.operator", "cluster",
-		"-o=jsonpath='{.spec.defaultNetwork.ovnKubernetesConfig.gatewayConfig.routingViaHost}'")
-
-	commandOutput, err := cmd.Output()
+	networkOperatorConfg := &operv1.Network{}
+	err := helper.Apiclient.Get(
+		context.TODO(), runtimeclient.ObjectKey{Name: "cluster"}, networkOperatorConfg)
 	Expect(err).ToNot(HaveOccurred())
 
-	strState := strings.Trim(string(commandOutput), "'")
-
-	state, err := strconv.ParseBool(strState)
-	Expect(err).ToNot(HaveOccurred())
-
-	return state
+	return networkOperatorConfg.Spec.DefaultNetwork.OVNKubernetesConfig.GatewayConfig.RoutingViaHost
 }
 
 // SetLocalGWMode set NetworkOperator's local GW mode if true, if false - share GW mode.
-// This func should be changed (removed cmd) when
-// sriov-fec operator(https://github.com/smart-edge-open/openshift-operator/tree/main/sriov-fec)
-// bumps github.com/go-logr/logr to version more than 1.0.0.
 func SetLocalGWMode(state bool) {
-	command := fmt.Sprintf("oc patch network.operator cluster -p '{\"spec\": {\"defaultNetwork\":"+
-		" {\"ovnKubernetesConfig\": {\"gatewayConfig\": {\"routingViaHost\": %t}}}}}' --type=merge", state)
+	networkOperatorConfg := &operv1.Network{}
+	err := helper.Apiclient.Get(
+		context.TODO(), runtimeclient.ObjectKey{Name: "cluster"}, networkOperatorConfg)
+	Expect(err).ToNot(HaveOccurred())
 
-	commandOutput, err := exec.Command("/bin/sh", "-c", command).Output()
-	Expect(err).ToNot(HaveOccurred(), string(commandOutput))
+	networkOperatorConfg.Spec.DefaultNetwork.OVNKubernetesConfig.GatewayConfig.RoutingViaHost = state
+
+	err = helper.Apiclient.Update(context.Background(), networkOperatorConfg)
+	Expect(err).ToNot(HaveOccurred())
 }
 
 // isNetworkOperatorInCondition parses NetworkOperator conditions.
@@ -124,7 +113,7 @@ func WaitNetworkOperator() {
 	// Update started
 	Eventually(func() bool {
 		return isNetworkOperatorInCondition(operv1.OperatorStatusTypeProgressing, operv1.ConditionTrue)
-	}, 20*time.Second, netmlbparameters.Interval).Should(BeTrue())
+	}, 30*time.Second, netmlbparameters.Interval).Should(BeTrue())
 	// Update finished
 	Eventually(func() bool {
 		return isNetworkOperatorInCondition(operv1.OperatorStatusTypeProgressing, operv1.ConditionFalse)
