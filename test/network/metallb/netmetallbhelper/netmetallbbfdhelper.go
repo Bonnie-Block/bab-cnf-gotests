@@ -162,16 +162,9 @@ func CreateRoutesMap(podList k8sv1.PodList, nextHopList []string) (map[string]st
 		return nil, fmt.Errorf("nexthop IP addresses list is empty")
 	}
 
-	if len(nextHopList) == 4 {
-		if len(podList.Items) != len(nextHopList)-2 {
-			return nil, fmt.Errorf("number of speaker IP addresses[%d] is not equal to number of pods[%d]",
-				len(podList.Items), len(podList.Items))
-		}
-	} else {
-		if len(podList.Items) != len(nextHopList) {
-			return nil, fmt.Errorf("number of speaker IP addresses[%d] is not equal to number of pods[%d]",
-				len(podList.Items), len(podList.Items))
-		}
+	if len(nextHopList) < len(podList.Items) {
+		return nil, fmt.Errorf("number of speaker IP addresses[%d] is less then number of pods[%d]",
+			len(nextHopList), len(podList.Items))
 	}
 
 	routesMap := make(map[string]string)

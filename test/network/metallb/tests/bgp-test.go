@@ -26,16 +26,17 @@ import (
 
 var _ = Describe("MetalLB BGP", func() {
 	var (
-		metalLBIPList  []string
-		workerNodeList []k8sv1.Node
-		masterNodeList []k8sv1.Node
-		err            error
+		ipv4metalLBIPList []string
+		ipv6metalLBIPList []string
+		workerNodeList    []k8sv1.Node
+		masterNodeList    []k8sv1.Node
+		err               error
 	)
 
 	execute.BeforeAll(func() {
 		var ipV6Address string
 
-		metalLBIPList, err = helper.Config.GetMetallbVirtIP()
+		ipv4metalLBIPList, ipv6metalLBIPList, err = netmetallbhelper.GetMetalLBIPByFamily()
 		Expect(err).ToNot(HaveOccurred())
 
 		By(fmt.Sprintf("should select nodes by role %s ", parameters.RoleWorker))
@@ -51,15 +52,15 @@ var _ = Describe("MetalLB BGP", func() {
 
 		By(fmt.Sprintf("Running test on %s cluster", clusterIPStack))
 
-		ipV4Address := metalLBIPList[0]
 		if clusterIPStack == netparameters.DualIPFamily {
-			ipV6Address = metalLBIPList[2]
+			Expect(len(ipv6metalLBIPList)).To(BeNumerically(">", 0))
+			ipV6Address = ipv6metalLBIPList[0]
 		}
 
 		netmetallbhelper.IsEnvVarMetallbIPinNodeExtNetRange(strings.Split(
 			helper.Config.General.CnfNodeLabel, "/")[1],
 			clusterIPStack,
-			ipV4Address,
+			ipv4metalLBIPList[0],
 			ipV6Address)
 	})
 
@@ -80,7 +81,8 @@ var _ = Describe("MetalLB BGP", func() {
 			func(ipStack string, prefixLen int32) {
 				netmetallbhelper.TestBGPAdvertismentTable(
 					ipStack,
-					metalLBIPList,
+					ipv4metalLBIPList,
+					ipv6metalLBIPList,
 					workerNodeList,
 					masterNodeList,
 					prefixLen)
@@ -96,7 +98,8 @@ var _ = Describe("MetalLB BGP", func() {
 			func(ipStack string) {
 				netmetallbhelper.TestBGPBlockRouteAdvertisment(
 					ipStack,
-					metalLBIPList,
+					ipv4metalLBIPList,
+					ipv6metalLBIPList,
 					masterNodeList,
 					workerNodeList)
 			},
@@ -112,7 +115,8 @@ var _ = Describe("MetalLB BGP", func() {
 				netmetallbhelper.TestBGPAdvertismentTableUpdates(
 					masterNodeList,
 					workerNodeList,
-					metalLBIPList,
+					ipv4metalLBIPList,
+					ipv6metalLBIPList,
 					ipStack,
 					prefixLen)
 			},
@@ -127,7 +131,8 @@ var _ = Describe("MetalLB BGP", func() {
 			masterNodeFRRPod := netmetallbhelper.CreateFRRContainerOnMaster(
 				workerNodeList,
 				masterNodeList,
-				metalLBIPList,
+				ipv4metalLBIPList,
+				ipv6metalLBIPList,
 				netparameters.IPV4Family,
 				netmlbparameters.IBGPASN,
 				netmlbparameters.PropagateFalse)
@@ -137,7 +142,7 @@ var _ = Describe("MetalLB BGP", func() {
 			workerNodesAdresses := nethelper.NodeIPsForFamily(workerNodeList, netparameters.IPV4Family)
 
 			err := netmetallbhelper.CreateSpeakerBGPPeerIPStack(netparameters.IPV4Family,
-				metalLBIPList, netmlbparameters.IBGPASN)
+				ipv4metalLBIPList, ipv6metalLBIPList, netmlbparameters.IBGPASN)
 			Expect(err).ToNot(HaveOccurred())
 
 			Eventually(func() bool {
@@ -179,7 +184,8 @@ var _ = Describe("MetalLB BGP", func() {
 				masterNodeFRRPod := netmetallbhelper.CreateFRRContainerOnMaster(
 					workerNodeList,
 					masterNodeList,
-					metalLBIPList,
+					ipv4metalLBIPList,
+					ipv6metalLBIPList,
 					netparameters.IPV4Family,
 					netmlbparameters.IBGPASN,
 					netmlbparameters.PropagateFalse)
@@ -189,7 +195,7 @@ var _ = Describe("MetalLB BGP", func() {
 				workerNodesAdresses := nethelper.NodeIPsForFamily(workerNodeList, netparameters.IPV4Family)
 
 				err := netmetallbhelper.CreateSpeakerBGPPeerIPStack(netparameters.IPV4Family,
-					metalLBIPList, netmlbparameters.IBGPASN)
+					ipv4metalLBIPList, ipv6metalLBIPList, netmlbparameters.IBGPASN)
 				Expect(err).ToNot(HaveOccurred())
 
 				Eventually(func() bool {

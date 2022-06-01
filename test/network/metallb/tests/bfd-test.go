@@ -162,21 +162,24 @@ var _ = Describe("BFD", func() {
 
 	Context("Multihop", func() {
 		var (
-			metalLBIPList []string
-			err           error
+			ipv4metalLBIPList []string
+			err               error
 		)
 		speakerRoutesMap := make(map[string]string)
 		describe := netmetallbhelper.DescribeBFDParameters
 
 		BeforeEach(func() {
 			By("Collecting information before test")
-			metalLBIPList, err = helper.Config.GetMetallbVirtIP()
+			ipv4metalLBIPList, _, err = netmetallbhelper.GetMetalLBIPByFamily()
 			Expect(err).ToNot(HaveOccurred())
+			if len(ipv4metalLBIPList) < 2 {
+				Skip("there are not enough environment IPv4 addresses")
+			}
 
 			netmetallbhelper.IsEnvVarMetallbIPinNodeExtNetRange(strings.Split(
 				helper.Config.General.CnfNodeLabel, "/")[1],
 				netparameters.IPV4Family,
-				metalLBIPList[0],
+				ipv4metalLBIPList[0],
 				"")
 
 			speakerPodList, err := helper.Apiclient.Pods(netmlbparameters.MetalLBOperatorNameSpace).List(
@@ -185,7 +188,7 @@ var _ = Describe("BFD", func() {
 			)
 			Expect(err).ToNot(HaveOccurred())
 
-			speakerRoutesMap, err = netmetallbhelper.CreateRoutesMap(*speakerPodList, metalLBIPList)
+			speakerRoutesMap, err = netmetallbhelper.CreateRoutesMap(*speakerPodList, ipv4metalLBIPList)
 			Expect(err).ToNot(HaveOccurred())
 
 			localGWMode := netmetallbhelper.GetGWMode()
@@ -243,7 +246,7 @@ var _ = Describe("BFD", func() {
 		DescribeTable("should provide fast link failure detection",
 			func(bgpProtocol string, ipStack string, externalTrafficPolicy k8sv1.ServiceExternalTrafficPolicyType) {
 
-				err = netmetallbhelper.ValidateIPs(append(metalLBIPList, firstWorkerNodeAddress), ipStack)
+				err = netmetallbhelper.ValidateIPs(append(ipv4metalLBIPList, firstWorkerNodeAddress), ipStack)
 				if err != nil {
 					Skip(err.Error())
 				}
@@ -293,13 +296,13 @@ var _ = Describe("BFD", func() {
 				frrRouterPodOnMaster1 := netmetallbhelper.DefineRouterPod(masterNode.Name,
 					netmlbparameters.MetalLBMultihopIPv4List[0], firstWorkerNodeAddress,
 					externalNADDefinition.Name, internalNADDefinition.Name,
-					metalLBIPList[0], netmlbparameters.InternalRouter1IPv4)
+					ipv4metalLBIPList[0], netmlbparameters.InternalRouter1IPv4)
 				helper.WaitUntilPodCreatedAndRunning(frrRouterPodOnMaster1, netmlbparameters.PodWaitingTime)
 
 				frrRouterPodOnMaster2 := netmetallbhelper.DefineRouterPod(masterNode.Name,
 					netmlbparameters.MetalLBMultihopIPv4List[0], secondWorkerNodeAddress,
 					externalNADDefinition.Name, internalNADDefinition.Name,
-					metalLBIPList[1], netmlbparameters.InternalRouter2IPv4)
+					ipv4metalLBIPList[1], netmlbparameters.InternalRouter2IPv4)
 				helper.WaitUntilPodCreatedAndRunning(frrRouterPodOnMaster2, netmlbparameters.PodWaitingTime)
 
 				clientPodOnMasterNode := netmetallbhelper.CreateClientOnMaster(bgpProtocol,

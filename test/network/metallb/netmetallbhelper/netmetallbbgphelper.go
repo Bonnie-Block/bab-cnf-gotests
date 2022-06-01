@@ -412,14 +412,15 @@ func ValidateRouteCommunity(frrPod *k8sv1.Pod, community string, ipFamily string
 func CreateFRRContainerOnMaster(
 	workerNodeList []k8sv1.Node,
 	masterNodeList []k8sv1.Node,
-	metalLBIPList []string,
+	ipv4metalLBIPList []string,
+	ipv6metalLBIPList []string,
 	ipStack string,
 	bgpASN int,
 	routePropagate ...string) *k8sv1.Pod {
 	clusterIPStack := ValidateClusterIPStack()
 	workerNodesAdresses := nethelper.NodeIPsForFamily(workerNodeList, netparameters.IPV4Family)
 	workerNodesV6Adresses := nethelper.NodeIPsForFamily(workerNodeList, netparameters.IPV6Family)
-	annotation := DefineAnnotationWithIPStack(ipStack, metalLBIPList, clusterIPStack)
+	annotation := DefineAnnotationWithIPStack(ipStack, ipv4metalLBIPList, ipv6metalLBIPList, clusterIPStack)
 
 	if ipStack != netparameters.IPV4Family {
 		workerNodesAdresses = append(workerNodesAdresses, workerNodesV6Adresses...)

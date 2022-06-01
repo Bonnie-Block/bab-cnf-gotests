@@ -914,6 +914,35 @@ func ActivateSCTPModuleOnMaster(masterNode k8sv1.Node) {
 	Expect(output.String()).To(ContainSubstring("libcrc32c"))
 }
 
+// GetMetalLBIPByFamily returns mettalLB IP addresses  from env var METALLB_ADDR_LIST sorted by IPFamily.
+func GetMetalLBIPByFamily() ([]string, []string, error) {
+	var (
+		ipv4IPList []string
+		ipv6IPList []string
+	)
+
+	metalLBIPList, err := helper.Config.GetMetallbVirtIP()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	for _, ipAddress := range metalLBIPList {
+		ipFamily, _, err := nethelper.DefineIPFamily(ipAddress)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		switch ipFamily {
+		case netparameters.IPV4Family:
+			ipv4IPList = append(ipv4IPList, ipAddress)
+		case netparameters.IPV6Family:
+			ipv6IPList = append(ipv6IPList, ipAddress)
+		}
+	}
+
+	return ipv4IPList, ipv6IPList, nil
+}
+
 func appendIfMissing(slice []string, newItem string) []string {
 	if nethelper.StrParamInListOfParams(newItem, slice) == nil {
 		return slice

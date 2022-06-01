@@ -26,12 +26,14 @@ func TestBGPTable(ipStack string, workerNodeList []k8sv1.Node, masterNodeList []
 		}
 	}
 
-	metalLBIPList, err := helper.Config.GetMetallbVirtIP()
+	ipv4metalLBIPList, ipv6metalLBIPList, err := GetMetalLBIPByFamily()
 	Expect(err).ToNot(HaveOccurred())
 
 	By("should create external FRR container")
 
-	masterNodeFRRPod := CreateFRRContainerOnMaster(workerNodeList, masterNodeList, metalLBIPList, ipStack, bgpASN,
+	masterNodeFRRPod := CreateFRRContainerOnMaster(workerNodeList, masterNodeList,
+		ipv4metalLBIPList, ipv6metalLBIPList,
+		ipStack, bgpASN,
 		netmlbparameters.PropagateFalse)
 
 	By("should create an IPAddressPool and BGPAdvertisement for service")
@@ -92,7 +94,7 @@ func TestBGPTable(ipStack string, workerNodeList []k8sv1.Node, masterNodeList []
 		workerNodesAdresses = append(workerNodesAdresses, workerNodesV6Adresses...)
 	}
 
-	err = CreateSpeakerBGPPeerIPStack(ipStack, metalLBIPList, bgpASN)
+	err = CreateSpeakerBGPPeerIPStack(ipStack, ipv4metalLBIPList, ipv6metalLBIPList, bgpASN)
 	Expect(err).ToNot(HaveOccurred())
 
 	Eventually(func() bool {
@@ -102,10 +104,12 @@ func TestBGPTable(ipStack string, workerNodeList []k8sv1.Node, masterNodeList []
 
 	By("should validate Traffic")
 
-	validateTraffic(masterNodeFRRPod, workerNodesAdresses, metalLBIPList, ipStack)
+	validateTraffic(masterNodeFRRPod, workerNodesAdresses, ipv4metalLBIPList, ipv6metalLBIPList, ipStack)
 }
 
-func validateTraffic(masterFRRPod *k8sv1.Pod, nodeIPAdresses []string, metalLBIPList []string, ipStack string) {
+func validateTraffic(masterFRRPod *k8sv1.Pod, nodeIPAdresses []string,
+	ipv4metalLBIPList []string, ipv6metalLBIPList []string,
+	ipStack string) {
 	By("should validate BGP routes to service")
 
 	var routes []string
@@ -134,7 +138,7 @@ func validateTraffic(masterFRRPod *k8sv1.Pod, nodeIPAdresses []string, metalLBIP
 
 	By("should validate curl to service")
 
-	_, err := curlService(masterFRRPod, ipStack, metalLBIPList)
+	_, err := curlService(masterFRRPod, ipStack, ipv4metalLBIPList, ipv6metalLBIPList)
 	Expect(err).ToNot(HaveOccurred())
 
 	By("should validate SCTP to service")
@@ -143,24 +147,25 @@ func validateTraffic(masterFRRPod *k8sv1.Pod, nodeIPAdresses []string, metalLBIP
 	Expect(err).ToNot(HaveOccurred())
 }
 
-func curlService(frrPod *k8sv1.Pod, ipStack string, metalLBIPList []string) (string, error) {
+func curlService(frrPod *k8sv1.Pod, ipStack string,
+	ipv4metalLBIPList []string, ipv6metalLBIPList []string) (string, error) {
 	switch ipStack {
 	case netparameters.IPV4Family:
-		return HTTPMlbPod(frrPod, metalLBIPList[0], netmlbparameters.AddressPoolS1[0],
+		return HTTPMlbPod(frrPod, ipv4metalLBIPList[0], netmlbparameters.AddressPoolS1[0],
 			netparameters.IPV4Family, netmlbparameters.TestContainerName, netmlbparameters.BGP)
 
 	case netparameters.IPV6Family:
-		return HTTPMlbPod(frrPod, metalLBIPList[2], netmlbparameters.AddressPoolS1[2],
+		return HTTPMlbPod(frrPod, ipv6metalLBIPList[0], netmlbparameters.AddressPoolS1[2],
 			netparameters.IPV6Family, netmlbparameters.TestContainerName, netmlbparameters.BGP)
 	}
 
-	httpOutput, err := HTTPMlbPod(frrPod, metalLBIPList[2], netmlbparameters.AddressPoolS1[2],
+	httpOutput, err := HTTPMlbPod(frrPod, ipv6metalLBIPList[0], netmlbparameters.AddressPoolS1[2],
 		netparameters.IPV6Family, netmlbparameters.TestContainerName, netmlbparameters.BGP)
 	if err != nil {
 		return httpOutput, err
 	}
 
-	return HTTPMlbPod(frrPod, metalLBIPList[2], netmlbparameters.AddressPoolS1[2],
+	return HTTPMlbPod(frrPod, ipv6metalLBIPList[0], netmlbparameters.AddressPoolS1[2],
 		netparameters.IPV6Family, netmlbparameters.TestContainerName, netmlbparameters.BGP)
 }
 
@@ -176,28 +181,32 @@ func defineIPRouteFamily(ipStack string) ([]string, string) {
 }
 
 // CreateSpeakerBGPPeerIPStack creates a BGP Peer CRD.
-func CreateSpeakerBGPPeerIPStack(ipStack string, metalLBIPList []string, bgpASN int) error {
+func CreateSpeakerBGPPeerIPStack(ipStack string,
+	ipv4metalLBIPList []string, ipv6metalLBIPList []string,
+	bgpASN int) error {
 	if ipStack == netparameters.IPV4Family {
-		return CreateSpeakerBGPPeer(metalLBIPList[0], uint32(bgpASN))
+		return CreateSpeakerBGPPeer(ipv4metalLBIPList[0], uint32(bgpASN))
 	}
 
 	if ipStack == netparameters.IPV6Family {
-		return CreateSpeakerBGPPeer(metalLBIPList[2], uint32(bgpASN))
+		return CreateSpeakerBGPPeer(ipv6metalLBIPList[0], uint32(bgpASN))
 	}
 
-	err := CreateSpeakerBGPPeer(metalLBIPList[0], uint32(bgpASN))
+	err := CreateSpeakerBGPPeer(ipv4metalLBIPList[0], uint32(bgpASN))
 	if err == nil {
 		return err
 	}
 
-	return CreateSpeakerBGPPeer(metalLBIPList[2], uint32(bgpASN))
+	return CreateSpeakerBGPPeer(ipv6metalLBIPList[0], uint32(bgpASN))
 }
 
 // DefineAnnotationWithIPStack creates an IP annotation for the pod network.
-func DefineAnnotationWithIPStack(ipStack string, metalLBIPList []string, clusterIPStack string) string {
+func DefineAnnotationWithIPStack(ipStack string,
+	ipv4metalLBIPList []string, ipv6metalLBIPList []string,
+	clusterIPStack string) string {
 	annotation := `[{"name": "external", "ips": `
 	if ipStack == netparameters.IPV4Family {
-		return annotation + fmt.Sprintf(`["%s/%s"]}]`, metalLBIPList[0], netparameters.IPV4Subnet)
+		return annotation + fmt.Sprintf(`["%s/%s"]}]`, ipv4metalLBIPList[0], netparameters.IPV4Subnet)
 	}
 
 	if clusterIPStack == netparameters.IPV4Family {
@@ -205,11 +214,11 @@ func DefineAnnotationWithIPStack(ipStack string, metalLBIPList []string, cluster
 	}
 
 	if ipStack == netparameters.IPV6Subnet {
-		return annotation + fmt.Sprintf(`["%s/%s"]}]`, metalLBIPList[2], netparameters.IPV6Subnet)
+		return annotation + fmt.Sprintf(`["%s/%s"]}]`, ipv6metalLBIPList[0], netparameters.IPV6Subnet)
 	}
 
-	return annotation + fmt.Sprintf(`["%s/%s","%s/%s"]}]`, metalLBIPList[0],
-		netparameters.IPV4Subnet, metalLBIPList[2], netparameters.IPV6Subnet)
+	return annotation + fmt.Sprintf(`["%s/%s","%s/%s"]}]`, ipv4metalLBIPList[0],
+		netparameters.IPV4Subnet, ipv6metalLBIPList[0], netparameters.IPV6Subnet)
 }
 
 func sctpToService(masterFRRPod *k8sv1.Pod, ipStack string) error {

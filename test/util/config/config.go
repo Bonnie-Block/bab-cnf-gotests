@@ -33,7 +33,6 @@ type Config struct {
 		SriovInterfaces      string `envconfig:"CNF_INTERFACES_LIST"`
 		MetalLBAddressPoolIP string `envconfig:"METALLB_ADDR_LIST"`
 		FrrImage             string `yaml:"frr_image" envconfig:"FRR_IMAGE"`
-		MetalLBDeployIP      string `envconfig:"DEPLOY_IP"`
 	} `yaml:"network"`
 	Ran struct {
 		CnfTestImage              string `yaml:"cnf_test_image" envconfig:"CNF_TEST_IMAGE"`
@@ -179,13 +178,4 @@ func (c *Config) GetMetallbVirtIP() ([]string, error) {
 	}
 
 	return envValue, nil
-}
-
-// GetEnvIPStack IPv4 checks the environmental variable and returns the value in []string.
-func (c *Config) GetEnvIPStack() (string, error) {
-	if len(c.Network.MetalLBDeployIP) < 1 {
-		return "", nil
-	}
-
-	return c.Network.MetalLBDeployIP, nil
 }

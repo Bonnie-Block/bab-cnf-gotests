@@ -22,11 +22,16 @@ import (
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func TestBGPAdvertismentTable(ipStack string, metalLBIPList []string, workerNodeList []k8sv1.Node,
+func TestBGPAdvertismentTable(ipStack string,
+	ipv4metalLBIPList []string, ipv6metalLBIPList []string,
+	workerNodeList []k8sv1.Node,
 	masterNodeList []k8sv1.Node, prefixLenght int32) {
 	By("should create external FRR container")
 
-	masterNodeFRRPod := CreateFRRContainerOnMaster(workerNodeList, masterNodeList, metalLBIPList, ipStack,
+	masterNodeFRRPod := CreateFRRContainerOnMaster(workerNodeList,
+		masterNodeList,
+		ipv4metalLBIPList, ipv6metalLBIPList,
+		ipStack,
 		netmlbparameters.IBGPASN, netmlbparameters.PropagateFalse)
 
 	By("should create a BGP addresspool")
@@ -79,7 +84,7 @@ func TestBGPAdvertismentTable(ipStack string, metalLBIPList []string, workerNode
 		ipFamily = netparameters.IPV6Family
 	}
 
-	err = CreateSpeakerBGPPeerIPStack(ipStack, metalLBIPList, netmlbparameters.IBGPASN)
+	err = CreateSpeakerBGPPeerIPStack(ipStack, ipv4metalLBIPList, ipv6metalLBIPList, netmlbparameters.IBGPASN)
 	Expect(err).ToNot(HaveOccurred())
 
 	Eventually(func() bool {
@@ -97,10 +102,12 @@ func TestBGPAdvertismentTable(ipStack string, metalLBIPList []string, workerNode
 }
 
 func TestBGPAdvertismentTableUpdates(masterNodeList []k8sv1.Node, workerNodeList []k8sv1.Node,
-	metalLBIPList []string, ipStack string, prefixLenght int32) {
+	ipv4metalLBIPList []string, ipv6metalLBIPList []string, ipStack string, prefixLenght int32) {
 	By("should create external FRR container")
 
-	masterNodeFRRPod := CreateFRRContainerOnMaster(workerNodeList, masterNodeList, metalLBIPList, ipStack,
+	masterNodeFRRPod := CreateFRRContainerOnMaster(workerNodeList, masterNodeList,
+		ipv4metalLBIPList, ipv6metalLBIPList,
+		ipStack,
 		netmlbparameters.IBGPASN, netmlbparameters.PropagateFalse)
 
 	By("should create a IPAddressPool and BGPAdvertisement")
@@ -153,7 +160,7 @@ func TestBGPAdvertismentTableUpdates(masterNodeList []k8sv1.Node, workerNodeList
 		ipFamily = netparameters.IPV6Family
 	}
 
-	err = CreateSpeakerBGPPeerIPStack(ipStack, metalLBIPList, netmlbparameters.IBGPASN)
+	err = CreateSpeakerBGPPeerIPStack(ipStack, ipv4metalLBIPList, ipv6metalLBIPList, netmlbparameters.IBGPASN)
 	Expect(err).ToNot(HaveOccurred())
 
 	Eventually(func() bool {
@@ -277,11 +284,15 @@ func updateBGPAdvertisement(bgpAdvertisement *metallbv1beta1.BGPAdvertisement, p
 	Expect(err).ToNot(HaveOccurred())
 }
 
-func TestBGPBlockRouteAdvertisment(ipStack string, metalLBIPList []string, masterNodeList []k8sv1.Node,
+func TestBGPBlockRouteAdvertisment(ipStack string,
+	ipv4metalLBIPList []string, ipv6metalLBIPList []string,
+	masterNodeList []k8sv1.Node,
 	workerNodeList []k8sv1.Node) {
 	By("should create external FRR container")
 
-	masterNodeFRRPod := CreateFRRContainerOnMaster(workerNodeList, masterNodeList, metalLBIPList, ipStack,
+	masterNodeFRRPod := CreateFRRContainerOnMaster(workerNodeList, masterNodeList,
+		ipv4metalLBIPList, ipv6metalLBIPList,
+		ipStack,
 		netmlbparameters.IBGPASN, netmlbparameters.PropagateTrue)
 
 	var workerNodeListString []string
@@ -345,7 +356,7 @@ func TestBGPBlockRouteAdvertisment(ipStack string, metalLBIPList []string, maste
 		workerNodesAdresses = append(workerNodesAdresses, workerNodesV6Adresses...)
 	}
 
-	err = CreateSpeakerBGPPeerIPStack(ipStack, metalLBIPList, netmlbparameters.IBGPASN)
+	err = CreateSpeakerBGPPeerIPStack(ipStack, ipv4metalLBIPList, ipv6metalLBIPList, netmlbparameters.IBGPASN)
 	Expect(err).ToNot(HaveOccurred())
 
 	Eventually(func() bool {

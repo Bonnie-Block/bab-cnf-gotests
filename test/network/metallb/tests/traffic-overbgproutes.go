@@ -35,22 +35,18 @@ var _ = Describe("MetalLB BGP", func() {
 
 		By(fmt.Sprintf("Running test on %s cluster", clusterIPStack))
 
-		metalLBIPList, err := helper.Config.GetMetallbVirtIP()
+		ipv4metalLBIPList, ipv6metalLBIPList, err := netmetallbhelper.GetMetalLBIPByFamily()
 		Expect(err).ToNot(HaveOccurred())
 
-		if len(metalLBIPList) < 2 {
-			Skip("The environment IP variable is not set or less than 2")
-		}
-
-		ipV4Address := metalLBIPList[0]
 		if clusterIPStack == netparameters.DualIPFamily {
-			ipV6Address = metalLBIPList[2]
+			Expect(len(ipv6metalLBIPList)).To(BeNumerically(">", 0))
+			ipV6Address = ipv6metalLBIPList[0]
 		}
 
 		netmetallbhelper.IsEnvVarMetallbIPinNodeExtNetRange(strings.Split(
 			helper.Config.General.CnfNodeLabel, "/")[1],
 			clusterIPStack,
-			ipV4Address,
+			ipv4metalLBIPList[0],
 			ipV6Address)
 
 		workerNodeList, err = nodes.GetByRole(helper.Apiclient, parameters.RoleWorker)
