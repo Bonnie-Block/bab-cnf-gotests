@@ -126,6 +126,3 @@ issues:
     - path: test/cnf-tests/discovery/tests/discovery.go
       linters:
         - lll
-    - path: test/network/vrf/netvrfhelper/vrf_cni_helper.go
-      linters:
-        - lll

@@ -1,4 +1,4 @@
-package tests
+package vrf
 
 import (
 	"fmt"
@@ -9,15 +9,15 @@ import (
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	generalHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/vrf/netvrfhelper"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/vrf/netvrfparameters"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/cni/netcnihelper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/cni/netcniparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 )
 
 var _ = Describe("CNF VRF", func() {
 
-	describe := netvrfhelper.DescribeParameters
+	describe := netcnihelper.DescribeParameters
 
 	var (
 		nodeListString []string
@@ -30,26 +30,26 @@ var _ = Describe("CNF VRF", func() {
 		nodeListString = generalHelper.GetNodeListStringByLabel(
 			strings.Split(generalHelper.Config.General.CnfNodeLabel, "/")[1],
 		)
-		By(fmt.Sprintf("Create %s namespace", netvrfparameters.TestNamespace))
-		err := namespaces.Create(netvrfparameters.TestNamespace, generalHelper.Apiclient)
+		By(fmt.Sprintf("Create %s namespace", netcniparameters.TestNamespace))
+		err := namespaces.Create(netcniparameters.TestNamespace, generalHelper.Apiclient)
 		if err != nil {
-			testFail = fmt.Sprintf("Error to create namespace %s: %s", netvrfparameters.TestNamespace, err)
+			testFail = fmt.Sprintf("Error to create namespace %s: %s", netcniparameters.TestNamespace, err)
 			Expect(err).ToNot(HaveOccurred(), testFail)
 		}
-		validMacVlanInterfaces := netvrfhelper.GetNodeValidMacVlanInterface(nodeListString[0], generalHelper.Config, 1)
+		validMacVlanInterfaces := netcnihelper.GetNodeValidMacVlanInterface(nodeListString[0], generalHelper.Config, 1)
 
 		By("Adding NADs")
-		vrfBlue = netvrfhelper.AddVRFNad(
+		vrfBlue = netcnihelper.AddVRFNad(
 			"test-vrf-blue",
 			validMacVlanInterfaces[0].Name,
-			netvrfparameters.VRFBlueName,
-			netvrfparameters.VRFIpamDHCP,
+			netcniparameters.VRFBlueName,
+			netcniparameters.VRFIpamDHCP,
 			"")
-		vrfRed = netvrfhelper.AddVRFNad(
+		vrfRed = netcnihelper.AddVRFNad(
 			"test-vrf-red",
 			validMacVlanInterfaces[0].Name,
-			netvrfparameters.VRFRedName,
-			netvrfparameters.VRFIpamDHCP,
+			netcniparameters.VRFRedName,
+			netcniparameters.VRFIpamDHCP,
 			"")
 	})
 
@@ -58,14 +58,14 @@ var _ = Describe("CNF VRF", func() {
 			Fail(testFail)
 		}
 		By("Cleaning up resources before test")
-		err := namespaces.CleanPods(netvrfparameters.TestNamespace, generalHelper.Apiclient)
+		err := namespaces.CleanPods(netcniparameters.TestNamespace, generalHelper.Apiclient)
 		Expect(err).ToNot(HaveOccurred())
 	})
 
 	// 36325
 	DescribeTable("Integration: NAD, IPAM: dynamic, Interfaces: 1, Scheme: 2 Pods 2 VRFs ip network overlap",
 		func(node string, ipStack string) {
-			netvrfhelper.TestVRFScenario(
+			netcnihelper.TestVRFScenario(
 				node,
 				ipStack,
 				"overLapToVRF",
@@ -73,9 +73,9 @@ var _ = Describe("CNF VRF", func() {
 				nodeListString,
 				vrfBlue.Name,
 				vrfRed.Name,
-				netvrfparameters.VRFIpamDHCP)
+				netcniparameters.VRFIpamDHCP)
 		},
-		Entry(describe, netvrfparameters.SameNode, netvrfparameters.IPStackIPv4),
-		Entry(describe, netvrfparameters.DiffNode, netvrfparameters.IPStackIPv4),
+		Entry(describe, netcniparameters.SameNode, netcniparameters.IPStackIPv4),
+		Entry(describe, netcniparameters.DiffNode, netcniparameters.IPStackIPv4),
 	)
 })

@@ -51,7 +51,7 @@ The list of available features:
 ##### Available features for Network suite
 * *SR-IOV*
 * *PTP*
-* *VRF*
+* *CNI*
 * *ACC100*
 * *CNF-TESTS*
 * *MetalLB*
@@ -74,7 +74,7 @@ The list of available features:
   needed:
   * SR-IOV suite requires 2 interfaces
   * CNF-TESTS suite requires 1 interface
-  * VRF suite requires 2 interfaces
+  * CNI suite requires 2 interfaces
 
 ##### Common RAN environment variables
 * `CNF_TEST_IMAGE` - path to generic container image used in RAN tests
@@ -194,7 +194,7 @@ Below is an e2e flow example for RAN cpu test:
 │   │   ├── ptp
 │   │   ├── nethelper             # Common network test functions
 │   │   ├── netparameters         # Common network parameters
-│   │   └── vrf
+│   │   └── cni
 │   ├── parameters                # Common parameters
 │   ├── ran
 │   │   ├── cpu

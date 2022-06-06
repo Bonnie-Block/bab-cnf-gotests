@@ -1,4 +1,4 @@
-package vrf
+package cni
 
 import (
 	"fmt"
@@ -11,8 +11,8 @@ import (
 	"github.com/onsi/ginkgo/reporters"
 	. "github.com/onsi/gomega"
 	generalHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/vrf/netvrfparameters"
-	_ "gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/vrf/tests"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/cni/netcniparameters"
+	_ "gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/cni/tests/vrf"
 	generalParameters "gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
@@ -35,26 +35,26 @@ func TestVrf(t *testing.T) {
 	if dumpFile != "" {
 		reporter, err := testutils.NewReporter(
 			dumpFile,
-			netvrfparameters.ReporterNamespacesToDump,
-			netvrfparameters.ReporterCrds)
+			netcniparameters.ReporterNamespacesToDump,
+			netcniparameters.ReporterCrds)
 		if err != nil {
 			log.Fatalf("Failed to create log reporter %s", err)
 		}
 		reporterList = append(reporterList, reporter)
 	}
 
-	RunSpecsWithDefaultAndCustomReporters(t, "VRF tests", reporterList)
+	RunSpecsWithDefaultAndCustomReporters(t, "CNI tests", reporterList)
 }
 
 var _ = BeforeSuite(func() {
 	generalHelper.PullTestImage(generalHelper.Config.General.CnfNodeLabel, generalHelper.Config.Network.TestContainerImage)
-	By(fmt.Sprintf("Create %s namespace", netvrfparameters.TestNamespace))
-	err := namespaces.Create(netvrfparameters.TestNamespace, generalHelper.Apiclient)
+	By(fmt.Sprintf("Create %s namespace", netcniparameters.TestNamespace))
+	err := namespaces.Create(netcniparameters.TestNamespace, generalHelper.Apiclient)
 	Expect(err).ToNot(HaveOccurred())
 })
 
 var _ = AfterSuite(func() {
-	By(fmt.Sprintf("Clean test namespace %s", netvrfparameters.TestNamespace))
+	By(fmt.Sprintf("Clean test namespace %s", netcniparameters.TestNamespace))
 	var snoTimeoutMultiplier time.Duration = 1
 	isSingleNode, err := nodes.IsSingleNodeCluster(generalHelper.Apiclient)
 	Expect(err).ToNot(HaveOccurred())
@@ -64,10 +64,10 @@ var _ = AfterSuite(func() {
 	}
 	err = namespaces.Clean(
 		generalParameters.SriovOperatorNamespace,
-		netvrfparameters.TestNamespace,
+		netcniparameters.TestNamespace,
 		generalHelper.Apiclient, false)
 	Expect(err).ToNot(HaveOccurred())
-	err = namespaces.DeleteAndWait(generalHelper.Apiclient, netvrfparameters.TestNamespace, timeout)
+	err = namespaces.DeleteAndWait(generalHelper.Apiclient, netcniparameters.TestNamespace, timeout)
 	Expect(err).ToNot(HaveOccurred())
 	By("Waiting until SRIOV become stable")
 	generalHelper.WaitForSRIOVStable(generalParameters.SriovOperatorNamespace, waitingTime, snoTimeoutMultiplier)

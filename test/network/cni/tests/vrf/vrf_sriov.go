@@ -1,4 +1,4 @@
-package tests
+package vrf
 
 import (
 	"fmt"
@@ -8,8 +8,8 @@ import (
 	. "github.com/onsi/gomega"
 
 	generalHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/vrf/netvrfhelper"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/vrf/netvrfparameters"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/cni/netcnihelper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/cni/netcniparameters"
 	generalParam "gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/cluster"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
@@ -17,7 +17,7 @@ import (
 
 var _ = Describe("CNF VRF", func() {
 
-	describe := netvrfhelper.DescribeParameters
+	describe := netcnihelper.DescribeParameters
 
 	var (
 		sriovInfos *cluster.EnabledNodes
@@ -32,68 +32,68 @@ var _ = Describe("CNF VRF", func() {
 			testFail = fmt.Sprintf("Error discover SRIOV node info: %s", err)
 			Expect(err).ToNot(HaveOccurred(), testFail)
 		}
-		netvrfhelper.SetupSriovBeforeAll(generalHelper.Config, sriovInfos, netvrfparameters.VRFIpamStatic, false)
+		netcnihelper.SetupSriovBeforeAll(generalHelper.Config, sriovInfos, netcniparameters.VRFIpamStatic, false)
 	})
 
 	BeforeEach(func() {
 		if testFail != "" {
 			Fail(testFail)
 		}
-		netvrfhelper.CleanResources()
+		netcnihelper.CleanResources()
 	})
 
 	// 36303
 	DescribeTable("Integration: SRIOV, IPAM: static, Interfaces: 1, Scheme: 2 Pods 2 VRFs OCP Primary network overlap",
 		func(node string, ipStack string) {
-			netvrfhelper.TestVRFScenario(
+			netcnihelper.TestVRFScenario(
 				node,
 				ipStack,
 				"overLapToSDN",
 				generalHelper.Config,
 				sriovInfos.Nodes,
-				netvrfparameters.TestSriovNetworkBlue,
-				netvrfparameters.TestSriovNetworkRed,
-				netvrfparameters.VRFIpamStatic)
+				netcniparameters.TestSriovNetworkBlue,
+				netcniparameters.TestSriovNetworkRed,
+				netcniparameters.VRFIpamStatic)
 		},
-		Entry(describe, netvrfparameters.SameNode, netvrfparameters.IPStackIPv4),
-		Entry(describe, netvrfparameters.DiffNode, netvrfparameters.IPStackIPv4),
+		Entry(describe, netcniparameters.SameNode, netcniparameters.IPStackIPv4),
+		Entry(describe, netcniparameters.DiffNode, netcniparameters.IPStackIPv4),
 	)
 
 	// 36311
 	DescribeTable("Integration: SRIOV, IPAM: static, Interfaces: 1, Scheme: 2 Pods 2 VRFs ip network overlap",
 		func(node string, ipStack string) {
-			netvrfhelper.TestVRFScenario(
+			netcnihelper.TestVRFScenario(
 				node,
 				ipStack,
 				"overLapToVRF",
 				generalHelper.Config,
 				sriovInfos.Nodes,
-				netvrfparameters.TestSriovNetworkBlue,
-				netvrfparameters.TestSriovNetworkRed,
-				netvrfparameters.VRFIpamStatic)
+				netcniparameters.TestSriovNetworkBlue,
+				netcniparameters.TestSriovNetworkRed,
+				netcniparameters.VRFIpamStatic)
 		},
-		Entry(describe, netvrfparameters.SameNode, netvrfparameters.IPStackIPv4),
-		Entry(describe, netvrfparameters.DiffNode, netvrfparameters.IPStackIPv4),
-		Entry(describe, netvrfparameters.SameNode, netvrfparameters.IPStackIPv6),
-		Entry(describe, netvrfparameters.DiffNode, netvrfparameters.IPStackIPv6),
+		Entry(describe, netcniparameters.SameNode, netcniparameters.IPStackIPv4),
+		Entry(describe, netcniparameters.DiffNode, netcniparameters.IPStackIPv4),
+		Entry(describe, netcniparameters.SameNode, netcniparameters.IPStackIPv6),
+		Entry(describe, netcniparameters.DiffNode, netcniparameters.IPStackIPv6),
 	)
 
 	// 36319
 	DescribeTable("Integration: SRIOV, IPAM: static, Interfaces: 1, Scheme: 2 Pods 2 VRFs Different IP networks",
 		func(node string, ipStack string) {
-			netvrfhelper.TestVRFScenario(
+			netcnihelper.TestVRFScenario(
 				node,
 				ipStack,
 				"nonOverLap",
 				generalHelper.Config,
 				sriovInfos.Nodes,
-				netvrfparameters.TestSriovNetworkBlue,
-				netvrfparameters.TestSriovNetworkRed,
-				netvrfparameters.VRFIpamStatic)
+				netcniparameters.TestSriovNetworkBlue,
+				netcniparameters.TestSriovNetworkRed,
+				netcniparameters.VRFIpamStatic)
 		},
-		Entry(describe, netvrfparameters.SameNode, netvrfparameters.IPStackIPv4),
-		Entry(describe, netvrfparameters.DiffNode, netvrfparameters.IPStackIPv4),
-		Entry(describe, netvrfparameters.SameNode, netvrfparameters.IPStackIPv6),
-		Entry(describe, netvrfparameters.DiffNode, netvrfparameters.IPStackIPv6),
+		Entry(describe, netcniparameters.SameNode, netcniparameters.IPStackIPv4),
+		Entry(describe, netcniparameters.DiffNode, netcniparameters.IPStackIPv4),
+		Entry(describe, netcniparameters.SameNode, netcniparameters.IPStackIPv6),
+		Entry(describe, netcniparameters.DiffNode, netcniparameters.IPStackIPv6),
 	)
 })

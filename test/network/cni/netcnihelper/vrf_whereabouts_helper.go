@@ -1,4 +1,4 @@
-package netvrfhelper
+package netcnihelper
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	globalHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/vrf/netvrfparameters"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/cni/netcniparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 
@@ -31,26 +31,26 @@ func TestVRFWAIPScenario(node string, ipStack string, config *config.Config, nod
 		podServerIpamConfig string
 	)
 
-	VRFParameters, err := netvrfparameters.NewVRFTestParameters(node, ipStack)
+	VRFParameters, err := netcniparameters.NewVRFTestParameters(node, ipStack)
 	Expect(err).ToNot(HaveOccurred())
 
-	if VRFParameters.Node == netvrfparameters.DiffNode && len(nodes) < 2 {
+	if VRFParameters.Node == netcniparameters.DiffNode && len(nodes) < 2 {
 		Skip(fmt.Sprintf("There is not enough nodes to run test with following parameter %s", node))
 	}
 
 	By("Validating test parameters")
 
-	if VRFParameters.Node == netvrfparameters.SameNode {
+	if VRFParameters.Node == netcniparameters.SameNode {
 		podClientNodeLabel = nodes[0]
 		podServerNodeLabel = nodes[0]
-	} else if VRFParameters.Node == netvrfparameters.DiffNode {
+	} else if VRFParameters.Node == netcniparameters.DiffNode {
 		podClientNodeLabel = nodes[0]
 		podServerNodeLabel = nodes[1]
 	}
 
 	By("Define client/server pods")
 
-	if VRFParameters.IPStack == netvrfparameters.IPStackIPv4 {
+	if VRFParameters.IPStack == netcniparameters.IPStackIPv4 {
 		podClientIpamConfig = fmt.Sprintf(
 			`[{"name": "%s", "mac": "%s"}, {"name": "%s", "mac": "%s"}]`,
 			vrfNetworkBlue[0], "20:04:0f:f1:88:A1", vrfNetworkRed[0], "20:04:0f:f1:88:B2")
@@ -58,7 +58,7 @@ func TestVRFWAIPScenario(node string, ipStack string, config *config.Config, nod
 		podServerIpamConfig = fmt.Sprintf(
 			`[{"name": "%s", "mac": "%s"}, {"name": "%s", "mac": "%s"}]`,
 			vrfNetworkBlue[0], "20:04:0f:f1:88:A3", vrfNetworkRed[0], "20:04:0f:f1:88:B4")
-	} else if VRFParameters.IPStack == netvrfparameters.IPStackIPv6 {
+	} else if VRFParameters.IPStack == netcniparameters.IPStackIPv6 {
 		podClientIpamConfig = fmt.Sprintf(
 			`[{"name": "%s", "mac": "%s"}, {"name": "%s", "mac": "%s"}]`,
 			vrfNetworkBlue[1], "20:04:0f:f1:88:A1", vrfNetworkRed[1], "20:04:0f:f1:88:B2")
@@ -70,7 +70,7 @@ func TestVRFWAIPScenario(node string, ipStack string, config *config.Config, nod
 
 	podClient := pod.RedefineAsNetRaw(
 		pod.RedefinePodWithNetwork(
-			pod.DefinePodOnNode(netvrfparameters.TestNamespace, config.Network.TestContainerImage, podClientNodeLabel),
+			pod.DefinePodOnNode(netcniparameters.TestNamespace, config.Network.TestContainerImage, podClientNodeLabel),
 			podClientIpamConfig,
 		),
 	)
@@ -79,67 +79,67 @@ func TestVRFWAIPScenario(node string, ipStack string, config *config.Config, nod
 
 	By("Running client/server pods")
 
-	runningClientPod := globalHelper.WaitUntilPodCreatedAndRunning(podClient, netvrfparameters.PodWaitingTime)
-	runningServerPod := globalHelper.WaitUntilPodCreatedAndRunning(podServer, netvrfparameters.PodWaitingTime)
+	runningClientPod := globalHelper.WaitUntilPodCreatedAndRunning(podClient, netcniparameters.PodWaitingTime)
+	runningServerPod := globalHelper.WaitUntilPodCreatedAndRunning(podServer, netcniparameters.PodWaitingTime)
 
 	By("Validating client/server VRFs configuration")
 
-	vrfBlueClientIP := getPodIPs(runningClientPod, netvrfparameters.VRFBlueName)[0]
-	vrfRedClientIP := getPodIPs(runningClientPod, netvrfparameters.VRFRedName)[0]
+	vrfBlueClientIP := getPodIPs(runningClientPod, netcniparameters.VRFBlueName)[0]
+	vrfRedClientIP := getPodIPs(runningClientPod, netcniparameters.VRFRedName)[0]
 
 	podHasCorrectVrfConfig(podClient.Name,
 		[]map[string]string{
-			{"vrfName": netvrfparameters.VRFBlueName, "vrfClientIP": vrfBlueClientIP, "vrfInterface": "net1"},
-			{"vrfName": netvrfparameters.VRFRedName, "vrfClientIP": vrfRedClientIP, "vrfInterface": "net2"}})
+			{"vrfName": netcniparameters.VRFBlueName, "vrfClientIP": vrfBlueClientIP, "vrfInterface": "net1"},
+			{"vrfName": netcniparameters.VRFRedName, "vrfClientIP": vrfRedClientIP, "vrfInterface": "net2"}})
 	podHasCorrectVrfConfig(podServer.Name,
 		[]map[string]string{
-			{"vrfName": netvrfparameters.VRFBlueName, "vrfClientIP": vrfBlueClientIP, "vrfInterface": "net1"},
-			{"vrfName": netvrfparameters.VRFRedName, "vrfClientIP": vrfRedClientIP, "vrfInterface": "net2"}})
+			{"vrfName": netcniparameters.VRFBlueName, "vrfClientIP": vrfBlueClientIP, "vrfInterface": "net1"},
+			{"vrfName": netcniparameters.VRFRedName, "vrfClientIP": vrfRedClientIP, "vrfInterface": "net2"}})
 
 	By("Validating client/server ICMP VRF connectivity")
 
-	vrfRedServerIP := getPodIPs(runningServerPod, netvrfparameters.VRFRedName)[0]
-	vrfBlueServerIP := getPodIPs(runningServerPod, netvrfparameters.VRFBlueName)[0]
+	vrfRedServerIP := getPodIPs(runningServerPod, netcniparameters.VRFRedName)[0]
+	vrfBlueServerIP := getPodIPs(runningServerPod, netcniparameters.VRFBlueName)[0]
 
-	err = pingIPViaVRF(*runningClientPod, netvrfparameters.VRFRedName, vrfRedServerIP, false)
+	err = pingIPViaVRF(*runningClientPod, netcniparameters.VRFRedName, vrfRedServerIP, false)
 	Expect(err).ToNot(HaveOccurred())
-	err = pingIPViaVRF(*runningClientPod, netvrfparameters.VRFBlueName, vrfBlueServerIP, false)
+	err = pingIPViaVRF(*runningClientPod, netcniparameters.VRFBlueName, vrfBlueServerIP, false)
 	Expect(err).ToNot(HaveOccurred())
 
 	By("Validating client/server TCP VRF connectivity")
 
-	err = httpViaVRF(*runningClientPod, vrfRedServerIP, netvrfparameters.VRFRedName, false)
+	err = httpViaVRF(*runningClientPod, vrfRedServerIP, netcniparameters.VRFRedName, false)
 	Expect(err).ToNot(HaveOccurred())
-	err = httpViaVRF(*runningClientPod, vrfBlueServerIP, netvrfparameters.VRFBlueName, false)
+	err = httpViaVRF(*runningClientPod, vrfBlueServerIP, netcniparameters.VRFBlueName, false)
 	Expect(err).ToNot(HaveOccurred())
 	err = pod.DeletePodAndWait(globalHelper.Apiclient, podServer)
 	Expect(err).ToNot(HaveOccurred())
 
 	By("Validating client/server ICMP negative test")
 	Eventually(func() error {
-		_, err := globalHelper.Apiclient.Pods(netvrfparameters.TestNamespace).Get(
+		_, err := globalHelper.Apiclient.Pods(netcniparameters.TestNamespace).Get(
 			context.Background(),
 			podServer.Name,
 			metav1.GetOptions{})
 
 		return err
-	}, netvrfparameters.PodWaitingTime, 5*time.Second).Should(HaveOccurred())
+	}, netcniparameters.PodWaitingTime, 5*time.Second).Should(HaveOccurred())
 
-	err = pingIPViaVRF(*runningClientPod, netvrfparameters.VRFBlueName, vrfBlueServerIP, true)
+	err = pingIPViaVRF(*runningClientPod, netcniparameters.VRFBlueName, vrfBlueServerIP, true)
 	Expect(err).ToNot(HaveOccurred())
-	err = pingIPViaVRF(*runningClientPod, netvrfparameters.VRFRedName, vrfRedServerIP, true)
+	err = pingIPViaVRF(*runningClientPod, netcniparameters.VRFRedName, vrfRedServerIP, true)
 	Expect(err).ToNot(HaveOccurred())
 	By("Validating client/server TCP negative test")
 
-	err = httpViaVRF(*runningClientPod, vrfRedServerIP, netvrfparameters.VRFRedName, true)
+	err = httpViaVRF(*runningClientPod, vrfRedServerIP, netcniparameters.VRFRedName, true)
 	Expect(err).ToNot(HaveOccurred())
-	err = httpViaVRF(*runningClientPod, vrfBlueServerIP, netvrfparameters.VRFBlueName, true)
+	err = httpViaVRF(*runningClientPod, vrfBlueServerIP, netcniparameters.VRFBlueName, true)
 	Expect(err).ToNot(HaveOccurred())
 }
 
 // return an array of IPs in a pod related to a given lowercase string network name.
 func getPodIPs(runningPod *k8sv1.Pod, networkName string) []string {
-	networks, err := podNetworksParser(runningPod.Annotations[netvrfparameters.AnnotationNetStat])
+	networks, err := podNetworksParser(runningPod.Annotations[netcniparameters.AnnotationNetStat])
 	Expect(err).ToNot(HaveOccurred())
 
 	network, err := findNetworkName(networks, networkName)

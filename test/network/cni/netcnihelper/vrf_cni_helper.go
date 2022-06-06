@@ -1,4 +1,4 @@
-package netvrfhelper
+package netcnihelper
 
 import (
 	"context"
@@ -12,7 +12,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	generalHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/vrf/netvrfparameters"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/cni/netcniparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 )
@@ -40,11 +40,12 @@ func GetNodeValidMacVlanInterface(nodeName string, config *config.Config, reques
 
 // AddVRFNad creates a Network Attachment Definition for static and dynamic IP addresses.
 // For static IPs leave the "ipRange" argument empty ("").
-func AddVRFNad(nadName string, ifName string, vrfName string, ipam string, ipRange string) netattdefv1.NetworkAttachmentDefinition {
+func AddVRFNad(nadName string, ifName string, vrfName string, ipam string, ipRange string,
+) netattdefv1.NetworkAttachmentDefinition {
 	vrfDefinition := netattdefv1.NetworkAttachmentDefinition{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: nadName,
-			Namespace:    netvrfparameters.TestNamespace,
+			Namespace:    netcniparameters.TestNamespace,
 		},
 		Spec: netattdefv1.NetworkAttachmentDefinitionSpec{
 			Config: fmt.Sprintf(
@@ -60,7 +61,7 @@ func AddVRFNad(nadName string, ifName string, vrfName string, ipam string, ipRan
 		}}
 
 	switch ipam {
-	case netvrfparameters.VRFIpamStatic, netvrfparameters.VRFIpamDHCP:
+	case netcniparameters.VRFIpamStatic, netcniparameters.VRFIpamDHCP:
 		vrfDefinition.Spec.Config += fmt.Sprintf(
 			`
 							"ipam": {"type": "%s"}
@@ -72,7 +73,7 @@ func AddVRFNad(nadName string, ifName string, vrfName string, ipam string, ipRan
 					]
 				}`,
 			ipam, vrfName)
-	case netvrfparameters.IpamWhereabouts:
+	case netcniparameters.IpamWhereabouts:
 		vrfDefinition.Spec.Config += fmt.Sprintf(
 			`
 							"ipam":
