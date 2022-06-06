@@ -1,40 +1,15 @@
-package ranptpparserhelper
+package ranptphelper
 
 import (
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ptp/ranptpparameters"
+
 	"strings"
 )
 
-type Log struct {
-	Time  string `json:"time"`
-	Level string `json:"level"`
-	Msg   string `json:"msg"`
-}
-
-type EventMsg struct {
-	ID              string    `json:"id"`
-	EventType       string    `json:"type"`
-	Source          string    `json:"source"`
-	DataContentType string    `json:"dataContentType"`
-	Time            string    `json:"time"`
-	Data            eventData `json:"data"`
-}
-
-type eventData struct {
-	Version string   `json:"version"`
-	Values  []values `json:"values"`
-}
-
-type values struct {
-	Resource  string `json:"resource"`
-	DataType  string `json:"dataType"`
-	ValueType string `json:"valueType"`
-	Value     string `json:"value"`
-}
-
 // LogStrToLogStrct a single log as a string from the pod's logger and parsers it into a "Log" structure
 // and returns that structure.
-func LogStrToLogStrct(log string) Log {
-	var logDetails Log
+func LogStrToLogStrct(log string) ranptpparameters.Log {
+	var logDetails ranptpparameters.Log
 
 	timeStartIndx := strings.Index(log, "\"") + 1
 	timeEndIndx := strings.Index(log, " ") - 1
@@ -54,8 +29,8 @@ func LogStrToLogStrct(log string) Log {
 
 // EventMsgParser gets a single PTP event as a string from the log message and parsers it into a "EventMsg" structure
 // and returns that structure.
-func EventMsgParser(strFormat string) EventMsg {
-	var eventMassage EventMsg
+func EventMsgParser(strFormat string) ranptpparameters.EventMsg {
+	var eventMassage ranptpparameters.EventMsg
 
 	idStart := strFormat[strings.Index(strFormat, "id")+8:]
 	eventTypeStart := idStart[strings.Index(idStart, "type")+10:]
@@ -77,8 +52,8 @@ func EventMsgParser(strFormat string) EventMsg {
 
 // eventDataParser gets the "Data" from the PTP event as a string and parsers it into a "eventData" structure
 // and returns that structure.
-func eventDataParser(eventDataStr string) eventData {
-	var eventDataFull eventData
+func eventDataParser(eventDataStr string) ranptpparameters.EventData {
+	var eventDataFull ranptpparameters.EventData
 
 	versionStart := eventDataStr[strings.Index(eventDataStr, "version")+13:]
 	valuesArray := versionStart[strings.Index(versionStart, "[") : strings.Index(versionStart, "]")+1]
@@ -91,8 +66,8 @@ func eventDataParser(eventDataStr string) eventData {
 
 // eventDataValuesParser gets the "Values" from the PTP event data as a string and parsers it into a "values" structure
 // and returns an array of "values" structure.
-func eventDataValuesParser(eventDataValuesStr string) []values {
-	var eventDataValuesFull []values
+func eventDataValuesParser(eventDataValuesStr string) []ranptpparameters.Values {
+	var eventDataValuesFull []ranptpparameters.Values
 
 	str := eventDataValuesStr
 
@@ -103,7 +78,7 @@ func eventDataValuesParser(eventDataValuesStr string) []values {
 		valueStart := valueTypeStart[strings.Index(valueTypeStart, "value")+11:]
 
 		eventDataValuesFull = append(eventDataValuesFull,
-			values{extractDetail(resourcesStart), extractDetail(dataTypeStart),
+			ranptpparameters.Values{extractDetail(resourcesStart), extractDetail(dataTypeStart),
 				extractDetail(valueTypeStart), extractDetail(valueStart)})
 		str = valueStart
 	}
