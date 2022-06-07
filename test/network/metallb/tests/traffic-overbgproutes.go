@@ -59,7 +59,7 @@ var _ = Describe("MetalLB BGP", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		By("should activate SCTP module")
-		netmetallbhelper.ActivateSCTPModuleOnMaster(masterNodeList[0])
+		netmetallbhelper.ActivateSCTPModuleOnMaster([]k8sv1.Node{masterNodeList[0]})
 
 	})
 
@@ -71,7 +71,9 @@ var _ = Describe("MetalLB BGP", func() {
 	AfterEach(func() {
 
 		By("should delete AddressPool, Service, BGP Peers and test Pod after test")
-		netmetallbhelper.RemoveMetallbBGPTestSetup()
+		externalNadList := []string{netmlbparameters.ExternalNADName}
+		masterConfigMapList := []string{netparameters.MasterConfigMapName}
+		netmetallbhelper.RemoveMetallbBGPTestSetup(externalNadList, masterConfigMapList)
 	})
 
 	// 49447

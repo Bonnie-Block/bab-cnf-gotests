@@ -100,6 +100,17 @@ func StrParamInListOfParams(param string, paramRange []string) error {
 	return fmt.Errorf("error: wrong parameter %v", param)
 }
 
+// IntParamInListOfParams validates if specific int parameter is valid.
+func IntParamInListOfParams(param int, paramRange []int) error {
+	for _, parameter := range paramRange {
+		if param == parameter {
+			return nil
+		}
+	}
+
+	return fmt.Errorf("error: wrong parameter %v", param)
+}
+
 // NodeIPsForFamily returns nodes' IP addresses matching the ip family.
 func NodeIPsForFamily(nodes []k8sv1.Node, family string) []string {
 	res := []string{}

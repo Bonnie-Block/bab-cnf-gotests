@@ -72,7 +72,9 @@ var _ = Describe("MetalLB BGP", func() {
 
 	AfterEach(func() {
 		By("should delete AddressPool, Service, BGP Peers and test Pod after test")
-		netmetallbhelper.RemoveMetallbBGPTestSetup()
+		externalNadList := []string{netmlbparameters.ExternalNADName}
+		masterConfigMapList := []string{netparameters.MasterConfigMapName}
+		netmetallbhelper.RemoveMetallbBGPTestSetup(externalNadList, masterConfigMapList)
 
 	})
 
@@ -131,11 +133,13 @@ var _ = Describe("MetalLB BGP", func() {
 
 			masterNodeFRRPod := netmetallbhelper.CreateFRRContainerOnMaster(
 				workerNodeList,
-				masterNodeList,
-				ipv4metalLBIPList,
-				ipv6metalLBIPList,
+				masterNodeList[0],
+				ipv4metalLBIPList[0],
+				"",
 				netparameters.IPV4Family,
 				netmlbparameters.IBGPASN,
+				netmlbparameters.ExternalNADName,
+				netparameters.MasterConfigMapName,
 				netmlbparameters.PropagateFalse)
 
 			By("should create a BGP Peer on Speakers")
@@ -143,7 +147,7 @@ var _ = Describe("MetalLB BGP", func() {
 			workerNodesAdresses := nethelper.NodeIPsForFamily(workerNodeList, netparameters.IPV4Family)
 
 			err := netmetallbhelper.CreateSpeakerBGPPeerIPStack(netparameters.IPV4Family,
-				ipv4metalLBIPList, ipv6metalLBIPList, netmlbparameters.IBGPASN)
+				ipv4metalLBIPList[0], "", netmlbparameters.IBGPASN, netmlbparameters.BGPPeerName1v4)
 			Expect(err).ToNot(HaveOccurred())
 
 			Eventually(func() bool {
@@ -181,22 +185,22 @@ var _ = Describe("MetalLB BGP", func() {
 		Context("metrics", func() {
 			BeforeEach(func() {
 				By("should create external FRR container")
-
 				masterNodeFRRPod := netmetallbhelper.CreateFRRContainerOnMaster(
 					workerNodeList,
-					masterNodeList,
-					ipv4metalLBIPList,
-					ipv6metalLBIPList,
+					masterNodeList[0],
+					ipv4metalLBIPList[0],
+					"",
 					netparameters.IPV4Family,
 					netmlbparameters.IBGPASN,
+					netmlbparameters.ExternalNADName,
+					netparameters.MasterConfigMapName,
 					netmlbparameters.PropagateFalse)
 
 				By("should create a BGP Peer on Speakers")
 
 				workerNodesAdresses := nethelper.NodeIPsForFamily(workerNodeList, netparameters.IPV4Family)
-
 				err := netmetallbhelper.CreateSpeakerBGPPeerIPStack(netparameters.IPV4Family,
-					ipv4metalLBIPList, ipv6metalLBIPList, netmlbparameters.IBGPASN)
+					ipv4metalLBIPList[0], "", netmlbparameters.IBGPASN, netmlbparameters.BGPPeerName1v4)
 				Expect(err).ToNot(HaveOccurred())
 
 				Eventually(func() bool {

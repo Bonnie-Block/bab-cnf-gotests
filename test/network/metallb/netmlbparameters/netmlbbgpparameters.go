@@ -11,7 +11,8 @@ import (
 var (
 	AddressPoolS1          = []string{"4.4.4.100", "4.4.4.101", "2001:4::100", "2001:4::101"}
 	AddressPoolS2          = []string{"5.5.5.100", "5.5.5.101", "2001:5::100", "2001:5::101"}
-	AddressPoolV6          = []string{"2001:4::100", "2001:4::101"}
+	AddressPool1V6         = []string{"2001:4::100", "2001:4::101"}
+	AddressPool2V6         = []string{"2001:5::100", "2001:5::101"}
 	AddressPoolV6Prefix128 = []string{"2001:10:10::100", "2001:10:10::1000"}
 	AddressPoolV6Prefix126 = []string{"2001:10:10::0"}
 	AddressPoolV4Prefix32  = []string{"192.168.100.1", "192.168.100.240"}
@@ -271,6 +272,12 @@ type (
 		IPStack       string
 	}
 
+	MetallbPoolTestParameters struct {
+		TrafficPolicy string
+		IPStack       string
+		BGPASN        int
+	}
+
 	MetallbBFDTestParameters struct {
 		BGPPeer       string
 		IPStack       string
@@ -299,6 +306,34 @@ func NewBGPTestParameters(ipStack string, trafficPolicy string) (*MetallbTestPar
 	}
 
 	BGPTestParameters.TrafficPolicy = trafficPolicy
+
+	return BGPTestParameters, nil
+}
+
+// NewMetallbTestParameters constructor for Metallb TestParameters.
+func NewMetallbTestParameters(ipStack string, bgpASN int, trafficPolicy string) (*MetallbPoolTestParameters, error) {
+	BGPTestParameters := new(MetallbPoolTestParameters)
+	err := nethelper.StrParamInListOfParams(ipStack, IPStackParameters)
+
+	if err != nil {
+		return nil, err
+	}
+
+	BGPTestParameters.IPStack = ipStack
+	err = nethelper.StrParamInListOfParams(trafficPolicy, TrafficPolicies)
+
+	if err != nil {
+		return nil, err
+	}
+
+	BGPTestParameters.TrafficPolicy = trafficPolicy
+	err = nethelper.IntParamInListOfParams(bgpASN, BGPASNParameters)
+
+	if err != nil {
+		return nil, err
+	}
+
+	BGPTestParameters.BGPASN = bgpASN
 
 	return BGPTestParameters, nil
 }

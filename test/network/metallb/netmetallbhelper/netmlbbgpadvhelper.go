@@ -28,11 +28,22 @@ func TestBGPAdvertismentTable(ipStack string,
 	masterNodeList []k8sv1.Node, prefixLenght int32) {
 	By("should create external FRR container")
 
+	clusterIPStack := ValidateClusterIPStack()
+
+	var ipv6Address string
+
+	if clusterIPStack != netparameters.IPV4Family {
+		ipv6Address = ipv6metalLBIPList[0]
+	}
+
 	masterNodeFRRPod := CreateFRRContainerOnMaster(workerNodeList,
-		masterNodeList,
-		ipv4metalLBIPList, ipv6metalLBIPList,
+		masterNodeList[0],
+		ipv4metalLBIPList[0], ipv6Address,
 		ipStack,
-		netmlbparameters.IBGPASN, netmlbparameters.PropagateFalse)
+		netmlbparameters.IBGPASN,
+		netmlbparameters.ExternalNADName,
+		netparameters.MasterConfigMapName,
+		netmlbparameters.PropagateFalse)
 
 	By("should create a BGP addresspool")
 
@@ -76,15 +87,20 @@ func TestBGPAdvertismentTable(ipStack string,
 	By("should create a BGP Peer on Speakers")
 
 	ipFamily := netparameters.IPV4Family
+
+	bgpPeerName := netmlbparameters.BGPPeerName1v4
 	workerNodesAdresses := nethelper.NodeIPsForFamily(workerNodeList, netparameters.IPV4Family)
 
 	if ipStack != netparameters.IPV4Family {
 		workerNodesV6Adresses := nethelper.NodeIPsForFamily(workerNodeList, netparameters.IPV6Family)
 		workerNodesAdresses = append(workerNodesAdresses, workerNodesV6Adresses...)
 		ipFamily = netparameters.IPV6Family
+		bgpPeerName = netmlbparameters.BGPPeerName1v6
+		ipv6Address = ipv6metalLBIPList[0]
 	}
 
-	err = CreateSpeakerBGPPeerIPStack(ipStack, ipv4metalLBIPList, ipv6metalLBIPList, netmlbparameters.IBGPASN)
+	err = CreateSpeakerBGPPeerIPStack(ipStack, ipv4metalLBIPList[0], ipv6Address,
+		netmlbparameters.IBGPASN, bgpPeerName)
 	Expect(err).ToNot(HaveOccurred())
 
 	Eventually(func() bool {
@@ -105,10 +121,21 @@ func TestBGPAdvertismentTableUpdates(masterNodeList []k8sv1.Node, workerNodeList
 	ipv4metalLBIPList []string, ipv6metalLBIPList []string, ipStack string, prefixLenght int32) {
 	By("should create external FRR container")
 
-	masterNodeFRRPod := CreateFRRContainerOnMaster(workerNodeList, masterNodeList,
-		ipv4metalLBIPList, ipv6metalLBIPList,
+	clusterIPStack := ValidateClusterIPStack()
+
+	var ipv6Address string
+
+	if clusterIPStack != netparameters.IPV4Family {
+		ipv6Address = ipv6metalLBIPList[0]
+	}
+
+	masterNodeFRRPod := CreateFRRContainerOnMaster(workerNodeList, masterNodeList[0],
+		ipv4metalLBIPList[0], ipv6Address,
 		ipStack,
-		netmlbparameters.IBGPASN, netmlbparameters.PropagateFalse)
+		netmlbparameters.IBGPASN,
+		netmlbparameters.ExternalNADName,
+		netparameters.MasterConfigMapName,
+		netmlbparameters.PropagateFalse)
 
 	By("should create a IPAddressPool and BGPAdvertisement")
 
@@ -152,15 +179,21 @@ func TestBGPAdvertismentTableUpdates(masterNodeList []k8sv1.Node, workerNodeList
 	By("should create a BGP Peer on Speakers")
 
 	ipFamily := netparameters.IPV4Family
+
+	bgpPeerName := netmlbparameters.BGPPeerName1v4
+
 	workerNodesAdresses := nethelper.NodeIPsForFamily(workerNodeList, netparameters.IPV4Family)
 
 	if ipStack != netparameters.IPV4Family {
 		workerNodesV6Adresses := nethelper.NodeIPsForFamily(workerNodeList, netparameters.IPV6Family)
 		workerNodesAdresses = append(workerNodesAdresses, workerNodesV6Adresses...)
 		ipFamily = netparameters.IPV6Family
+		bgpPeerName = netmlbparameters.BGPPeerName1v6
+		ipv6Address = ipv6metalLBIPList[0]
 	}
 
-	err = CreateSpeakerBGPPeerIPStack(ipStack, ipv4metalLBIPList, ipv6metalLBIPList, netmlbparameters.IBGPASN)
+	err = CreateSpeakerBGPPeerIPStack(ipStack, ipv4metalLBIPList[0], ipv6Address,
+		netmlbparameters.IBGPASN, bgpPeerName)
 	Expect(err).ToNot(HaveOccurred())
 
 	Eventually(func() bool {
@@ -290,10 +323,21 @@ func TestBGPBlockRouteAdvertisment(ipStack string,
 	workerNodeList []k8sv1.Node) {
 	By("should create external FRR container")
 
-	masterNodeFRRPod := CreateFRRContainerOnMaster(workerNodeList, masterNodeList,
-		ipv4metalLBIPList, ipv6metalLBIPList,
+	clusterIPStack := ValidateClusterIPStack()
+
+	var ipv6Address string
+
+	if clusterIPStack != netparameters.IPV4Family {
+		ipv6Address = ipv6metalLBIPList[0]
+	}
+
+	masterNodeFRRPod := CreateFRRContainerOnMaster(workerNodeList, masterNodeList[0],
+		ipv4metalLBIPList[0], ipv6Address,
 		ipStack,
-		netmlbparameters.IBGPASN, netmlbparameters.PropagateTrue)
+		netmlbparameters.IBGPASN,
+		netmlbparameters.ExternalNADName,
+		netparameters.MasterConfigMapName,
+		netmlbparameters.PropagateTrue)
 
 	var workerNodeListString []string
 
@@ -354,9 +398,11 @@ func TestBGPBlockRouteAdvertisment(ipStack string,
 
 	if ipStack != netparameters.IPV4Family {
 		workerNodesAdresses = append(workerNodesAdresses, workerNodesV6Adresses...)
+		ipv6Address = ipv6metalLBIPList[0]
 	}
 
-	err = CreateSpeakerBGPPeerIPStack(ipStack, ipv4metalLBIPList, ipv6metalLBIPList, netmlbparameters.IBGPASN)
+	err = CreateSpeakerBGPPeerIPStack(ipStack, ipv4metalLBIPList[0], ipv6Address,
+		netmlbparameters.IBGPASN, netmlbparameters.BGPPeerName1v6)
 	Expect(err).ToNot(HaveOccurred())
 
 	Eventually(func() bool {

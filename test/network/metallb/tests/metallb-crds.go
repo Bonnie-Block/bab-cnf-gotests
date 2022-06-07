@@ -125,7 +125,7 @@ var _ = Describe("MetalLb New CRDs", func() {
 		err = netmetallbhelper.DeleteAllBGPPeers()
 		Expect(err).ToNot(HaveOccurred(), "Failed to delete all BGPPeers.")
 
-		err = netmetallbhelper.DeleteConfigMap(netparameters.MasterConfigMapName, netmlbparameters.TestNamespace)
+		err = netmetallbhelper.DeleteConfigMaps([]string{netparameters.MasterConfigMapName}, netmlbparameters.TestNamespace)
 		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Failed to delete DeleteConfigMap %s.",
 			netparameters.MasterConfigMapName))
 

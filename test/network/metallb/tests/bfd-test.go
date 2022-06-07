@@ -120,9 +120,10 @@ var _ = Describe("BFD", func() {
 
 		AfterEach(func() {
 			By("Cleaning after test")
+			masterConfigMapList := []string{netparameters.MasterConfigMapName}
 			err := netmetallbhelper.DeleteAllBGPPeers()
 			Expect(err).ToNot(HaveOccurred())
-			err = netmetallbhelper.DeleteConfigMap(netparameters.MasterConfigMapName, netmlbparameters.TestNamespace)
+			err = netmetallbhelper.DeleteConfigMaps(masterConfigMapList, netmlbparameters.TestNamespace)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = helper.Apiclient.Delete(context.Background(), clientPodOnMasterNode)
@@ -225,7 +226,8 @@ var _ = Describe("BFD", func() {
 			err = netmetallbhelper.DeleteAllBGPPeers()
 			Expect(err).ToNot(HaveOccurred())
 
-			err = netmetallbhelper.DeleteConfigMap(netparameters.MasterConfigMapName, netmlbparameters.TestNamespace)
+			masterConfigMapList := []string{netparameters.MasterConfigMapName}
+			err = netmetallbhelper.DeleteConfigMaps(masterConfigMapList, netmlbparameters.TestNamespace)
 			Expect(err).ToNot(HaveOccurred())
 
 			netmetallbhelper.DeleteAllIPAddressPools()

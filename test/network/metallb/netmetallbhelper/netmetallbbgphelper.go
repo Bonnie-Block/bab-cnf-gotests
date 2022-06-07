@@ -34,8 +34,12 @@ import (
 )
 
 // CreateSpeakerBGPPeer creates BGP Peers on all worker nodes.
-func CreateSpeakerBGPPeer(externalAddress string, asn uint32) error {
-	return helper.Apiclient.Create(context.Background(), defineSpeakerBGPPeer(externalAddress, asn, "", ""))
+func CreateSpeakerBGPPeer(externalAddress string, asn uint32, bgpPeerName string) error {
+	bgpPeerDefinition := defineSpeakerBGPPeer(externalAddress,
+		asn, "", "")
+	bgpPeerDefinition.Name = bgpPeerName
+
+	return helper.Apiclient.Create(context.Background(), bgpPeerDefinition)
 }
 
 // DefineFRRBGPConfigMap returns configmap definition for the external FRR BGP configuration.
@@ -391,6 +395,19 @@ func CreateParametersInJSON(ipStack string, trafficPolicy string) string {
 	return string(params)
 }
 
+// CreateMetallbParametersInJSON validates given parameters and returns json formatted string.
+func CreateMetallbParametersInJSON(ipStack string, bgpASN int, trafficPolicy string) string {
+	metallbParameters, err := netmlbparameters.NewMetallbTestParameters(ipStack, bgpASN, trafficPolicy)
+	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("error in parameters: ipStack=%s, "+
+		"trafficPolicy=%s", ipStack, trafficPolicy))
+
+	params, err := json.Marshal(metallbParameters)
+	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("error in parameters: ipStack=%s, "+
+		"trafficPolicy=%s", ipStack, trafficPolicy))
+
+	return string(params)
+}
+
 // ValidateRouteCommunity returns informations about routes in the given executor related to the given community.
 func ValidateRouteCommunity(frrPod *k8sv1.Pod, community string, ipFamily string) error {
 	res, err := pod.ExecCommand(helper.Apiclient, *frrPod, append(netmlbparameters.VtyshFRRCmdPrefix,
@@ -411,29 +428,33 @@ func ValidateRouteCommunity(frrPod *k8sv1.Pod, community string, ipFamily string
 // CreateFRRContainerOnMaster creates a FRR container on the first master of the cluster.
 func CreateFRRContainerOnMaster(
 	workerNodeList []k8sv1.Node,
-	masterNodeList []k8sv1.Node,
-	ipv4metalLBIPList []string,
-	ipv6metalLBIPList []string,
+	masterNode k8sv1.Node,
+	ipv4metalLBIP string,
+	ipv6metalLBIP string,
 	ipStack string,
 	bgpASN int,
+	nadName string,
+	frrConfigName string,
 	routePropagate ...string) *k8sv1.Pod {
 	clusterIPStack := ValidateClusterIPStack()
 	workerNodesAdresses := nethelper.NodeIPsForFamily(workerNodeList, netparameters.IPV4Family)
 	workerNodesV6Adresses := nethelper.NodeIPsForFamily(workerNodeList, netparameters.IPV6Family)
-	annotation := DefineAnnotationWithIPStack(ipStack, ipv4metalLBIPList, ipv6metalLBIPList, clusterIPStack)
+
+	annotation := DefineAnnotationWithIPStack(ipStack, ipv4metalLBIP, ipv6metalLBIP,
+		clusterIPStack, nadName)
 
 	if ipStack != netparameters.IPV4Family {
 		workerNodesAdresses = append(workerNodesAdresses, workerNodesV6Adresses...)
 	}
 
 	err := helper.Apiclient.Create(context.Background(),
-		DefineMacVlanNAD(netmlbparameters.ExternalNADName,
+		DefineMacVlanNAD(nadName,
 			netmlbparameters.BREXInterface))
 	Expect(err).ToNot(HaveOccurred())
 
 	masterConfigMap := DefineFRRBGPConfigMap(
 		workerNodesAdresses,
-		netparameters.MasterConfigMapName,
+		frrConfigName,
 		bgpASN,
 		ipStack, routePropagate[0])
 
@@ -444,13 +465,13 @@ func CreateFRRContainerOnMaster(
 	Expect(err).ToNot(HaveOccurred())
 
 	frrPodWithNAD := pod.RedefinePodWithNetwork(DefineFrrPodWithTestContainer(
-		masterNodeList[0].Name, netmlbparameters.TestNamespace), annotation)
+		masterNode.Name, netmlbparameters.TestNamespace), annotation)
 	masterNodeFRRPod := helper.WaitUntilPodCreatedAndRunning(frrPodWithNAD, netmlbparameters.PodWaitingTime)
 
 	return masterNodeFRRPod
 }
 
-func RemoveMetallbBGPTestSetup() {
+func RemoveMetallbBGPTestSetup(nadNameList []string, configMapName []string) {
 	DeleteAllIPAddressPools()
 
 	err := DeleteAllLBServices(netmlbparameters.TestNamespace)
@@ -461,9 +482,9 @@ func RemoveMetallbBGPTestSetup() {
 	Expect(err).ToNot(HaveOccurred())
 	err = namespaces.CleanPods(netmlbparameters.TestNamespace, helper.Apiclient)
 	Expect(err).ToNot(HaveOccurred())
-	err = nethelper.DeleteNADs([]string{netmlbparameters.ExternalNADName}, netmlbparameters.TestNamespace)
+	err = nethelper.DeleteNADs(nadNameList, netmlbparameters.TestNamespace)
 	Expect(err).ToNot(HaveOccurred())
-	err = DeleteConfigMap(netparameters.MasterConfigMapName, netmlbparameters.TestNamespace)
+	err = DeleteConfigMaps(configMapName, netmlbparameters.TestNamespace)
 	Expect(err).ToNot(HaveOccurred())
 
 	By("Should remove Metallb Configuration")

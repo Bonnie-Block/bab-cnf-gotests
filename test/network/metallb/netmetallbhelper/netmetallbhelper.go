@@ -22,6 +22,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/nethelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/netparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 
@@ -210,6 +211,10 @@ func DefineAndCreateLBService(namespace string, iPStack string, addresspool stri
 
 	_, err := helper.Apiclient.Services(namespace).Create(context.Background(),
 		&service, metav1.CreateOptions{})
+
+	if err != nil {
+		return fmt.Errorf("error defining LB service for %s - %w", addresspool, err)
+	}
 
 	return err
 }
@@ -848,18 +853,21 @@ func ValidateIPs(ipAddressList []string, ipFamily string) error {
 	return nil
 }
 
-func DeleteConfigMap(configMapName string, namespace string) error {
+// DeleteConfigMaps deletes all configmaps from list in namespace.
+func DeleteConfigMaps(configMapNameList []string, namespace string) error {
 	configMap := &k8sv1.ConfigMap{}
 
-	err := helper.Apiclient.Get(context.Background(), runtimeclient.ObjectKey{Namespace: namespace,
-		Name: configMapName}, configMap)
-	if err != nil {
-		return err
-	}
+	for _, configMapName := range configMapNameList {
+		err := helper.Apiclient.Get(context.Background(), runtimeclient.ObjectKey{Namespace: namespace,
+			Name: configMapName}, configMap)
+		if err != nil {
+			return err
+		}
 
-	err = helper.Apiclient.Delete(context.Background(), configMap)
-	if err != nil {
-		return err
+		err = helper.Apiclient.Delete(context.Background(), configMap)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -904,17 +912,28 @@ func loadBalancerIPValid(ipAddress string, lbIpaddress string) {
 	}
 }
 
-// ActivateSCTPModuleOnMaster creates privPods on the worker nodes and on MasterNode[0]. After it activates
-// the sctp module.
-func ActivateSCTPModuleOnMaster(masterNode k8sv1.Node) {
-	masterPrivPod := createPrivilegedPodMaster(helper.Config.Network.TestContainerImage, masterNode.Name)
+// ActivateSCTPModuleOnMaster creates privPods on list of nodes from masterNodeList. After activation the pod and
+// namespace are removed.
+func ActivateSCTPModuleOnMaster(masterNodeList []k8sv1.Node) {
+	By(fmt.Sprintf("Creating %s namespace", parameters.PrivPodNamespace))
+	err := namespaces.Create(parameters.PrivPodNamespace, helper.Apiclient)
+	Expect(err).ShouldNot(HaveOccurred(), "error creating cnfgotestpriv namespace")
 
-	_, err := helper.ExecCommandOnNodeWithHostBinaries(&masterNode, []string{"modprobe", "sctp"})
-	Expect(err).ToNot(HaveOccurred(), "Failed to load SCTP module")
+	for _, masterNode := range masterNodeList {
+		masterPrivPod := createPrivilegedPodMaster(helper.Config.Network.TestContainerImage, masterNode.Name)
+		_, err = helper.ExecCommandOnNodeWithHostBinaries(&masterNode, []string{"modprobe", "sctp"})
+		Expect(err).ToNot(HaveOccurred(), "Failed to load SCTP module")
 
-	output, err := pod.ExecCommand(helper.Apiclient, *masterPrivPod, []string{"/bin/bash", "-c", "lsmod | grep sctp"})
-	Expect(err).ToNot(HaveOccurred())
-	Expect(output.String()).To(ContainSubstring("libcrc32c"))
+		output, err := pod.ExecCommand(helper.Apiclient, *masterPrivPod, []string{"/bin/bash", "-c", "lsmod | grep sctp"})
+		Expect(err).ToNot(HaveOccurred(), "error running command with pod.ExecCommand")
+		Expect(output.String()).To(ContainSubstring("libcrc32c"))
+	}
+
+	By("Remove cnfgotestpriv namespace")
+
+	err = namespaces.DeleteAndWait(helper.Apiclient, parameters.PrivPodNamespace,
+		netmlbparameters.Timeout)
+	Expect(err).ToNot(HaveOccurred(), "failed to delete cnfgotestpriv namespace")
 }
 
 // AddOrDeleteNodeSecIPAddViaSpeaker removes or adds IP address to the secondary Node interface via speaker pod.

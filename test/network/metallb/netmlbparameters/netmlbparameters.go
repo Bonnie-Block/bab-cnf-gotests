@@ -67,11 +67,13 @@ const (
 	ExtTrafPolLocal                           = "Local"
 	ExtTrafPolCluster                         = "Cluster"
 	ExternalNADName                           = "external"
+	External2NADName                          = "external2"
 	InternalNADName                           = "internal"
 	TestContainerName                         = "testcontainer"
 	ProtocolSCTP                              = "sctp"
 	ProtocolTCP                               = "tcp"
 	BGPAdvertisementName                      = "bgpadvertisement"
+	BGPAdvertisement2Name                     = "bgpadvertisement2"
 	L2AdvertisementName                       = "l2advertisement"
 	BREXInterface                             = "br-ex"
 	PrefixLen32                               = int32(32)
@@ -87,6 +89,10 @@ const (
 	SentPrefixCounter                         = "SentPrefixCounter"
 	PropagateFalse                            = "propagateFalse"
 	PropagateTrue                             = "propagateTrue"
+	BGPPeerName1v4                            = "bgp-peer1v4"
+	BGPPeerName1v6                            = "bgp-peer1v6"
+	BGPPeerName2v4                            = "bgp-peer2v4"
+	BGPPeerName2v6                            = "bgp-peer2v6"
 )
 
 var (
@@ -117,7 +123,8 @@ var (
 		string(k8sv1.ServiceExternalTrafficPolicyTypeCluster)}
 	IPStackParameters = []string{netparameters.IPV4Family, netparameters.IPV6Family,
 		netparameters.DualIPFamily}
-	BGPPeers = []string{EBGPProtocol, IBPGPProtocol}
+	BGPPeers         = []string{EBGPProtocol, IBPGPProtocol}
+	BGPASNParameters = []int{IBGPASN, EBGPASN}
 )
 
 // MlbTestParameters contains test parameters for MetalLB tests.

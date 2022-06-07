@@ -15,7 +15,6 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/metallb/netmetallbhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/metallb/netmlbparameters"
 	_ "gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/metallb/tests"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 	testutils "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/utils"
@@ -54,10 +53,6 @@ var _ = BeforeSuite(func() {
 	By(fmt.Sprintf("Create %s namespace", netmlbparameters.TestNamespace))
 	err = namespaces.Create(netmlbparameters.TestNamespace, helper.Apiclient)
 	Expect(err).ToNot(HaveOccurred())
-
-	By(fmt.Sprintf("Creating %s namespace", parameters.PrivPodNamespace))
-	err = namespaces.Create(parameters.PrivPodNamespace, helper.Apiclient)
-	Expect(err).ShouldNot(HaveOccurred())
 })
 
 var _ = AfterSuite(func() {
@@ -78,10 +73,6 @@ var _ = AfterSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 
 	err = netmetallbhelper.DeleteAllBGPPeers()
-	Expect(err).ToNot(HaveOccurred())
-
-	err = namespaces.DeleteAndWait(helper.Apiclient, parameters.PrivPodNamespace,
-		netmlbparameters.Timeout)
 	Expect(err).ToNot(HaveOccurred())
 
 	_ = netmetallbhelper.DeleteLabelFromWorkers(netmlbparameters.SpeakerNodeTestLabel)

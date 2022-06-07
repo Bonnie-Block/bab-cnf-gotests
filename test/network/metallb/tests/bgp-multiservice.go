@@ -68,7 +68,9 @@ var _ = Describe("CNF MetalLB", func() {
 
 	AfterEach(func() {
 		By("should delete AddressPool, Service, BGP Peers and test Pod after test")
-		netmetallbhelper.RemoveMetallbBGPTestSetup()
+		externalNadList := []string{netmlbparameters.ExternalNADName}
+		masterConfigMapList := []string{netparameters.MasterConfigMapName}
+		netmetallbhelper.RemoveMetallbBGPTestSetup(externalNadList, masterConfigMapList)
 	})
 
 	// 47182
@@ -139,7 +141,8 @@ var _ = Describe("CNF MetalLB", func() {
 		Expect(len(masterNodeList)).To(BeNumerically(">", 0))
 		masterNode := masterNodeList[0]
 
-		err = netmetallbhelper.CreateSpeakerBGPPeer(ipv4metalLBIPList[0], uint32(netmlbparameters.IBGPASN))
+		err = netmetallbhelper.CreateSpeakerBGPPeer(ipv4metalLBIPList[0], uint32(netmlbparameters.IBGPASN),
+			netmlbparameters.BGPPeerName1v4)
 		Expect(err).ToNot(HaveOccurred())
 
 		By("should create external FRR container")
