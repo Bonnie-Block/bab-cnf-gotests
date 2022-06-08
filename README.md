@@ -69,7 +69,7 @@ The list of available features:
 ##### Common network environment variables
 * `NETWORK_TEST_CONTAINER_IMAGE` - path where to download the container image
   of [testcmd](https://gitlab.cee.redhat.com/cnf/cnf-gotests/-/tree/master/cnf-gotests) (
-  default `docker-registry.upshift.redhat.com/cnf-gotests/cnf-gotests-client:latest`)
+  default `quay.io/ocp-edge-qe/cnf-gotests-client:latest`)
 * `CNF_INTERFACES_LIST` - select the interfaces used in the tests. Multiple interfaces can be selected as
   needed:
   * SR-IOV suite requires 2 interfaces
@@ -87,7 +87,7 @@ The list of available features:
 
 ##### MetalLB suite environment variables:
 * `METALLB_ADDR_LIST` - is used to create the metalLB L2 and BGP service address pool. These addresses are specific to the Helix TLV lab. Addresses include both IPv4 and IPv6 for Single Stack and Dual Stack deployments. If no IP environmental variable is present all MetalLB test cases are skipped. 
-* `FRR_IMAGE` - path where to download the frr image (default `docker-registry.upshift.redhat.com/cng-gotests/frr:stable_7.5`)
+* `FRR_IMAGE` - path where to download the frr image (default `quay.io/ocp-edge-qe/frr:stable_7.5`)
 
 ##### CNF-TESTS suite environment variables:
 * `DPDK_IMAGE_VERSION` - select the name of dpdk image.
@@ -156,13 +156,13 @@ Below is an e2e flow example for RAN cpu test:
 
 1. Make sure oc is installed
 
-2. Set default test image - `export CNF_TEST_IMAGE=docker-registry.upshift.redhat.com/cnf-gotests/cnf-gotests-client:latest`
+2. Set default test image - `export CNF_TEST_IMAGE=quay.io/ocp-edge-qe/cnf-gotests-client:latest`
 
-3. Set stress-ng test image - `STRESSNG_TEST_IMAGE=docker-registry.upshift.redhat.com/cnf-gotests/stress-ng:2.0`
+3. Set stress-ng test image - `STRESSNG_TEST_IMAGE=quay.io/ocp-edge-qe/stress-ng:2.0`
 
-4. Set oslat test image - `export OSLAT_TEST_IMAGE=docker-registry.upshift.redhat.com/cnf-gotests/oslat:latest`
+4. Set oslat test image - `export OSLAT_TEST_IMAGE=quay.io/ocp-edge-qe/oslat:latest`
 
-5. Set process-exporter image - `export PROCESS_EXPORTER_IMAGE=docker-registry.upshift.redhat.com/cnf-gotests/process-exporter:ppid-2`
+5. Set process-exporter image - `export PROCESS_EXPORTER_IMAGE=quay.io/ocp-edge-qe/process-exporter:ppid-2`
 
 6. Set workload test duration - `export RAN_WORKLOAD_DURATION=12h`
 
