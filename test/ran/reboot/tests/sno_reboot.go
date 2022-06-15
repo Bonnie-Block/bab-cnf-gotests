@@ -52,7 +52,7 @@ var _ = Describe("SNO Reboot", func() {
 		Expect(workloadPods).NotTo(Equal(nil))
 
 		// Skip test suite if not all pods are healthy before reboot.
-		unhealthyPods := ranhelper.WaitForAllPodsHealthy(nil, 3*time.Minute, 5*time.Second, 0)
+		unhealthyPods := helper.WaitForAllPodsHealthy(nil, 3*time.Minute, 5*time.Second, 0)
 		if len(unhealthyPods) > 0 {
 			Skip(fmt.Sprintln("Some pods are unhealthy before reboot: ", unhealthyPods))
 		}
@@ -121,7 +121,7 @@ func waitForClusterRecoverAndLogTime(rebootStartTime time.Time, node *corev1.Nod
 	Expect(err).ToNot(HaveOccurred())
 	// check all workload pods are recovered and stable
 	workloadStableDuration := 30 * time.Second
-	unhealthyWorkloadPods := ranhelper.WaitForAllPodsHealthy(
+	unhealthyWorkloadPods := helper.WaitForAllPodsHealthy(
 		[]string{ran.NamespaceTesting},
 		45*time.Minute,
 		interval,
@@ -136,7 +136,7 @@ func waitForClusterRecoverAndLogTime(rebootStartTime time.Time, node *corev1.Nod
 	// Wait for all pods on cluster to recover and record time
 	metricStartTime, metricCount = time.Now().Add(-workloadStableDuration), metricCount+1
 	clusterStableDuration := 1 * time.Minute
-	unhealthyPods := ranhelper.WaitForAllPodsHealthy(
+	unhealthyPods := helper.WaitForAllPodsHealthy(
 		nil, 30*time.Minute,
 		interval, clusterStableDuration,
 	)

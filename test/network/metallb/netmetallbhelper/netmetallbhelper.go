@@ -17,6 +17,7 @@ import (
 
 	metallbv1beta1 "go.universe.tf/metallb/api/v1beta1"
 
+	metallboperatorv1beta1 "github.com/metallb/metallb-operator/api/v1beta1"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/metallb/netmlbparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/nethelper"
@@ -26,7 +27,6 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 
-	metallboperatorv1beta1 "github.com/metallb/metallb-operator/api/v1beta1"
 	metallbutils "github.com/metallb/metallb-operator/test/e2e/metallb"
 	operv1 "github.com/openshift/api/operator/v1"
 	"github.com/pkg/errors"
@@ -709,7 +709,6 @@ func SetupMetalLB() {
 
 	if err != nil {
 		metallb.Spec.SpeakerNodeSelector = netmlbparameters.SpeakerNodeSelectorWorker
-		metallb.Spec.LogLevel = metallboperatorv1beta1.LogLevelDebug
 		Expect(helper.Apiclient.Create(context.Background(), metallb)).Should(Succeed())
 	}
 
@@ -724,7 +723,7 @@ func SetupMetalLB() {
 		return isMetalLBControllerRunning
 	}, netmlbparameters.PodWaitingTime, netmlbparameters.Interval).Should(BeTrue())
 
-	By("Checking if MetalLB operator is installed and running")
+	By("Checking MetalLB operator is installed and running")
 	Eventually(IsMetalLBAvailable,
 		netmlbparameters.PodWaitingTime,
 		netmlbparameters.Interval).ShouldNot(HaveOccurred())
@@ -1020,4 +1019,73 @@ func appendIfMissing(slice []string, newItem string) []string {
 
 func uint32Ptr(n uint32) *uint32 {
 	return &n
+}
+
+// SetLogLevel updates MetalLB with the loglevel debug or informational.
+func SetLogLevel(logLevel metallboperatorv1beta1.MetalLBLogLevel) error {
+	metallb, err := metallbutils.Get(
+		netmlbparameters.MetalLBOperatorNameSpace,
+		netmlbparameters.UseMetallbResourcesFromFile,
+	)
+	if err != nil {
+		return fmt.Errorf("error unable to locate metallb: %w", err)
+	}
+
+	err = helper.Apiclient.Get(context.Background(), runtimeclient.ObjectKey{Namespace: metallb.Namespace,
+		Name: metallb.Name}, metallb)
+	if err != nil {
+		return fmt.Errorf("error unable retieve metallb object: %w", err)
+	}
+
+	metallb.Spec.LogLevel = logLevel
+	err = helper.Apiclient.Update(context.TODO(), metallb)
+
+	if err != nil {
+		return fmt.Errorf("error unable to update log level, %s: %w", logLevel, err)
+	}
+
+	Eventually(AreSpeakersReady, netmlbparameters.PodWaitingTime, netmlbparameters.Interval).
+		Should(BeTrue(), "Speaker pods are not ready")
+
+	Eventually(func() error {
+		return helper.IsDaemonsetReady(helper.Apiclient,
+			netmlbparameters.MetalLBOperatorNameSpace, netmlbparameters.MetalLBDaemonsetName)
+	}, 2*time.Minute, netmlbparameters.UpdateIntervalMetallb).ShouldNot(HaveOccurred())
+
+	return nil
+}
+
+// ValidateLogLevel verifies the loglevel on the FRR speaker with show logging.
+func ValidateLogLevel(logLevel string) error {
+	speakerPods, err := helper.Apiclient.Pods(netmlbparameters.MetalLBOperatorNameSpace).
+		List(context.Background(), metav1.ListOptions{
+			LabelSelector: netmlbparameters.SpeakersLabelSelector,
+		})
+	if err != nil {
+		return fmt.Errorf("error unable to retrieve speaker pods: %w", err)
+	}
+
+	var removedLogLevel string
+
+	switch logLevel {
+	case netmlbparameters.LogLevelDebug:
+		removedLogLevel = netmlbparameters.LogLevelInfo
+	case netmlbparameters.LogLevelInfo:
+		removedLogLevel = netmlbparameters.LogLevelDebug
+	}
+
+	for _, speakerFRRPod := range speakerPods.Items {
+		outPut, err := pod.ExecCommand(helper.Apiclient, speakerFRRPod,
+			[]string{"vtysh", "-c", "show logging"})
+		if err != nil {
+			return fmt.Errorf("error on executing command: %s: %w", outPut.String(), err)
+		}
+
+		logStings := strings.Contains(outPut.String(), logLevel) && !strings.Contains(outPut.String(), removedLogLevel)
+		if !logStings {
+			return fmt.Errorf("error log level is not configured with %s", logLevel)
+		}
+	}
+
+	return nil
 }

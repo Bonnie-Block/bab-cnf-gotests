@@ -53,7 +53,7 @@ func WaitForClusterRecover(node *corev1.Node) error {
 
 	workloadStableDuration := 40 * time.Second
 
-	unhealthyWorkloadPods := ranhelper.WaitForAllPodsHealthy(
+	unhealthyWorkloadPods := helper.WaitForAllPodsHealthy(
 		[]string{parameters.PtpOperatorNamespace},
 		45*time.Minute,
 		interval,

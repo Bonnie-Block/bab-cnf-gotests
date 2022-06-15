@@ -10,6 +10,7 @@ import (
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
+	metallboperatorv1beta1 "github.com/metallb/metallb-operator/api/v1beta1"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/metallb/netmetallbhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/metallb/netmlbparameters"
@@ -230,6 +231,71 @@ var _ = Describe("MetalLB BGP", func() {
 					return netmetallbhelper.ContainSameMetrics(metalLBMonitoredEntriesByPod, podsPerPrometheusMetricKey)
 				}, netmlbparameters.Timeout, 2*netmlbparameters.Interval).Should(Not(HaveOccurred()))
 			})
+		})
+	})
+
+	Context("Log Level Feature", func() {
+		BeforeEach(func() {
+			By("should create external FRR container")
+
+			masterNodeFRRPod := netmetallbhelper.CreateFRRContainerOnMaster(
+				workerNodeList,
+				masterNodeList[0],
+				ipv4metalLBIPList[0],
+				"",
+				netparameters.IPV4Family,
+				netmlbparameters.IBGPASN,
+				netmlbparameters.ExternalNADName,
+				netparameters.MasterConfigMapName,
+				netmlbparameters.PropagateFalse)
+
+			By("should create a BGP Peer on Speakers")
+
+			workerNodesAdresses := nethelper.NodeIPsForFamily(workerNodeList, netparameters.IPV4Family)
+
+			err := netmetallbhelper.CreateSpeakerBGPPeerIPStack(netparameters.IPV4Family,
+				ipv4metalLBIPList[0], "", netmlbparameters.IBGPASN, netmlbparameters.BGPPeerName1v4)
+			Expect(err).ToNot(HaveOccurred())
+
+			Eventually(func() bool {
+				return netmetallbhelper.CheckNeighborsStatus(masterNodeFRRPod, netparameters.IPV4Family,
+					workerNodesAdresses)
+			}, 1*time.Minute, netmlbparameters.Interval).Should(BeTrue())
+		})
+
+		// 49810
+		It("Verify FRR Speaker default Informational logs", func() {
+			By("should be validate default log level informational")
+			err = netmetallbhelper.ValidateLogLevel(netmlbparameters.LogLevelInfo)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		// 49812
+		It("Verify FRR Speaker debugging logs", func() {
+
+			By("should enable debug level logs on Speaker FRR containers")
+			err = netmetallbhelper.SetLogLevel(metallboperatorv1beta1.LogLevelDebug)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("should wait for Metallb speakers to stablize after update")
+			helper.WaitForAllPodsHealthy([]string{netmlbparameters.MetalLBOperatorNameSpace},
+				2*time.Minute,
+				netmlbparameters.UpdateIntervalMetallb,
+				netmlbparameters.WorkloadStableDuration)
+
+			By("checking MetalLB daemonset is in running state after update")
+
+			Eventually(func() error {
+				return helper.IsDaemonsetReady(helper.Apiclient,
+					netmlbparameters.MetalLBOperatorNameSpace, netmlbparameters.MetalLBDaemonsetName)
+			}, 2*time.Minute, netmlbparameters.UpdateIntervalMetallb).ShouldNot(HaveOccurred())
+
+			By("checking MetalLB log level is updated to debugging")
+
+			Eventually(func() error {
+				return netmetallbhelper.ValidateLogLevel(netmlbparameters.LogLevelDebug)
+			}, 2*time.Minute, netmlbparameters.UpdateIntervalMetallb).ShouldNot(HaveOccurred(),
+				"Log level is not configured as debug")
 		})
 	})
 })

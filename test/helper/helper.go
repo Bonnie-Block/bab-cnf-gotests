@@ -23,6 +23,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	sigClient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -144,15 +145,22 @@ func IsDaemonsetReady(cs *client.ClientSet, operatorNamespace string, daemonsetN
 		metav1.GetOptions{},
 	)
 	if err != nil {
-		return err
+		return fmt.Errorf("daemonset %s is not found: %w", daemonsetName, err)
 	}
 
-	if daemonSet.Status.NumberReady != daemonSet.Status.DesiredNumberScheduled ||
-		daemonSet.Status.DesiredNumberScheduled < 1 {
-		return fmt.Errorf("daemonset %s is not ready", daemonsetName)
+	if daemonSet.Status.DesiredNumberScheduled < 1 {
+		return fmt.Errorf("daemonset %s is not set to run on any nodes", daemonsetName)
 	}
 
-	return nil
+	if daemonSet.Status.NumberReady == daemonSet.Status.DesiredNumberScheduled {
+		return nil
+	}
+
+	if daemonSet.Status.NumberReady == daemonSet.Status.UpdatedNumberScheduled {
+		return nil
+	}
+
+	return fmt.Errorf("daemonset %s is not ready", daemonsetName)
 }
 
 // WaitForClusterToBeStable validates if MCP is stable
@@ -440,4 +448,109 @@ func GetNodeIPListByLabel(labelSelector string) ([]string, error) {
 	}
 
 	return nodesIP, nil
+}
+
+// WaitForAllPodsHealthy waits for all pods on cluster or in given namespaces to be Completed or Running & Ready
+// Returns a map of unhealthy pods if any, otherwise empty map
+// When namespaces is an empty list or nil, ALL namespaces on cluster will be checked.
+func WaitForAllPodsHealthy(
+	namespaces []string, timeout, interval, stableDuration time.Duration) map[string]map[string]string {
+	var (
+		msgNs     = "in cluster"
+		msgStable = ""
+	)
+
+	if len(namespaces) > 0 {
+		msgNs = fmt.Sprintf("in namespaces %v", namespaces)
+	}
+
+	if stableDuration > 0 {
+		msgStable = fmt.Sprintf(" for %s", stableDuration.String())
+	}
+
+	log.Printf("Waiting up to %s for all pods %s to be healthy%s\n", timeout.String(), msgNs, msgStable)
+
+	unhealthyPods := make(map[string]map[string]string)
+	apiTimeout := int64(10)
+	startTime := time.Now()
+	errPullInterval := wait.PollImmediate(interval, timeout, func() (bool, error) {
+		var namespacesToCheck []string
+		if len(namespaces) == 0 {
+			namespaceList, err := Apiclient.Namespaces().List(
+				context.Background(),
+				metav1.ListOptions{TimeoutSeconds: &apiTimeout},
+			)
+			if err != nil {
+				startTime = time.Now()
+
+				return false, nil
+			}
+			for _, ns := range namespaceList.Items {
+				namespacesToCheck = append(namespacesToCheck, ns.Name)
+			}
+		} else {
+			namespacesToCheck = append(namespacesToCheck, namespaces...)
+		}
+		unhealthyPods = make(map[string]map[string]string)
+		for _, nsName := range namespacesToCheck {
+			podsInNs, err := getUnhealthyPods(nsName)
+			if err != nil {
+				unhealthyPods[nsName] = map[string]string{"all pods": "failed to list pods"}
+			} else if len(podsInNs) > 0 {
+				unhealthyPods[nsName] = podsInNs
+			}
+		}
+		if len(unhealthyPods) > 0 {
+			startTime = time.Now()
+
+			return false, nil
+		}
+		// All pods are in expected state. Check for stable duration if it's larger than zero.
+		if stableDuration > 0 {
+			actualStableDuration := time.Since(startTime)
+			// Add an interval because the timer started before mcp became updated
+			if actualStableDuration < stableDuration+interval {
+				return false, nil
+			}
+		}
+
+		return true, nil
+	})
+
+	if errPullInterval == nil {
+		log.Printf("All pods %s are healthy%s", msgNs, msgStable)
+	} else {
+		log.Println(errPullInterval.Error())
+	}
+
+	return unhealthyPods
+}
+
+// getUnhealthyPods lists pods in given namespace and checks pods status.
+// Returns pods in specified namespace that are neither Completed nor Running & Ready, and an error if lists pods
+// failed.
+func getUnhealthyPods(namespace string) (map[string]string, error) {
+	unhealthyPods := make(map[string]string)
+	pods, err := Apiclient.Pods(namespace).List(context.Background(), metav1.ListOptions{})
+
+	if err != nil {
+		return unhealthyPods, err
+	}
+
+	for _, pod := range pods.Items {
+		err = IsPodHealthy(&pod)
+		if err != nil {
+			// Ignore failed pod with restart policy never. This could happen in image pruner or installer pods that
+			// will never restart. For those pods, instead of restarting the same pod, a new pod will be created
+			// to complete the task.
+			// Temp: Also excludes collector pods under logging namespace. As we don't have a valid logging server
+			// configured, the pod gets stuck in Crashloopback. Remove this after RAN team figures out a workaround.
+			if !((pod.Status.Phase == k8sv1.PodFailed && pod.Spec.RestartPolicy == k8sv1.RestartPolicyNever) ||
+				pod.Namespace == "openshift-logging" && strings.HasPrefix(pod.Name, "collector")) {
+				unhealthyPods[pod.Name] = err.Error()
+			}
+		}
+	}
+
+	return unhealthyPods, nil
 }

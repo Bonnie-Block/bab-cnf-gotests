@@ -192,6 +192,7 @@ var _ = Describe("CNF MetalLB", func() {
 		By("should validate curl to service 1")
 		httpOutput, err := netmetallbhelper.HTTPMlbPod(frrPod, ipv4metalLBIPList[0], netmlbparameters.AddressPoolS1[0],
 			netparameters.IPV4Family, netmlbparameters.TestContainerName, netmlbparameters.BGP)
+		fmt.Println(httpOutput)
 		Expect(err).ToNot(HaveOccurred(), httpOutput)
 		Eventually(func() error {
 			_, err := netmetallbhelper.HTTPMlbPod(frrPod, ipv4metalLBIPList[0], netmlbparameters.AddressPoolS1[0],

@@ -36,6 +36,8 @@ const (
 	Interval                                  = 1 * time.Second
 	Timeout                                   = 3 * time.Minute
 	TimeoutBFDBGP                             = 5 * time.Second
+	UpdateIntervalMetallb                     = 60 * time.Second
+	WorkloadStableDuration                    = 20 * time.Second
 	AnnotationPrimaryIfaddr                   = "k8s.ovn.org/node-primary-ifaddr"
 	AnnotationL3GW                            = "k8s.ovn.org/l3-gateway-config"
 	UseMetallbResourcesFromFile               = false
@@ -93,6 +95,8 @@ const (
 	BGPPeerName1v6                            = "bgp-peer1v6"
 	BGPPeerName2v4                            = "bgp-peer2v4"
 	BGPPeerName2v6                            = "bgp-peer2v6"
+	LogLevelDebug                             = "debugging"
+	LogLevelInfo                              = "informational"
 )
 
 var (
@@ -131,3 +135,5 @@ var (
 type MlbTestParameters struct {
 	Node string
 }
+
+type MetalLBLogLevel string
