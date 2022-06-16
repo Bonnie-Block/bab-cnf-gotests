@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	k8sv1 "k8s.io/api/core/v1"
+
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/nethelper"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -19,8 +21,24 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+// PingIPViaInterface runs ping on the given pod and returns exit code.
+func PingIPViaInterface(clientPod k8sv1.Pod, vrfName string, destIPAddr string, negative bool) error {
+	command := []string{"testcmd", "-interface", vrfName, "-server", destIPAddr, "-protocol", "icmp", "-mtu", "100"}
+	if negative {
+		command = append(command, "--negative")
+	}
+
+	_, err := pod.ExecCommand(
+		helper.Apiclient,
+		clientPod,
+		command)
+
+	return err
+}
 
 // DefineAndCreateSriovNetwork defines and creates sr-iov network.
 func DefineAndCreateSriovNetwork(
@@ -59,7 +77,7 @@ func WaitUntilSriovBecomesStable() {
 
 // DefineAndCreateSriovPoliciesListOnSriovInterfaceList defines sr-iov policy on interface list.
 func DefineAndCreateSriovPoliciesListOnSriovInterfaceList(
-	resourceNamesList []string, validSriovInterfaces []*sriovv1.InterfaceExt) {
+	resourceNamesList []string, validSriovInterfaces []*sriovv1.InterfaceExt, vfNumber int) {
 	Expect(len(resourceNamesList)).To(BeNumerically("<=", len(validSriovInterfaces)),
 		"not enough sr-iov interfaces available to create requested policies")
 
@@ -70,8 +88,8 @@ func DefineAndCreateSriovPoliciesListOnSriovInterfaceList(
 			fmt.Sprintf("%s%d", netcniparameters.SriovPolicyName, idx),
 			parameters.SriovOperatorNamespace,
 			validSriovInterfaces[idx],
-			5,
-			"#0-4",
+			vfNumber,
+			fmt.Sprintf("#0-%d", vfNumber-1),
 			1500,
 			resourceName,
 			"netdevice"))

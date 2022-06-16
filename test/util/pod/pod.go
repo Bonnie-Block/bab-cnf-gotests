@@ -301,7 +301,9 @@ func CreateWithOptions(
 	baseManifest := getDefinition(namespace, image)
 
 	for _, o := range options {
-		o(baseManifest)
+		if o != nil {
+			o(baseManifest)
+		}
 	}
 
 	err := apiClient.Create(context.Background(), baseManifest)
@@ -310,4 +312,15 @@ func CreateWithOptions(
 	}
 
 	return baseManifest, err
+}
+
+// DefineContainer returns container definition based on given parameters.
+func DefineContainer(
+	name string, command []string, image string, securityContext *corev1.SecurityContext) *corev1.Container {
+	return &corev1.Container{
+		Name:            name,
+		Image:           image,
+		Command:         command,
+		SecurityContext: securityContext,
+	}
 }

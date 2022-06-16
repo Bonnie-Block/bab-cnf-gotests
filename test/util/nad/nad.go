@@ -16,24 +16,33 @@ type (
 		Mac bool `json:"mac,omitempty"`
 	}
 
+	Link struct {
+		Name string `json:"name,omitempty"`
+	}
+
 	Plugin struct {
-		CNIVersion       string            `json:"cniVersion,omitempty"`
-		Name             string            `json:"name,omitempty"`
-		Type             string            `json:"type,omitempty"`
-		Bridge           string            `json:"bridge,omitempty"`
-		Master           string            `json:"master,omitempty"`
-		Ipam             *cniTypes.IPAM    `json:"ipam,omitempty"`
+		LinksInContainer bool              `json:"linksInContainer,omitempty"`
 		IPMasq           bool              `json:"ipMasq,omitempty"`
 		IsGateway        bool              `json:"isGateway,omitempty"`
 		IsDefaultGateway bool              `json:"isDefaultGateway,omitempty"`
 		ForceAddress     bool              `json:"forceAddress,omitempty"`
 		HairpinMode      bool              `json:"hairpinMode,omitempty"`
 		PromiscMode      bool              `json:"promiscMode,omitempty"`
-		Capabilities     *Capability       `json:"capabilities,omitempty"`
+		FailOverMac      int               `json:"failOverMac,omitempty"`
+		CNIVersion       string            `json:"cniVersion,omitempty"`
+		Name             string            `json:"name,omitempty"`
+		Type             string            `json:"type,omitempty"`
+		Bridge           string            `json:"bridge,omitempty"`
+		Master           string            `json:"master,omitempty"`
 		Vlan             string            `json:"vlan,omitempty"`
 		Mtu              string            `json:"mtu,omitempty"`
 		VrfName          string            `json:"vrfName,omitempty"`
+		Mode             string            `json:"mode,omitempty"`
+		Miimon           string            `json:"miimon,omitempty"`
+		Ipam             *cniTypes.IPAM    `json:"ipam,omitempty"`
+		Capabilities     *Capability       `json:"capabilities,omitempty"`
 		Sysctl           map[string]string `json:"sysctl,omitempty"`
+		Links            []Link            `json:"links,omitempty"`
 	}
 
 	MasterPlugin struct {
@@ -218,4 +227,21 @@ func DefineMasterPlugin(name string, plugin []Plugin) *MasterPlugin {
 		CniVersion: "0.4.0",
 		Plugins:    &plugin,
 	}
+}
+
+// DefineBondPlugin returns master nad plugin config.
+func DefineBondPlugin(ipam *cniTypes.IPAM, bondPorts []string, bondMode string) *Plugin {
+	bondPlugin := &Plugin{
+		Type:             "bond",
+		Mode:             bondMode,
+		FailOverMac:      1,
+		LinksInContainer: true,
+		Miimon:           "100",
+		Ipam:             ipam,
+	}
+	for _, bondPort := range bondPorts {
+		bondPlugin.Links = append(bondPlugin.Links, Link{Name: bondPort})
+	}
+
+	return bondPlugin
 }

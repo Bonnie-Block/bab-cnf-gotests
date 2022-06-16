@@ -45,7 +45,7 @@ func SetupSriovBeforeAll(config *config.Config, sriovInfos *cluster.EnabledNodes
 	tests.WaitUntilSriovBecomesStable()
 
 	By("Define sr-iov Policies")
-	tests.DefineAndCreateSriovPoliciesListOnSriovInterfaceList(resourceNameRange, validSriovInterfaces)
+	tests.DefineAndCreateSriovPoliciesListOnSriovInterfaceList(resourceNameRange, validSriovInterfaces, 5)
 
 	By("Define sr-iov network ipam config")
 

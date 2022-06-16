@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	TestNamespace             = "cni-cni-test"
+	TestNamespace             = "cni-tests"
 	PodWaitingTime            = 2 * time.Minute
 	WaitingTime               = 20 * time.Minute
 	RetryInterval             = 5 * time.Second

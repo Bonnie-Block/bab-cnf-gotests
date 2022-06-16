@@ -43,12 +43,14 @@ func CreateSriovNetwork(
 		},
 		Spec: sriovv1.SriovNetworkSpec{
 			ResourceName:     resourceName,
-			IPAM:             ipam,
 			NetworkNamespace: namespace,
 			// Enable the linkState instead of auto so even if the PF is down we can still use the VF
 			// for pod to pod connectivity tests in the same host
 			LinkState: "enable",
 		}}
+	if ipam != "" {
+		sriovNetwork.Spec.IPAM = ipam
+	}
 
 	for _, o := range options {
 		o(sriovNetwork)

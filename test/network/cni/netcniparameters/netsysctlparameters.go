@@ -1,18 +1,23 @@
 package netcniparameters
 
-import multus "gopkg.in/k8snetworkplumbingwg/multus-cni.v3/pkg/types"
+import (
+	"fmt"
+
+	multus "gopkg.in/k8snetworkplumbingwg/multus-cni.v3/pkg/types"
+	k8sv1 "k8s.io/api/core/v1"
+)
 
 var (
-	FirstNetworkConfig = multus.NetworkSelectionElement{
+	NetworkWithSysctlMutation    = "test-sysct-mutation"
+	NetworkWithoutSysctlMutation = "test-no-sysct-mutation"
+	FirstNetworkConfig           = multus.NetworkSelectionElement{
 		Name:      "test-nad-sysctl-first",
 		IPRequest: []string{"10.100.100.200/24"},
 	}
-
 	SecondNetworkConfig = multus.NetworkSelectionElement{
 		Name:      "test-nad-sysctl-second",
 		IPRequest: []string{"10.100.200.200/24"},
 	}
-
 	ResourceNameSysctl         = "sriovnicsysctl"
 	AllFlagsSysctlPluginConfig = map[string]string{
 		"net.ipv4.conf.IFNAME.accept_redirects":        "0",
@@ -28,6 +33,9 @@ var (
 	SingleSysctlFlag = map[string]string{
 		"net.ipv4.conf.IFNAME.accept_redirects": "0",
 	}
+	SingleAcceptRedirectSysctlFlag = map[string]string{
+		"net.ipv4.conf.IFNAME.accept_redirects": "1",
+	}
 	InvalidSysctlKey  = "net.ipv4.conf.IFNAME.dfdsfsdf"
 	SingleInvalidFlag = map[string]string{
 		InvalidSysctlKey: "0",
@@ -38,5 +46,31 @@ var (
 		"net.ipv4.conf.IFNAME.disable_policy":      "1",
 		"net.ipv4.conf.IFNAME.secure_redirects":    "0",
 	}
-	GlobalSysctlFlag = "kernel.shm_rmid_forced"
+	GlobalSysctlFlag           = "kernel.shm_rmid_forced"
+	NetAdminSC                 = DefineSecurityContext([]k8sv1.Capability{"NET_ADMIN"}, false)
+	NetRawSC                   = DefineSecurityContext([]k8sv1.Capability{"NET_RAW"}, false)
+	ClientNetAdmNetRawSysAdmSC = DefineSecurityContext(
+		[]k8sv1.Capability{"NET_ADMIN", "NET_RAW", "SYS_ADMIN"}, true)
+	BondInterfaceName       = "bond0"
+	BondInterfaceNameSecond = "bond1"
+	SrvLopIPAddr            = "4.4.4.4"
+	SrvInitCMD              = fmt.Sprintf(
+		"ip addr add %s/32 dev lo && ip route add blackhole 10.100.100.1/32", SrvLopIPAddr)
+	RdrInitCMD     = fmt.Sprintf("ip route add %s/32 via 10.100.100.200", SrvLopIPAddr)
+	ClientInitCMDs = fmt.Sprintf(
+		"sysctl -w net.ipv4.conf.all.accept_redirects=1 && ip route add %s/32 via 10.100.100.1", SrvLopIPAddr)
+	SrvLopSecondIPAddr = "5.5.5.5"
+	SrvDualInitCMD     = fmt.Sprintf(
+		"%s && ip addr add %s/32 dev lo && ip route add blackhole 10.100.200.1/32", SrvInitCMD, SrvLopSecondIPAddr)
+	RdrDualInitCMD    = fmt.Sprintf("%s && ip route add %s/32 via 10.100.200.200", RdrInitCMD, SrvLopSecondIPAddr)
+	ClientDualInitCMD = fmt.Sprintf("%s && ip route add %s/32 via 10.100.200.1", ClientInitCMDs, SrvLopSecondIPAddr)
 )
+
+func DefineSecurityContext(capability []k8sv1.Capability, privileged bool) *k8sv1.SecurityContext {
+	return &k8sv1.SecurityContext{
+		Capabilities: &k8sv1.Capabilities{
+			Add: capability,
+		},
+		Privileged: &privileged,
+	}
+}
