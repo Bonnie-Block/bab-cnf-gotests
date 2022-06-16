@@ -307,7 +307,7 @@ func WaitForNodeReachable(node *k8sv1.Node) {
 }
 
 func isNodeReachable(node *k8sv1.Node) bool {
-	_, err := ExecAndLogCommand(false, 20*time.Second, "ping", "-c", "3", "-W", "10", node.Name)
+	_, err := ExecAndLogCommand(false, 20*time.Second, "nc", "-z", node.Name, "22")
 
 	return err == nil
 }
