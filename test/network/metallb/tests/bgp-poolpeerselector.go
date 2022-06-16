@@ -86,10 +86,38 @@ var _ = Describe("MetalLB BGP", func() {
 		func(ipStack string, bgpASN int, trafficPolicy string) {
 			netmetallbhelper.TestBGPPeerSpecificIPAddressPools(
 				ipStack,
+				trafficPolicy,
 				workerNodeList,
 				masterNodeList,
 				bgpASN,
-				trafficPolicy)
+				true,
+				false)
+		},
+		Entry(describe, netparameters.IPV4Family, netmlbparameters.IBGPASN, netmlbparameters.ExtTrafPolLocal),
+		Entry(describe, netparameters.IPV4Family, netmlbparameters.IBGPASN, netmlbparameters.ExtTrafPolCluster),
+		Entry(describe, netparameters.IPV6Family, netmlbparameters.IBGPASN, netmlbparameters.ExtTrafPolLocal),
+		Entry(describe, netparameters.IPV6Family, netmlbparameters.IBGPASN, netmlbparameters.ExtTrafPolCluster),
+		Entry(describe, netparameters.DualIPFamily, netmlbparameters.IBGPASN, netmlbparameters.ExtTrafPolLocal),
+		Entry(describe, netparameters.DualIPFamily, netmlbparameters.IBGPASN, netmlbparameters.ExtTrafPolCluster),
+		Entry(describe, netparameters.IPV4Family, netmlbparameters.EBGPASN, netmlbparameters.ExtTrafPolLocal),
+		Entry(describe, netparameters.IPV4Family, netmlbparameters.EBGPASN, netmlbparameters.ExtTrafPolCluster),
+		Entry(describe, netparameters.IPV6Family, netmlbparameters.EBGPASN, netmlbparameters.ExtTrafPolLocal),
+		Entry(describe, netparameters.IPV6Family, netmlbparameters.EBGPASN, netmlbparameters.ExtTrafPolCluster),
+		Entry(describe, netparameters.DualIPFamily, netmlbparameters.EBGPASN, netmlbparameters.ExtTrafPolLocal),
+		Entry(describe, netparameters.DualIPFamily, netmlbparameters.EBGPASN, netmlbparameters.ExtTrafPolCluster),
+	)
+
+	// 49838
+	DescribeTable("Allow single pool to BGP Peers",
+		func(ipStack string, bgpASN int, trafficPolicy string) {
+			netmetallbhelper.TestBGPPeerSpecificIPAddressPools(
+				ipStack,
+				trafficPolicy,
+				workerNodeList,
+				masterNodeList,
+				bgpASN,
+				false,
+				true)
 		},
 		Entry(describe, netparameters.IPV4Family, netmlbparameters.IBGPASN, netmlbparameters.ExtTrafPolLocal),
 		Entry(describe, netparameters.IPV4Family, netmlbparameters.IBGPASN, netmlbparameters.ExtTrafPolCluster),

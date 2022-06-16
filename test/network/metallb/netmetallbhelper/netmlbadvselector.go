@@ -16,25 +16,14 @@ import (
 )
 
 func TestBGPPeerSpecificIPAddressPools(
-	ipStack string, workerNodeList []k8sv1.Node, masterNodeList []k8sv1.Node, bgpASN int, trafficPolicy string) {
+	ipStack, trafficPolicy string, workerNodeList, masterNodeList []k8sv1.Node, bgpASN int, twoIPAddressPools,
+	validateLocalPref bool) {
 	ipv4metalLBIPList, ipv6metalLBIPList, err := GetMetalLBIPByFamily()
 	Expect(err).ToNot(HaveOccurred())
 
 	clusterIPStack := ValidateClusterIPStack()
-
-	switch ipStack {
-	case netparameters.IPV4Family:
-		if clusterIPStack == netparameters.IPV6Family {
-			Skip("Cluster does not support IPv4")
-		}
-	case netparameters.IPV6Family:
-		if clusterIPStack == netparameters.IPV4Family {
-			Skip("Cluster does not support IPv6")
-		}
-	case netparameters.DualIPFamily:
-		if clusterIPStack != netparameters.DualIPFamily {
-			Skip("Cluster does not support both IPv4 and IPv6")
-		}
+	if ipStack != netparameters.IPV4Family && clusterIPStack == netparameters.IPV4Family {
+		Skip("Cluster does not support IPv6")
 	}
 
 	By("should create two IPAddressPools")
@@ -47,35 +36,36 @@ func TestBGPPeerSpecificIPAddressPools(
 
 	By("should create two BGP Advertisements with separate IPAddressPools and BGP Peer Spec")
 
+	ipaddressPoolName1 := netmlbparameters.AddressPoolS1Name
+	ipaddressPoolName2 := netmlbparameters.AddressPoolS1Name
+
+	if twoIPAddressPools {
+		ipaddressPoolName2 = netmlbparameters.AddressPoolS2Name
+	}
+
 	bgpAdvertisementDefinition1 := defineBGPAdvertisementWithPeer(netmlbparameters.BGPAdvertisementName,
-		netmlbparameters.AddressPoolS1Name, netmlbparameters.BGPPeerName1v4, ipStack)
+		ipaddressPoolName1, netmlbparameters.BGPPeerName1v4, ipStack, netmlbparameters.LocalPref100)
 
 	err = helper.Apiclient.Create(context.Background(), bgpAdvertisementDefinition1)
 	Expect(err).ToNot(HaveOccurred())
 
 	bgpAdvertisementDefinition2 := defineBGPAdvertisementWithPeer(netmlbparameters.BGPAdvertisement2Name,
-		netmlbparameters.AddressPoolS2Name, netmlbparameters.BGPPeerName2v4, ipStack)
+		ipaddressPoolName2, netmlbparameters.BGPPeerName2v4, ipStack, netmlbparameters.LocalPref400)
 
 	err = helper.Apiclient.Create(context.Background(), bgpAdvertisementDefinition2)
 	Expect(err).ToNot(HaveOccurred())
 
 	By("should create two service each with 2 backend pods")
 
-	err = defineCreateServicesAndTestPods(ipStack, netmlbparameters.AddressPoolS1Name, netmlbparameters.AppLabel1,
-		netmlbparameters.ProtocolTCP, trafficPolicy, workerNodeList)
+	err = defineCreateServicesAndTestPods(ipStack, netmlbparameters.AppLabel1, netmlbparameters.AddressPoolS1Name,
+		trafficPolicy, workerNodeList, twoIPAddressPools)
 	Expect(err).ToNot(HaveOccurred())
 
-	err = defineCreateServicesAndTestPods(ipStack, netmlbparameters.AddressPoolS1Name, netmlbparameters.AppLabel1,
-		netmlbparameters.ProtocolSCTP, trafficPolicy, workerNodeList)
-	Expect(err).ToNot(HaveOccurred())
-
-	err = defineCreateServicesAndTestPods(ipStack, netmlbparameters.AddressPoolS2Name, netmlbparameters.AppLabel2,
-		netmlbparameters.ProtocolTCP, trafficPolicy, workerNodeList)
-	Expect(err).ToNot(HaveOccurred())
-
-	err = defineCreateServicesAndTestPods(ipStack, netmlbparameters.AddressPoolS2Name, netmlbparameters.AppLabel2,
-		netmlbparameters.ProtocolSCTP, trafficPolicy, workerNodeList)
-	Expect(err).ToNot(HaveOccurred())
+	if twoIPAddressPools {
+		err = defineCreateServicesAndTestPods(ipStack, netmlbparameters.AppLabel2, netmlbparameters.AddressPoolS2Name,
+			trafficPolicy, workerNodeList, twoIPAddressPools)
+		Expect(err).ToNot(HaveOccurred())
+	}
 
 	By("should create BGPPeers on Speakers")
 
@@ -110,34 +100,49 @@ func TestBGPPeerSpecificIPAddressPools(
 		ipv6metalLBIPList, bgpASN, ipStack)
 
 	By("should validate BGP specific route to external FRR from Master 0")
-
 	validateBGPPeerSelectorRoutes(masterNodeFRRPod[0], workerNodesAdresses, ipStack,
 		netmlbparameters.AddressPoolS1, true)
 
-	By("should validate BGP specific route to external FRR from Master 1")
-
-	validateBGPPeerSelectorRoutes(masterNodeFRRPod[1], workerNodesAdresses, ipStack,
-		netmlbparameters.AddressPoolS2, true)
-
-	By("should validate BGP specific routes were not propagated to external FRR on Master 0")
-
-	validateBGPPeerSelectorRoutes(masterNodeFRRPod[0], workerNodesAdresses, ipStack,
-		netmlbparameters.AddressPoolS2, false)
-
-	By("should validate BGP specific routes were not propagated to external FRR on Master 1")
-
-	validateBGPPeerSelectorRoutes(masterNodeFRRPod[1], workerNodesAdresses, ipStack,
-		netmlbparameters.AddressPoolS1, false)
-
-	By("should validate http and sctp traffic from external FFR on Master 0")
-
+	By("should validate http and sctp traffic to external FRR from Master 0")
 	validateTraffic(&masterNodeFRRPod[0], ipv4metalLBIPList[0], ipv6Address,
 		ipStack, netmlbparameters.AddressPoolS1)
 
-	By("should validate http and sctp traffic from external FFR on Master 1")
+	switch twoIPAddressPools {
+	case true:
+		By("should validate BGP specific route to external FRR from Master 1")
+		validateBGPPeerSelectorRoutes(masterNodeFRRPod[1], workerNodesAdresses, ipStack,
+			netmlbparameters.AddressPoolS2, true)
 
-	validateTraffic(&masterNodeFRRPod[1], ipv4metalLBIPList[1], ipv6Address,
-		ipStack, netmlbparameters.AddressPoolS2)
+		By("should validate http and sctp traffic to external FRR from Master 1")
+		validateTraffic(&masterNodeFRRPod[1], ipv4metalLBIPList[1], ipv6Address,
+			ipStack, netmlbparameters.AddressPoolS2)
+
+		By("should validate BGP specific routes were not propagated to external FRR on Master 0")
+		validateBGPPeerSelectorRoutes(masterNodeFRRPod[0], workerNodesAdresses, ipStack,
+			netmlbparameters.AddressPoolS2, false)
+
+		By("should validate BGP specific routes were not propagated to external FRR on Master 1")
+		validateBGPPeerSelectorRoutes(masterNodeFRRPod[1], workerNodesAdresses, ipStack,
+			netmlbparameters.AddressPoolS1, false)
+	case false:
+		By("should validate BGP specific route to external FRR from Master 1")
+		validateBGPPeerSelectorRoutes(masterNodeFRRPod[1], workerNodesAdresses, ipStack,
+			netmlbparameters.AddressPoolS1, true)
+
+		By("should validate http and sctp traffic to external FRR from Master 1")
+		validateTraffic(&masterNodeFRRPod[1], ipv4metalLBIPList[1], ipv6Address,
+			ipStack, netmlbparameters.AddressPoolS1)
+	}
+
+	if validateLocalPref {
+		By("should validate different localPrefs is propagated to each external FRR router")
+
+		err = ValidateLocalPref(&masterNodeFRRPod[0], netmlbparameters.LocalPref100, ipStack)
+		Expect(err).ToNot(HaveOccurred())
+
+		err = ValidateLocalPref(&masterNodeFRRPod[1], netmlbparameters.LocalPref400, ipStack)
+		Expect(err).ToNot(HaveOccurred())
+	}
 }
 
 func defineCreateIPAddressPools(ipStack string, addressPoolList []string, addressPoolName string) error {
@@ -182,32 +187,44 @@ func validateBGPPeerSelectorRoutes(masterNodeFRRPod k8sv1.Pod, workerNodesAdress
 	}
 }
 
-func defineCreateServicesAndTestPods(ipStack string, addressPoolName string, appLabelName string, protocolType string,
-	trafficPolicy string, workerNodeList []k8sv1.Node) error {
-	err := DefineAndCreateLBService(
-		netmlbparameters.TestNamespace,
-		ipStack,
-		addressPoolName,
-		appLabelName,
-		protocolType,
-		k8sv1.ServiceExternalTrafficPolicyType(trafficPolicy))
+func defineCreateServicesAndTestPods(ipStack, label, ipAddressPool, trafficPolicy string,
+	workerNodeList []k8sv1.Node, twoIPAddressPool bool) error {
+	for _, protocol := range []string{netmlbparameters.ProtocolTCP, netmlbparameters.ProtocolSCTP} {
+		err := DefineAndCreateLBService(
+			netmlbparameters.TestNamespace,
+			ipStack,
+			ipAddressPool,
+			label,
+			protocol,
+			k8sv1.ServiceExternalTrafficPolicyType(trafficPolicy))
 
-	if err != nil {
-		return fmt.Errorf("error defining LB tcp service for %s - %w", addressPoolName, err)
+		if err != nil {
+			return fmt.Errorf("error defining LB service for %s - %w", ipAddressPool, err)
+		}
 	}
 
 	DefineAndRunMlbServerPod(workerNodeList[0].Name,
 		helper.Config.Network.TestContainerImage,
-		appLabelName, []string{netmlbparameters.ArgCommandSCTPNGINX})
+		netmlbparameters.AppLabel1, []string{netmlbparameters.ArgCommandSCTPNGINX})
 
 	DefineAndRunMlbServerPod(workerNodeList[1].Name,
 		helper.Config.Network.TestContainerImage,
-		appLabelName, []string{netmlbparameters.ArgCommandSCTPNGINX})
+		netmlbparameters.AppLabel1, []string{netmlbparameters.ArgCommandSCTPNGINX})
+
+	if twoIPAddressPool {
+		DefineAndRunMlbServerPod(workerNodeList[0].Name,
+			helper.Config.Network.TestContainerImage,
+			netmlbparameters.AppLabel2, []string{netmlbparameters.ArgCommandSCTPNGINX})
+
+		DefineAndRunMlbServerPod(workerNodeList[1].Name,
+			helper.Config.Network.TestContainerImage,
+			netmlbparameters.AppLabel2, []string{netmlbparameters.ArgCommandSCTPNGINX})
+	}
 
 	return nil
 }
 
-func createExternalFRRs(masterNodeList []k8sv1.Node, workerNodeList []k8sv1.Node, ipv4metalLBIPList []string,
+func createExternalFRRs(masterNodeList, workerNodeList []k8sv1.Node, ipv4metalLBIPList,
 	ipv6metalLBIPList []string, bgpASN int, ipStack string) []k8sv1.Pod {
 	var ipv6Address string
 
@@ -228,12 +245,12 @@ func createExternalFRRs(masterNodeList []k8sv1.Node, workerNodeList []k8sv1.Node
 	return []k8sv1.Pod{*masterNodeFRRPod1, *masterNodeFRRPod2}
 }
 
-func defineBGPAdvertisementWithPeer(bgpAdvertisementName string, addressPoolName string,
-	bgpPeerName string, ipStack string) *v1beta1.BGPAdvertisement {
+func defineBGPAdvertisementWithPeer(bgpAdvertisementName, addressPoolName, bgpPeerName,
+	ipStack string, localPref uint32) *v1beta1.BGPAdvertisement {
 	bgpAdvertisementDefinition := DefineBGPAdvertisement(bgpAdvertisementName,
 		[]string{addressPoolName},
 		ipStack,
-		netmlbparameters.PrefixLen32)
+		netmlbparameters.PrefixLen32, localPref)
 	bgpAdvertisementDefinition.Spec.Peers = []string{bgpPeerName}
 
 	return bgpAdvertisementDefinition

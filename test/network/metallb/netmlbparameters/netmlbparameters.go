@@ -85,6 +85,7 @@ const (
 	PrefixLen64                               = int32(64)
 	CommunityNoAdv                            = "65535:65282" // 0xFFFFFF02: NO_ADVERTISE
 	CustomCommunity                           = "500:500"
+	LocalPref100                              = uint32(100)
 	LocalPref400                              = uint32(400)
 	LocalPref500                              = uint32(500)
 	AcceptedPrefixCounter                     = "AcceptedPrefixCounter"

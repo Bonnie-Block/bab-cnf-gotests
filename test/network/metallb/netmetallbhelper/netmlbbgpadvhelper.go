@@ -65,7 +65,7 @@ func TestBGPAdvertismentTable(ipStack string,
 	err = helper.Apiclient.Create(
 		context.Background(),
 		DefineBGPAdvertisement(netmlbparameters.BGPAdvertisementName, []string{netmlbparameters.AddressPoolS1Name},
-			ipStack, prefixLenght),
+			ipStack, prefixLenght, netmlbparameters.LocalPref100),
 	)
 	Expect(err).ToNot(HaveOccurred())
 
@@ -157,7 +157,8 @@ func TestBGPAdvertismentTableUpdates(masterNodeList []k8sv1.Node, workerNodeList
 		netmlbparameters.BGPAdvertisementName,
 		[]string{ipAddressPool.Name},
 		ipStack,
-		prefixLenght)
+		prefixLenght,
+		netmlbparameters.LocalPref100)
 	err = helper.Apiclient.Create(context.Background(), bgpAdvertisementDefinition)
 	Expect(err).ToNot(HaveOccurred())
 
@@ -366,7 +367,8 @@ func TestBGPBlockRouteAdvertisment(ipStack string,
 		netmlbparameters.BGPAdvertisementName,
 		[]string{netmlbparameters.AddressPoolS1Name},
 		ipStack,
-		netmlbparameters.PrefixLen32)
+		netmlbparameters.PrefixLen32,
+		netmlbparameters.LocalPref100)
 	err = helper.Apiclient.Create(context.Background(), bgpAdvertisementDefinition)
 	Expect(err).ToNot(HaveOccurred())
 

@@ -288,7 +288,7 @@ func createPrivilegedPodMaster(image string, masterNodeName string) *k8sv1.Pod {
 func DefineBGPAdvertisement(name string,
 	ipAddressPoolNames []string,
 	ipStack string,
-	prefixLenght int32) *metallbv1beta1.BGPAdvertisement {
+	prefixLenght int32, localPref uint32) *metallbv1beta1.BGPAdvertisement {
 	bgpAdv := &metallbv1beta1.BGPAdvertisement{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -297,7 +297,7 @@ func DefineBGPAdvertisement(name string,
 		Spec: metallbv1beta1.BGPAdvertisementSpec{
 			IPAddressPools: ipAddressPoolNames,
 			Communities:    []string{netmlbparameters.CommunityNoAdv},
-			LocalPref:      100,
+			LocalPref:      localPref,
 		},
 	}
 

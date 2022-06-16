@@ -91,7 +91,7 @@ var _ = Describe("MetalLB BGP", func() {
 		bgpAdvertisement := netmetallbhelper.DefineBGPAdvertisement(
 			netmlbparameters.BGPAdvertisementName,
 			[]string{netmlbparameters.AddressPoolS1Name, netmlbparameters.AddressPoolS2Name},
-			netparameters.IPV4Family, netmlbparameters.PrefixLen32)
+			netparameters.IPV4Family, netmlbparameters.PrefixLen32, netmlbparameters.LocalPref100)
 		err = helper.Apiclient.Create(context.Background(), bgpAdvertisement)
 		Expect(err).ToNot(HaveOccurred())
 

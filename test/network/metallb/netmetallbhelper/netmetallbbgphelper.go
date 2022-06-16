@@ -239,6 +239,7 @@ func CheckBGPRoutes(
 	// bgpStateOut example output after being parsed - map[4.4.4.100:{4.4.4.100/32 [10.46.55.116 10.46.55.115] 100}]
 	bgpStateOut, err := pod.ExecCommand(helper.Apiclient, *frrPod, append(netmlbparameters.VtyshFRRCmdPrefix,
 		fmt.Sprintf("show bgp %s json", iPFamily)))
+
 	if err != nil {
 		return err
 	}

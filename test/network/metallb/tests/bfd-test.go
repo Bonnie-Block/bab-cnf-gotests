@@ -277,7 +277,8 @@ var _ = Describe("BFD", func() {
 					netmlbparameters.BGPAdvertisementName,
 					[]string{ipAddressPoolDefinition.Name},
 					ipStack,
-					netmlbparameters.PrefixLen32)
+					netmlbparameters.PrefixLen32,
+					netmlbparameters.LocalPref100)
 				err = helper.Apiclient.Create(context.Background(), bgpAdvertisementDefinition)
 				Expect(err).ToNot(HaveOccurred())
 

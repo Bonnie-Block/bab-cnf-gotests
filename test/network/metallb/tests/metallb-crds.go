@@ -82,7 +82,8 @@ var _ = Describe("MetalLb New CRDs", func() {
 			netmlbparameters.BGPAdvertisementName,
 			[]string{netmlbparameters.AddressPoolName},
 			netparameters.IPV4Family,
-			netmlbparameters.PrefixLen32)
+			netmlbparameters.PrefixLen32,
+			netmlbparameters.LocalPref100)
 		err = helper.Apiclient.Create(context.Background(), bgpAdvertisementDefinition)
 		Expect(err).ToNot(HaveOccurred(), "An unexpected error occurred while creating BGPAdvertisement.")
 

@@ -56,7 +56,7 @@ func TestBGPTable(ipStack string, workerNodeList []k8sv1.Node, masterNodeList []
 	By("should create a BGPAdvertisement with BGP")
 
 	bgpAdvertisement := DefineBGPAdvertisement(netmlbparameters.BGPAdvertisementName, []string{ipAddressPool.Name},
-		ipStack, netmlbparameters.PrefixLen32)
+		ipStack, netmlbparameters.PrefixLen32, netmlbparameters.LocalPref100)
 	err = helper.Apiclient.Create(context.Background(), bgpAdvertisement)
 	Expect(err).ToNot(HaveOccurred())
 
