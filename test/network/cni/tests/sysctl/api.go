@@ -1,6 +1,7 @@
 package sysctl
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -98,11 +99,11 @@ var _ = Describe("CNF Sysctl", func() {
 		It("one NAD, forward one valid interface level flag", func() {
 			By("Define and create NAD with valid single sysctl flag")
 			defineAndCreateNadWithTuningAndSysctlPlugins(
-				netcniparameters.NetworkConfig.Name, netcniparameters.SingleSysctlFlag, validMacVlanInterfaces[0].Name)
+				netcniparameters.FirstNetworkConfig.Name, netcniparameters.SingleSysctlFlag, validMacVlanInterfaces[0].Name)
 
 			By("Define and create pod")
 			podUnderTest := defineCreatePodWithNetworksAndWaitUntilRunning(
-				[]multus.NetworkSelectionElement{netcniparameters.NetworkConfig})
+				[]multus.NetworkSelectionElement{netcniparameters.FirstNetworkConfig})
 
 			By("Exec cmd command on running pod")
 			verifySysctlKernelParametersConfiguredOnPodInterface(
@@ -113,15 +114,250 @@ var _ = Describe("CNF Sysctl", func() {
 		It("one SriovNetwork, forward all valid interface level flags", func() {
 			By("Define and create sr-iov network with all valid sysctl flags")
 			defineAndCreateSriovNetworkWithSysctlTuningPlugin(validSriovInterfaces[0],
-				netcniparameters.AllFlagsSysctlPluginConfig, netcniparameters.NetworkConfig.Name)
+				netcniparameters.AllFlagsSysctlPluginConfig, netcniparameters.FirstNetworkConfig.Name)
 
 			By("Define and create pod")
 			podUnderTest := defineCreatePodWithNetworksAndWaitUntilRunning(
-				[]multus.NetworkSelectionElement{netcniparameters.NetworkConfig})
+				[]multus.NetworkSelectionElement{netcniparameters.FirstNetworkConfig})
 
 			By("Exec cmd command on running pod")
 			verifySysctlKernelParametersConfiguredOnPodInterface(
 				podUnderTest, netcniparameters.AllFlagsSysctlPluginConfig, netcniparameters.MultusFirstInterfaceName)
+		})
+
+		// 50340
+		It("one SR-IOV network, forward one invalid flag", func() {
+
+			By("Define and create sr-iov network with single invalid sysctl flags")
+			defineAndCreateSriovNetworkWithSysctlTuningPlugin(
+				validSriovInterfaces[0],
+				netcniparameters.SingleInvalidFlag,
+				netcniparameters.FirstNetworkConfig.Name,
+			)
+
+			By("Define and create pod")
+			defineCreatePodWithNetworksAndWaitUntilPending([]multus.NetworkSelectionElement{netcniparameters.FirstNetworkConfig})
+
+			By("Wait until sysctl failed event")
+			waitUntilEventListContainsSysctlFailedCreatePodSandBoxMessage(netcniparameters.InvalidSysctlKey)
+		})
+
+		// 50342
+		It("one NAD, forward all valid interface level flags one global kernel flag", func() {
+
+			By("Define and create NAD with invalid sysctl flag")
+			globalSysctlFlag := "kernel.shm_rmid_forced"
+			nadWithInvalidSysctlFlag := netcnihelper.CopyMap(netcniparameters.AllFlagsSysctlPluginConfig)
+			nadWithInvalidSysctlFlag[globalSysctlFlag] = "1"
+
+			defineAndCreateNadWithTuningAndSysctlPlugins(
+				netcniparameters.FirstNetworkConfig.Name, nadWithInvalidSysctlFlag, validMacVlanInterfaces[0].Name)
+
+			By("Define and create pod")
+			defineCreatePodWithNetworksAndWaitUntilPending([]multus.NetworkSelectionElement{netcniparameters.FirstNetworkConfig})
+
+			By("Wait until sysctl failed event")
+			waitUntilEventListContainsSysctlFailedCreatePodSandBoxMessage(globalSysctlFlag)
+		})
+
+		// 50343
+		It("one SR-IOV, forward all valid flags one static kernel interface flag", func() {
+
+			By("Define and create sr-iov network with invalid interface level flag")
+			nadWithInvalidSysctlFlag := netcnihelper.CopyMap(netcniparameters.AllFlagsSysctlPluginConfig)
+			interfaceLevelSysctlFlag := fmt.Sprintf("net.ipv4.conf.%s.disable_policy", netcniparameters.MultusFirstInterfaceName)
+			nadWithInvalidSysctlFlag[interfaceLevelSysctlFlag] = "1"
+			defineAndCreateSriovNetworkWithSysctlTuningPlugin(validSriovInterfaces[0], nadWithInvalidSysctlFlag,
+				netcniparameters.FirstNetworkConfig.Name)
+
+			By("Define and create pod")
+			defineCreatePodWithNetworksAndWaitUntilPending([]multus.NetworkSelectionElement{netcniparameters.FirstNetworkConfig})
+
+			By("Wait until sysctl failed event")
+			waitUntilEventListContainsSysctlFailedCreatePodSandBoxMessage(interfaceLevelSysctlFlag)
+		})
+
+		// 50346
+		It("one NAD, forward interface level duplicated flags", func() {
+			Skip("TC skipped due to BZ:2077683")
+			By("Define and create nad network with duplicated sysctl flag")
+			duplicatedFlag := defineTuningSysctlNadWithDuplicatedKernelArg(
+				netcniparameters.FirstNetworkConfig.Name, validMacVlanInterfaces[0].Name,
+				netcniparameters.AllFlagsSysctlPluginConfig)
+
+			By("Define and create pod")
+			defineCreatePodWithNetworksAndWaitUntilPending([]multus.NetworkSelectionElement{netcniparameters.FirstNetworkConfig})
+
+			By("Wait until sysctl failed event")
+			waitUntilEventListContainsSysctlFailedCreatePodSandBoxMessage(duplicatedFlag)
+		})
+
+		// 50436
+		It("one NAD, set kernel flag manually using sysctl cmd", func() {
+
+			By("Define and create NAD without single sysctl flag")
+			defineAndCreateNadWithTuningAndSysctlPlugins(netcniparameters.FirstNetworkConfig.Name,
+				netcniparameters.SingleSysctlFlag, validMacVlanInterfaces[0].Name)
+
+			By("Define and create pod")
+			podUnderTest := defineCreatePodWithNetworksAndWaitUntilRunning(
+				[]multus.NetworkSelectionElement{netcniparameters.FirstNetworkConfig})
+			verifySysctlKernelParametersConfiguredOnPodInterface(
+				podUnderTest, netcniparameters.SingleSysctlFlag, netcniparameters.MultusFirstInterfaceName)
+
+			By("Try to set interface sysctl key manually using sysctl command")
+			staticInterfaceSysctlKey := fmt.Sprintf(
+				"net.ipv4.conf.%s.accept_redirects", netcniparameters.MultusFirstInterfaceName)
+			cmd := []string{"sysctl", "-w", fmt.Sprintf("%s=1", staticInterfaceSysctlKey)}
+
+			By("Exec cmd command on running pod")
+			buffer, err := pod.ExecCommand(
+				helper.Apiclient, *podUnderTest, cmd, podUnderTest.Spec.Containers[0].Name)
+			Expect(err).To(HaveOccurred(),
+				"getting nil instead expected nil. sysctl set should not be allowed in container")
+			Expect(buffer).ToNot(BeIdenticalTo(
+				fmt.Sprintf("sysctl: setting key \"%s\": Read-only file system", staticInterfaceSysctlKey)),
+				"error output from sysctl is not as expected")
+		})
+	})
+
+	Context("pod multiple secondary interfaces,", func() {
+
+		// 50249
+		It("one NAD, Forward all valid interface level flags", func() {
+
+			By("Define and create NAD with all valid interface level flags")
+			defineAndCreateNadWithTuningAndSysctlPlugins(netcniparameters.FirstNetworkConfig.Name,
+				netcniparameters.AllFlagsSysctlPluginConfig, validMacVlanInterfaces[0].Name)
+
+			By("Define and create pod")
+			podNetConfig := []multus.NetworkSelectionElement{
+				netcniparameters.FirstNetworkConfig, netcniparameters.SecondNetworkConfig}
+			podNetConfig[1].Name = netcniparameters.FirstNetworkConfig.Name
+			podUnderTest := defineCreatePodWithNetworksAndWaitUntilRunning(podNetConfig)
+
+			By("Exec cmd command on running pod")
+			for _, interfaceName := range []string{
+				netcniparameters.MultusFirstInterfaceName, netcniparameters.MultusSecondInterfaceName} {
+				verifySysctlKernelParametersConfiguredOnPodInterface(
+					podUnderTest, netcniparameters.AllFlagsSysctlPluginConfig, interfaceName)
+			}
+		})
+
+		// 50250
+		It("two SR-IOV, Forward all valid interface level flags to one interface and single interface level flag "+
+			"to the second interface", func() {
+
+			By("Define and create NAD with all valid interface level flags")
+			defineAndCreateSriovNetworkWithSysctlTuningPlugin(validSriovInterfaces[0],
+				netcniparameters.AllFlagsSysctlPluginConfig, netcniparameters.FirstNetworkConfig.Name)
+
+			By("Define and create NAD with single valid interface level flags")
+			defineAndCreateSriovNetworkWithSysctlTuningPlugin(validSriovInterfaces[0],
+				netcniparameters.SingleSysctlFlag, netcniparameters.SecondNetworkConfig.Name)
+
+			By("Define and create pod")
+			podUnderTest := defineCreatePodWithNetworksAndWaitUntilRunning(
+				[]multus.NetworkSelectionElement{netcniparameters.FirstNetworkConfig, netcniparameters.SecondNetworkConfig})
+
+			By("Exec cmd command on running pod")
+			verifySysctlKernelParametersConfiguredOnPodInterface(podUnderTest, netcniparameters.AllFlagsSysctlPluginConfig,
+				netcniparameters.MultusFirstInterfaceName)
+			verifySysctlKernelParametersConfiguredOnPodInterface(podUnderTest, netcniparameters.SingleSysctlFlag,
+				netcniparameters.MultusSecondInterfaceName)
+		})
+
+		// 50432
+		It("two NADs, Forward all valid interface level flags to one interface and multiple flags to the second "+
+			"interface with one general network kernel flag", func() {
+
+			By("Define and create NAD with all valid interface level flags")
+			defineAndCreateNadWithTuningAndSysctlPlugins(netcniparameters.FirstNetworkConfig.Name,
+				netcniparameters.AllFlagsSysctlPluginConfig, validMacVlanInterfaces[0].Name)
+
+			By("Define and create NAD with multiple valid interface level flags plus single network kernel flag")
+			sysctlGlobalFlagKey := "net.ipv4.tcp_fastopen"
+			MultipleFlagsSysctlOneGlobal := netcnihelper.CopyMap(netcniparameters.MultipleFlagsSyscl)
+			MultipleFlagsSysctlOneGlobal[sysctlGlobalFlagKey] = "0"
+			defineAndCreateNadWithTuningAndSysctlPlugins(netcniparameters.SecondNetworkConfig.Name,
+				MultipleFlagsSysctlOneGlobal, validMacVlanInterfaces[0].Name)
+
+			By("Define and create pod")
+			defineCreatePodWithNetworksAndWaitUntilPending([]multus.NetworkSelectionElement{
+				netcniparameters.FirstNetworkConfig,
+				netcniparameters.SecondNetworkConfig})
+
+			By("Wait until event failed message")
+			waitUntilEventListContainsSysctlFailedCreatePodSandBoxMessage(sysctlGlobalFlagKey)
+		})
+
+		// 50433
+		It("two SR-IOV, Forward all valid interface level flags to one interface and one general kernel flag to "+
+			"the second interface", func() {
+
+			By("Define sr-iov network with all sysctl flags")
+			defineAndCreateSriovNetworkWithSysctlTuningPlugin(validSriovInterfaces[0],
+				netcniparameters.AllFlagsSysctlPluginConfig, netcniparameters.FirstNetworkConfig.Name)
+
+			By("Define sr-iov network with global kernel flag")
+			oneGlobalSysctlFlag := map[string]string{netcniparameters.GlobalSysctlFlag: "1"}
+			defineAndCreateSriovNetworkWithSysctlTuningPlugin(validSriovInterfaces[0], oneGlobalSysctlFlag,
+				netcniparameters.SecondNetworkConfig.Name)
+
+			By("Define and create pod")
+			defineCreatePodWithNetworksAndWaitUntilPending([]multus.NetworkSelectionElement{netcniparameters.FirstNetworkConfig,
+				netcniparameters.SecondNetworkConfig})
+
+			By("Wait until event failed message")
+			waitUntilEventListContainsSysctlFailedCreatePodSandBoxMessage(netcniparameters.GlobalSysctlFlag)
+		})
+
+		// 50434
+		It("two NADs, try to inject static interface level flag for net1 interface using net2 NAD", func() {
+
+			By("Define and create NAD")
+			defineAndCreateNadWithTuningAndSysctlPlugins(netcniparameters.FirstNetworkConfig.Name,
+				netcniparameters.SingleSysctlFlag, validMacVlanInterfaces[0].Name)
+
+			By("Define and create NAD with static sysctl interface flag")
+			staticSysctlInterfaceKernelKey := fmt.Sprintf(
+				"net.ipv4.conf.%s.accept_redirects", netcniparameters.MultusFirstInterfaceName)
+			oneStaticInterfaceSysctlFlag := map[string]string{staticSysctlInterfaceKernelKey: "0"}
+			defineAndCreateNadWithTuningAndSysctlPlugins(netcniparameters.SecondNetworkConfig.Name,
+				oneStaticInterfaceSysctlFlag, validMacVlanInterfaces[0].Name)
+
+			By("Define and create pod")
+			defineCreatePodWithNetworksAndWaitUntilPending([]multus.NetworkSelectionElement{netcniparameters.FirstNetworkConfig,
+				netcniparameters.SecondNetworkConfig})
+
+			By("Wait until event failed message")
+			waitUntilEventListContainsSysctlFailedCreatePodSandBoxMessage(staticSysctlInterfaceKernelKey)
+		})
+
+		// 50435
+		It("two NADs, forward all valid flags to both interfaces and the second "+
+			"interface has static interface level duplicated flag", func() {
+
+			By("Define and create NAD with all sysctl flags")
+			defineTuningSysctlNadWithDuplicatedKernelArg(netcniparameters.FirstNetworkConfig.Name,
+				validMacVlanInterfaces[0].Name,
+				netcniparameters.AllFlagsSysctlPluginConfig)
+
+			By("Define and create NAD with static interface duplicated sysctl flags")
+			staticSysctlInterfaceKernelKey := fmt.Sprintf(
+				"net.ipv4.conf.%s.accept_redirects", netcniparameters.MultusFirstInterfaceName)
+			allFlagsWithOneStaticInterfaceSysctlFlag := netcnihelper.CopyMap(netcniparameters.AllFlagsSysctlPluginConfig)
+			allFlagsWithOneStaticInterfaceSysctlFlag[staticSysctlInterfaceKernelKey] = "0"
+			defineTuningSysctlNadWithDuplicatedKernelArg(netcniparameters.SecondNetworkConfig.Name,
+				validMacVlanInterfaces[0].Name,
+				allFlagsWithOneStaticInterfaceSysctlFlag)
+
+			By("Define and create pod")
+			defineCreatePodWithNetworksAndWaitUntilPending([]multus.NetworkSelectionElement{netcniparameters.FirstNetworkConfig,
+				netcniparameters.SecondNetworkConfig})
+
+			By("Wait until event failed message")
+			waitUntilEventListContainsSysctlFailedCreatePodSandBoxMessage(staticSysctlInterfaceKernelKey)
 		})
 	})
 })
@@ -147,6 +383,45 @@ func defineAndCreateSriovNetworkWithSysctlTuningPlugin(
 	By("Define and create sr-iov sysctl network")
 	tests.DefineAndCreateSriovNetwork(
 		sriovNetworkName, sriovInterface, netcniparameters.ResourceNameSysctl, ipam, sysctlPluginConfig)
+}
+
+func waitUntilEventListContainsSysctlFailedCreatePodSandBoxMessage(sysctlFlag string) {
+	expectedSysctlFailedMessage := fmt.Sprintf("Sysctl %s is not allowed. Only the following sysctls are allowed",
+		sysctlFlag)
+
+	Eventually(func() bool {
+		status, err := netcnihelper.IsNamespacedEventListContainsMessage(
+			netcniparameters.TestNamespace, expectedSysctlFailedMessage)
+		Expect(err).ToNot(HaveOccurred(), "error to collect events")
+
+		return status
+	}, netcniparameters.PodWaitingTime, netcniparameters.RetryInterval).Should(BeTrue(),
+		"error to detect require event")
+}
+
+func defineTuningSysctlNadWithDuplicatedKernelArg(
+	nadName string, macVlanIf string, sysctlConfig map[string]string) string {
+	nadPlugins := []nad.Plugin{
+		*nad.DefineMacVlanPlugin(macVlanIf, nad.DefineStaticIpam()),
+		*nad.DefineTuningPluginWithSysctl(sysctlConfig),
+	}
+	masterPlugin := nad.DefineMasterPlugin(nadName, nadPlugins)
+
+	cniSting, err := json.Marshal(masterPlugin)
+	Expect(err).ToNot(HaveOccurred(), "error to marshal master cni plugin")
+
+	duplicatedFlag, stringToReplace := prepDuplicatedSysctlConfig(sysctlConfig)
+
+	dupCniString := strings.Replace(
+		string(cniSting), stringToReplace, fmt.Sprintf("%s,%s", stringToReplace, duplicatedFlag), 1)
+
+	nadBuilder, err := nad.NewNadBuilder(nadName, netcniparameters.TestNamespace).BuildWithMasterPluginString(dupCniString)
+	Expect(err).ToNot(HaveOccurred(), "error to build nad config with duplicated flag")
+
+	err = nadBuilder.Create(helper.Apiclient)
+	Expect(err).ToNot(HaveOccurred(), "error nad with duplicated flag was created")
+
+	return duplicatedFlag
 }
 
 func defineCreatePodWithNetworks(podNetworks []multus.NetworkSelectionElement) *k8sv1.Pod {
@@ -187,6 +462,10 @@ func defineCreatePodWithNetworksAndWaitUntilRunning(podNetworks []multus.Network
 	return defineCreatePodWithNetworksAndWaitUntilStatus(podNetworks, k8sv1.PodRunning)
 }
 
+func defineCreatePodWithNetworksAndWaitUntilPending(podNetworks []multus.NetworkSelectionElement) {
+	defineCreatePodWithNetworksAndWaitUntilStatus(podNetworks, k8sv1.PodPending)
+}
+
 func verifySysctlKernelParametersConfiguredOnPodInterface(
 	podUnderTest *k8sv1.Pod, sysctlPluginConfig map[string]string, interfaceName string) {
 	for key, value := range sysctlPluginConfig {
@@ -201,4 +480,24 @@ func verifySysctlKernelParametersConfiguredOnPodInterface(
 		Expect(strings.TrimSpace(cmdBuffer.String())).To(BeIdenticalTo(value),
 			"sysctl kernel param is not in expected state")
 	}
+}
+
+func prepDuplicatedSysctlConfig(sysctlConfig map[string]string) (string, string) {
+	var (
+		duplicatedFlag  string
+		stringToReplace string
+	)
+
+	cnt := 0
+
+	for key, value := range sysctlConfig {
+		stringToReplace = fmt.Sprintf("\"%s\":\"%s\"", key, value)
+
+		if cnt == 0 {
+			duplicatedFlag = fmt.Sprintf("\"%s\":\"%s\"", key, value)
+		}
+		cnt++
+	}
+
+	return duplicatedFlag, stringToReplace
 }

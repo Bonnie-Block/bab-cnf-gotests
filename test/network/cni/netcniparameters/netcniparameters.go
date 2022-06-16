@@ -10,13 +10,14 @@ import (
 )
 
 const (
-	TestNamespace            = "cni-cni-test"
-	PodWaitingTime           = 2 * time.Minute
-	WaitingTime              = 20 * time.Minute
-	RetryInterval            = 5 * time.Second
-	AnnotationNetStat        = "k8s.v1.cni.cncf.io/network-status"
-	SriovPolicyName          = "test-sriov-policy-cni"
-	MultusFirstInterfaceName = "net1"
+	TestNamespace             = "cni-cni-test"
+	PodWaitingTime            = 2 * time.Minute
+	WaitingTime               = 20 * time.Minute
+	RetryInterval             = 5 * time.Second
+	AnnotationNetStat         = "k8s.v1.cni.cncf.io/network-status"
+	SriovPolicyName           = "test-sriov-policy-cni"
+	MultusFirstInterfaceName  = "net1"
+	MultusSecondInterfaceName = "net2"
 )
 
 var (

@@ -94,6 +94,22 @@ func (b *NetworkAttachmentDefinitionBuilder) WithPlugin(plugin *Plugin) *Network
 	return b
 }
 
+// BuildWithMasterPluginString adds master plugin sting to NetworkAttachmentDefinition resource.
+func (b *NetworkAttachmentDefinitionBuilder) BuildWithMasterPluginString(
+	masterPlugin string) (*NetworkAttachmentDefinitionBuilder, error) {
+	if b.errorMsg != "" {
+		return nil, fmt.Errorf(b.errorMsg)
+	}
+
+	if b.definition.Spec.Config != "" {
+		return nil, fmt.Errorf("error nad spec config is not empty")
+	}
+
+	b.definition.Spec.Config = masterPlugin
+
+	return b, nil
+}
+
 // WithPlugins adds list of plugins to NetworkAttachmentDefinition resource.
 func (b *NetworkAttachmentDefinitionBuilder) WithPlugins(plugins []*Plugin) *NetworkAttachmentDefinitionBuilder {
 	for _, plugin := range plugins {
@@ -192,5 +208,14 @@ func DefineTuningPluginWithSysctl(sysctlConfig map[string]string) *Plugin {
 func DefineStaticIpam() *cniTypes.IPAM {
 	return &cniTypes.IPAM{
 		Type: "static",
+	}
+}
+
+// DefineMasterPlugin returns master nad plugin config.
+func DefineMasterPlugin(name string, plugin []Plugin) *MasterPlugin {
+	return &MasterPlugin{
+		Name:       name,
+		CniVersion: "0.4.0",
+		Plugins:    &plugin,
 	}
 }
