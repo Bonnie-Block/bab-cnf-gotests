@@ -9,6 +9,7 @@ var (
 	PtpOperatorNamespace              string
 	MachineConfigOperatorNamespace    string
 	PerformanceAddonOperatorNamespace string
+	HwEventProxyNamespace             string
 )
 
 func init() {

@@ -80,6 +80,10 @@ The list of available features:
 * `CNF_TEST_IMAGE` - path to generic container image used in RAN tests
 * `STRESSNG_TEST_IMAGE` - path to StressNg container image
 * `OSLAT_TEST_IMAGE` - path to Oslat container image
+* `EVENT_RECEIVER` - Set to the URL hardware event proxy exposes to receive events
+* `PDU_ADDR` - Set to PDU URL
+* `PDU_SOCKET` - Set PDU socket number
+* `RAN_EVENT_TEST_DEBUG` - Set to any value to add test debug prints
 
 ##### SR-IOV suite environment variables:
 * `SRIOV_OPERATOR_NAMESPACE` - select the namespace were sriov-network-operator installed. Default openshift-sriov-network-operator
