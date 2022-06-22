@@ -2,6 +2,7 @@ require (
 	github.com/containers/podman/v2 v2.2.1
 	github.com/docker/docker v20.10.7+incompatible
 	github.com/golang/glog v1.0.0
+	github.com/gosnmp/gosnmp v1.35.0
 	github.com/ishidawataru/sctp v0.0.0-20191218070446-00ab2ac2db07
 	github.com/k8snetworkplumbingwg/network-attachment-definition-client v0.0.0-20200626054723-37f83d1996bc
 	github.com/k8snetworkplumbingwg/sriov-network-operator v0.0.0-20201204053545-49045c36efb9
@@ -20,6 +21,7 @@ require (
 	github.com/operator-framework/operator-lifecycle-manager v3.11.0+incompatible
 	github.com/pkg/errors v0.9.1
 	github.com/smart-edge-open/sriov-fec-operator/sriov-fec v0.0.0-20220421094756-1803088bf003
+	github.com/stmcginnis/gofish v0.13.0
 	go.universe.tf/metallb v0.1.1-0.20220422145807-099c8990dc55
 	golang.org/x/net v0.0.0-20211209124913-491a49abca63
 	gopkg.in/yaml.v2 v2.4.0
