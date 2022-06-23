@@ -233,6 +233,10 @@ Additional parameters are to be added under the test package in a subdir suffixe
 [test/ran/cpu/rancpuparameters/rancpuparameters.go](https://gitlab.cee.redhat.com/cnf/cnf-gotests/-/blob/master/test/ran/cpu/rancpuparameters/rancpuparameters.go)
 
 ### Code conventions
+#### Lint
+Push requested are tested in a pipeline with golangci-lint. It is advised to add [Golangci-lint integration](https://golangci-lint.run/usage/integrations/) to your development editor.
+
+#### Errors in helper functions
 In the case of a helper function that encounters an unexpected response, the function should log an error with the function name the error happened to assist with later test failure analysis.
 If the function can not resolve this error, it should return an error to the caller function, which should take action due to the error.
 
