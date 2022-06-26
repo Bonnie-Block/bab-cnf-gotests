@@ -981,6 +981,16 @@ func GetMetalLBIPByFamily() ([]string, []string, error) {
 	return ipv4IPList, ipv6IPList, nil
 }
 
+func DescribeMetalLBCRDParameters(externalTrafficPolicy k8sv1.ServiceExternalTrafficPolicyType) string {
+	metallbCRDTestParameters, err := netmlbparameters.NewMetallbCRDTestParameters(externalTrafficPolicy)
+	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("error in parameters: TrafficPolicy=%s", externalTrafficPolicy))
+
+	myPrams, err := json.Marshal(metallbCRDTestParameters)
+	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Failed to Marshal: TrafficPolicy=%s", externalTrafficPolicy))
+
+	return string(myPrams)
+}
+
 func appendIfMissing(slice []string, newItem string) []string {
 	if nethelper.StrParamInListOfParams(newItem, slice) == nil {
 		return slice

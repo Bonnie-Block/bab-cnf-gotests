@@ -155,6 +155,8 @@ var _ = Describe("MetalLb New CRDs", func() {
 	})
 
 	Context("two advertisement modes", func() {
+		describe := netmetallbhelper.DescribeMetalLBCRDParameters
+
 		BeforeEach(func() {
 			if len(ipv4metalLBIPList) < 3 {
 				Skip("There are not enough IPv4 addresses (3) configured in env variables METALLB_ADDR_LIST")
@@ -183,7 +185,7 @@ var _ = Describe("MetalLb New CRDs", func() {
 
 		// OCP-50060
 		DescribeTable("should work together",
-			func(externalTrafficPolicy string) {
+			func(externalTrafficPolicy k8sv1.ServiceExternalTrafficPolicyType) {
 				By("Creating 2 MetalLB services for L2 and L3 server nginx pods")
 				err = netmetallbhelper.DefineAndCreateLBService(
 					netmlbparameters.TestNamespace,
@@ -191,7 +193,7 @@ var _ = Describe("MetalLb New CRDs", func() {
 					netmlbparameters.AddressPoolName,
 					netmlbparameters.AppLabel1,
 					netmlbparameters.ProtocolTCP,
-					k8sv1.ServiceExternalTrafficPolicyType(externalTrafficPolicy))
+					externalTrafficPolicy)
 				Expect(err).ToNot(HaveOccurred(),
 					fmt.Sprintf("An unexpected error occurred during service %s creation.",
 						netmlbparameters.AddressPoolName))
@@ -202,7 +204,7 @@ var _ = Describe("MetalLb New CRDs", func() {
 					netmlbparameters.AddressPoolL2,
 					netmlbparameters.AppLabel2,
 					netmlbparameters.ProtocolTCP,
-					k8sv1.ServiceExternalTrafficPolicyType(externalTrafficPolicy))
+					externalTrafficPolicy)
 				Expect(err).ToNot(HaveOccurred(),
 					fmt.Sprintf("An unexpected error occurred during service %s creation.",
 						netmlbparameters.AddressPoolL2))
@@ -255,8 +257,8 @@ var _ = Describe("MetalLb New CRDs", func() {
 					fmt.Sprintf("L2client %s can curl LB IP address %s which is not expected: %s",
 						l2Client.Name, netmlbparameters.IPv4AddressesLBList[0], httpOutput))
 			},
-			Entry("Service with Local externalTrafficPolicy", netmlbparameters.ExtTrafPolLocal),
-			Entry("Service with Cluster externalTrafficPolicy", netmlbparameters.ExtTrafPolCluster),
+			Entry(describe, k8sv1.ServiceExternalTrafficPolicyTypeCluster),
+			Entry(describe, k8sv1.ServiceExternalTrafficPolicyTypeLocal),
 		)
 	})
 	Context("Concurrent Layer2 and Layer3", func() {

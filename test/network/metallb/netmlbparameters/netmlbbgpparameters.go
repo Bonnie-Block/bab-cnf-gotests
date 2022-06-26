@@ -276,6 +276,10 @@ type (
 		IPStack       string
 		TrafficPolicy k8sv1.ServiceExternalTrafficPolicyType
 	}
+
+	MetallbCRDTestParameters struct {
+		TrafficPolicy k8sv1.ServiceExternalTrafficPolicyType
+	}
 )
 
 // NewBGPTestParameters constructor for BGPTestParameters.
@@ -326,4 +330,19 @@ func NewMetallbBFDTestParameters(bgpPeer string,
 	BFDTestParameters.TrafficPolicy = externalTrafficPolicy
 
 	return BFDTestParameters, nil
+}
+
+// NewMetallbCRDTestParameters constructor for MetallbCRDTestParameters.
+func NewMetallbCRDTestParameters(externalTrafficPolicy k8sv1.ServiceExternalTrafficPolicyType) (
+	*MetallbCRDTestParameters, error) {
+	CRDTestParameters := new(MetallbCRDTestParameters)
+
+	err := nethelper.StrParamInListOfParams(string(externalTrafficPolicy), TrafficPolicies)
+	if err != nil {
+		return nil, err
+	}
+
+	CRDTestParameters.TrafficPolicy = externalTrafficPolicy
+
+	return CRDTestParameters, nil
 }
