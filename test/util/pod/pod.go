@@ -291,3 +291,23 @@ func RedefineWithLabel(pod *corev1.Pod, labeltype string, labelName string) *cor
 
 	return pod
 }
+
+// AdditionalOptions additional options for pod object.
+type AdditionalOptions func(*corev1.Pod)
+
+// CreateWithOptions creates pod with mutation options.
+func CreateWithOptions(
+	apiClient *testclient.ClientSet, namespace string, image string, options ...AdditionalOptions) (*corev1.Pod, error) {
+	baseManifest := getDefinition(namespace, image)
+
+	for _, o := range options {
+		o(baseManifest)
+	}
+
+	err := apiClient.Create(context.Background(), baseManifest)
+	if err != nil {
+		return nil, err
+	}
+
+	return baseManifest, err
+}

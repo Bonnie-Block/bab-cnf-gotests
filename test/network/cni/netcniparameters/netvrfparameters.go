@@ -10,7 +10,6 @@ const (
 	ResourceNameVRFVf2      = "sriovnicvrfvf2"
 	TestSriovNetworkRed     = "test-vrf-sriov-network-red"
 	TestSriovNetworkBlue    = "test-vrf-sriov-network-blue"
-	SriovPolicyName         = "test-sriov-policy-vrf"
 	SameNode                = "Same Node"
 	DiffNode                = "Different Node"
 	IPStackIPv4             = "ipv4"

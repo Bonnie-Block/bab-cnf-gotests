@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	nadv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
+
 	sriovv1 "github.com/k8snetworkplumbingwg/sriov-network-operator/api/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -160,6 +162,12 @@ func Clean(operatorNamespace, namespace string, clientSet *testclient.ClientSet,
 
 	err = CleanNetworks(operatorNamespace, clientSet)
 
+	if err != nil {
+		return err
+	}
+
+	err = CleanNetworkAttachmentDefinitionInNamespace(namespace, clientSet)
+
 	return err
 }
 
@@ -178,4 +186,64 @@ func LabelNamespace(clientSet *testclient.ClientSet, namespaceName, key, value s
 	}
 
 	return namespace, nil
+}
+
+// CleanEventsInNamespace removes all events from the given namespace.
+func CleanEventsInNamespace(namespace string, clientSet *testclient.ClientSet) error {
+	nsExist := Exists(namespace, clientSet)
+
+	if !nsExist {
+		return nil
+	}
+
+	err := clientSet.Events(namespace).DeleteCollection(context.Background(),
+		metav1.DeleteOptions{GracePeriodSeconds: pointer.Int64Ptr(0)},
+		metav1.ListOptions{})
+
+	return err
+}
+
+// CleanNetworkAttachmentDefinitionInNamespace removes all network-attachment-definition from the given namespace.
+func CleanNetworkAttachmentDefinitionInNamespace(namespace string, clientSet *testclient.ClientSet) error {
+	nsExist := Exists(namespace, clientSet)
+
+	if !nsExist {
+		return nil
+	}
+
+	nadList := &nadv1.NetworkAttachmentDefinitionList{}
+	err := clientSet.List(context.Background(), nadList)
+
+	if err != nil {
+		return err
+	}
+
+	err = clientSet.NetworkAttachmentDefinitions(namespace).DeleteCollection(
+		context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{
+			FieldSelector: "metadata.name!=dummy-dhcp-network",
+		})
+
+	if err != nil {
+		return err
+	}
+
+	return waitForNetworkAttachmentDefinitionDeletion(clientSet, namespace, 3*time.Minute)
+}
+
+func waitForNetworkAttachmentDefinitionDeletion(
+	cs *testclient.ClientSet, namespace string, timeout time.Duration) error {
+	return wait.PollImmediate(time.Second, timeout, func() (bool, error) {
+		nadList := &nadv1.NetworkAttachmentDefinitionList{}
+		err := cs.List(context.Background(), nadList)
+		if err != nil {
+			return false, err
+		}
+		for _, nad := range nadList.Items {
+			if nad.Name != "dummy-dhcp-network" && nad.Namespace == namespace {
+				return false, nil
+			}
+		}
+
+		return true, nil
+	})
 }

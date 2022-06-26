@@ -4,6 +4,7 @@ import (
 	"os"
 
 	netattdefv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
+	clientnetattdefv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/client/clientset/versioned/typed/k8s.cni.cncf.io/v1"
 
 	"github.com/golang/glog"
 	sriovv1 "github.com/k8snetworkplumbingwg/sriov-network-operator/api/v1"
@@ -48,6 +49,7 @@ type ClientSet struct {
 	runtimeclient.Client
 	ptpv1.PtpV1Interface
 	olm.OperatorsV1alpha1Interface
+	clientnetattdefv1.K8sCniCncfIoV1Interface
 }
 
 // New returns a *ClientBuilder with the given kubeconfig.
@@ -84,6 +86,7 @@ func New(kubeconfig string) *ClientSet {
 	clientSet.PtpV1Interface = ptpv1.NewForConfigOrDie(config)
 	clientSet.RbacV1Interface = rbacv1client.NewForConfigOrDie(config)
 	clientSet.OperatorsV1alpha1Interface = olm.NewForConfigOrDie(config)
+	clientSet.K8sCniCncfIoV1Interface = clientnetattdefv1.NewForConfigOrDie(config)
 
 	clientSet.Config = config
 

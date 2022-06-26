@@ -3,6 +3,8 @@ package vrf
 import (
 	"fmt"
 
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/cni/tests"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -32,14 +34,14 @@ var _ = Describe("CNF VRF", func() {
 			testFail = fmt.Sprintf("Error discover SRIOV node info: %s", err)
 			Expect(err).ToNot(HaveOccurred(), testFail)
 		}
-		netcnihelper.SetupSriovBeforeAll(generalHelper.Config, sriovInfos, netcniparameters.VRFIpamStatic, true)
+		SetupSriovBeforeAll(generalHelper.Config, sriovInfos, netcniparameters.VRFIpamStatic, true)
 	})
 
 	BeforeEach(func() {
 		if testFail != "" {
 			Fail(testFail)
 		}
-		netcnihelper.CleanResources()
+		tests.CleanPodFromNamespaceAndWaitUntilItsEmpty()
 	})
 
 	// 36299

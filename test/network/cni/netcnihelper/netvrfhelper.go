@@ -14,7 +14,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	globalHelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/cni/netcniparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
@@ -143,8 +143,8 @@ func TestVRFScenario(node string, ipStack string, ipOverLap string, config *conf
 
 	By("Running client/server pods")
 
-	runningClientPod := globalHelper.WaitUntilPodCreatedAndRunning(podClient, netcniparameters.PodWaitingTime)
-	globalHelper.WaitUntilPodCreatedAndRunning(podServer, netcniparameters.PodWaitingTime)
+	runningClientPod := helper.WaitUntilPodCreatedAndRunning(podClient, netcniparameters.PodWaitingTime)
+	helper.WaitUntilPodCreatedAndRunning(podServer, netcniparameters.PodWaitingTime)
 	By("Validating client/server VRFs configuration")
 	podHasCorrectVrfConfig(podClient.Name,
 		[]map[string]string{
@@ -167,12 +167,12 @@ func TestVRFScenario(node string, ipStack string, ipOverLap string, config *conf
 	Expect(err).ToNot(HaveOccurred())
 	err = httpViaVRF(*runningClientPod, podServerVRFBlueIPAddress, netcniparameters.VRFBlueName, false)
 	Expect(err).ToNot(HaveOccurred())
-	err = pod.DeletePodAndWait(globalHelper.Apiclient, podServer)
+	err = pod.DeletePodAndWait(helper.Apiclient, podServer)
 	Expect(err).ToNot(HaveOccurred())
 
 	By("Validating client/server ICMP negative test")
 	Eventually(func() error {
-		_, err := globalHelper.Apiclient.Pods(netcniparameters.TestNamespace).Get(
+		_, err := helper.Apiclient.Pods(netcniparameters.TestNamespace).Get(
 			context.Background(),
 			podServer.Name,
 			metav1.GetOptions{})
@@ -200,7 +200,7 @@ func TestVRFScenario(node string, ipStack string, ipOverLap string, config *conf
 }
 
 func podHasCorrectVrfConfig(podName string, vrfMapsConfig []map[string]string) {
-	runningPod, err := globalHelper.Apiclient.Pods(netcniparameters.TestNamespace).Get(
+	runningPod, err := helper.Apiclient.Pods(netcniparameters.TestNamespace).Get(
 		context.Background(),
 		podName,
 		metav1.GetOptions{})
@@ -213,7 +213,7 @@ func podHasCorrectVrfConfig(podName string, vrfMapsConfig []map[string]string) {
 			validateVrfIPAddrCommand := []string{"ip", "addr", "show", vrfMapConfig["vrfInterface"]}
 
 			Eventually(func() bool {
-				vrfIface, _ := pod.ExecCommand(globalHelper.Apiclient, *runningPod, validateVrfIPAddrCommand)
+				vrfIface, _ := pod.ExecCommand(helper.Apiclient, *runningPod, validateVrfIPAddrCommand)
 
 				return strings.Contains(vrfIface.String(), vrfMapConfig["vrfClientIP"])
 			}, netcniparameters.PodWaitingTime, 5*time.Second).Should(
@@ -223,7 +223,7 @@ func podHasCorrectVrfConfig(podName string, vrfMapsConfig []map[string]string) {
 
 			validateVRFRouteTableCommand := []string{"ip", "route", "show", "vrf", vrfMapConfig["vrfName"]}
 			Eventually(func() bool {
-				vrfRouteTable, _ := pod.ExecCommand(globalHelper.Apiclient, *runningPod, validateVRFRouteTableCommand)
+				vrfRouteTable, _ := pod.ExecCommand(helper.Apiclient, *runningPod, validateVRFRouteTableCommand)
 
 				return strings.Contains(vrfRouteTable.String(), vrfMapConfig["vrfClientIP"])
 			}, netcniparameters.PodWaitingTime, 5*time.Second).Should(
@@ -235,7 +235,7 @@ func podHasCorrectVrfConfig(podName string, vrfMapsConfig []map[string]string) {
 		for _, vrfMapConfig := range vrfMapsConfig {
 			validateVrfIPAddrCommand := []string{"ip", "-6", "addr", "show", vrfMapConfig["vrfInterface"]}
 			Eventually(func() bool {
-				vrfIface, _ := pod.ExecCommand(globalHelper.Apiclient, *runningPod, validateVrfIPAddrCommand)
+				vrfIface, _ := pod.ExecCommand(helper.Apiclient, *runningPod, validateVrfIPAddrCommand)
 
 				return strings.Contains(vrfIface.String(), vrfMapConfig["vrfClientIP"])
 			}, netcniparameters.PodWaitingTime, 5*time.Second).Should(
@@ -244,7 +244,7 @@ func podHasCorrectVrfConfig(podName string, vrfMapsConfig []map[string]string) {
 
 			validateVRFRouteTableCommand := []string{"ip", "-6", "route", "show", "vrf", vrfMapConfig["vrfName"]}
 			Eventually(func() bool {
-				vrfRouteTable, _ := pod.ExecCommand(globalHelper.Apiclient, *runningPod, validateVRFRouteTableCommand)
+				vrfRouteTable, _ := pod.ExecCommand(helper.Apiclient, *runningPod, validateVRFRouteTableCommand)
 				_, ipnet, _ := net.ParseCIDR(vrfMapConfig["vrfClientIP"] + "/" + netparameters.IPV6Subnet)
 
 				return strings.Contains(vrfRouteTable.String(), ipnet.String())
@@ -280,7 +280,7 @@ func pingIPViaVRF(client k8sv1.Pod, vrfName string, destIPAddr string, negative 
 	}
 
 	_, err := pod.ExecCommand(
-		globalHelper.Apiclient,
+		helper.Apiclient,
 		client,
 		command)
 
@@ -301,7 +301,7 @@ func httpViaVRF(client k8sv1.Pod, destIPAddr string, interfaceName string, negat
 	}
 
 	_, err := pod.ExecCommand(
-		globalHelper.Apiclient,
+		helper.Apiclient,
 		client,
 		command)
 
@@ -319,10 +319,10 @@ func getOverlapIP(nodeName string, podImage string) string {
 			"--listen",
 			"--mtu=100",
 			fmt.Sprintf("--port=%d", netcniparameters.TCPPort)})
-	err := globalHelper.Apiclient.Create(context.Background(), tempPodDefinition)
+	err := helper.Apiclient.Create(context.Background(), tempPodDefinition)
 	Expect(err).ToNot(HaveOccurred())
 	Eventually(func() k8sv1.PodPhase {
-		tempPod, _ := globalHelper.Apiclient.Pods(netcniparameters.TestNamespace).Get(
+		tempPod, _ := helper.Apiclient.Pods(netcniparameters.TestNamespace).Get(
 			context.Background(),
 			tempPodDefinition.Name,
 			metav1.GetOptions{})
@@ -330,7 +330,7 @@ func getOverlapIP(nodeName string, podImage string) string {
 		return tempPod.Status.Phase
 	}, netcniparameters.PodWaitingTime, time.Second).Should(Equal(k8sv1.PodRunning))
 
-	runningPod, err := globalHelper.Apiclient.Pods(netcniparameters.TestNamespace).Get(
+	runningPod, err := helper.Apiclient.Pods(netcniparameters.TestNamespace).Get(
 		context.Background(),
 		tempPodDefinition.Name,
 		metav1.GetOptions{})
@@ -403,7 +403,7 @@ func runDHCPServer(podClientVRFBlueIPAddress string, podServerVRFBlueIPAddress s
 		netcniparameters.VRFClientMacAddressRed:  podClientVRFRedIPAddress,
 		netcniparameters.VRFServerMacAddressRed:  podServerVRFRedIPAddress,
 	}
-	validMacVlanInterfaces := GetNodeValidMacVlanInterface(nodes[0], globalHelper.Config, 1)
+	validMacVlanInterfaces := GetNodeValidMacVlanInterface(nodes[0], helper.Config, 1)
 	err := nethelper.DefineDhcpServerOnNad(
 		netcniparameters.TestNamespace, validMacVlanInterfaces[0].Name, nodes[0], "10.255.255.201",
 		addressMap)
