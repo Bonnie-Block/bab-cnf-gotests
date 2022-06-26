@@ -1,10 +1,11 @@
 require (
+	github.com/containernetworking/cni v0.8.1
 	github.com/containers/podman/v2 v2.2.1
 	github.com/docker/docker v20.10.7+incompatible
 	github.com/golang/glog v1.0.0
 	github.com/gosnmp/gosnmp v1.35.0
 	github.com/ishidawataru/sctp v0.0.0-20191218070446-00ab2ac2db07
-	github.com/k8snetworkplumbingwg/network-attachment-definition-client v0.0.0-20200626054723-37f83d1996bc
+	github.com/k8snetworkplumbingwg/network-attachment-definition-client v1.1.1-0.20210510153419-66a699ae3b05
 	github.com/k8snetworkplumbingwg/sriov-network-operator v0.0.0-20201204053545-49045c36efb9
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/kennygrant/sanitize v1.2.4
@@ -24,6 +25,7 @@ require (
 	github.com/stmcginnis/gofish v0.13.0
 	go.universe.tf/metallb v0.1.1-0.20220422145807-099c8990dc55
 	golang.org/x/net v0.0.0-20211209124913-491a49abca63
+	gopkg.in/k8snetworkplumbingwg/multus-cni.v3 v3.7.2
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.24.0
 	k8s.io/apiextensions-apiserver v0.23.3
@@ -54,8 +56,7 @@ require (
 	github.com/clarketm/json v1.14.1 // indirect
 	github.com/containerd/cgroups v1.0.1 // indirect
 	github.com/containerd/containerd v1.4.11 // indirect
-	github.com/containernetworking/cni v0.8.1 // indirect
-	github.com/containernetworking/plugins v0.8.7 // indirect
+	github.com/containernetworking/plugins v0.9.1 // indirect
 	github.com/containers/buildah v1.18.0 // indirect
 	github.com/containers/common v0.29.0 // indirect
 	github.com/containers/image/v5 v5.9.0 // indirect
@@ -152,7 +153,7 @@ require (
 	github.com/vbatts/tar-split v0.11.1 // indirect
 	github.com/vbauerster/mpb/v5 v5.3.0 // indirect
 	github.com/vincent-petithory/dataurl v0.0.0-20191104211930-d1553a71de50 // indirect
-	github.com/vishvananda/netlink v1.1.0 // indirect
+	github.com/vishvananda/netlink v1.1.1-0.20201029203352-d40f9887b852 // indirect
 	github.com/vishvananda/netns v0.0.0-20200728191858-db3c7e526aae // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
@@ -176,6 +177,7 @@ require (
 	google.golang.org/protobuf v1.27.1 // indirect
 	gopkg.in/fsnotify.v1 v1.4.7 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
+	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect
 	gopkg.in/square/go-jose.v2 v2.5.1 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
