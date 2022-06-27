@@ -161,8 +161,9 @@ func DefineOslatPod(profile *performancev2.PerformanceProfile, nodeName string, 
 		"",
 		"oslat-",
 		map[string]string{
-			"cpu-load-balancing.crio.io": "true",
-			"cpu-quota.crio.io":          "true",
+			"irq-load-balancing.crio.io": "disable",
+			"cpu-load-balancing.crio.io": "disable",
+			"cpu-quota.crio.io":          "disable",
 		},
 	)
 	RedefineContainer(
