@@ -2,6 +2,8 @@ package rfclient
 
 import (
 	"encoding/json"
+	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -67,20 +69,16 @@ func SendEventDell(eventservice *redfish.EventService, msgID string) error {
 	resp, err := eventservice.Client.Post(submitTestEventTarget, payload)
 
 	if err != nil {
-		log.Printf("Failed to send submitTestEvent due to: %v\n", err)
-
-		return err
+		return fmt.Errorf("failed to send submitTestEvent due to: %w", err)
 	}
 	defer resp.Body.Close()
 
 	valid := map[int]bool{http.StatusNoContent: true, http.StatusCreated: true}
 
 	if !valid[resp.StatusCode] {
-		body, err := ioutil.ReadAll(resp.Body)
+		body, err := io.ReadAll(resp.Body)
 		if err != nil {
-			log.Printf("Failed to read response from send event request due to: %v\n", err)
-
-			return err
+			return fmt.Errorf("failed to read response from send event request due to: %w", err)
 		}
 
 		log.Printf("Failed to submit test event due to: %s\n", body)

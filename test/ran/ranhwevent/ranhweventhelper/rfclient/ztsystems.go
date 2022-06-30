@@ -3,6 +3,7 @@ package rfclient
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -22,9 +23,7 @@ func SubscribeZt(client *gofish.APIClient) (SubscriptionURI, error) {
 	resp, err := client.Post(ztSubscribeURL, payload)
 
 	if err != nil {
-		log.Printf("Failed to POST subscribe request to redfish due to %v\n", err)
-
-		return "", err
+		return "", fmt.Errorf("failed to POST subscribe request to redfish due to %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -50,36 +49,32 @@ func SubscribeZt(client *gofish.APIClient) (SubscriptionURI, error) {
 func decodeResponse(resp *http.Response) (ZtSubscribeResponseType, error) {
 	var ztSubscribeResponse ZtSubscribeResponseType
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 
 	if err != nil {
-		log.Printf("Failed to read response body from subscription request")
-
-		return ZtSubscribeResponseType{}, err
+		return ZtSubscribeResponseType{}, fmt.Errorf(
+			"failed to read response body from subscription request due to: %w", err)
 	}
 
 	err = json.Unmarshal(body, &ztSubscribeResponse)
 
 	if err != nil {
-		log.Printf("Failed to decode json: %s due to %s\n", body, err)
-
-		return ZtSubscribeResponseType{}, err
+		return ZtSubscribeResponseType{}, fmt.Errorf(
+			"failed to decode subscription json: %s due to %w", body, err)
 	}
 
 	return ztSubscribeResponse, nil
 }
 
 // SendEventZt sends event according to msgId and returns error.
-func SendEventZt(eventservice *redfish.EventService, msgID string) error {
+func SendEventZt(eventService *redfish.EventService, msgID string) error {
 	p := ztPayload{
 		MessageID: msgID,
 	}
-	resp, err := eventservice.Client.Post(submitTestEventTarget, p)
+	resp, err := eventService.Client.Post(submitTestEventTarget, p)
 
 	if err != nil {
-		log.Printf("Failed to send submitTestEvent in SendEventZt() due to: %v\n", err)
-
-		return err
+		return fmt.Errorf("failed to send submitTestEvent in SendEventZt() due to: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -88,9 +83,7 @@ func SendEventZt(eventservice *redfish.EventService, msgID string) error {
 	if !valid[resp.StatusCode] {
 		body, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
-			log.Printf("Failed to read response from send event request due to: %v\n", err)
-
-			return err
+			return fmt.Errorf("failed to read response from send event request due to: %w", err)
 		}
 
 		return fmt.Errorf("failed to submit test event due to: %s status code: %v", body, resp.StatusCode)
