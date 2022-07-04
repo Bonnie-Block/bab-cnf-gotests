@@ -143,12 +143,12 @@ var (
 
 // metrics fields
 type Metrics struct {
-	CneAmqpConnectionReset                int                     `json:"cne_amqp_connection_reset"`
-	CneAmqpEventsPublished                []MetricAddr            `json:"cne_amqp_events_published"`
-	CneAmqpReceiver                       []MetricAddr            `json:"cne_amqp_receiver"`
-	CneAmqpSender                         MetricAddr              `json:"cne_amqp_sender"`
-	CneApiEventsPublished                 MetricAddr              `json:"cne_api_events_published"`
-	CneApiPublishers                      metricDetails           `json:"cne_api_publishers"`
+	CneAMQPConnectionReset                int                     `json:"cne_amqp_connection_reset"`
+	CneAMQPEventsPublished                []MetricAddr            `json:"cne_amqp_events_published"`
+	CneAMQPReceiver                       []MetricAddr            `json:"cne_amqp_receiver"`
+	CneAMQPSender                         MetricAddr              `json:"cne_amqp_sender"`
+	CneAPIEventsPublished                 MetricAddr              `json:"cne_api_events_published"`
+	CneAPIPublishers                      metricDetails           `json:"cne_api_publishers"`
 	CneEventsAck                          cneEventsAck            `json:"cne_events_ack"`
 	OpenshiftPtpClockClass                ClockClass              `json:"openshift_ptp_clock_class"`
 	OpenshiftPtpClockState                ClockState              `json:"openshift_ptp_clock_state"`
@@ -159,8 +159,8 @@ type Metrics struct {
 	OpenshiftPtpOffsetNs                  struct5                 `json:"openshift_ptp_offset_ns"`
 	OpenshiftPtpProcessRestartCount       ProcessRestartCount     `json:"openshift_ptp_process_restart_count"`
 	OpenshiftPtpProcessStatus             ProcessStatus           `json:"openshift_ptp_process_status"`
-	PromHttpMetricHandlerRequestsInFlight int                     `json:"prom_http_metric_handler_requests_in_flight"`
-	PromHttpMetricHandlerRequestsTotal    promHttpHandlerRequests `json:"prom_http_metric_handler_requests_total"`
+	PromHTTPMetricHandlerRequestsInFlight int                     `json:"prom_http_metric_handler_requests_in_flight"`
+	PromHTTPMetricHandlerRequestsTotal    promHTTPHandlerRequests `json:"prom_http_metric_handler_requests_total"`
 }
 
 // cne_amqp_connection_reset int
@@ -245,7 +245,7 @@ type ProcessStatus struct {
 // prom_http_metric_handler_requests_in_flight int
 
 // prom_http_metric_handler_requests_total
-type promHttpHandlerRequests struct {
+type promHTTPHandlerRequests struct {
 	Code  int `json:"code"`
 	Value int `json:"value"`
 <<<<<<< HEAD
