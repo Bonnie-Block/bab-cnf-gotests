@@ -96,8 +96,7 @@ var _ = Describe("BFD", func() {
 
 		metallbutils.Delete(metallb)
 
-		err = nethelper.DeleteNADs([]string{netmlbparameters.ExternalNADName},
-			netmlbparameters.TestNamespace)
+		err = nethelper.DeleteNADs(netmlbparameters.TestNamespace, netmlbparameters.ExternalNADName)
 		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Failed to delete NADs.: %s", err))
 	})
 
@@ -240,8 +239,7 @@ var _ = Describe("BFD", func() {
 			err = netmetallbhelper.DeleteAllBGPAdvertisements()
 			Expect(err).ToNot(HaveOccurred())
 
-			err = nethelper.DeleteNADs([]string{netmlbparameters.InternalNADName},
-				netmlbparameters.TestNamespace)
+			err = nethelper.DeleteNADs(netmlbparameters.TestNamespace, netmlbparameters.InternalNADName)
 			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Failed to delete NADs.: %s", err))
 
 			err = namespaces.CleanPods(netmlbparameters.TestNamespace, helper.Apiclient)

@@ -138,12 +138,32 @@ func DescribeSRIOVParameters(mtu int, protocol string, connectivity string, bond
 	return string(myPrams)
 }
 
+// DescribeActiveActiveBondParameters validates given parameters and returns json formatted string.
+func DescribeActiveActiveBondParameters(mtu int, protocol, bondMode string, bond bool) string {
+	connectivityParameters, err := netsriovparameters.NewBondActiveActive(mtu,
+		bondMode, protocol)
+	if err != nil {
+		log.Print(err)
+
+		return fmt.Sprintf("error in parameters: MTU=%d, BondMode=%s, Protocol=%s", mtu, bondMode, protocol)
+	}
+
+	myPrams, err := json.Marshal(connectivityParameters)
+	if err != nil {
+		log.Print(err)
+
+		return fmt.Sprintf("error in parameters: MTU=%d, BondMode=%s, Protocol=%s", mtu, bondMode, protocol)
+	}
+
+	return string(myPrams)
+}
+
 func BuildTableEntries(
 	sriovSmokeTestMode bool,
 	describe interface{},
 	bond bool,
 	mtuParameters []int,
-	connectivityParameters []string,
+	optionParameters []string,
 	protocolParameters []string) []TableEntry {
 	var tableEntries []TableEntry
 
@@ -151,18 +171,18 @@ func BuildTableEntries(
 		var (
 			protocolIndex            int
 			mtuIndex                 int
-			connectivityIndex        int
+			optionIndex              int
 			lenghtOfParametersArrays = []int{
 				len(mtuParameters),
-				len(connectivityParameters),
+				len(optionParameters),
 				len(protocolParameters),
 			}
 			max = lenghtOfParametersArrays[0]
 		)
 
-		for _, listLeght := range lenghtOfParametersArrays {
-			if listLeght > max {
-				max = listLeght
+		for _, listLenght := range lenghtOfParametersArrays {
+			if listLenght > max {
+				max = listLenght
 			}
 		}
 
@@ -175,8 +195,8 @@ func BuildTableEntries(
 				mtuIndex = 0
 			}
 
-			if connectivityIndex >= len(connectivityParameters) {
-				connectivityIndex = 0
+			if optionIndex >= len(optionParameters) {
+				optionIndex = 0
 			}
 			tableEntries = append(
 				tableEntries,
@@ -184,21 +204,21 @@ func BuildTableEntries(
 					describe,
 					mtuParameters[mtuIndex],
 					protocolParameters[protocolIndex],
-					connectivityParameters[connectivityIndex],
+					optionParameters[optionIndex],
 					bond,
 				),
 			)
 			mtuIndex++
-			connectivityIndex++
+			optionIndex++
 			protocolIndex++
 		}
 	} else {
 		for _, protocol := range protocolParameters {
 			for _, mtu := range mtuParameters {
-				for _, connectivity := range connectivityParameters {
+				for _, option := range optionParameters {
 					tableEntries = append(
 						tableEntries,
-						Entry(describe, mtu, protocol, connectivity, bond))
+						Entry(describe, mtu, protocol, option, bond))
 				}
 			}
 		}

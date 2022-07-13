@@ -12,7 +12,8 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/nethelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/sriov/netsriovhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/sriov/netsriovparameters"
-	generalParameters "gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/switchcmd"
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/cluster"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
@@ -25,6 +26,7 @@ import (
 
 var _ = Describe("CNF SRIOV: Bond CNI.", func() {
 	describe := netsriovhelper.DescribeSRIOVParameters
+	describeActiveActive := netsriovhelper.DescribeActiveActiveBondParameters
 	var (
 		sriovInfos *cluster.EnabledNodes
 		err        error
@@ -36,7 +38,7 @@ var _ = Describe("CNF SRIOV: Bond CNI.", func() {
 		By("Discover SRIOV interfaces")
 		sriovInfos, err = cluster.DiscoverSriov(
 			Apiclient,
-			generalParameters.SriovOperatorNamespace)
+			parameters.SriovOperatorNamespace)
 		if err != nil {
 			testFail = fmt.Sprintf("Error discover SRIOV node info: %s", err)
 			Expect(err).ToNot(HaveOccurred(), testFail)
@@ -64,9 +66,16 @@ var _ = Describe("CNF SRIOV: Bond CNI.", func() {
 		})
 
 		AfterEach(func() {
-			err := nethelper.DeleteNADs([]string{netsriovparameters.BondNadName},
-				netsriovparameters.OperatorTestNamespace)
+			err := nethelper.DeleteNADs(netsriovparameters.OperatorTestNamespace,
+				netsriovparameters.BondNadName)
 			Expect(err).ToNot(HaveOccurred())
+
+			if switchcmd.CountChanges > 0 {
+				switchCredentials, err := netsriovhelper.NewSwitchCredentials()
+				Expect(err).ToNot(HaveOccurred())
+				err = netsriovhelper.RollBackToOriginalConfig(switchCredentials)
+				Expect(err).ToNot(HaveOccurred())
+			}
 		})
 
 		DescribeTable(
@@ -74,9 +83,9 @@ var _ = Describe("CNF SRIOV: Bond CNI.", func() {
 			func(mtu int, protocol string, connectivity string, bond bool) {
 				netsriovhelper.TestBondScenario(
 					mtu,
+					sriovInfos,
 					protocol,
 					connectivity,
-					sriovInfos,
 					netsriovparameters.BondModeActiveBackup,
 					netsriovparameters.ServerPodIP,
 					netsriovparameters.ClientPodIP,
@@ -101,6 +110,33 @@ var _ = Describe("CNF SRIOV: Bond CNI.", func() {
 				},
 			),
 		)
+
+		DescribeTable("Active-Active Bond modes", func(mtu int, protocol string, bondMode string, bond bool) {
+			netsriovhelper.TestActiveActiveBondScenario(
+				mtu,
+				sriovInfos,
+				protocol,
+				bondMode,
+				netsriovparameters.ServerPodIP,
+				netsriovparameters.ClientPodIP)
+		}, netsriovhelper.BuildTableEntries(
+			sriovSmokeTestMode,
+			describeActiveActive,
+			true,
+			[]int{
+				netsriovparameters.MTUCustom,
+				netsriovparameters.MTUJumbo,
+				netsriovparameters.MTUStandard,
+			},
+			[]string{
+				netsriovparameters.BondModeRR,
+				netsriovparameters.BondModeXOR,
+			},
+			[]string{
+				netsriovparameters.CommunicationProtocolUnicastICMP,
+				netsriovparameters.CommunicationProtocolUnicastTCP,
+			},
+		))
 	})
 
 	Context("Scale: Bond with 16 VFs", func() {
@@ -169,7 +205,7 @@ var _ = Describe("CNF SRIOV: Bond CNI.", func() {
 				netsriovparameters.ClientPodIP,
 				"",
 				Config.Network.TestContainerImage,
-				generalParameters.SleepCommand,
+				parameters.SleepCommand,
 				netsriovparameters.IpamStatic,
 				netsriovparameters.TestBondInterfaceName)
 
@@ -190,7 +226,7 @@ var _ = Describe("CNF SRIOV: Bond CNI.", func() {
 			netsriovhelper.WaitUntilPodInStatus(
 				clientPod,
 				"Client",
-				generalParameters.SleepCommand,
+				parameters.SleepCommand,
 				corev1.PodRunning,
 				netsriovparameters.PodWaitingTime)
 
@@ -213,8 +249,7 @@ var _ = Describe("CNF SRIOV: Bond CNI.", func() {
 		})
 
 		AfterEach(func() {
-			err := nethelper.DeleteNADs([]string{netsriovparameters.BondNadName},
-				netsriovparameters.OperatorTestNamespace)
+			err := nethelper.DeleteNADs(netsriovparameters.OperatorTestNamespace, netsriovparameters.BondNadName)
 			Expect(err).ToNot(HaveOccurred())
 		})
 

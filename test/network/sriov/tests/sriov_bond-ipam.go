@@ -60,8 +60,8 @@ var _ = Describe("CNF SRIOV: Bond CNI.", func() {
 			}
 		})
 		AfterEach(func() {
-			err := nethelper.DeleteNADs([]string{netsriovparameters.BondNadName},
-				netsriovparameters.OperatorTestNamespace)
+			err := nethelper.DeleteNADs(netsriovparameters.OperatorTestNamespace,
+				netsriovparameters.BondNadName)
 			Expect(err).ToNot(HaveOccurred())
 		})
 
@@ -70,10 +70,10 @@ var _ = Describe("CNF SRIOV: Bond CNI.", func() {
 			func(mtu int, protocol string, connectivity string, bond bool) {
 				netsriovhelper.TestBondScenario(
 					mtu,
+					sriovInfos,
 					protocol,
 					connectivity,
-					sriovInfos,
-					netsriovparameters.BondTypeActiveBackup,
+					netsriovparameters.BondModeActiveBackup,
 					netsriovparameters.ServerPodIpv6,
 					netsriovparameters.ClientPodIPv6,
 					netsriovparameters.IpamWhereabouts)

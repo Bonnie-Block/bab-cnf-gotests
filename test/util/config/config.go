@@ -34,6 +34,10 @@ type Config struct {
 		SriovInterfaces      string `envconfig:"CNF_INTERFACES_LIST"`
 		MetalLBAddressPoolIP string `envconfig:"METALLB_ADDR_LIST"`
 		FrrImage             string `yaml:"frr_image" envconfig:"FRR_IMAGE"`
+		SwitchUser           string `envconfig:"SWITCH_USER"`
+		SwitchPass           string `envconfig:"SWITCH_PASS"`
+		SwitchIP             string `envconfig:"SWITCH_IP"`
+		SwitchInterfaces     string `envconfig:"SWITCH_INTERFACES"`
 	} `yaml:"network"`
 	Ran struct {
 		CnfTestImage              string `yaml:"cnf_test_image" envconfig:"CNF_TEST_IMAGE"`
@@ -186,6 +190,43 @@ func (c *Config) GetMetallbVirtIP() ([]string, error) {
 		if net.ParseIP(v) == nil {
 			return nil, fmt.Errorf("the environment IP variable is not a valid IP")
 		}
+	}
+
+	return envValue, nil
+}
+
+// GetSwitchUser checks the environmental variable SwitchUser and returns the value in string.
+func (c *Config) GetSwitchUser() (string, error) {
+	if c.Network.SwitchUser == "" {
+		return "", fmt.Errorf("the username for a switch is empty")
+	}
+
+	return c.Network.SwitchUser, nil
+}
+
+// GetSwitchIP checks the environmental variable SwitchIP and returns the value in string.
+func (c *Config) GetSwitchIP() (string, error) {
+	if net.ParseIP(c.Network.SwitchIP) == nil {
+		return "", fmt.Errorf("the environment switch IP variable is not a valid IP")
+	}
+
+	return c.Network.SwitchIP, nil
+}
+
+// GetSwitchPass checks the environmental variable SwitchPass and returns the value in string.
+func (c *Config) GetSwitchPass() (string, error) {
+	if c.Network.SwitchPass == "" {
+		return "", fmt.Errorf("the password for a switch is empty")
+	}
+
+	return c.Network.SwitchPass, nil
+}
+
+// GetSwitchInterfaces  checks the environmental variable and returns the value in []string.
+func (c *Config) GetSwitchInterfaces() ([]string, error) {
+	envValue := strings.Split(c.Network.SwitchInterfaces, ",")
+	if len(envValue) == 0 {
+		return nil, fmt.Errorf("the environment variable SWITCH_INTERFACES is empty")
 	}
 
 	return envValue, nil

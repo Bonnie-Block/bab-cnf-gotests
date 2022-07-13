@@ -61,8 +61,7 @@ const (
 	TestPort                                  = 50000
 	TestInterfaceName                         = "net1"
 	TestBondInterfaceName                     = "bond0"
-	BondNadName                               = "bond-net"
-	BondTypeActiveBackup                      = "active-backup"
+	BondNadName                               = "bond-net1"
 	IpamStatic                                = "static"
 	IpamWhereabouts                           = "whereabouts"
 	WhereaboutsRangeIPv6                      = "2001:1db8:85a3::0/126"
@@ -70,7 +69,11 @@ const (
 	MulticastIPv6Address                      = "FF05:0:0:0:0:0:0:18C"
 	MulticastIPAddress                        = "224.255.0.10"
 	BondModeActiveBackup                      = "active-backup"
+	BondModeRR                                = "balance-rr"
+	BondModeXOR                               = "balance-xor"
 	ScaleVFsNumber                            = 64
+	LAGInterface1                             = "ae0"
+	LAGInterface2                             = "ae1"
 )
 
 var (
@@ -91,6 +94,7 @@ var (
 	protocolParameters = []string{CommunicationProtocolUnicastICMP, CommunicationProtocolUnicastTCP,
 		CommunicationProtocolUnicastUDP, CommunicationProtocolMulticastUDP,
 		CommunicationProtocolBroadcastUDP, CommunicationProtocolUnicastSCTP}
+	bondModeParameters = []string{BondModeXOR, BondModeRR, BondModeActiveBackup}
 	// ReporterNamespacesToDump tells to reporter from where to collect logs.
 	ReporterNamespacesToDump = map[string]string{
 		"openshift-performance-addon-operator": "performance",
@@ -120,6 +124,13 @@ type ConnectivityTestParameters struct {
 	Protocol     string
 	MTU          int
 	Connectivity string
+}
+
+// BondActiveActive contains test parameters for connectivity.
+type BondActiveActive struct {
+	Protocol string
+	MTU      int
+	BondMode string
 }
 
 // NewConnectivityTestParameters creates new instance of ConnectivityTestParameters.
@@ -155,6 +166,34 @@ func NewConnectivityTestParameters(mtu int,
 	connectivityTestParameters.Protocol = protocol
 
 	return connectivityTestParameters, nil
+}
+
+// NewBondActiveActive creates new instance of BondActiveActive.
+func NewBondActiveActive(mtu int, bondMode, protocol string) (*BondActiveActive, error) {
+	connectivityActiveActiveBondTestParameters := new(BondActiveActive)
+
+	err := validateIntParam(mtu, mtuParameters)
+	if err != nil {
+		return nil, err
+	}
+
+	connectivityActiveActiveBondTestParameters.MTU = mtu
+
+	err = validateSrtParam(bondMode, bondModeParameters)
+	if err != nil {
+		return nil, err
+	}
+
+	connectivityActiveActiveBondTestParameters.BondMode = bondMode
+
+	err = validateSrtParam(protocol, protocolParameters)
+	if err != nil {
+		return nil, err
+	}
+
+	connectivityActiveActiveBondTestParameters.Protocol = protocol
+
+	return connectivityActiveActiveBondTestParameters, nil
 }
 
 func validateIntParam(intParam int, intParamRange []int) error {

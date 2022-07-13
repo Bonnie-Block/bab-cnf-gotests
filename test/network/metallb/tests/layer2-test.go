@@ -93,7 +93,7 @@ var _ = Describe("CNF MetalLB", func() {
 		Expect(err).ToNot(HaveOccurred())
 		err = netmetallbhelper.DeleteLabelFromWorkers(netmlbparameters.SpeakerNodeTestLabel)
 		Expect(err).ToNot(HaveOccurred())
-		err = nethelper.DeleteNADs([]string{netmlbparameters.ExternalNADName}, netmlbparameters.TestNamespace)
+		err = nethelper.DeleteNADs(netmlbparameters.TestNamespace, netmlbparameters.ExternalNADName)
 		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Failed to delete NADs.: %s", err))
 
 		By("Should remove Metallb Configuration")

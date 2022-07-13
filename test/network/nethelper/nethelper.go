@@ -286,7 +286,7 @@ func DefineDhcpServerPod(
 }
 
 // DeleteNADs removes all given Network Attachment Definition in given namespace.
-func DeleteNADs(nadNames []string, namespace string) error {
+func DeleteNADs(namespace string, nadNames ...string) error {
 	nad := &v1.NetworkAttachmentDefinition{}
 	for _, nadName := range nadNames {
 		err := helper.Apiclient.Get(context.Background(), goclient.ObjectKey{Namespace: namespace,

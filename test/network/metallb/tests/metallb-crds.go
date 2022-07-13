@@ -138,8 +138,7 @@ var _ = Describe("MetalLb New CRDs", func() {
 		err = netmetallbhelper.DeleteAllBFDProfiles()
 		Expect(err).ToNot(HaveOccurred(), "Failed to delete all BFDProfiles.")
 
-		err = nethelper.DeleteNADs([]string{netmlbparameters.ExternalNADName},
-			netmlbparameters.TestNamespace)
+		err = nethelper.DeleteNADs(netmlbparameters.TestNamespace, netmlbparameters.ExternalNADName)
 		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Failed to delete NAD %s.",
 			netmlbparameters.ExternalNADName))
 
@@ -317,8 +316,7 @@ var _ = Describe("MetalLb New CRDs", func() {
 			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error occurred while"+
 				" deleting IP address from the secondary interface %s.:%s", secInterfaces[0].Name, outputString))
 
-			err = nethelper.DeleteNADs([]string{netmlbparameters.InternalNADName},
-				netmlbparameters.TestNamespace)
+			err = nethelper.DeleteNADs(netmlbparameters.TestNamespace, netmlbparameters.InternalNADName)
 			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Failed to delete NAD %s.",
 				netmlbparameters.InternalNADName))
 

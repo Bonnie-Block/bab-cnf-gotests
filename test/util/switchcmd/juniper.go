@@ -1,0 +1,186 @@
+package switchcmd
+
+import (
+	"encoding/xml"
+	"errors"
+	"fmt"
+	"strings"
+
+	"github.com/Juniper/go-netconf/netconf"
+)
+
+const (
+	SetAction    = "set"
+	DeleteAction = "delete"
+)
+
+var (
+	rpcConfigStringSet = "<load-configuration action=\"set\"" +
+		" format=\"text\"><configuration-set>%s</configuration-set></load-configuration>"
+	rpcCommit         = "<commit-configuration/>"
+	rpcRollbackConfig = "<load-configuration rollback=\"%d\"/>"
+	rpcCommandJSON    = "<command format=\"json\">%s</command>"
+
+	CountChanges int
+)
+
+type (
+	Junos struct {
+		Session *netconf.Session
+	}
+
+	InterfaceStatus struct {
+		InterfaceInformation []struct {
+			PhysicalInterface []struct {
+				Name []struct {
+					Data string `json:"data"`
+				} `json:"name"`
+				AdminStatus []struct {
+					Data       string `json:"data"`
+					Attributes struct {
+						JunosFormat string `json:"junos:format"`
+					} `json:"attributes"`
+				} `json:"admin-status"`
+				OperStatus []struct {
+					Data string `json:"data"`
+				} `json:"oper-status"`
+				MTU []struct {
+					Data string `json:"data"`
+				} `json:"mtu"`
+				Speed []struct {
+					Data string `json:"data"`
+				} `json:"speed"`
+			} `json:"physical-interface"`
+		} `json:"interface-information"`
+	}
+
+	commitError struct {
+		Path    string `xml:"error-path"`
+		Element string `xml:"error-info>bad-element"`
+		Message string `xml:"error-message"`
+	}
+
+	commitResults struct {
+		XMLName xml.Name      `xml:"commit-results"`
+		Errors  []commitError `xml:"rpc-error"`
+	}
+)
+
+// NewSession establishes a new connection to a Junos device that we will use
+// to run our commands against.
+func NewSession(host, user, password string) (*Junos, error) {
+	session, err := netconf.DialSSH(host, netconf.SSHConfigPassword(user, password))
+	if err != nil {
+		return nil, err
+	}
+
+	return &Junos{
+		Session: session,
+	}, nil
+}
+
+// Close disconnects the session to the device.
+func (j *Junos) Close() {
+	j.Session.Transport.Close()
+}
+
+// Commit commits the configuration.
+func (j *Junos) Commit() error {
+	var errs commitResults
+
+	reply, err := j.Session.Exec(netconf.RawMethod(rpcCommit))
+	if err != nil {
+		return err
+	}
+
+	if reply.Errors != nil {
+		for _, m := range reply.Errors {
+			return errors.New(m.Message)
+		}
+	}
+
+	err = xml.Unmarshal([]byte(reply.Data), &errs)
+	if err != nil {
+		return err
+	}
+
+	if errs.Errors != nil {
+		for _, m := range errs.Errors {
+			message := fmt.Sprintf("[%s]\n    %s\nError: %s", strings.Trim(m.Path, "[\r\n]"),
+				strings.Trim(m.Element, "[\r\n]"), strings.Trim(m.Message, "[\r\n]"))
+
+			return errors.New(message)
+		}
+	}
+
+	return nil
+}
+
+// Config sends commands to a Juniper switch.
+func (j *Junos) Config(commands []string) error {
+	command := fmt.Sprintf(rpcConfigStringSet, strings.Join(commands, "\n"))
+
+	reply, err := j.Session.Exec(netconf.RawMethod(command))
+	if err != nil {
+		return err
+	}
+
+	err = j.Commit()
+	if err != nil {
+		return err
+	}
+	CountChanges++
+
+	if reply.Errors != nil {
+		for _, m := range reply.Errors {
+			return errors.New(m.Message)
+		}
+	}
+
+	return nil
+}
+
+// RunCommand executes any operational mode command, such as "show" or "request".
+func (j *Junos) RunCommand(cmd string) (string, error) {
+	command := fmt.Sprintf(rpcCommandJSON, cmd)
+
+	reply, err := j.Session.Exec(netconf.RawMethod(command))
+	if err != nil {
+		return "", err
+	}
+
+	if reply.Errors != nil {
+		for _, m := range reply.Errors {
+			return "", errors.New(m.Message)
+		}
+	}
+
+	if reply.Data == "" {
+		return "", errors.New("no output available, please check the syntax of your command")
+	}
+
+	return reply.Data, nil
+}
+
+// RollbackConfig loads and commits the configuration of a given rollback .
+func (j *Junos) RollbackConfig(count int) error {
+	command := fmt.Sprintf(rpcRollbackConfig, count)
+
+	reply, err := j.Session.Exec(netconf.RawMethod(command))
+	if err != nil {
+		return err
+	}
+
+	err = j.Commit()
+	if err != nil {
+		return err
+	}
+
+	if reply.Errors != nil {
+		for _, m := range reply.Errors {
+			return errors.New(m.Message)
+		}
+	}
+
+	return nil
+}

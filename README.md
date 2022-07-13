@@ -98,6 +98,12 @@ The list of available features:
 * `CNF_IMAGE_VERSION` - select the name of cnf-tests container image. 
 * `CONTAINER_REPO` - select the image registry
 
+##### SR-IOV active-active Bond mode tests environment variables:
+* `SWITCH_USER` - the switch username where the LAG will be created.
+* `SWITCH_PASS` - the switch password where the LAG will be created.
+* `SWITCH_IP` - the switch IP where the LAG will be created.
+* `SWITCH_INTERFACES` - the slave LAG interfaces on the switch
+
 ##### CPU suite environment variables:
 * `RAN_WORKLOAD_DURATION` - duration for RAN CPU workload test. e.g., 10m, 12h
 
