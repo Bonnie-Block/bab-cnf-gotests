@@ -5,6 +5,9 @@ github.com/Azure/go-ansiterm/winterm
 # github.com/BurntSushi/toml v0.3.1
 ## explicit
 github.com/BurntSushi/toml
+# github.com/Juniper/go-netconf v0.1.1
+## explicit
+github.com/Juniper/go-netconf/netconf
 # github.com/Masterminds/goutils v1.1.1
 ## explicit
 github.com/Masterminds/goutils
@@ -828,6 +831,9 @@ github.com/xeipuuv/gojsonreference
 # github.com/xeipuuv/gojsonschema v1.2.0
 ## explicit
 github.com/xeipuuv/gojsonschema
+# github.com/ziutek/telnet v0.0.0-20180329124119-c3b780dc415b
+## explicit
+github.com/ziutek/telnet
 # go.etcd.io/bbolt v1.3.6
 ## explicit; go 1.12
 go.etcd.io/bbolt
