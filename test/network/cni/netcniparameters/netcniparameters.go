@@ -12,7 +12,6 @@ import (
 )
 
 const (
-<<<<<<< HEAD
 	TestNamespace             = "cni-tests"
 	PodWaitingTime            = 2 * time.Minute
 	WaitingTime               = 20 * time.Minute
@@ -20,15 +19,6 @@ const (
 	AnnotationNetStat         = "k8s.v1.cni.cncf.io/network-status"
 	MultusFirstInterfaceName  = "net1"
 	MultusSecondInterfaceName = "net2"
-=======
-	TestNamespace            = "cni-cni-test"
-	PodWaitingTime           = 2 * time.Minute
-	WaitingTime              = 20 * time.Minute
-	RetryInterval            = 5 * time.Second
-	AnnotationNetStat        = "k8s.v1.cni.cncf.io/network-status"
-	SriovPolicyName          = "test-sriov-policy-cni"
-	MultusFirstInterfaceName = "net1"
->>>>>>> 6db12c57 (Add PTP events for boundary clock)
 )
 
 var (

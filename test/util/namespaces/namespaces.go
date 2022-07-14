@@ -172,11 +172,7 @@ func Clean(operatorNamespace, namespace string, clientSet *testclient.ClientSet,
 		return err
 	}
 
-<<<<<<< HEAD
 	err = CleanNetworkAttachmentDefinitions(namespace, clientSet)
-=======
-	err = CleanNetworkAttachmentDefinitionInNamespace(namespace, clientSet)
->>>>>>> 6db12c57 (Add PTP events for boundary clock)
 
 	return err
 }
@@ -213,13 +209,8 @@ func CleanEventsInNamespace(namespace string, clientSet *testclient.ClientSet) e
 	return err
 }
 
-<<<<<<< HEAD
 // CleanNetworkAttachmentDefinitions removes all network-attachment-definition from the given namespace.
 func CleanNetworkAttachmentDefinitions(namespace string, clientSet *testclient.ClientSet) error {
-=======
-// CleanNetworkAttachmentDefinitionInNamespace removes all network-attachment-definition from the given namespace.
-func CleanNetworkAttachmentDefinitionInNamespace(namespace string, clientSet *testclient.ClientSet) error {
->>>>>>> 6db12c57 (Add PTP events for boundary clock)
 	nsExist := Exists(namespace, clientSet)
 
 	if !nsExist {

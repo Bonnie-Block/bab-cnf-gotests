@@ -7,7 +7,6 @@ import (
 	multus "gopkg.in/k8snetworkplumbingwg/multus-cni.v3/pkg/types"
 )
 
-<<<<<<< HEAD
 type (
 	NetworkAnnotation struct {
 		Networks *[]multus.NetworkSelectionElement
@@ -34,10 +33,6 @@ func (netAnnotation *NetworkAnnotation) ConvertNetworksAnnotationToJSONString() 
 	}
 
 	return string(mapJSONString), nil
-=======
-type NetworkAnnotation struct {
-	Networks *[]multus.NetworkSelectionElement
->>>>>>> 6db12c57 (Add PTP events for boundary clock)
 }
 
 // ConvertNetworksAnnotationToMap converts array of network struct in to map object.
@@ -53,7 +48,6 @@ func (netAnnotation *NetworkAnnotation) ConvertNetworksAnnotationToMap() (map[st
 
 	return mapAnnotation, nil
 }
-<<<<<<< HEAD
 
 // NewPodNetBuilder creates new instance of NetworkPodDefinitionBuilder.
 func NewPodNetBuilder() *NetworkPodDefinitionBuilder {
@@ -98,5 +92,3 @@ func DefinePodNetStaticMacIP(name, macAddress, ipAddr string) *multus.NetworkSel
 
 	return netConfig
 }
-=======
->>>>>>> 6db12c57 (Add PTP events for boundary clock)

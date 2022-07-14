@@ -561,11 +561,7 @@ func CreateFRRContainerOnMaster(
 	}
 
 	err := helper.Apiclient.Create(context.Background(),
-<<<<<<< HEAD
 		DefineMacVlanNAD(nadName,
-=======
-		DefineMacVlanNAD(netmlbparameters.ExternalNADName,
->>>>>>> 6db12c57 (Add PTP events for boundary clock)
 			netmlbparameters.BREXInterface))
 	Expect(err).ToNot(HaveOccurred())
 
