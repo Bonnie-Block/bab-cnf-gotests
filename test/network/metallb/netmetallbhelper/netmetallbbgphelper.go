@@ -262,6 +262,10 @@ func CheckBGPRoutes(
 		ips := make([]net.IP, 0)
 		ips = append(ips, ipRoutes.NextHops...)
 
+		if len(ips) < 2 {
+			return fmt.Errorf("BGP Neighbors is less than 2: %v", ips)
+		}
+
 		sort.Slice(ips, func(i, j int) bool {
 			return (bytes.Compare(ips[i], ips[j]) < 0)
 		})
