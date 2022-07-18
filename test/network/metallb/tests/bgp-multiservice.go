@@ -23,7 +23,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var _ = Describe("CNF MetalLB", func() {
+var _ = Describe("MetalLB BGP", func() {
 
 	var (
 		nodeListString    []string
@@ -74,7 +74,7 @@ var _ = Describe("CNF MetalLB", func() {
 	})
 
 	// 47182
-	It("MetalLB BGP Multi-Service Validation", func() {
+	It("Multi-Service Validation", func() {
 		By("should create an IPAddressPool and BGPAdvertisement for service 1")
 		ipAddressPool := netmetallbhelper.DefineMetalLBIPAddressPool(netmlbparameters.AddressPoolS1,
 			netparameters.IPV4Family,

@@ -273,9 +273,10 @@ type (
 	}
 
 	MetallbPoolTestParameters struct {
-		TrafficPolicy string
+		TrafficPolicy string `json:"TrafficPolicy,omitempty"`
 		IPStack       string
-		BGPASN        int
+		BGPASN        int   `json:"BGPASN,omitempty"`
+		PrefixLenght  int32 `json:"PrefixLenght,omitempty"`
 	}
 
 	MetallbBFDTestParameters struct {
@@ -380,4 +381,31 @@ func NewMetallbCRDTestParameters(externalTrafficPolicy k8sv1.ServiceExternalTraf
 	CRDTestParameters.TrafficPolicy = externalTrafficPolicy
 
 	return CRDTestParameters, nil
+}
+
+// NewMetallbTestParamIPStack constructor for Metallb TestParameters.
+func NewMetallbTestParamIPStack(ipStack string) (*MetallbPoolTestParameters, error) {
+	BGPTestParameters := new(MetallbPoolTestParameters)
+	err := nethelper.StrParamInListOfParams(ipStack, IPStackParameters)
+
+	if err != nil {
+		return nil, err
+	}
+
+	BGPTestParameters.IPStack = ipStack
+
+	return BGPTestParameters, nil
+}
+
+// NewMetallbTestParamIPStackPrefix constructor for Metallb TestParameters.
+func NewMetallbTestParamIPStackPrefix(ipStack string, prefixLenght int32) (*MetallbPoolTestParameters, error) {
+	BGPTestParameters, err := NewMetallbTestParamIPStack(ipStack)
+
+	if err != nil {
+		return nil, err
+	}
+
+	BGPTestParameters.PrefixLenght = prefixLenght
+
+	return BGPTestParameters, nil
 }

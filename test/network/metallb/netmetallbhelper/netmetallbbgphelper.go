@@ -408,6 +408,30 @@ func CreateMetallbParametersInJSON(ipStack string, bgpASN int, trafficPolicy str
 	return string(params)
 }
 
+// CreateParamIPStackInJSON validates given parameters and returns json formatted string.
+func CreateParamIPStackInJSON(ipStack string) string {
+	metallbParameters, err := netmlbparameters.NewMetallbTestParamIPStack(ipStack)
+	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("error in parameters: ipStack=%s", ipStack))
+
+	params, err := json.Marshal(metallbParameters)
+	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("error in parameters: ipStack=%s", ipStack))
+
+	return string(params)
+}
+
+// CreateParamIPStackPrefixInJSON validates given parameters and returns json formatted string.
+func CreateParamIPStackPrefixInJSON(ipStack string, prefixLenght int32) string {
+	metallbParameters, err := netmlbparameters.NewMetallbTestParamIPStackPrefix(ipStack, prefixLenght)
+	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("error in parameters: ipStack=%s, prefixLenght=%d",
+		ipStack, prefixLenght))
+
+	params, err := json.Marshal(metallbParameters)
+	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("error in parameters: ipStack=%s, prefixLenght=%d",
+		ipStack, prefixLenght))
+
+	return string(params)
+}
+
 // ValidateRouteCommunity returns informations about routes in the given executor related to the given community.
 func ValidateRouteCommunity(frrPod *k8sv1.Pod, community string, ipFamily string) error {
 	res, err := pod.ExecCommand(helper.Apiclient, *frrPod, append(netmlbparameters.VtyshFRRCmdPrefix,

@@ -18,7 +18,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 )
 
-var _ = Describe("CNF MetalLB BGP", func() {
+var _ = Describe("MetalLB BGP", func() {
 
 	var (
 		workerNodeList []k8sv1.Node

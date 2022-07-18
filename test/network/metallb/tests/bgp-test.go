@@ -34,6 +34,9 @@ var _ = Describe("MetalLB BGP", func() {
 		err               error
 	)
 
+	describeIPStack := netmetallbhelper.CreateParamIPStackInJSON
+	describeIPStackPrefix := netmetallbhelper.CreateParamIPStackPrefixInJSON
+
 	execute.BeforeAll(func() {
 		var ipV6Address string
 
@@ -91,10 +94,10 @@ var _ = Describe("MetalLB BGP", func() {
 					masterNodeList,
 					prefixLen)
 			},
-			Entry("IPv4 with Prefix 32", netparameters.IPV4Family, netmlbparameters.PrefixLen32),
-			Entry("IPv4 with Prefix 28", netparameters.IPV4Family, netmlbparameters.PrefixLen28),
-			Entry("IPv6 with Prefix 128", netparameters.IPV6Family, netmlbparameters.PrefixLen128),
-			Entry("IPv6 with Prefix 64", netparameters.IPV6Family, netmlbparameters.PrefixLen64),
+			Entry(describeIPStackPrefix, netparameters.IPV4Family, netmlbparameters.PrefixLen32),
+			Entry(describeIPStackPrefix, netparameters.IPV4Family, netmlbparameters.PrefixLen28),
+			Entry(describeIPStackPrefix, netparameters.IPV6Family, netmlbparameters.PrefixLen128),
+			Entry(describeIPStackPrefix, netparameters.IPV6Family, netmlbparameters.PrefixLen64),
 		)
 
 		// 47203
@@ -107,14 +110,14 @@ var _ = Describe("MetalLB BGP", func() {
 					masterNodeList,
 					workerNodeList)
 			},
-			Entry("IPv4 propagate route", netparameters.IPV4Family),
-			Entry("IPv6 propagate route", netparameters.IPV6Family),
+			Entry(describeIPStack, netparameters.IPV4Family),
+			Entry(describeIPStack, netparameters.IPV6Family),
 		)
 	})
 
 	Context("updates", func() {
-		// 	47174
-		DescribeTable("Functional Verify bgp-advertisement updates",
+		// 	47178
+		DescribeTable("Verify bgp-advertisement updates",
 			func(ipStack string, prefixLen int32) {
 				netmetallbhelper.TestBGPAdvertismentTableUpdates(
 					masterNodeList,
@@ -124,10 +127,10 @@ var _ = Describe("MetalLB BGP", func() {
 					ipStack,
 					prefixLen)
 			},
-			Entry("IPv4 update Prefix to 28", netparameters.IPV4Family, netmlbparameters.PrefixLen32),
-			Entry("IPv6 update Prefix to 64", netparameters.IPV6Family, netmlbparameters.PrefixLen128),
+			Entry(describeIPStackPrefix, netparameters.IPV4Family, netmlbparameters.PrefixLen32),
+			Entry(describeIPStackPrefix, netparameters.IPV6Family, netmlbparameters.PrefixLen128),
 		)
-		// 47202
+		// 47180
 		It("BGP Timer update", func() {
 
 			By("should create external FRR container")
