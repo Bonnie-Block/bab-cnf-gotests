@@ -11,7 +11,7 @@ import (
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhwevent/ranhweventhelper"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/stmcginnis/gofish/redfish"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
@@ -26,8 +26,8 @@ import (
 )
 
 const (
-	Ok   = "OK"
-	fail = "FAIL"
+	statusOk   = "OK"
+	statusFail = "FAIL"
 )
 
 var _ = Describe("HW event proxy", func() {
@@ -103,7 +103,7 @@ func VerifyEvents(consumersList *corev1.PodList, testEvents []string, consumerOu
 			return fmt.Errorf("timeout reached waiting for consumer events")
 
 		case verificationMsg = <-consumerOutChannel:
-			if verificationMsg[len(verificationMsg)-2:] == Ok {
+			if verificationMsg[len(verificationMsg)-2:] == statusOk {
 				verified := strings.Split(verificationMsg, "/")
 				results[verified[0]] = append(results[verified[0]], verified[1])
 			} else {
@@ -218,7 +218,7 @@ func processEvents(
 	events, err := ranhweventhelper.GetMsgID(eventJSON)
 	if err != nil {
 		verificationReportChannel <- fmt.Sprintf("%v/%v/%v",
-			consumerPod.Name, expectedEvent, fail)
+			consumerPod.Name, expectedEvent, statusFail)
 	} else {
 
 		for _, event := range events {
@@ -232,7 +232,7 @@ func processEvents(
 						"expected msgId: %v got: %v at event timestamp: %v\n",
 						consumerPod.Name, expectedEvent, event.MessageID, event.EventTimestamp)
 					verificationReportChannel <- fmt.Sprintf("%v/%v/%v",
-						consumerPod.Name, expectedEvent, fail)
+						consumerPod.Name, expectedEvent, statusFail)
 				} else {
 					if ranhweventparameters.DebugTest {
 						log.Printf("Consumer: %v received event: %v\n",
@@ -240,7 +240,7 @@ func processEvents(
 							event.MessageID)
 					}
 					verificationReportChannel <- fmt.Sprintf("%v/%v/%v",
-						consumerPod.Name, expectedEvent, Ok)
+						consumerPod.Name, expectedEvent, statusOk)
 				}
 			}
 		}
@@ -337,7 +337,7 @@ func PowerSupplyTest(consumersList *corev1.PodList, localNodeVendor string) erro
 			consumerInChannels,
 			consumerOutChannel,
 			endConsumerCheckers,
-			ranhweventhelper.On)
+			ranhweventhelper.ModeOn)
 
 		if err != nil {
 			endConsumerCheckers()
@@ -354,7 +354,7 @@ func PowerSupplyTest(consumersList *corev1.PodList, localNodeVendor string) erro
 		consumerInChannels,
 		consumerOutChannel,
 		endConsumerCheckers,
-		ranhweventhelper.Off)
+		ranhweventhelper.ModeOff)
 	if err != nil {
 		endConsumerCheckers()
 		ranhweventhelper.Close()
@@ -367,7 +367,7 @@ func PowerSupplyTest(consumersList *corev1.PodList, localNodeVendor string) erro
 		consumerInChannels,
 		consumerOutChannel,
 		endConsumerCheckers,
-		ranhweventhelper.On)
+		ranhweventhelper.ModeOn)
 
 	if err != nil {
 		endConsumerCheckers()

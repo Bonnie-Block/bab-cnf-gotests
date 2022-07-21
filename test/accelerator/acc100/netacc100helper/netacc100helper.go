@@ -42,7 +42,7 @@ func GetSriovFecAcc100ClusterConfigDefinition(
 		err                error
 		sriovFecNodeConfig *fecv2.SriovFecNodeConfig
 		accelerator        *fecv2.SriovAccelerator
-		vf                 = 2
+		vfNumber           = 2
 	)
 
 	Eventually(func() error {
@@ -69,7 +69,7 @@ func GetSriovFecAcc100ClusterConfigDefinition(
 			},
 			PhysicalFunction: fecv2.PhysicalFunctionConfig{
 				PFDriver: "pci-pf-stub",
-				VFAmount: vf,
+				VFAmount: vfNumber,
 				VFDriver: "vfio-pci",
 				BBDevConfig: fecv2.BBDevConfig{
 					ACC100: &fecv2.ACC100BBDevConfig{
@@ -79,7 +79,7 @@ func GetSriovFecAcc100ClusterConfigDefinition(
 						Uplink5G:     queueGroupConfig,
 						PFMode:       false,
 						MaxQueueSize: 1024,
-						NumVfBundles: vf,
+						NumVfBundles: vfNumber,
 					},
 				},
 			},

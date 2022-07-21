@@ -10,8 +10,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/onsi/ginkgo/config"
-	"github.com/onsi/ginkgo/types"
+	"github.com/onsi/ginkgo/v2/config"
+	"github.com/onsi/ginkgo/v2/types"
 
 	"github.com/kennygrant/sanitize"
 	testclient "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
@@ -118,12 +118,14 @@ func (r *KubernetesReporter) SpecDidComplete(specSummary *types.SpecSummary) {
 // Dump dumps the relevant crs + pod logs.
 func (r *KubernetesReporter) Dump(duration time.Duration, dirName string) {
 	since := time.Now().Add(-duration).Add(-5 * time.Second)
-	err := os.Mkdir(path.Join(r.reportPath, dirName), 0755)
 
-	if err != nil {
-		_, _ = fmt.Fprintf(os.Stderr, "failed to create test dir: %v\n", err)
+	if _, err := os.Stat(path.Join(r.reportPath, dirName)); os.IsNotExist(err) {
+		err := os.MkdirAll(path.Join(r.reportPath, dirName), 0755)
+		if err != nil {
+			_, _ = fmt.Fprintf(os.Stderr, "failed to create test dir: %v\n", err)
 
-		return
+			return
+		}
 	}
 
 	r.logNodes(dirName)

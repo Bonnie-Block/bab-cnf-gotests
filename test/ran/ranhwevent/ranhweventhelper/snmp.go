@@ -11,8 +11,8 @@ import (
 )
 
 const (
-	On  int = 1
-	Off int = 2
+	ModeOn  int = 1
+	ModeOff int = 2
 )
 
 var (
@@ -60,7 +60,7 @@ func GetSocket() (bool, error) {
 		return false, err
 	}
 
-	return result.Variables[0].Value == On, nil
+	return result.Variables[0].Value == ModeOn, nil
 }
 
 // SetSocket returns true if socket is on or error if exist.
@@ -79,5 +79,5 @@ func SetSocket(value int) (bool, error) {
 		return false, err
 	}
 
-	return setResult.Variables[0].Value == On, nil
+	return setResult.Variables[0].Value == ModeOn, nil
 }

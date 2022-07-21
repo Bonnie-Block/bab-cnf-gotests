@@ -251,5 +251,5 @@ Reason: You installed ginkgo version 2+, and this repository supports only versi
 Fix: go install github.com/onsi/ginkgo/ginkgo@v1.16.5
 
 ### Error using k8s.io during development of new tests
-Reason: Go version is below 1.17, and the k8s.io dependencies need go 1.17+
+Reason: Go version is below 1.18, and the k8s.io dependencies need go 1.18+
 Fix: Download latest go https://go.dev/dl/ and open it in your home dir and add path to it: export PATH=~/go/bin:$PATH to your ~/.bashrc file and source this file.

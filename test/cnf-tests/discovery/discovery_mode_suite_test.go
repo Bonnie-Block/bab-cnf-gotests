@@ -7,8 +7,7 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/reporters"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/cnf-tests/discovery/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/cnf-tests/discovery/parameters"
@@ -18,13 +17,14 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 )
 
+var _, currentFile, _, _ = runtime.Caller(0)
+
 func TestDiscovery(t *testing.T) {
-	_, currentFile, _, _ := runtime.Caller(0)
-	junitPath := Config.GetReportPath(currentFile)
+	_, reporterConfig := GinkgoConfiguration()
+	reporterConfig.JUnitReport = Config.GetReportPath(currentFile)
 
 	RegisterFailHandler(Fail)
-	rr := append([]Reporter{}, reporters.NewJUnitReporter(junitPath))
-	RunSpecsWithDefaultAndCustomReporters(t, "CNF containers discovery mode", rr)
+	RunSpecs(t, "CNF containers discovery mode", reporterConfig)
 }
 
 var _ = BeforeSuite(func() {

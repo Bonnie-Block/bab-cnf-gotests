@@ -5,8 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/ginkgo/extensions/table"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	. "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
@@ -100,7 +99,7 @@ var _ = Describe("CNF SRIOV: Bond CNI.", func() {
 					netsriovparameters.CommunicationProtocolUnicastICMP,
 					netsriovparameters.CommunicationProtocolUnicastTCP,
 				},
-			)...,
+			),
 		)
 	})
 

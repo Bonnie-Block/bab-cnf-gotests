@@ -1,46 +1,31 @@
 package bfd_test
 
 import (
-	"log"
 	"runtime"
 	"testing"
+
+	"github.com/onsi/ginkgo/v2/types"
 
 	. "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	_ "gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/bfd/tests"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 
-	"github.com/onsi/ginkgo/reporters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/bfd/netbfdparameters"
 	testutils "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/utils"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
+var _, currentFile, _, _ = runtime.Caller(0)
+
 func TestBfd(t *testing.T) {
-	_, currentFile, _, _ := runtime.Caller(0)
-	junitPath := Config.GetReportPath(currentFile)
-	dumpFile := Config.GetDumpFailedTestReportLocation(currentFile)
+	_, reporterConfig := GinkgoConfiguration()
+	reporterConfig.JUnitReport = Config.GetReportPath(currentFile)
 
 	RegisterFailHandler(Fail)
-
-	reporterList := append([]Reporter{}, reporters.NewJUnitReporter(junitPath))
-
-	if dumpFile != "" {
-		reporter, err := testutils.NewReporter(
-			dumpFile,
-			netbfdparameters.ReporterNamespacesToDump,
-			nil)
-
-		if err != nil {
-			log.Fatalf("Failed to create log reporter %s", err)
-		}
-
-		reporterList = append(reporterList, reporter)
-	}
-
-	RunSpecsWithDefaultAndCustomReporters(t, "BFD test", reporterList)
+	RunSpecs(t, "BFD test", reporterConfig)
 }
 
 var _ = BeforeSuite(func() {
@@ -56,4 +41,8 @@ var _ = BeforeSuite(func() {
 var _ = AfterSuite(func() {
 	err := namespaces.DeleteAndWait(Apiclient, netbfdparameters.TestNamespace, netbfdparameters.DeletionTimeout)
 	Expect(err).ToNot(HaveOccurred())
+})
+
+var _ = ReportAfterEach(func(report types.SpecReport) {
+	testutils.ReportIfFailed(report, currentFile, netbfdparameters.ReporterNamespacesToDump, nil)
 })

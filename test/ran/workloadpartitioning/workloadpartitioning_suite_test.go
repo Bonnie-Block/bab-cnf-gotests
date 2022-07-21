@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/onsi/ginkgo"
-	cfg "github.com/onsi/ginkgo/config"
-	"github.com/onsi/ginkgo/reporters"
+	"github.com/onsi/ginkgo/v2/types"
+
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
@@ -24,30 +24,18 @@ const (
 	timeout = 10 * time.Minute
 )
 
+var _, currentFile, _, _ = runtime.Caller(0)
+
 func TestWorkloadPartitioning(t *testing.T) {
-	_, currentFile, _, _ := runtime.Caller(0)
-	junitPath := helper.Config.GetReportPath(currentFile)
-	dumpFile := helper.Config.GetDumpFailedTestReportLocation(currentFile)
+	_, reporterConfig := GinkgoConfiguration()
+	reporterConfig.JUnitReport = helper.Config.GetReportPath(currentFile)
+	// Stop ginkgo complaining about slow tests
+	reporterConfig.SlowSpecThreshold = 1500.0
 
 	RegisterFailHandler(Fail)
-	reporterList := append([]Reporter{}, reporters.NewJUnitReporter(junitPath))
+	RunSpecs(t, "RAN Workload Partitioning tests", reporterConfig)
 
-	if dumpFile != "" {
-		reporter, err := testutils.NewReporter(
-			dumpFile,
-			ranwpparameters.ReporterNamespacesToDump,
-			ranwpparameters.ReporterCrds)
-		if err != nil {
-			log.Fatalf("Failed to create log reporter %s", err)
-		}
-		reporterList = append(reporterList, reporter)
-	}
-	// Stop ginkgo complaining about slow tests
-	cfg.DefaultReporterConfig.SlowSpecThreshold = 1500.0
-
-	RunSpecsWithDefaultAndCustomReporters(t, "RAN Workload Partitioning tests", reporterList)
-
-	cfg.DefaultReporterConfig.SlowSpecThreshold = 5.0
+	reporterConfig.SlowSpecThreshold = 5.0
 }
 
 var _ = BeforeSuite(func() {
@@ -61,4 +49,8 @@ var _ = AfterSuite(func() {
 		err := namespaces.DeleteAndWait(helper.Apiclient, ran.NamespaceTesting, timeout)
 		Expect(err).ToNot(HaveOccurred())
 	}
+})
+
+var _ = ReportAfterEach(func(report types.SpecReport) {
+	testutils.ReportIfFailed(report, currentFile, ranwpparameters.ReporterNamespacesToDump, ranwpparameters.ReporterCrds)
 })

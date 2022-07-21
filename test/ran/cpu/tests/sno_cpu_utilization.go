@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	performancev2 "github.com/openshift-kni/performance-addon-operators/api/v2"

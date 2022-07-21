@@ -2,13 +2,12 @@ package ranhwevent
 
 import (
 	"fmt"
-	"log"
 	"runtime"
 	"testing"
 
-	. "github.com/onsi/ginkgo"
-	cfg "github.com/onsi/ginkgo/config"
-	"github.com/onsi/ginkgo/reporters"
+	"github.com/onsi/ginkgo/v2/types"
+
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/stmcginnis/gofish/redfish"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhwevent/ranhweventhelper/consumers"
@@ -24,39 +23,25 @@ import (
 )
 
 var (
-	subscriptionURI rfclient.SubscriptionURI
-	eventService    *redfish.EventService
-	ConsumersList   *corev1.PodList
-	PrivilegedPods  map[string]*corev1.Pod
-	LocalNodeVendor string
-	err             error
+	_, currentFile, _, _ = runtime.Caller(0)
+	subscriptionURI      rfclient.SubscriptionURI
+	eventService         *redfish.EventService
+	ConsumersList        *corev1.PodList
+	PrivilegedPods       map[string]*corev1.Pod
+	LocalNodeVendor      string
+	err                  error
 )
 
 func TestHwEvent(t *testing.T) {
-	_, currentFile, _, _ := runtime.Caller(0)
+	_, reporterConfig := GinkgoConfiguration()
 
-	junitPath := helper.Config.GetReportPath(currentFile)
-	dumpFile := helper.Config.GetDumpFailedTestReportLocation(currentFile)
+	reporterConfig.JUnitReport = helper.Config.GetReportPath(currentFile)
 
 	RegisterFailHandler(Fail)
-	reporterList := append([]Reporter{}, reporters.NewJUnitReporter(junitPath))
 
-	if dumpFile != "" {
-		reporter, err := testutils.NewReporter(
-			dumpFile,
-			ranhweventparameters.ReporterNamespacesToDump,
-			ranhweventparameters.ReporterCrds)
-		if err != nil {
-			log.Fatalf("Failed to create log reporter %s", err)
-		}
-		reporterList = append(reporterList, reporter)
-	}
-	// Stop ginkgo complaining about slow tests
-	cfg.DefaultReporterConfig.SlowSpecThreshold = 1500.0
-
-	RunSpecsWithDefaultAndCustomReporters(t, "RAN hw event tests", reporterList)
-
-	cfg.DefaultReporterConfig.SlowSpecThreshold = 5.0
+	reporterConfig.SlowSpecThreshold = 1500.0
+	RunSpecs(t, "RAN hw event tests", reporterConfig)
+	reporterConfig.SlowSpecThreshold = 5.0
 }
 
 var _ = BeforeSuite(func() {
@@ -128,4 +113,9 @@ var _ = AfterSuite(func() {
 
 	By("End redfish session.")
 	ranhweventparameters.Redfish.Session.Logout()
+})
+
+var _ = ReportAfterEach(func(report types.SpecReport) {
+	testutils.ReportIfFailed(report, currentFile, ranhweventparameters.ReporterNamespacesToDump,
+		ranhweventparameters.ReporterCrds)
 })

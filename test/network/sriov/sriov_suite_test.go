@@ -1,15 +1,15 @@
 package sriov
 
 import (
-	"log"
 	"runtime"
 	"testing"
 	"time"
 
+	"github.com/onsi/ginkgo/v2/types"
+
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/sriov/netsriovhelper"
 
-	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/reporters"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	. "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
@@ -26,26 +26,14 @@ const (
 	timeout = 1800 * time.Second
 )
 
+var _, currentFile, _, _ = runtime.Caller(0)
+
 func TestSriov(t *testing.T) {
-	_, currentFile, _, _ := runtime.Caller(0)
-	junitPath := Config.GetReportPath(currentFile)
-	dumpFile := Config.GetDumpFailedTestReportLocation(currentFile)
+	_, reporterConfig := GinkgoConfiguration()
+	reporterConfig.JUnitReport = Config.GetReportPath(currentFile)
 
 	RegisterFailHandler(Fail)
-	reporterList := append([]Reporter{}, reporters.NewJUnitReporter(junitPath))
-
-	if dumpFile != "" {
-		reporter, err := testutils.NewReporter(
-			dumpFile,
-			netsriovparameters.ReporterNamespacesToDump,
-			netsriovparameters.ReporterCrds)
-		if err != nil {
-			log.Fatalf("Failed to create log reporter %s", err)
-		}
-		reporterList = append(reporterList, reporter)
-	}
-
-	RunSpecsWithDefaultAndCustomReporters(t, "SRIOV Operator conformance tests", reporterList)
+	RunSpecs(t, "SRIOV Operator conformance tests", reporterConfig)
 }
 
 var _ = BeforeSuite(func() {
@@ -87,4 +75,9 @@ var _ = AfterSuite(func() {
 	err = namespaces.DeleteAndWait(Apiclient, netsriovparameters.OperatorTestNamespace, timeout)
 	Expect(err).ToNot(HaveOccurred())
 	WaitForSRIOVStable(netsriovparameters.OperatorNamespace, timeout, snoTimeoutMultiplier)
+})
+
+var _ = ReportAfterEach(func(report types.SpecReport) {
+	testutils.ReportIfFailed(report, currentFile, netsriovparameters.ReporterNamespacesToDump,
+		netsriovparameters.ReporterCrds)
 })

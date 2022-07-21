@@ -13,7 +13,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// IsStatusUp checks if the status of all the BFD peers of a given pod is up.
+// IsBFDStatusUp checks if the status of all the BFD peers of a given pod is up.
 func IsBFDStatusUp(pod *k8sv1.Pod, peers []string) error {
 	if len(peers) == 0 {
 		return fmt.Errorf("invalid input, peers size is 0")

@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/onsi/ginkgo"
-	cfg "github.com/onsi/ginkgo/config"
-	"github.com/onsi/ginkgo/reporters"
+	"github.com/onsi/ginkgo/v2/types"
+
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
@@ -24,30 +24,16 @@ const (
 	timeout = 1800 * time.Second
 )
 
+var _, currentFile, _, _ = runtime.Caller(0)
+
 func TestCpu(t *testing.T) {
-	_, currentFile, _, _ := runtime.Caller(0)
-	junitPath := helper.Config.GetReportPath(currentFile)
-	dumpFile := helper.Config.GetDumpFailedTestReportLocation(currentFile)
+	_, reporterConfig := GinkgoConfiguration()
+	reporterConfig.JUnitReport = helper.Config.GetReportPath(currentFile)
+	reporterConfig.SlowSpecThreshold = 1200.0
 
 	RegisterFailHandler(Fail)
-	reporterList := append([]Reporter{}, reporters.NewJUnitReporter(junitPath))
-
-	if dumpFile != "" {
-		reporter, err := testutils.NewReporter(
-			dumpFile,
-			rancpuparameters.ReporterNamespacesToDump,
-			rancpuparameters.ReporterCrds)
-		if err != nil {
-			log.Fatalf("Failed to create log reporter %s", err)
-		}
-		reporterList = append(reporterList, reporter)
-	}
-	// Stop ginkgo complaining about slow tests
-	cfg.DefaultReporterConfig.SlowSpecThreshold = 1200.0
-
-	RunSpecsWithDefaultAndCustomReporters(t, "RAN CPU management tests", reporterList)
-
-	cfg.DefaultReporterConfig.SlowSpecThreshold = 5.0
+	RunSpecs(t, "RAN CPU management tests", reporterConfig)
+	reporterConfig.SlowSpecThreshold = 5.0
 }
 
 var _ = BeforeSuite(func() {
@@ -71,4 +57,8 @@ var _ = AfterSuite(func() {
 	log.Println("Deleting test namespace", ran.NamespaceTesting)
 	err := namespaces.DeleteAndWait(helper.Apiclient, ran.NamespaceTesting, timeout)
 	Expect(err).ToNot(HaveOccurred())
+})
+
+var _ = ReportAfterEach(func(report types.SpecReport) {
+	testutils.ReportIfFailed(report, currentFile, rancpuparameters.ReporterNamespacesToDump, rancpuparameters.ReporterCrds)
 })

@@ -1,3 +1,6 @@
+//go:build !codeanalysis
+// +build !codeanalysis
+
 package testcmd_test
 
 import (
@@ -19,8 +22,7 @@ import (
 	"github.com/containers/podman/v2/pkg/specgen"
 	"github.com/docker/docker/api/types"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/ginkgo/extensions/table"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
@@ -187,7 +189,7 @@ var _ = Describe("testcmd", func() {
 
 	DescribeTable("IPV4",
 		runTestExec,
-		createIPV4Entries(IPV4Protocols)...,
+		createIPV4Entries(IPV4Protocols),
 	)
 
 	IPV6Protocols := [][]string{
@@ -200,7 +202,7 @@ var _ = Describe("testcmd", func() {
 
 	DescribeTable("IPV6",
 		runTestExec,
-		createIPV6Entries(IPV6Protocols)...,
+		createIPV6Entries(IPV6Protocols),
 	)
 })
 

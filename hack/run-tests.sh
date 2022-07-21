@@ -25,7 +25,7 @@ function run_tests {
                   all_default_suites+=" $folder"
                 fi
             done
-            ginkgo -v --trace --keepGoing -requireSuite -r $all_default_suites
+            ginkgo -timeout=24h -v --trace --keep-going -require-suite -r $all_default_suites
             ;;
         features)
             if [ -z "$FEATURES" ]; then {
@@ -41,7 +41,7 @@ function run_tests {
                     } fi
                     done
                 done
-            ginkgo -v --trace --keepGoing -requireSuite $command
+            ginkgo -timeout=24h -v --trace --keep-going -require-suite $command
             ;;
         *)
         echo "Unknown case"

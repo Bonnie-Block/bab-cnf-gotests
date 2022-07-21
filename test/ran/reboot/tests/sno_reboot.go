@@ -8,7 +8,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/machineconfigpool"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	performancev2 "github.com/openshift-kni/performance-addon-operators/api/v2"
 	corev1 "k8s.io/api/core/v1"

@@ -2,15 +2,15 @@ package cni
 
 import (
 	"fmt"
-	"log"
 	"runtime"
 	"testing"
 	"time"
 
+	"github.com/onsi/ginkgo/v2/types"
+
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 
-	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/reporters"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/cni/netcniparameters"
@@ -26,26 +26,14 @@ const (
 	timeout                   = 1800 * time.Second
 )
 
+var _, currentFile, _, _ = runtime.Caller(0)
+
 func TestVrf(t *testing.T) {
-	_, currentFile, _, _ := runtime.Caller(0)
-	junitPath := helper.Config.GetReportPath(currentFile)
-	dumpFile := helper.Config.GetDumpFailedTestReportLocation(currentFile)
+	_, reporterConfig := GinkgoConfiguration()
+	reporterConfig.JUnitReport = helper.Config.GetReportPath(currentFile)
 
 	RegisterFailHandler(Fail)
-	reporterList := append([]Reporter{}, reporters.NewJUnitReporter(junitPath))
-
-	if dumpFile != "" {
-		reporter, err := testutils.NewReporter(
-			dumpFile,
-			netcniparameters.ReporterNamespacesToDump,
-			netcniparameters.ReporterCrds)
-		if err != nil {
-			log.Fatalf("Failed to create log reporter %s", err)
-		}
-		reporterList = append(reporterList, reporter)
-	}
-
-	RunSpecsWithDefaultAndCustomReporters(t, "CNI tests", reporterList)
+	RunSpecs(t, "CNI tests", reporterConfig)
 }
 
 var _ = BeforeSuite(func() {
@@ -73,4 +61,8 @@ var _ = AfterSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 	By("Waiting until SRIOV become stable")
 	helper.WaitForSRIOVStable(parameters.SriovOperatorNamespace, waitingTime, snoTimeoutMultiplier)
+})
+
+var _ = ReportAfterEach(func(report types.SpecReport) {
+	testutils.ReportIfFailed(report, currentFile, netcniparameters.ReporterNamespacesToDump, netcniparameters.ReporterCrds)
 })

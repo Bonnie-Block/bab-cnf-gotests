@@ -1,10 +1,12 @@
 run:
+  build-tags:
+    - codeanalysis
+  go: "1.18"
   timeout: 15m0s
   skip-dirs-use-default: true
   fast: false
   skip-files:
     - test/tools.go
-
 linters-settings:
   revive:
     rules:
@@ -22,13 +24,11 @@ linters-settings:
     statements: 85
   unused:
     check-exported: true
-    go: "1.15"
   stylecheck:
     dot-import-whitelist:
       - github.com/onsi/gomega
-      - github.com/onsi/ginkgo
+      - github.com/onsi/ginkgo/v2
     # Select the Go version to target. The default is '1.13'.
-    go: "1.15"
     # https://staticcheck.io/docs/options#checks
     checks: [ "all", "-ST1001"]
 
@@ -36,8 +36,6 @@ linters:
   enable:
     - asciicheck
     - bidichk
-    - bodyclose
-    - contextcheck
     - deadcode
     - depguard
     - durationcheck
@@ -62,35 +60,27 @@ linters:
     - gosimple
     - govet
     - ifshort
-    - importas
     - ineffassign
-    - interfacer
     - ireturn
     - lll
     - makezero
-    - maligned
     - misspell
     - nakedret
     - nilnil
-    - noctx
     - nolintlint
     - predeclared
     - promlinter
     - revive
-    - rowserrcheck
     - staticcheck
-    - structcheck
     - stylecheck
     - tenv
     - thelper
-    - tparallel
     - typecheck
     - unconvert
     - unparam
     - unused
     - varcheck
     - varnamelen
-    - wastedassign
     - wsl
     - nlreturn
 
@@ -104,6 +94,9 @@ issues:
     - EXC0002 # disable excluding of issues about comments from golint
   exclude-rules:
     # Exclude some linters from running on tests files.
+#    - path: cnf-gotests/test/testcmd_suite_test.go
+#      linters:
+#        - goanalysis_metalinter
     - path: test/parameters/init.go
       linters:
         - gochecknoinits

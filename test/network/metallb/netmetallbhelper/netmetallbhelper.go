@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	metallbv1beta1 "go.universe.tf/metallb/api/v1beta1"

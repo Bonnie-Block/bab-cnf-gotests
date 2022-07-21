@@ -52,26 +52,32 @@ type Config struct {
 
 // NewConfig returns instance Config type.
 func NewConfig() (*Config, error) {
-	var c Config
+	var conf Config
 
 	_, filename, _, _ := runtime.Caller(0)
 	baseDir := filepath.Dir(filepath.Dir(filepath.Join(filepath.Dir(filename), "..")))
 	confFile := filepath.Join(baseDir, PathToConfig)
-	err := readFile(&c, confFile)
+	err := readFile(&conf, confFile)
 
 	if err != nil {
 		return nil, err
 	}
 
-	c.General.ReportDirAbsPath = filepath.Join(baseDir, c.General.ReportDirAbsPath)
-	c.Ran.ProcessExporterConfigsDir = filepath.Join(baseDir, c.Ran.ProcessExporterConfigsDir)
-	err = readEnv(&c)
+	conf.General.ReportDirAbsPath = filepath.Join(baseDir, conf.General.ReportDirAbsPath)
+	err = deployReportDir(confFile, conf.General.ReportDirAbsPath, "report", "REPORT_DIR_NAME")
 
 	if err != nil {
 		return nil, err
 	}
 
-	return &c, nil
+	conf.Ran.ProcessExporterConfigsDir = filepath.Join(baseDir, conf.Ran.ProcessExporterConfigsDir)
+	err = readEnv(&conf)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &conf, nil
 }
 
 func readFile(conf *Config, cfgfile string) error {
@@ -182,4 +188,20 @@ func (c *Config) GetMetallbVirtIP() ([]string, error) {
 	}
 
 	return envValue, nil
+}
+
+func deployReportDir(confFileName string, dirName string, yamlTag string, envVar string) error {
+	_, err := os.Stat(dirName)
+
+	if os.IsNotExist(err) {
+		return os.MkdirAll(dirName, 0777)
+	}
+
+	if err != nil {
+		return fmt.Errorf(
+			"error in verifying the %s directory. Check if either %s is present in %s or "+
+				"%s env var is set", dirName, yamlTag, envVar, confFileName)
+	}
+
+	return err
 }

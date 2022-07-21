@@ -2,8 +2,8 @@ default:
   image: quay.io/centos/centos:7
   before_script:
     - yum -y install make wget which gcc curl
-    - wget --no-verbose --directory-prefix=/tmp/ https://golang.org/dl/go1.17.4.linux-amd64.tar.gz
-    - tar -C /usr/local -xzf /tmp/go1.17.4.linux-amd64.tar.gz
+    - wget --no-verbose --directory-prefix=/tmp/ https://golang.org/dl/go1.18.4.linux-amd64.tar.gz
+    - tar -C /usr/local -xzf /tmp/go1.18.4.linux-amd64.tar.gz
     - export PATH=$PATH:/usr/local/go/bin:${HOME}/go/bin/
     - go version
 
@@ -32,6 +32,6 @@ dry-run-tests:
   script:
     - make install
     - export PATH=$PATH:/usr/local/go/bin:~/go/bin
-    - ginkgo -dryRun -v --keepGoing -requireSuite -r test/
+    - ginkgo -dry-run -v --keep-going -require-suite -r test/
   only:
     - merge_requests

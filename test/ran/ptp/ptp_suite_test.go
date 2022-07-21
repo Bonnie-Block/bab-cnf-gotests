@@ -1,12 +1,10 @@
 package ptp
 
 import (
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
+	"github.com/onsi/ginkgo/v2/types"
 	. "github.com/onsi/gomega"
 
-	cfg "github.com/onsi/ginkgo/config"
-
-	"github.com/onsi/ginkgo/reporters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ptp/ranptpparameters"
@@ -21,30 +19,19 @@ import (
 	"time"
 )
 
+var _, currentFile, _, _ = runtime.Caller(0)
+
 func TestPTP(t *testing.T) {
-	_, currentFile, _, _ := runtime.Caller(0)
-	junitPath := helper.Config.GetReportPath(currentFile)
-	dumpFile := helper.Config.GetDumpFailedTestReportLocation(currentFile)
+	_, reporterConfig := GinkgoConfiguration()
+	reporterConfig.JUnitReport = helper.Config.GetReportPath(currentFile)
+	reporterConfig.SlowSpecThreshold = 1500.0
 
 	RegisterFailHandler(Fail)
-	reporterList := append([]Reporter{}, reporters.NewJUnitReporter(junitPath))
-
-	if dumpFile != "" {
-		reporter, err := testutils.NewReporter(
-			dumpFile,
-			ranptpparameters.ReporterNamespacesToDump,
-			ranptpparameters.ReporterCrds)
-		if err != nil {
-			log.Fatalf("Failed to create log reporter %s", err)
-		}
-		reporterList = append(reporterList, reporter)
-	}
 	// Stop ginkgo complaining about slow tests
-	cfg.DefaultReporterConfig.SlowSpecThreshold = 1500.0
 
-	RunSpecsWithDefaultAndCustomReporters(t, "RAN PTP tests", reporterList)
+	RunSpecs(t, "RAN PTP tests", reporterConfig)
 
-	cfg.DefaultReporterConfig.SlowSpecThreshold = 5.0
+	reporterConfig.SlowSpecThreshold = 5.0
 }
 
 var _ = BeforeSuite(func() {
@@ -64,4 +51,8 @@ var _ = AfterSuite(func() {
 		err := namespaces.DeleteAndWait(helper.Apiclient, parameters.PrivPodNamespace, 10*time.Minute)
 		Expect(err).ToNot(HaveOccurred())
 	}
+})
+
+var _ = ReportAfterEach(func(report types.SpecReport) {
+	testutils.ReportIfFailed(report, currentFile, ranptpparameters.ReporterNamespacesToDump, ranptpparameters.ReporterCrds)
 })

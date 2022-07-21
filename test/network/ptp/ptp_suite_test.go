@@ -1,15 +1,15 @@
 package ptp
 
 import (
-	"log"
 	"runtime"
 	"testing"
 	"time"
 
-	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/v2/types"
+
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/onsi/ginkgo/reporters"
 	. "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	_ "gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/ptp/tests"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
@@ -17,26 +17,14 @@ import (
 	testutils "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/utils"
 )
 
+var _, currentFile, _, _ = runtime.Caller(0)
+
 func TestPtp(t *testing.T) {
-	_, currentFile, _, _ := runtime.Caller(0)
-	junitPath := Config.GetReportPath(currentFile)
-	dumpFile := Config.GetDumpFailedTestReportLocation(currentFile)
+	_, reporterConfig := GinkgoConfiguration()
+	reporterConfig.JUnitReport = Config.GetReportPath(currentFile)
 
 	RegisterFailHandler(Fail)
-	reporterList := append([]Reporter{}, reporters.NewJUnitReporter(junitPath))
-
-	if dumpFile != "" {
-		reporter, err := testutils.NewReporter(
-			dumpFile,
-			parameters.ReporterNamespacesToDump,
-			parameters.ReporterCrds)
-		if err != nil {
-			log.Fatalf("Failed to create log reporter %s", err)
-		}
-		reporterList = append(reporterList, reporter)
-	}
-
-	RunSpecsWithDefaultAndCustomReporters(t, "PTP tests", reporterList)
+	RunSpecs(t, "PTP tests", reporterConfig)
 }
 
 var _ = BeforeSuite(func() {
@@ -47,4 +35,8 @@ var _ = BeforeSuite(func() {
 var _ = AfterSuite(func() {
 	err := namespaces.DeleteAndWait(Apiclient, parameters.PtpTestNamespace, 5*time.Minute)
 	Expect(err).ToNot(HaveOccurred())
+})
+
+var _ = ReportAfterEach(func(report types.SpecReport) {
+	testutils.ReportIfFailed(report, currentFile, parameters.ReporterNamespacesToDump, parameters.ReporterCrds)
 })

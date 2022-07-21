@@ -13,7 +13,7 @@ import (
 	"time"
 
 	sriovv1 "github.com/k8snetworkplumbingwg/sriov-network-operator/api/v1"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/cnf-tests/discovery/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/cnf-tests/discovery/helper/container"

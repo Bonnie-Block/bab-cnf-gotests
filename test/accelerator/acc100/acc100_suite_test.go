@@ -1,13 +1,13 @@
 package acc100
 
 import (
-	"log"
 	"runtime"
 	"testing"
 	"time"
 
-	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/reporters"
+	"github.com/onsi/ginkgo/v2/types"
+
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/accelerator/acc100/netacc100parameters"
@@ -18,26 +18,14 @@ import (
 	testutils "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/utils"
 )
 
+var _, currentFile, _, _ = runtime.Caller(0)
+
 func TestACC100(t *testing.T) {
-	_, currentFile, _, _ := runtime.Caller(0)
-	junitPath := helper.Config.GetReportPath(currentFile)
-	dumpFile := helper.Config.GetDumpFailedTestReportLocation(currentFile)
+	_, reporterConfig := GinkgoConfiguration()
+	reporterConfig.JUnitReport = helper.Config.GetReportPath(currentFile)
 
 	RegisterFailHandler(Fail)
-	reporterList := append([]Reporter{}, reporters.NewJUnitReporter(junitPath))
-
-	if dumpFile != "" {
-		reporter, err := testutils.NewReporter(
-			dumpFile,
-			netacc100parameters.ReporterNamespacesToDump,
-			netacc100parameters.ReporterCrds)
-		if err != nil {
-			log.Fatalf("Failed to create log reporter %s", err)
-		}
-		reporterList = append(reporterList, reporter)
-	}
-
-	RunSpecsWithDefaultAndCustomReporters(t, "ACC100 tests", reporterList)
+	RunSpecs(t, "ACC100 tests", reporterConfig)
 }
 
 var _ = BeforeSuite(func() {
@@ -53,4 +41,9 @@ var _ = AfterSuite(func() {
 	}
 	err = namespaces.DeleteAndWait(helper.Apiclient, netacc100parameters.TestNamespace, 5*time.Minute)
 	Expect(err).ToNot(HaveOccurred())
+})
+
+var _ = ReportAfterEach(func(report types.SpecReport) {
+	testutils.ReportIfFailed(report, currentFile, netacc100parameters.ReporterNamespacesToDump,
+		netacc100parameters.ReporterCrds)
 })

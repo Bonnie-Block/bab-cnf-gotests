@@ -1,12 +1,12 @@
 package kpi
 
 import (
-	"log"
 	"runtime"
 	"testing"
 
-	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/reporters"
+	"github.com/onsi/ginkgo/v2/types"
+
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
@@ -16,31 +16,22 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/utils"
 )
 
+var _, currentFile, _, _ = runtime.Caller(0)
+
 func TestKpi(t *testing.T) {
-	_, currentFile, _, _ := runtime.Caller(0)
-	junitPath := helper.Config.GetReportPath(currentFile)
-	dumpFile := helper.Config.GetDumpFailedTestReportLocation(currentFile)
+	_, reporterConfig := GinkgoConfiguration()
+	reporterConfig.JUnitReport = helper.Config.GetReportPath(currentFile)
 
 	RegisterFailHandler(Fail)
-	reporterList := append([]Reporter{}, reporters.NewJUnitReporter(junitPath))
-
-	if dumpFile != "" {
-		reporter, err := utils.NewReporter(
-			dumpFile,
-			parameters.ReporterNamespacesToDump,
-			parameters.ReporterCrds,
-		)
-		if err != nil {
-			log.Fatalf("Failed to create log reporter %s", err)
-		}
-		reporterList = append(reporterList, reporter)
-	}
-
-	RunSpecsWithDefaultAndCustomReporters(t, "RAN KPI tests", reporterList)
+	RunSpecs(t, "RAN KPI tests", reporterConfig)
 }
 
 var _ = BeforeSuite(func() {
 })
 
 var _ = AfterSuite(func() {
+})
+
+var _ = ReportAfterEach(func(report types.SpecReport) {
+	utils.ReportIfFailed(report, currentFile, parameters.ReporterNamespacesToDump, parameters.ReporterCrds)
 })

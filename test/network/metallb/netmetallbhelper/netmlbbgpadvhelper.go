@@ -9,7 +9,7 @@ import (
 
 	metallbv1beta1 "go.universe.tf/metallb/api/v1beta1"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/pkg/errors"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"

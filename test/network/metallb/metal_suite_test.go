@@ -2,14 +2,13 @@ package metallb
 
 import (
 	"fmt"
-	"log"
 	"runtime"
 	"testing"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
+	"github.com/onsi/ginkgo/v2/types"
 
-	"github.com/onsi/ginkgo/reporters"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/metallb/netmetallbhelper"
@@ -20,27 +19,14 @@ import (
 	testutils "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/utils"
 )
 
-func TestLB(t *testing.T) {
-	_, currentFile, _, _ := runtime.Caller(0)
+var _, currentFile, _, _ = runtime.Caller(0)
 
-	junitPath := helper.Config.GetReportPath(currentFile)
-	dumpFile := helper.Config.GetDumpFailedTestReportLocation(currentFile)
+func TestLB(t *testing.T) {
+	_, reporterConfig := GinkgoConfiguration()
+	reporterConfig.JUnitReport = helper.Config.GetReportPath(currentFile)
 
 	RegisterFailHandler(Fail)
-	reporterList := append([]Reporter{}, reporters.NewJUnitReporter(junitPath))
-
-	if dumpFile != "" {
-		reporter, err := testutils.NewReporter(
-			dumpFile,
-			netmlbparameters.ReporterNamespacesToDump,
-			netmlbparameters.ReporterCrds)
-		if err != nil {
-			log.Fatalf("Failed to create log reporter %s", err)
-		}
-		reporterList = append(reporterList, reporter)
-	}
-
-	RunSpecsWithDefaultAndCustomReporters(t, "MetalLB tests", reporterList)
+	RunSpecs(t, "MetalLB tests", reporterConfig)
 }
 
 var _ = BeforeSuite(func() {
@@ -78,4 +64,8 @@ var _ = AfterSuite(func() {
 	_ = netmetallbhelper.DeleteLabelFromWorkers(netmlbparameters.SpeakerNodeTestLabel)
 
 	netmetallbhelper.RestoreNodeGWMode()
+})
+
+var _ = ReportAfterEach(func(report types.SpecReport) {
+	testutils.ReportIfFailed(report, currentFile, netmlbparameters.ReporterNamespacesToDump, netmlbparameters.ReporterCrds)
 })
