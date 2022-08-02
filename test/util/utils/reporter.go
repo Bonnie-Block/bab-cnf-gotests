@@ -2,9 +2,13 @@ package utils
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"os"
+	"path"
 	"strings"
+
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
 
 	"github.com/onsi/ginkgo/v2/types"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
@@ -74,7 +78,56 @@ func ReportIfFailed(report types.SpecReport, testSuite string, nSpaces map[strin
 				log.Fatalf("Failed to create log reporter %s", err)
 			}
 
-			reporter.Dump(report.RunTime, strings.ReplaceAll(report.FullText(), " ", "_"))
+			tcReportFolderName := strings.ReplaceAll(report.FullText(), " ", "_")
+			reporter.Dump(report.RunTime, tcReportFolderName)
+
+			_, podExecLogsFName := path.Split(config.PathToPodExecLogs)
+			err = moveFile(
+				config.PathToPodExecLogs, path.Join(reporter.ReportPath, tcReportFolderName, podExecLogsFName))
+
+			if err != nil {
+				log.Fatalf("Failed to move pod exec logs %s to report folder: %s", config.PathToPodExecLogs, err)
+			}
+		}
+	}
+
+	removeFile(config.PathToPodExecLogs)
+}
+
+func moveFile(sourcePath, destPath string) error {
+	inputFile, err := os.Open(sourcePath)
+
+	if err != nil {
+		return fmt.Errorf("couldn't open source file: %w", err)
+	}
+
+	defer func() {
+		_ = inputFile.Close()
+	}()
+
+	outputFile, err := os.Create(destPath)
+	if err != nil {
+		return fmt.Errorf("couldn't open dest file: %w", err)
+	}
+
+	defer func() {
+		_ = outputFile.Close()
+	}()
+
+	_, err = io.Copy(outputFile, inputFile)
+
+	if err != nil {
+		return fmt.Errorf("writing to output file failed: %w", err)
+	}
+
+	return nil
+}
+
+func removeFile(fPath string) {
+	if _, err := os.Stat(fPath); err == nil {
+		err := os.Remove(fPath)
+		if err != nil {
+			log.Fatalf("Failed to remove pod exec logs from %s: %s", fPath, err)
 		}
 	}
 }

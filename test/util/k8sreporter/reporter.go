@@ -33,7 +33,7 @@ type AddToScheme func(*runtime.Scheme)
 type KubernetesReporter struct {
 	sync.Mutex
 	clients         *testclient.ClientSet
-	reportPath      string
+	ReportPath      string
 	filterResources FilterByNamespace
 	crs             []CRData
 }
@@ -67,7 +67,7 @@ func New(
 
 	return &KubernetesReporter{
 		clients:         clients,
-		reportPath:      reportPath,
+		ReportPath:      reportPath,
 		filterResources: resourcesToLog,
 		crs:             crsToDump,
 	}, nil
@@ -96,7 +96,7 @@ func (r *KubernetesReporter) SpecDidComplete(specSummary *types.SpecSummary) {
 		return
 	}
 
-	logFile, err := logFileFor(r.reportPath, "all", "")
+	logFile, err := logFileFor(r.ReportPath, "all", "")
 
 	if err != nil {
 		return
@@ -119,8 +119,8 @@ func (r *KubernetesReporter) SpecDidComplete(specSummary *types.SpecSummary) {
 func (r *KubernetesReporter) Dump(duration time.Duration, dirName string) {
 	since := time.Now().Add(-duration).Add(-5 * time.Second)
 
-	if _, err := os.Stat(path.Join(r.reportPath, dirName)); os.IsNotExist(err) {
-		err := os.MkdirAll(path.Join(r.reportPath, dirName), 0755)
+	if _, err := os.Stat(path.Join(r.ReportPath, dirName)); os.IsNotExist(err) {
+		err := os.MkdirAll(path.Join(r.ReportPath, dirName), 0755)
 		if err != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "failed to create test dir: %v\n", err)
 
@@ -154,7 +154,7 @@ func (r *KubernetesReporter) logPods(dirName string) {
 			continue
 		}
 
-		logFile, err := logFileFor(r.reportPath, dirName, pod.Namespace+"-pods_specs")
+		logFile, err := logFileFor(r.ReportPath, dirName, pod.Namespace+"-pods_specs")
 
 		if err != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "failed to open pods_specs file: %v\n", dirName)
@@ -180,7 +180,7 @@ func (r *KubernetesReporter) logPods(dirName string) {
 }
 
 func (r *KubernetesReporter) logNodes(dirName string) {
-	logFile, err := logFileFor(r.reportPath, dirName, "nodes")
+	logFile, err := logFileFor(r.ReportPath, dirName, "nodes")
 	if err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "failed to open nodes file: %v\n", dirName)
 
@@ -223,7 +223,7 @@ func (r *KubernetesReporter) logLogs(since time.Time, dirName string) {
 			continue
 		}
 
-		logFile, err := logFileFor(r.reportPath, dirName, pod.Namespace+"-pods_logs")
+		logFile, err := logFileFor(r.ReportPath, dirName, pod.Namespace+"-pods_logs")
 
 		if err != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "failed to open pods_logs file: %v\n", dirName)
@@ -259,7 +259,7 @@ func (r *KubernetesReporter) logLogs(since time.Time, dirName string) {
 }
 
 func (r *KubernetesReporter) logCustomCR(customResource runtimeclient.ObjectList, namespace *string, dirName string) {
-	logFile, err := logFileFor(r.reportPath, dirName, "crs")
+	logFile, err := logFileFor(r.ReportPath, dirName, "crs")
 	if err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "failed to open crs file: %v\n", dirName)
 

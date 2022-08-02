@@ -18,7 +18,8 @@ import (
 
 const (
 	// PathToConfig path to config file.
-	PathToConfig = "config/config.yaml"
+	PathToConfig      = "config/config.yaml"
+	PathToPodExecLogs = "/tmp/pod_exec_logs.log"
 )
 
 // Config type keeps general configuration.

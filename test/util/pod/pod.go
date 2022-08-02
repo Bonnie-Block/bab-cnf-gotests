@@ -3,10 +3,14 @@ package pod
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
+	"log"
 	"os"
 	"strings"
 	"time"
+
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -154,12 +158,24 @@ func ExecCommand(clientSet *testclient.ClientSet, pod corev1.Pod, command []stri
 		return buffer, err
 	}
 
+	_, debugActive := os.LookupEnv("REPORTER_ERROR_OUTPUT")
+
+	if debugActive {
+		writePodExecLogsToDebugFile(fmt.Sprintf(
+			"Exec command %s on pod %s using container %s", command, pod.Name, containerName))
+	}
+
 	err = exec.Stream(remotecommand.StreamOptions{
 		Stdin:  os.Stdin,
 		Stdout: &buffer,
 		Stderr: os.Stderr,
 		Tty:    true,
 	})
+
+	if debugActive {
+		writePodExecLogsToDebugFile(fmt.Sprintf("Command return code: %v. Cmd output: %s", err, buffer.String()))
+	}
+
 	if err != nil {
 		return buffer, err
 	}
@@ -323,4 +339,21 @@ func DefineContainer(
 		Command:         command,
 		SecurityContext: securityContext,
 	}
+}
+
+// writePodExecLogsToDebugFile writes log to file.
+func writePodExecLogsToDebugFile(logToStore string) {
+	openFile, err := os.OpenFile(config.PathToPodExecLogs, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer func() {
+		_ = openFile.Close()
+	}()
+
+	log.SetOutput(openFile)
+	log.Print(logToStore)
+	log.SetOutput(os.Stdout)
 }
