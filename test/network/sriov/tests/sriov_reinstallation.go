@@ -52,14 +52,14 @@ var _ = Describe("CNF SRIOV", func() {
 
 			By("Run Client and Server pods")
 			netsriovhelper.RunServerPod(
-				netsriovparameters.CommunicationProtocolUnicastICMP, netsriovparameters.MTUStandart,
+				netsriovparameters.CommunicationProtocolUnicastICMP, netsriovparameters.MTUStandard,
 				netsriovparameters.ConnectivityDiffNodeDiffPF, sriovInfos, helper.Config,
-				netsriovparameters.SriovNetworkUsualMTUName, nil, false,
+				netsriovparameters.SriovStaticNetworkUsualMTUName, nil, false,
 				netsriovparameters.ServerMacAddress, netsriovparameters.ServerPodIP,
 				netsriovparameters.TestInterfaceName, netsriovparameters.IpamStatic)
 
 			clientPodDefinition := netsriovhelper.DefineClientPod(netsriovparameters.CommunicationProtocolUnicastICMP,
-				sriovInfos.Nodes, netsriovparameters.SriovNetworkUsualMTUName, nil,
+				sriovInfos.Nodes, netsriovparameters.SriovStaticNetworkUsualMTUName, nil,
 				netsriovparameters.ClientPodIP, netsriovparameters.ClientMacAddress,
 				helper.Config.Network.TestContainerImage, parameters.SleepCommand, netsriovparameters.IpamStatic,
 				netsriovparameters.TestInterfaceName)
@@ -96,7 +96,7 @@ var _ = Describe("CNF SRIOV", func() {
 			Expect(err).ToNot(HaveOccurred())
 			sriovNetworkInstalled := false
 			for _, sriovNetwork := range sriovNetworks.Items {
-				if strings.Contains(sriovNetwork.Name, netsriovparameters.SriovNetworkUsualMTUNameDiff) {
+				if strings.Contains(sriovNetwork.Name, netsriovparameters.SriovStaticNetworkUsualMTUNameDiff) {
 					sriovNetworkInstalled = true
 				}
 			}
@@ -106,7 +106,7 @@ var _ = Describe("CNF SRIOV", func() {
 		// 46529
 		It("Operator re-installation. Verify SR-IOV operator data plane is operational before removal", func() {
 			clientPodCommand, err := netsriovhelper.DefineTestCommandParameters(
-				false, netsriovparameters.CommunicationProtocolUnicastICMP, netsriovparameters.MTUStandart,
+				false, netsriovparameters.CommunicationProtocolUnicastICMP, netsriovparameters.MTUStandard,
 				netsriovparameters.ServerPodIP, 0, netsriovparameters.TestInterfaceName)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -280,16 +280,16 @@ var _ = Describe("CNF SRIOV", func() {
 				sriovInfos, err := cluster.DiscoverSriov(helper.Apiclient, parameters.SriovOperatorNamespace)
 				Expect(err).ToNot(HaveOccurred())
 				netsriovhelper.RunServerPod(
-					netsriovparameters.CommunicationProtocolUnicastICMP, netsriovparameters.MTUStandart,
+					netsriovparameters.CommunicationProtocolUnicastICMP, netsriovparameters.MTUStandard,
 					netsriovparameters.ConnectivityDiffNodeDiffPF, sriovInfos, helper.Config,
-					netsriovparameters.SriovNetworkUsualMTUName, nil, false,
+					netsriovparameters.SriovStaticNetworkUsualMTUName, nil, false,
 					netsriovparameters.ServerMacAddress, netsriovparameters.ServerPodIP,
 					netsriovparameters.TestInterfaceName, netsriovparameters.IpamStatic)
 
 				By("Run Client pod")
 				clientPodDefinition := netsriovhelper.DefineClientPod(
 					netsriovparameters.CommunicationProtocolUnicastICMP, sriovInfos.Nodes,
-					netsriovparameters.SriovNetworkUsualMTUName, nil, netsriovparameters.ClientPodIP,
+					netsriovparameters.SriovStaticNetworkUsualMTUName, nil, netsriovparameters.ClientPodIP,
 					netsriovparameters.ClientMacAddress, helper.Config.Network.TestContainerImage,
 					parameters.SleepCommand, netsriovparameters.IpamStatic, netsriovparameters.TestInterfaceName)
 
@@ -305,7 +305,7 @@ var _ = Describe("CNF SRIOV", func() {
 					corev1.PodRunning,
 					netsriovparameters.PodWaitingTime)
 				clientPodCommand, err := netsriovhelper.DefineTestCommandParameters(
-					false, netsriovparameters.CommunicationProtocolUnicastICMP, netsriovparameters.MTUStandart,
+					false, netsriovparameters.CommunicationProtocolUnicastICMP, netsriovparameters.MTUStandard,
 					netsriovparameters.ServerPodIP, 0, netsriovparameters.TestInterfaceName)
 				Expect(err).ToNot(HaveOccurred())
 

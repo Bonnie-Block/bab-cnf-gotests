@@ -89,7 +89,7 @@ var _ = Describe("CNF SRIOV: Bond CNI.", func() {
 				[]int{
 					netsriovparameters.MTUCustom,
 					netsriovparameters.MTUJumbo,
-					netsriovparameters.MTUStandart,
+					netsriovparameters.MTUStandard,
 				},
 				[]string{
 					netsriovparameters.ConnectivityDiffNodeDiffPF,
@@ -129,7 +129,7 @@ var _ = Describe("CNF SRIOV: Bond CNI.", func() {
 			By("Creating Bond interface")
 			ScaleNADBond, err := netsriovhelper.DefineBondNad(netsriovparameters.BondNadName,
 				netsriovparameters.BondModeActiveBackup,
-				netsriovparameters.MTUStandart,
+				netsriovparameters.MTUStandard,
 				totalNumberSlaveVFs, netsriovparameters.IpamStatic)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -148,7 +148,7 @@ var _ = Describe("CNF SRIOV: Bond CNI.", func() {
 			By("Creating Server Pod")
 			netsriovhelper.RunServerPod(
 				netsriovparameters.CommunicationProtocolUnicastICMP,
-				netsriovparameters.MTUStandart,
+				netsriovparameters.MTUStandard,
 				netsriovparameters.ConnectivityDiffNodeDiffPF,
 				sriovInfos,
 				Config,
@@ -176,7 +176,7 @@ var _ = Describe("CNF SRIOV: Bond CNI.", func() {
 			clientTestCommand, err = netsriovhelper.DefineTestCommandParameters(
 				false,
 				netsriovparameters.CommunicationProtocolUnicastICMP,
-				netsriovparameters.MTUStandart,
+				netsriovparameters.MTUStandard,
 				netsriovparameters.ServerPodIP,
 				netsriovparameters.TestPort,
 				netsriovparameters.TestBondInterfaceName)

@@ -24,7 +24,8 @@ func TestSriovIPv4Scenario(
 	sriovInfos *cluster.EnabledNodes,
 	config *config.Config,
 	clientMacAddress string,
-	serverMacAddress string) {
+	serverMacAddress string,
+	ipam string) {
 	By("Validating test parameters")
 
 	connectivityParameters, err := netsriovparameters.NewConnectivityTestParameters(mtu, connectivity, protocol, false)
@@ -33,8 +34,8 @@ func TestSriovIPv4Scenario(
 	By("Defining test resources")
 
 	nodeSelector := defineNodeSelector(connectivity, sriovInfos)
-	serverNetworkName := defineServerNetworkName(mtu)
-	clientNetworkName := defineClientNetworkName(mtu, connectivityParameters.Connectivity)
+	serverNetworkName := defineServerNetworkName(mtu, ipam)
+	clientNetworkName := defineClientNetworkName(mtu, connectivityParameters.Connectivity, ipam)
 	negativeFlag := false
 	clientTestCommand, err := DefineTestCommandParameters(
 		negativeFlag,
@@ -54,7 +55,7 @@ func TestSriovIPv4Scenario(
 		clientMacAddress,
 		config.Network.TestContainerImage,
 		clientTestCommand,
-		netsriovparameters.IpamStatic,
+		ipam,
 		netsriovparameters.TestInterfaceName)
 
 	By("Creating Server Pod")
@@ -70,7 +71,7 @@ func TestSriovIPv4Scenario(
 		serverMacAddress,
 		netsriovparameters.ServerPodIP,
 		netsriovparameters.TestInterfaceName,
-		netsriovparameters.IpamStatic)
+		ipam)
 
 	By("Creating Client Pod")
 
@@ -95,8 +96,8 @@ func TestSriovIPv4Scenario(
 	negativeFlag = true
 
 	if protocol == netsriovparameters.CommunicationProtocolUnicastSCTP {
-		serverNetworkName = defineClientNetworkName(mtu, connectivityParameters.Connectivity)
-		clientNetworkName = defineServerNetworkName(mtu)
+		serverNetworkName = defineClientNetworkName(mtu, connectivityParameters.Connectivity, ipam)
+		clientNetworkName = defineServerNetworkName(mtu, ipam)
 	}
 
 	if protocol == netsriovparameters.CommunicationProtocolMulticastUDP ||
@@ -114,7 +115,7 @@ func TestSriovIPv4Scenario(
 			serverMacAddress,
 			netsriovparameters.ServerPodIP,
 			netsriovparameters.TestInterfaceName,
-			netsriovparameters.IpamStatic)
+			ipam)
 	}
 
 	clientTestCommand, err = DefineTestCommandParameters(
@@ -137,7 +138,7 @@ func TestSriovIPv4Scenario(
 		clientMacAddress,
 		config.Network.TestContainerImage,
 		clientTestCommand,
-		netsriovparameters.IpamStatic,
+		ipam,
 		netsriovparameters.TestInterfaceName)
 	clientPodNegative, err := Apiclient.Pods(netsriovparameters.OperatorTestNamespace).Create(
 		context.Background(),

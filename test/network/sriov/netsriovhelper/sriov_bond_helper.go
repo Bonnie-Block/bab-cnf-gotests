@@ -198,7 +198,7 @@ func DefineBondNad(nadName string,
 		bondNad.Spec.Config += fmt.Sprintf(`"ipam": {"type": "%s"}}`, ipam)
 	case netsriovparameters.IpamWhereabouts:
 		bondNad.Spec.Config += fmt.Sprintf(`"ipam": {"type": "%s", "range": "%s"}}`,
-			ipam, netsriovparameters.WhereaboutsRange)
+			ipam, netsriovparameters.WhereaboutsRangeIPv6)
 	default:
 		return nil, fmt.Errorf("wrong ipam type %s", ipam)
 	}

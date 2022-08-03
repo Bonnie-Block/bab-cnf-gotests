@@ -85,7 +85,7 @@ var _ = Describe("CNF SRIOV: Bond CNI.", func() {
 				[]int{
 					netsriovparameters.MTUCustom,
 					netsriovparameters.MTUJumbo,
-					netsriovparameters.MTUStandart,
+					netsriovparameters.MTUStandard,
 				},
 				[]string{
 					netsriovparameters.ConnectivityDiffNodeDiffPF,

@@ -239,8 +239,8 @@ func TestSriovDualScenario(
 	By("Defining test resources")
 
 	nodeSelector := defineNodeSelector(connectivity, sriovInfos)
-	serverNetworkName := defineServerNetworkName(mtu)
-	clientNetworkName := defineClientNetworkName(mtu, connectivityParameters.Connectivity)
+	serverNetworkName := defineServerNetworkName(mtu, netsriovparameters.IpamStatic)
+	clientNetworkName := defineClientNetworkName(mtu, connectivityParameters.Connectivity, netsriovparameters.IpamStatic)
 	negativeFlag := false
 
 	ipv4ClientTestCommand, err := DefineTestCommandParameters(
@@ -322,8 +322,8 @@ func TestSriovDualScenario(
 	negativeFlag = true
 
 	if protocol == netsriovparameters.CommunicationProtocolUnicastSCTP {
-		serverNetworkName = defineClientNetworkName(mtu, connectivityParameters.Connectivity)
-		clientNetworkName = defineServerNetworkName(mtu)
+		serverNetworkName = defineClientNetworkName(mtu, connectivityParameters.Connectivity, netsriovparameters.IpamStatic)
+		clientNetworkName = defineServerNetworkName(mtu, netsriovparameters.IpamStatic)
 	}
 
 	if protocol == netsriovparameters.CommunicationProtocolMulticastUDP ||
