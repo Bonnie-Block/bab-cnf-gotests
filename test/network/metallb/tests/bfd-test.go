@@ -35,6 +35,7 @@ var (
 	masterNode              k8sv1.Node
 	ipv4metalLBIPList       []string
 	err                     error
+	testSetupFail           = true
 )
 
 var _ = Describe("BFD", func() {
@@ -50,8 +51,13 @@ var _ = Describe("BFD", func() {
 		Expect(len(workerAddresses)).To(BeNumerically(">", 1))
 		firstWorkerNodeAddress = workerAddresses[0]
 		secondWorkerNodeAddress = workerAddresses[1]
+		testSetupFail = false
 	})
 	BeforeEach(func() {
+		if testSetupFail {
+			Fail("Test failed due to error in BeforeAll")
+		}
+
 		By("Setup Metallb")
 		netmetallbhelper.SetupMetalLB()
 

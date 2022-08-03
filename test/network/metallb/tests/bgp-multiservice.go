@@ -29,6 +29,7 @@ var _ = Describe("MetalLB BGP", func() {
 		nodeListString    []string
 		ipv4metalLBIPList []string
 		err               error
+		testSetupFail     = true
 	)
 
 	execute.BeforeAll(func() {
@@ -59,9 +60,13 @@ var _ = Describe("MetalLB BGP", func() {
 		if len(nodeListString) < 2 {
 			Skip("Need at least 2 nodes to run MetalLB test")
 		}
+		testSetupFail = false
 	})
 
 	BeforeEach(func() {
+		if testSetupFail {
+			Fail("Test failed due to error in BeforeAll")
+		}
 		By("Setup Metallb")
 		netmetallbhelper.SetupMetalLB()
 	})
@@ -192,7 +197,6 @@ var _ = Describe("MetalLB BGP", func() {
 		By("should validate curl to service 1")
 		httpOutput, err := netmetallbhelper.HTTPMlbPod(frrPod, ipv4metalLBIPList[0], netmlbparameters.AddressPoolS1[0],
 			netparameters.IPV4Family, netmlbparameters.TestContainerName, netmlbparameters.BGP)
-		fmt.Println(httpOutput)
 		Expect(err).ToNot(HaveOccurred(), httpOutput)
 		Eventually(func() error {
 			_, err := netmetallbhelper.HTTPMlbPod(frrPod, ipv4metalLBIPList[0], netmlbparameters.AddressPoolS1[0],

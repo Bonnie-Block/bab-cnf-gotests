@@ -22,6 +22,7 @@ var _ = Describe("MetalLB BGP", func() {
 	var (
 		workerNodeList []k8sv1.Node
 		masterNodeList []k8sv1.Node
+		testSetupFail  = true
 	)
 
 	describe := netmetallbhelper.CreateMetallbParametersInJSON
@@ -67,9 +68,13 @@ var _ = Describe("MetalLB BGP", func() {
 		By("should activate SCTP module")
 		masterNodeList = []k8sv1.Node{masterNodeList[0], masterNodeList[1]}
 		netmetallbhelper.ActivateSCTPModuleOnMaster(masterNodeList)
+		testSetupFail = false
 	})
 
 	BeforeEach(func() {
+		if testSetupFail {
+			Fail("Test failed due to error in BeforeAll")
+		}
 		By("Setup Metallb")
 		netmetallbhelper.SetupMetalLB()
 	})

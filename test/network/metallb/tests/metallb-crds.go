@@ -35,6 +35,7 @@ var _ = Describe("MetalLb New CRDs", func() {
 		l3Client          *k8sv1.Pod
 		workerNodeList    []k8sv1.Node
 		ipv4metalLBIPList []string
+		testSetupFail     = false
 	)
 
 	execute.BeforeAll(func() {
@@ -56,9 +57,14 @@ var _ = Describe("MetalLb New CRDs", func() {
 		if len(ipv4metalLBIPList) < 2 {
 			Skip("There are not enough IPv4 addresses configured in env variables METALLB_ADDR_LIST")
 		}
+		testSetupFail = false
 	})
 
 	BeforeEach(func() {
+		if testSetupFail {
+			Fail("Test failed due to error in BeforeAll")
+		}
+
 		By("Setup Metallb")
 		netmetallbhelper.SetupMetalLB()
 

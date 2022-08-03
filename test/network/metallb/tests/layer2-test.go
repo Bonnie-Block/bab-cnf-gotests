@@ -36,6 +36,7 @@ var _ = Describe("CNF MetalLB", func() {
 		masterNode          v1.Node
 		workerNodesNameList []string
 		err                 error
+		testSetupFail       = true
 	)
 
 	execute.BeforeAll(func() {
@@ -66,9 +67,13 @@ var _ = Describe("CNF MetalLB", func() {
 				Skip("Need at least 2 nodes to run MetalLB test")
 			}
 		})
+		testSetupFail = false
 	})
 
 	BeforeEach(func() {
+		if testSetupFail {
+			Fail("Test failed due to error in BeforeAll")
+		}
 
 		By("Setup Metallb")
 		netmetallbhelper.SetupMetalLB()

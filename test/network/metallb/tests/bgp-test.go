@@ -31,6 +31,7 @@ var _ = Describe("MetalLB BGP", func() {
 		workerNodeList    []k8sv1.Node
 		masterNodeList    []k8sv1.Node
 		err               error
+		testSetupFail     = true
 	)
 
 	describeIPStack := netmetallbhelper.CreateParamIPStackInJSON
@@ -66,9 +67,13 @@ var _ = Describe("MetalLB BGP", func() {
 			clusterIPStack,
 			ipv4metalLBIPList[0],
 			ipV6Address)
+		testSetupFail = false
 	})
 
 	BeforeEach(func() {
+		if testSetupFail {
+			Fail("Test failed due to error in BeforeAll")
+		}
 		By("Setup Metallb")
 		netmetallbhelper.SetupMetalLB()
 	})

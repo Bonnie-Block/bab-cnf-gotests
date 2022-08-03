@@ -232,6 +232,8 @@ func LabelNode(clientSet *client.ClientSet, nodeName, key, value string) (*corev
 	}
 
 	NodeObject.Labels[key] = value
+	NodeObject.CreationTimestamp = metav1.Time{}
+	NodeObject.ResourceVersion = ""
 	NodeObject, err = clientSet.Nodes().Update(context.Background(), NodeObject, metav1.UpdateOptions{})
 
 	if err != nil {

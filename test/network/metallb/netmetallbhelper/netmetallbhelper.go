@@ -914,6 +914,14 @@ func loadBalancerIPValid(ipAddress string, lbIpaddress string) {
 // ActivateSCTPModuleOnMaster creates privPods on list of nodes from masterNodeList. After activation the pod and
 // namespace are removed.
 func ActivateSCTPModuleOnMaster(masterNodeList []k8sv1.Node) {
+	if namespaces.Exists(parameters.PrivPodNamespace, helper.Apiclient) {
+		By("Remove cnfgotestpriv namespace")
+
+		err := namespaces.DeleteAndWait(helper.Apiclient, parameters.PrivPodNamespace,
+			netmlbparameters.Timeout)
+		Expect(err).ToNot(HaveOccurred(), "failed to delete cnfgotestpriv namespace")
+	}
+
 	By(fmt.Sprintf("Creating %s namespace", parameters.PrivPodNamespace))
 	err := namespaces.Create(parameters.PrivPodNamespace, helper.Apiclient)
 	Expect(err).ShouldNot(HaveOccurred(), "error creating cnfgotestpriv namespace")

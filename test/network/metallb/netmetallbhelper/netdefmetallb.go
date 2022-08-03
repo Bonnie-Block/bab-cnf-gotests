@@ -277,7 +277,7 @@ func createPrivilegedPodMaster(image string, masterNodeName string) *k8sv1.Pod {
 	)
 
 	masterprivilegedPod = helper.WaitUntilPodCreatedAndRunning(
-		pod.RedefineWithObjectMeta(pod.RedefineOnMaster(masterprivilegedPod), podName, "", nil), 2*time.Minute)
+		pod.RedefineWithObjectMeta(pod.RedefineOnMaster(masterprivilegedPod), podName, "", nil), 10*time.Minute)
 
 	helper.WaitForPodsHealthy([]*k8sv1.Pod{masterprivilegedPod}, 1*time.Minute)
 

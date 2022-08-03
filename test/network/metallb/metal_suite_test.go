@@ -55,10 +55,10 @@ var _ = AfterSuite(func() {
 		netmlbparameters.Timeout)
 	Expect(err).ToNot(HaveOccurred())
 
-	err = netmetallbhelper.DeleteAllBFDProfiles()
+	err = netmetallbhelper.DeleteAllBGPPeers()
 	Expect(err).ToNot(HaveOccurred())
 
-	err = netmetallbhelper.DeleteAllBGPPeers()
+	err = netmetallbhelper.DeleteAllBFDProfiles()
 	Expect(err).ToNot(HaveOccurred())
 
 	_ = netmetallbhelper.DeleteLabelFromWorkers(netmlbparameters.SpeakerNodeTestLabel)
