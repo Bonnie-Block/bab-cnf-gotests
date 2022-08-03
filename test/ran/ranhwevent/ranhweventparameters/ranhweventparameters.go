@@ -56,7 +56,18 @@ var (
 
 	ZtEvents = []string{
 		"EventLog.1.0.ResourceUpdated",
+		"EventLog.1.0.ResourceUpdated",
+		"EventLog.1.0.ResourceUpdated",
+		"EventLog.1.0.ResourceUpdated",
+		"EventLog.1.0.ResourceUpdated",
+		"EventLog.1.0.ResourceUpdated",
+		"EventLog.1.0.ResourceUpdated",
+		"EventLog.1.0.ResourceUpdated",
+		"EventLog.1.0.ResourceUpdated",
+		"EventLog.1.0.ResourceUpdated",
 	}
+	ZTSendEventInterval = 5 * time.Second
+	ZTSendEventTimeout  = 30 * time.Second
 
 	HpEvents = []string{
 		"iLOEvents.2.1.ServerPoweredOff",

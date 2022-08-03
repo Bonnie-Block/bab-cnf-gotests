@@ -11,6 +11,7 @@ import (
 	"github.com/stmcginnis/gofish"
 	"github.com/stmcginnis/gofish/redfish"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhwevent/ranhweventparameters"
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 // SubscribeZt subscription procedure for zt systems redfish.
@@ -67,15 +68,44 @@ func decodeResponse(resp *http.Response) (ZtSubscribeResponseType, error) {
 }
 
 // SendEventZt sends event according to msgId and returns error.
+// ZT systems redfish current firmware limits the SubmitTestEvent() request rate.
+// The first request will be OK, but if another request is sent with-in 5-15 sec, it will get a 400 error response.
+// This issue is reported at https://bugzilla.redhat.com/show_bug.cgi?id=2094842
+// To work around this limit, we retry sending the request until we get a good response.
 func SendEventZt(eventService *redfish.EventService, msgID string) error {
-	p := ztPayload{
+	var (
+		err          error
+		resp         *http.Response
+		retryCounter int
+	)
+
+	payload := ztPayload{
 		MessageID: msgID,
 	}
-	resp, err := eventService.Client.Post(submitTestEventTarget, p)
+	err = wait.PollImmediate(ranhweventparameters.ZTSendEventInterval, ranhweventparameters.ZTSendEventTimeout,
+		func() (done bool, err error) {
+			retryCounter++
+			resp, err = eventService.Client.Post(submitTestEventTarget, payload)
+			if err != nil {
+				if ranhweventparameters.DebugTest {
+					log.Printf("During SendEventZt() got this error: %v will retry\n", err)
+				}
+
+				return false, nil
+			}
+
+			if retryCounter > 2 && ranhweventparameters.DebugTest {
+				log.Printf("this took %v retries to succeed\n", retryCounter)
+			}
+			err = resp.Body.Close()
+
+			return true, err
+		})
 
 	if err != nil {
-		return fmt.Errorf("failed to send submitTestEvent in SendEventZt() due to: %w", err)
+		return err
 	}
+
 	defer resp.Body.Close()
 
 	valid := map[int]bool{http.StatusAccepted: true}
