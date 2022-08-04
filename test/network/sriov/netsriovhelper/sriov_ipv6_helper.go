@@ -9,6 +9,7 @@ import (
 	. "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/sriov/netsriovparameters"
 
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/netparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/cluster"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
@@ -19,12 +20,13 @@ import (
 
 func TestSriovIPv6Scenario(
 	mtu int,
-	protocol string,
-	connectivity string,
 	sriovInfos *cluster.EnabledNodes,
 	config *config.Config,
-	clientMacAddress string,
-	serverMacAddress string) {
+	protocol,
+	connectivity,
+	clientMacAddress,
+	serverMacAddress,
+	ipam string) {
 	By("Validating test parameters")
 
 	connectivityParameters, err := netsriovparameters.NewConnectivityTestParameters(mtu, connectivity, protocol, false)
@@ -33,8 +35,8 @@ func TestSriovIPv6Scenario(
 	By("Defining test resources")
 
 	nodeSelector := defineNodeSelector(connectivity, sriovInfos)
-	serverNetworkName := defineServerNetworkName(mtu, netsriovparameters.IpamStatic)
-	clientNetworkName := defineClientNetworkName(mtu, connectivityParameters.Connectivity, netsriovparameters.IpamStatic)
+	serverNetworkName := defineServerNetworkName(mtu, ipam, netparameters.IPV6Family)
+	clientNetworkName := defineClientNetworkName(mtu, connectivityParameters.Connectivity, ipam, netparameters.IPV6Family)
 	negativeFlag := false
 	clientTestCommand, err := DefineTestCommandParameters(
 		negativeFlag,
@@ -54,7 +56,7 @@ func TestSriovIPv6Scenario(
 		clientMacAddress,
 		config.Network.TestContainerImage,
 		clientTestCommand,
-		netsriovparameters.IpamStatic,
+		ipam,
 		netsriovparameters.TestInterfaceName)
 
 	By("Creating Server Pod")
@@ -70,7 +72,7 @@ func TestSriovIPv6Scenario(
 		serverMacAddress,
 		netsriovparameters.ServerPodIpv6,
 		netsriovparameters.TestInterfaceName,
-		netsriovparameters.IpamStatic)
+		ipam)
 
 	By("Creating Client Pod")
 
@@ -100,8 +102,8 @@ func TestSriovIPv6Scenario(
 	negativeFlag = true
 
 	if protocol == netsriovparameters.CommunicationProtocolUnicastSCTP {
-		serverNetworkName = defineClientNetworkName(mtu, connectivityParameters.Connectivity, netsriovparameters.IpamStatic)
-		clientNetworkName = defineServerNetworkName(mtu, netsriovparameters.IpamStatic)
+		serverNetworkName = defineClientNetworkName(mtu, connectivityParameters.Connectivity, ipam, netparameters.IPV6Family)
+		clientNetworkName = defineServerNetworkName(mtu, ipam, netparameters.IPV6Family)
 	}
 
 	if protocol == netsriovparameters.CommunicationProtocolMulticastUDP ||
@@ -119,7 +121,7 @@ func TestSriovIPv6Scenario(
 			serverMacAddress,
 			netsriovparameters.ServerPodIpv6,
 			netsriovparameters.TestInterfaceName,
-			netsriovparameters.IpamStatic)
+			ipam)
 	}
 
 	clientTestCommand, err = DefineTestCommandParameters(
@@ -142,7 +144,7 @@ func TestSriovIPv6Scenario(
 		clientMacAddress,
 		config.Network.TestContainerImage,
 		clientTestCommand,
-		netsriovparameters.IpamStatic,
+		ipam,
 		netsriovparameters.TestInterfaceName)
 	clientPodNegative, err := Apiclient.Pods(netsriovparameters.OperatorTestNamespace).Create(
 		context.Background(),

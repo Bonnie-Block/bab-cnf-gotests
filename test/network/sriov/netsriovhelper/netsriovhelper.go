@@ -45,10 +45,10 @@ func defineSriovNetworkWithStaticIPAM(name string, resourceName string) *sriovv1
 }
 
 // defineSriovNetworkWhereaboutsIPAM builds SriovNetwork resource with whereabouts IPAM.
-func defineSriovNetworkWhereaboutsIPAM(name, resourceName string) *sriovv1.SriovNetwork {
+func defineSriovNetworkWhereaboutsIPAM(name, resourceName, ipRange string) *sriovv1.SriovNetwork {
 	sriovNetwork := DefineSriovNetwork(name, resourceName)
 	sriovNetwork.Spec.IPAM = fmt.Sprintf(`{ "type": "%s", "range": "%s" }`,
-		netsriovparameters.IpamWhereabouts, netsriovparameters.WhereaboutsRangeIPv4)
+		netsriovparameters.IpamWhereabouts, ipRange)
 
 	return sriovNetwork
 }
@@ -469,45 +469,47 @@ func DefineTestCommandParameters(
 	return testCommand, nil
 }
 
-func defineServerNetworkName(mtu int, ipam string) string {
-	return defineNetworkNameWithIpam(mtu, ipam)
+func defineServerNetworkName(mtu int, ipam, ipFamily string) string {
+	return defineNetworkNameWithIpam(mtu, ipam, ipFamily)
 }
 
-func defineClientNetworkName(mtu int, connectivity string, ipam string) string {
+func defineClientNetworkName(mtu int, connectivity, ipam, ipFamily string) string {
 	var networkName string
 
 	if connectivity == netsriovparameters.ConnectivitySameNodeDiffPF ||
 		connectivity == netsriovparameters.ConnectivityDiffNodeDiffPF {
-		networkName = defineNetworkNameForDifferentNodes(mtu, ipam)
+		networkName = defineNetworkNameForDifferentNodes(mtu, ipam, ipFamily)
 	} else {
-		networkName = defineNetworkNameWithIpam(mtu, ipam)
+		networkName = defineNetworkNameWithIpam(mtu, ipam, ipFamily)
 	}
 
 	return networkName
 }
 
-func defineNetworkNameWithIpam(mtu int, ipam string) string {
+func defineNetworkNameWithIpam(mtu int, ipam, ipFamily string) string {
 	networkName := defineNetworkNameWithStaticIpam(mtu)
+
 	if ipam == netsriovparameters.IpamWhereabouts {
-		networkName = defineNetworkNameWithWhereaboutsIPAM(mtu)
+		switch ipFamily {
+		case netparameters.IPV4Family:
+			networkName = defineNetworkNameWithWhereaboutsIpamIPv4(mtu)
+		case netparameters.IPV6Family:
+			networkName = defineNetworkNameWithWhereaboutsIpamIPv6(mtu)
+		}
 	}
 
 	return networkName
 }
 
-func defineNetworkNameForDifferentNodes(mtu int, ipam string) string {
+func defineNetworkNameForDifferentNodes(mtu int, ipam, ipFamily string) string {
 	var networkName string
 
 	if ipam == netsriovparameters.IpamWhereabouts {
-		switch mtu {
-		case netsriovparameters.MTUJumbo:
-			networkName = netsriovparameters.SriovWhereaboutsNetworkJumboFrameNameDiff
-		case netsriovparameters.MTUStandard:
-			networkName = netsriovparameters.SriovWhereaboutsNetworkUsualMTUNameDiff
-		case netsriovparameters.MTUCustom:
-			networkName = netsriovparameters.SriovWhereaboutsNetworkCustomMTUNameDiff
-		default:
-			Skip(fmt.Sprintf("Unsupported test parameter mtu: %d", mtu))
+		switch ipFamily {
+		case netparameters.IPV4Family:
+			networkName = defineNetworkNameWithWhereaboutsIpamIPv4DiffNode(mtu)
+		case netparameters.IPV6Family:
+			networkName = defineNetworkNameWithWhereaboutsIpamIPv6DiffNode(mtu)
 		}
 	} else {
 		switch mtu {
@@ -542,16 +544,67 @@ func defineNetworkNameWithStaticIpam(mtu int) string {
 	return networkName
 }
 
-func defineNetworkNameWithWhereaboutsIPAM(mtu int) string {
+func defineNetworkNameWithWhereaboutsIpamIPv4(mtu int) string {
 	var networkName string
 
 	switch mtu {
 	case netsriovparameters.MTUJumbo:
-		networkName = netsriovparameters.SriovWhereaboutsNetworkJumboFrameName
+		networkName = netsriovparameters.SriovWhereaboutsIPv4NetworkJumboFrameName
 	case netsriovparameters.MTUStandard:
-		networkName = netsriovparameters.SriovWhereaboutsNetworkUsualMTUName
+		networkName = netsriovparameters.SriovWhereaboutsIPv4NetworkUsualMTUName
 	case netsriovparameters.MTUCustom:
-		networkName = netsriovparameters.SriovWhereaboutsNetworkCustomMTUName
+		networkName = netsriovparameters.SriovWhereaboutsIPv4NetworkCustomMTUName
+	default:
+		Skip(fmt.Sprintf("Unsupported test parameter mtu: %d", mtu))
+	}
+
+	return networkName
+}
+
+func defineNetworkNameWithWhereaboutsIpamIPv6(mtu int) string {
+	var networkName string
+
+	switch mtu {
+	case netsriovparameters.MTUJumbo:
+		networkName = netsriovparameters.SriovWhereaboutsIPv6NetworkJumboFrameName
+	case netsriovparameters.MTUStandard:
+		networkName = netsriovparameters.SriovWhereaboutsIPv6NetworkUsualMTUName
+	case netsriovparameters.MTUCustom:
+		networkName = netsriovparameters.SriovWhereaboutsIPv6NetworkCustomMTUName
+	default:
+		Skip(fmt.Sprintf("Unsupported test parameter mtu: %d", mtu))
+	}
+
+	return networkName
+}
+
+func defineNetworkNameWithWhereaboutsIpamIPv4DiffNode(mtu int) string {
+	var networkName string
+
+	switch mtu {
+	case netsriovparameters.MTUJumbo:
+		networkName = netsriovparameters.SriovWhereaboutsIPv4NetworkJumboFrameNameDiff
+	case netsriovparameters.MTUStandard:
+		networkName = netsriovparameters.SriovWhereaboutsIPv4NetworkUsualMTUNameDiff
+	case netsriovparameters.MTUCustom:
+		networkName = netsriovparameters.SriovWhereaboutsIPv4NetworkCustomMTUNameDiff
+	default:
+		Skip(fmt.Sprintf("Unsupported test parameter mtu: %d", mtu))
+	}
+
+	return networkName
+}
+
+func defineNetworkNameWithWhereaboutsIpamIPv6DiffNode(mtu int) string {
+	var networkName string
+
+	switch mtu {
+	case netsriovparameters.MTUJumbo:
+		networkName = netsriovparameters.SriovWhereaboutsIPv6NetworkJumboFrameNameDiff
+	case netsriovparameters.MTUStandard:
+		networkName = netsriovparameters.SriovWhereaboutsIPv6NetworkUsualMTUNameDiff
+	case netsriovparameters.MTUCustom:
+		networkName = netsriovparameters.SriovWhereaboutsIPv6NetworkCustomMTUNameDiff
 	default:
 		Skip(fmt.Sprintf("Unsupported test parameter mtu: %d", mtu))
 	}
@@ -789,28 +842,28 @@ func SetupSriovConfig(sriovInfos *cluster.EnabledNodes, snoTimeoutMultiplier tim
 
 	usualSriovPolicyConfig := DefineSriovPolicy(
 		"test-policy-usual", generalParameters.SriovOperatorNamespace, validSriovInterfaces[0],
-		vfsNumberSameConfig, "#0-1", 1500, "testresourceusual", "netdevice")
+		vfsNumberSameConfig, "#0-1", 1500, netsriovparameters.TestResourceUsual, "netdevice")
 	customSriovPolicyConfig := DefineSriovPolicy(
 		"test-policy-custom", generalParameters.SriovOperatorNamespace, validSriovInterfaces[0],
-		vfsNumberSameConfig, "#2-3", 1450, "testresourcecustom", "netdevice")
+		vfsNumberSameConfig, "#2-3", 1450, netsriovparameters.TestResourceCustom, "netdevice")
 	jumboSriovPolicyConfig := DefineSriovPolicy(
 		"test-policy-jumbo", generalParameters.SriovOperatorNamespace, validSriovInterfaces[0],
-		vfsNumberSameConfig, "#4-5", 9000, "testresourcejumbo", "netdevice")
+		vfsNumberSameConfig, "#4-5", 9000, netsriovparameters.TestResourceJumbo, "netdevice")
 	usualSriovPolicyConfigDiffPF := DefineSriovPolicy(
 		"test-policy-usual-diff", generalParameters.SriovOperatorNamespace, validSriovInterfaces[1],
-		vfsNumberDiffConfig, "#0-0", 1500, "testresourceusualdiff", "netdevice")
+		vfsNumberDiffConfig, "#0-0", 1500, netsriovparameters.TestResourceUsualDiff, "netdevice")
 	customSriovPolicyConfigDiffPF := DefineSriovPolicy(
 		"test-policy-custom-diff", generalParameters.SriovOperatorNamespace, validSriovInterfaces[1],
-		vfsNumberDiffConfig, "#1-1", 1450, "testresourcecustomdiff", "netdevice")
+		vfsNumberDiffConfig, "#1-1", 1450, netsriovparameters.TestResourceCustomDiff, "netdevice")
 	jumboSriovPolicyConfigDiffPF := DefineSriovPolicy(
 		"test-policy-jumbo-diff", generalParameters.SriovOperatorNamespace, validSriovInterfaces[1],
-		vfsNumberDiffConfig, "#2-2", 9000, "testresourcejumbodiff", "netdevice")
+		vfsNumberDiffConfig, "#2-2", 9000, netsriovparameters.TestResourceJumboDiff, "netdevice")
 	scaleSriovPolicyConfigDiffPF := DefineSriovPolicy(
 		"test-policy-scale-diff", generalParameters.SriovOperatorNamespace, validSriovInterfaces[1],
-		netsriovparameters.ScaleVFsNumber, "#3-34", 1500, "testresourcescalediff", "netdevice")
+		netsriovparameters.ScaleVFsNumber, "#3-34", 1500, netsriovparameters.TestResourceScaleDiff, "netdevice")
 	scaleSriovPolicyConfig := DefineSriovPolicy(
 		"test-policy-scale", generalParameters.SriovOperatorNamespace, validSriovInterfaces[0],
-		netsriovparameters.ScaleVFsNumber, "#6-37", 1500, "testresourcescaled", "netdevice")
+		netsriovparameters.ScaleVFsNumber, "#6-37", 1500, netsriovparameters.TestResourceScale, "netdevice")
 
 	networkPolicies := []*sriovv1.SriovNetworkNodePolicy{usualSriovPolicyConfig, customSriovPolicyConfig,
 		jumboSriovPolicyConfig, customSriovPolicyConfigDiffPF, jumboSriovPolicyConfigDiffPF,
@@ -826,63 +879,13 @@ func SetupSriovConfig(sriovInfos *cluster.EnabledNodes, snoTimeoutMultiplier tim
 
 	By("Configuring SriovNetwork resources")
 
-	usualSriovStaticNetworkConfig := defineSriovNetworkWithStaticIPAM(
-		netsriovparameters.SriovStaticNetworkUsualMTUName,
-		usualSriovPolicyConfig.Spec.ResourceName)
-	customSriovStaticNetworkConfig := defineSriovNetworkWithStaticIPAM(
-		netsriovparameters.SriovStaticNetworkCustomMTUName,
-		customSriovPolicyConfig.Spec.ResourceName)
-	jumboSriovStaticNetworkConfig := defineSriovNetworkWithStaticIPAM(
-		netsriovparameters.SriovStaticNetworkJumboFrameName,
-		jumboSriovPolicyConfig.Spec.ResourceName)
-	usualSriovStaticNetworkConfigDiff := defineSriovNetworkWithStaticIPAM(
-		netsriovparameters.SriovStaticNetworkUsualMTUNameDiff,
-		usualSriovPolicyConfigDiffPF.Spec.ResourceName)
-	customSriovStaticNetworkConfigDiff := defineSriovNetworkWithStaticIPAM(
-		netsriovparameters.SriovStaticNetworkCustomMTUNameDiff,
-		customSriovPolicyConfigDiffPF.Spec.ResourceName)
-	jumboSriovStaticNetworkConfigDiff := defineSriovNetworkWithStaticIPAM(
-		netsriovparameters.SriovStaticNetworkJumboFrameNameDiff,
-		jumboSriovPolicyConfigDiffPF.Spec.ResourceName)
-	usualSriovWhereaboutsNetworkConfig := defineSriovNetworkWhereaboutsIPAM(
-		netsriovparameters.SriovWhereaboutsNetworkUsualMTUName,
-		usualSriovPolicyConfig.Spec.ResourceName)
-	customSriovWhereaboutsNetworkConfig := defineSriovNetworkWhereaboutsIPAM(
-		netsriovparameters.SriovWhereaboutsNetworkCustomMTUName,
-		customSriovPolicyConfig.Spec.ResourceName)
-	jumboSriovWhereaboutsNetworkConfig := defineSriovNetworkWhereaboutsIPAM(
-		netsriovparameters.SriovWhereaboutsNetworkJumboFrameName,
-		jumboSriovPolicyConfig.Spec.ResourceName)
-	usualSriovWhereaboutsNetworkConfigDiff := defineSriovNetworkWhereaboutsIPAM(
-		netsriovparameters.SriovWhereaboutsNetworkUsualMTUNameDiff,
-		usualSriovPolicyConfigDiffPF.Spec.ResourceName)
-	customSriovWhereaboutsNetworkConfigDiff := defineSriovNetworkWhereaboutsIPAM(
-		netsriovparameters.SriovWhereaboutsNetworkCustomMTUNameDiff,
-		customSriovPolicyConfigDiffPF.Spec.ResourceName)
-	jumboSriovWhereaboutsNetworkConfigDiff := defineSriovNetworkWhereaboutsIPAM(
-		netsriovparameters.SriovWhereaboutsNetworkJumboFrameNameDiff,
-		jumboSriovPolicyConfigDiffPF.Spec.ResourceName)
-	sriovBondNetworkConfig := defineSriovBondNetwork(
-		netsriovparameters.SriovNetworkBondName,
-		jumboSriovPolicyConfig.Spec.ResourceName)
-	sriovBondConfigDiff := defineSriovBondNetwork(
-		netsriovparameters.SriovNetworkBondNameDiff,
-		jumboSriovPolicyConfigDiffPF.Spec.ResourceName)
-	sriovScaleBondConfig := defineSriovBondNetwork(
-		netsriovparameters.SriovScaleBondName,
-		scaleSriovPolicyConfig.Spec.ResourceName)
-	sriovScaleBondConfigDiff := defineSriovBondNetwork(
-		netsriovparameters.SriovScaleBondNameDiff,
-		scaleSriovPolicyConfigDiffPF.Spec.ResourceName)
+	sriovNetworks := getStaticIPAMSriovNetworkList()
+	sriovNetworks = append(sriovNetworks, getWhereaboutsIPAMIPv4SriovNetworkList()...)
+	sriovNetworks = append(sriovNetworks, getWhereaboutsIPAMIPv6SriovNetworkList()...)
+	sriovNetworks = append(sriovNetworks, getBondSriovNetworkList()...)
 
-	sriovNetworks := []*sriovv1.SriovNetwork{usualSriovStaticNetworkConfig, customSriovStaticNetworkConfig,
-		jumboSriovStaticNetworkConfig, sriovBondNetworkConfig, customSriovStaticNetworkConfigDiff,
-		jumboSriovStaticNetworkConfigDiff, usualSriovStaticNetworkConfigDiff, sriovBondConfigDiff,
-		usualSriovWhereaboutsNetworkConfig, customSriovWhereaboutsNetworkConfig,
-		jumboSriovWhereaboutsNetworkConfig, usualSriovWhereaboutsNetworkConfigDiff,
-		customSriovWhereaboutsNetworkConfigDiff, jumboSriovWhereaboutsNetworkConfigDiff}
 	if isScaleSupported {
-		sriovNetworks = append(sriovNetworks, sriovScaleBondConfig, sriovScaleBondConfigDiff)
+		sriovNetworks = append(sriovNetworks, getBondScaleSriovNetworkList()...)
 	}
 
 	for _, network := range sriovNetworks {
@@ -992,4 +995,105 @@ func VerifySriovOperatorInstalledAndPreconfigured(operatorGroup v1.OperatorGroup
 		By("Configure SR-IOV operator")
 		SriovPreConfiguration()
 	}
+}
+
+func getStaticIPAMSriovNetworkList() []*sriovv1.SriovNetwork {
+	usualSriovStaticNetworkConfig := defineSriovNetworkWithStaticIPAM(
+		netsriovparameters.SriovStaticNetworkUsualMTUName,
+		netsriovparameters.TestResourceUsual)
+	customSriovStaticNetworkConfig := defineSriovNetworkWithStaticIPAM(
+		netsriovparameters.SriovStaticNetworkCustomMTUName,
+		netsriovparameters.TestResourceCustom)
+	jumboSriovStaticNetworkConfig := defineSriovNetworkWithStaticIPAM(
+		netsriovparameters.SriovStaticNetworkJumboFrameName,
+		netsriovparameters.TestResourceJumbo)
+	usualSriovStaticNetworkConfigDiff := defineSriovNetworkWithStaticIPAM(
+		netsriovparameters.SriovStaticNetworkUsualMTUNameDiff,
+		netsriovparameters.TestResourceUsualDiff)
+	customSriovStaticNetworkConfigDiff := defineSriovNetworkWithStaticIPAM(
+		netsriovparameters.SriovStaticNetworkCustomMTUNameDiff,
+		netsriovparameters.TestResourceCustomDiff)
+	jumboSriovStaticNetworkConfigDiff := defineSriovNetworkWithStaticIPAM(
+		netsriovparameters.SriovStaticNetworkJumboFrameNameDiff,
+		netsriovparameters.TestResourceJumboDiff)
+
+	return []*sriovv1.SriovNetwork{usualSriovStaticNetworkConfig, customSriovStaticNetworkConfig,
+		jumboSriovStaticNetworkConfig, customSriovStaticNetworkConfigDiff,
+		jumboSriovStaticNetworkConfigDiff, usualSriovStaticNetworkConfigDiff}
+}
+
+func getWhereaboutsIPAMIPv4SriovNetworkList() []*sriovv1.SriovNetwork {
+	usualSriovWhereaboutsIPv4NetworkConfig := defineSriovNetworkWhereaboutsIPAM(
+		netsriovparameters.SriovWhereaboutsIPv4NetworkUsualMTUName,
+		netsriovparameters.TestResourceUsual, netsriovparameters.WhereaboutsRangeIPv4)
+	customSriovWhereaboutsIPv4NetworkConfig := defineSriovNetworkWhereaboutsIPAM(
+		netsriovparameters.SriovWhereaboutsIPv4NetworkCustomMTUName,
+		netsriovparameters.TestResourceCustom, netsriovparameters.WhereaboutsRangeIPv4)
+	jumboSriovWhereaboutsIPv4NetworkConfig := defineSriovNetworkWhereaboutsIPAM(
+		netsriovparameters.SriovWhereaboutsIPv4NetworkJumboFrameName,
+		netsriovparameters.TestResourceJumbo, netsriovparameters.WhereaboutsRangeIPv4)
+	usualSriovWhereaboutsIPv4NetworkConfigDiff := defineSriovNetworkWhereaboutsIPAM(
+		netsriovparameters.SriovWhereaboutsIPv4NetworkUsualMTUNameDiff,
+		netsriovparameters.TestResourceUsualDiff, netsriovparameters.WhereaboutsRangeIPv4)
+	customSriovWhereaboutsIPv4NetworkConfigDiff := defineSriovNetworkWhereaboutsIPAM(
+		netsriovparameters.SriovWhereaboutsIPv4NetworkCustomMTUNameDiff,
+		netsriovparameters.TestResourceCustomDiff, netsriovparameters.WhereaboutsRangeIPv4)
+	jumboSriovWhereaboutsIPv4NetworkConfigDiff := defineSriovNetworkWhereaboutsIPAM(
+		netsriovparameters.SriovWhereaboutsIPv4NetworkJumboFrameNameDiff,
+		netsriovparameters.TestResourceJumboDiff, netsriovparameters.WhereaboutsRangeIPv4)
+
+	return []*sriovv1.SriovNetwork{
+		usualSriovWhereaboutsIPv4NetworkConfig, customSriovWhereaboutsIPv4NetworkConfig,
+		jumboSriovWhereaboutsIPv4NetworkConfig, usualSriovWhereaboutsIPv4NetworkConfigDiff,
+		customSriovWhereaboutsIPv4NetworkConfigDiff, jumboSriovWhereaboutsIPv4NetworkConfigDiff,
+	}
+}
+
+func getWhereaboutsIPAMIPv6SriovNetworkList() []*sriovv1.SriovNetwork {
+	usualSriovWhereaboutsIPv6NetworkConfig := defineSriovNetworkWhereaboutsIPAM(
+		netsriovparameters.SriovWhereaboutsIPv6NetworkUsualMTUName,
+		netsriovparameters.TestResourceUsual, netsriovparameters.WhereaboutsRangeIPv6)
+	customSriovWhereaboutsIPv6NetworkConfig := defineSriovNetworkWhereaboutsIPAM(
+		netsriovparameters.SriovWhereaboutsIPv6NetworkCustomMTUName,
+		netsriovparameters.TestResourceCustom, netsriovparameters.WhereaboutsRangeIPv6)
+	jumboSriovWhereaboutsIPv6NetworkConfig := defineSriovNetworkWhereaboutsIPAM(
+		netsriovparameters.SriovWhereaboutsIPv6NetworkJumboFrameName,
+		netsriovparameters.TestResourceJumbo, netsriovparameters.WhereaboutsRangeIPv6)
+	usualSriovWhereaboutsIPv6NetworkConfigDiff := defineSriovNetworkWhereaboutsIPAM(
+		netsriovparameters.SriovWhereaboutsIPv6NetworkUsualMTUNameDiff,
+		netsriovparameters.TestResourceUsualDiff, netsriovparameters.WhereaboutsRangeIPv6)
+	customSriovWhereaboutsIPv6NetworkConfigDiff := defineSriovNetworkWhereaboutsIPAM(
+		netsriovparameters.SriovWhereaboutsIPv6NetworkCustomMTUNameDiff,
+		netsriovparameters.TestResourceCustomDiff, netsriovparameters.WhereaboutsRangeIPv6)
+	jumboSriovWhereaboutsIPv6NetworkConfigDiff := defineSriovNetworkWhereaboutsIPAM(
+		netsriovparameters.SriovWhereaboutsIPv6NetworkJumboFrameNameDiff,
+		netsriovparameters.TestResourceJumboDiff, netsriovparameters.WhereaboutsRangeIPv6)
+
+	return []*sriovv1.SriovNetwork{
+		usualSriovWhereaboutsIPv6NetworkConfig, customSriovWhereaboutsIPv6NetworkConfig,
+		jumboSriovWhereaboutsIPv6NetworkConfig, usualSriovWhereaboutsIPv6NetworkConfigDiff,
+		customSriovWhereaboutsIPv6NetworkConfigDiff, jumboSriovWhereaboutsIPv6NetworkConfigDiff,
+	}
+}
+
+func getBondSriovNetworkList() []*sriovv1.SriovNetwork {
+	sriovBondNetworkConfig := defineSriovBondNetwork(
+		netsriovparameters.SriovNetworkBondName,
+		netsriovparameters.TestResourceJumbo)
+	sriovBondConfigDiff := defineSriovBondNetwork(
+		netsriovparameters.SriovNetworkBondNameDiff,
+		netsriovparameters.TestResourceJumboDiff)
+
+	return []*sriovv1.SriovNetwork{sriovBondNetworkConfig, sriovBondConfigDiff}
+}
+
+func getBondScaleSriovNetworkList() []*sriovv1.SriovNetwork {
+	sriovScaleBondConfig := defineSriovBondNetwork(
+		netsriovparameters.SriovScaleBondName,
+		netsriovparameters.TestResourceScale)
+	sriovScaleBondConfigDiff := defineSriovBondNetwork(
+		netsriovparameters.SriovScaleBondNameDiff,
+		netsriovparameters.TestResourceScaleDiff)
+
+	return []*sriovv1.SriovNetwork{sriovScaleBondConfig, sriovScaleBondConfigDiff}
 }

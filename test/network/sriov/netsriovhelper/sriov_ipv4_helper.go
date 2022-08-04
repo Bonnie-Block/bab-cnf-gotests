@@ -9,6 +9,7 @@ import (
 	. "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/sriov/netsriovparameters"
 
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/netparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/cluster"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
@@ -34,8 +35,8 @@ func TestSriovIPv4Scenario(
 	By("Defining test resources")
 
 	nodeSelector := defineNodeSelector(connectivity, sriovInfos)
-	serverNetworkName := defineServerNetworkName(mtu, ipam)
-	clientNetworkName := defineClientNetworkName(mtu, connectivityParameters.Connectivity, ipam)
+	serverNetworkName := defineServerNetworkName(mtu, ipam, netparameters.IPV4Family)
+	clientNetworkName := defineClientNetworkName(mtu, connectivityParameters.Connectivity, ipam, netparameters.IPV4Family)
 	negativeFlag := false
 	clientTestCommand, err := DefineTestCommandParameters(
 		negativeFlag,
@@ -96,8 +97,8 @@ func TestSriovIPv4Scenario(
 	negativeFlag = true
 
 	if protocol == netsriovparameters.CommunicationProtocolUnicastSCTP {
-		serverNetworkName = defineClientNetworkName(mtu, connectivityParameters.Connectivity, ipam)
-		clientNetworkName = defineServerNetworkName(mtu, ipam)
+		serverNetworkName = defineClientNetworkName(mtu, connectivityParameters.Connectivity, ipam, netparameters.IPV4Family)
+		clientNetworkName = defineServerNetworkName(mtu, ipam, netparameters.IPV4Family)
 	}
 
 	if protocol == netsriovparameters.CommunicationProtocolMulticastUDP ||

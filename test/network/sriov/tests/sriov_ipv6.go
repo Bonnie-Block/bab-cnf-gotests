@@ -63,23 +63,28 @@ var _ = Describe("CNF SRIOV", func() {
 		func(mtu int, protocol string, connectivity string, bond bool) {
 			netsriovhelper.TestSriovIPv6Scenario(
 				mtu,
-				protocol,
-				connectivity,
 				sriovInfos,
 				Config,
+				protocol,
+				connectivity,
 				netsriovparameters.ClientMacAddress,
-				netsriovparameters.ServerMacAddress)
+				netsriovparameters.ServerMacAddress,
+				netsriovparameters.IpamStatic)
 		},
 		netsriovhelper.BuildTableEntries(
 			sriovSmokeTestMode,
 			describe,
 			false,
-			[]int{netsriovparameters.MTUCustom,
+			[]int{
+				netsriovparameters.MTUCustom,
 				netsriovparameters.MTUJumbo,
-				netsriovparameters.MTUStandard},
-			[]string{netsriovparameters.ConnectivityDiffNode,
+				netsriovparameters.MTUStandard,
+			},
+			[]string{
+				netsriovparameters.ConnectivityDiffNode,
 				netsriovparameters.ConnectivitySameNodeDiffPF,
-				netsriovparameters.ConnectivitySameNodeSamePF},
+				netsriovparameters.ConnectivitySameNodeSamePF,
+			},
 			[]string{
 				netsriovparameters.CommunicationProtocolUnicastICMP,
 				netsriovparameters.CommunicationProtocolUnicastTCP,
@@ -93,18 +98,54 @@ var _ = Describe("CNF SRIOV", func() {
 	DescribeTable(
 		"Ipam type: IP Static, Ip Stack: ipv6, Mac address: MAC dynamic",
 		func(mtu int, protocol string, connectivity string, bond bool) {
-			netsriovhelper.TestSriovIPv6Scenario(mtu, protocol, connectivity, sriovInfos, Config, "", "")
+			netsriovhelper.TestSriovIPv6Scenario(mtu, sriovInfos, Config, protocol, connectivity, "", "",
+				netsriovparameters.IpamStatic)
 		},
 		netsriovhelper.BuildTableEntries(
 			sriovSmokeTestMode,
 			describe,
 			false,
-			[]int{netsriovparameters.MTUCustom,
+			[]int{
+				netsriovparameters.MTUCustom,
 				netsriovparameters.MTUJumbo,
-				netsriovparameters.MTUStandard},
-			[]string{netsriovparameters.ConnectivityDiffNode,
+				netsriovparameters.MTUStandard,
+			},
+			[]string{
+				netsriovparameters.ConnectivityDiffNode,
 				netsriovparameters.ConnectivitySameNodeDiffPF,
-				netsriovparameters.ConnectivitySameNodeSamePF},
+				netsriovparameters.ConnectivitySameNodeSamePF,
+			},
+			[]string{
+				netsriovparameters.CommunicationProtocolUnicastICMP,
+				netsriovparameters.CommunicationProtocolUnicastTCP,
+				netsriovparameters.CommunicationProtocolUnicastUDP,
+				netsriovparameters.CommunicationProtocolMulticastUDP,
+				netsriovparameters.CommunicationProtocolUnicastSCTP,
+			},
+		),
+	)
+
+	// 31807
+	DescribeTable(
+		"Ipam type: IP whereabouts, Ip Stack: ipv6, Mac address: Dynamic",
+		func(mtu int, protocol, connectivity string, bond bool) {
+			netsriovhelper.TestSriovIPv6Scenario(mtu, sriovInfos, Config, protocol, connectivity, "", "",
+				netsriovparameters.IpamWhereabouts)
+		},
+		netsriovhelper.BuildTableEntries(
+			sriovSmokeTestMode,
+			describe,
+			false,
+			[]int{
+				netsriovparameters.MTUCustom,
+				netsriovparameters.MTUJumbo,
+				netsriovparameters.MTUStandard,
+			},
+			[]string{
+				netsriovparameters.ConnectivityDiffNode,
+				netsriovparameters.ConnectivitySameNodeDiffPF,
+				netsriovparameters.ConnectivitySameNodeSamePF,
+			},
 			[]string{
 				netsriovparameters.CommunicationProtocolUnicastICMP,
 				netsriovparameters.CommunicationProtocolUnicastTCP,
