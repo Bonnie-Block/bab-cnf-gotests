@@ -72,9 +72,7 @@ var _ = BeforeSuite(func() {
 		"Missing Privileged pods")
 
 	By("Query the node under test redfish vendor")
-	node, err := ocp.GetWorkerNode()
-	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("GetWorkerNode() failed due to: %v\n", err))
-	LocalNodeVendor, err = nodevendor.GetVendor(node)
+	LocalNodeVendor, err = nodevendor.GetRedfishVendor(ranhweventparameters.Redfish.Session)
 	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("On redfish vendor query, got this error: %v\n", err))
 
 	By("Verify that redfish has a HTTPS target to send the events defined")

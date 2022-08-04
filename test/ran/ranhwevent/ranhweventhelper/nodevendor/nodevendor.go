@@ -2,38 +2,29 @@ package nodevendor
 
 import (
 	"fmt"
-	"log"
 	"strings"
 
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
+	"github.com/stmcginnis/gofish"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhwevent/ranhweventparameters"
-	corev1 "k8s.io/api/core/v1"
 )
 
-// GetVendor get the server vendor as Dell, HPE or ZTsystems.
-func GetVendor(node *corev1.Node) (string, error) {
-	cmd := []string{
-		"cat",
-		"/sys/class/dmi/id/board_vendor",
-	}
-	output, err := helper.ExecCommandOnNode(node, cmd)
-
+// GetRedfishVendor queries the redfish root for the OEM field and returns the vendor.
+func GetRedfishVendor(session *gofish.APIClient) (string, error) {
+	serviceRoot, err := gofish.ServiceRoot(session)
 	if err != nil {
-		log.Printf("GetVendor() failed to execute %v due to: %v\n", cmd, err)
-
-		return "", err
+		return "", fmt.Errorf("failed to GET redfish service root")
 	}
 
-	log.Printf("Issuing %v on %v output: %v\n", cmd, node.Name, output)
+	oem := string(serviceRoot.Oem)
 
-	switch strings.TrimSpace(output) {
-	case "Dell Inc.":
+	switch {
+	case strings.Contains(oem, ranhweventparameters.DellRedfishOem):
 		return ranhweventparameters.Dell, nil
-	case "HPE":
+	case strings.Contains(oem, ranhweventparameters.HpeRedfishOem):
 		return ranhweventparameters.Hpe, nil
-	case "ZTSYSTEMS":
+	case strings.Contains(oem, ranhweventparameters.ZTRedfishOem):
 		return ranhweventparameters.ZT, nil
 	default:
-		return "", fmt.Errorf("failed to match vendor from output: %v", strings.TrimSpace(output))
+		return "", fmt.Errorf("failed to match vendor from output: %v", oem)
 	}
 }

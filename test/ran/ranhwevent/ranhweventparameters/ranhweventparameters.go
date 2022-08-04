@@ -24,8 +24,8 @@ const (
 )
 
 var (
-	ConsumerContainerName = "cloud-native-event-consumer"
-	NamespaceConsumer     = "openshift-hw-events"
+	ConsumerContainerName = "cloud-event-consumer"
+	NamespaceConsumer     = "openshift-bare-metal-events"
 	AppPodLabel           = "app=hw-event-proxy"
 	ConsumerPodLabel      = "app=consumer"
 	Redfish               = RedfishConfig{
@@ -87,6 +87,9 @@ var (
 		"AMP0309",
 		"AMP0310",
 	}
+	DellRedfishOem = "Dell"
+	HpeRedfishOem  = "Hpe"
+	ZTRedfishOem   = "Ami"
 )
 
 func GetPDU() bool {

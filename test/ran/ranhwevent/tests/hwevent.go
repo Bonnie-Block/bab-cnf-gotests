@@ -40,8 +40,9 @@ var _ = Describe("HW event proxy", func() {
 	)
 	execute.BeforeAll(func() {
 		ranhweventparameters.Redfish.Session, _ = rfclient.GetClient(ranhweventparameters.Redfish)
-		node, _ := ocp.GetWorkerNode()
-		LocalNodeVendor, _ = nodevendor.GetVendor(node)
+		By("Query the node under test redfish vendor")
+		LocalNodeVendor, err = nodevendor.GetRedfishVendor(ranhweventparameters.Redfish.Session)
+		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("On redfish vendor query, got this error: %v\n", err))
 		ConsumersList, _ = consumers.GetConsumers()
 		eventService, _ = ranhweventparameters.Redfish.Session.Service.EventService()
 		if helper.Config.Ran.RanEventTestDebug != "" {
@@ -272,7 +273,7 @@ func TestEvents(consumersList *corev1.PodList, testEvents []string, eventService
 		if err != nil {
 			endConsumerCheckers()
 
-			return fmt.Errorf("failed to send event: %v", sentMsgID)
+			return fmt.Errorf(fmt.Sprintf("failed to send event: %v due to: %v", sentMsgID, err))
 		}
 
 		log.Printf("Sent: %v\n", sentMsgID)
