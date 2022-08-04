@@ -186,13 +186,15 @@ var _ = Describe("MetalLB BGP", func() {
 
 		By("should validate BGP routes to service")
 		routesV4 := []string{netmlbparameters.AddressPoolS1[0], netmlbparameters.AddressPoolS2[0]}
-		err = netmetallbhelper.CheckBGPRoutes(
-			masterNodeFRRPod,
-			workerNodesAdresses,
-			routesV4,
-			netparameters.IPV4Family,
-			netmlbparameters.PrefixLen32)
-		Expect(err).ToNot(HaveOccurred())
+
+		Eventually(func() error {
+			return netmetallbhelper.CheckBGPRoutes(
+				masterNodeFRRPod,
+				workerNodesAdresses,
+				routesV4,
+				netparameters.IPV4Family,
+				netmlbparameters.PrefixLen32)
+		}, 2*time.Minute, netmlbparameters.TimeoutBFDBGP).ShouldNot(HaveOccurred())
 
 		By("should validate curl to service 1")
 		httpOutput, err := netmetallbhelper.HTTPMlbPod(frrPod, ipv4metalLBIPList[0], netmlbparameters.AddressPoolS1[0],

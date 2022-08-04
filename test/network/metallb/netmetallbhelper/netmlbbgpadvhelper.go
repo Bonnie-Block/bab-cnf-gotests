@@ -421,9 +421,12 @@ func TestBGPBlockRouteAdvertisment(ipStack string,
 
 	masterFRRSlice := []k8sv1.Pod{*masterNodeFRRPod}
 
-	sentPrefixes, err := parseAddressFamilyInfo(masterFRRSlice, netmlbparameters.SentPrefixCounter)
-	Expect(err).ToNot(HaveOccurred())
-	Expect(sentPrefixes).ToNot(Equal(0))
+	Eventually(func() error {
+		_, err := parseAddressFamilyInfo(masterFRRSlice, netmlbparameters.SentPrefixCounter)
+
+		return err
+	}, 2*time.Minute, netmlbparameters.TimeoutBFDBGP).ShouldNot(HaveOccurred())
+
 	By("should validate BGP route is not received on Speakers")
 
 	speakerPods, err := helper.Apiclient.Pods(netmlbparameters.MetalLBOperatorNameSpace).
