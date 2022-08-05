@@ -51,37 +51,22 @@ func GetThreadSiblingsList(cpu int, node *corev1.Node) ([]int, error) {
 	return cpuList, err
 }
 
-func GetRTPerformanceProfile() (*performancev2.PerformanceProfile, error) {
+// GetPerformanceProfileWithCPUSet returns performance profile with reserved and isolated cpuset defined.
+func GetPerformanceProfileWithCPUSet() (*performancev2.PerformanceProfile, error) {
 	profiles := &performancev2.PerformanceProfileList{}
 	if err := helper.Apiclient.List(context.TODO(), profiles); err != nil {
 		return nil, err
 	}
 
 	for _, profile := range profiles.Items {
-		if profile.Spec.RealTimeKernel != nil &&
-			profile.Spec.RealTimeKernel.Enabled != nil &&
-			*profile.Spec.RealTimeKernel.Enabled {
+		if profile.Spec.CPU != nil &&
+			profile.Spec.CPU.Reserved != nil &&
+			profile.Spec.CPU.Isolated != nil {
 			return &profile, nil
 		}
 	}
 
-	// "FIXME: workaround to get a performance profile without rt kernel set. As rt kernel is now side-loaded on SNO"
-	// deployment pipeline due to blocking kernel bug.
-	for _, profile := range profiles.Items {
-		nodes, _ := GetNodesFromPerformanceProfile(&profile)
-		if len(nodes) > 0 {
-			output, err := helper.ExecCommandOnNode(nodes[0], []string{"uname", "-r"})
-			if err != nil {
-				return nil, err
-			}
-
-			if strings.Contains(strings.Trim(output, "\n"), ".rt") {
-				return &profile, nil
-			}
-		}
-	}
-
-	return nil, fmt.Errorf("RT Profile is not found")
+	return nil, fmt.Errorf("performance profile with Reserved and Isolated CPU set is not found")
 }
 
 // GetNodesFromPerformanceProfile returns list of nodes that are applicable to the given performance profile.

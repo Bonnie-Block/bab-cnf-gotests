@@ -41,28 +41,34 @@ var _ = Describe("SNO core reduction", func() {
 		node         *corev1.Node
 		isSNO        bool
 		mgmtCPULimit int
-		rtProfile    *performancev2.PerformanceProfile
+		perfProfile  *performancev2.PerformanceProfile
 		mgmtCPUSet   cpuset.CPUSet
 	)
 
 	execute.BeforeAll(func() {
 		isSNO, _ = nodes.IsSingleNodeCluster(helper.Apiclient)
-		rtProfile, _ = rancpuhelper.GetRTPerformanceProfile()
+		perfProfile, _ = rancpuhelper.GetPerformanceProfileWithCPUSet()
 		// Get node for testing
 		workers, err := nodes.GetByRole(helper.Apiclient, parameters.RoleWorker)
 		Expect(err).ToNot(HaveOccurred())
 		node = &workers[0]
+
+		// Print out kernel version with best effort
+		output, err := helper.ExecCommandOnNode(node, []string{"uname", "-r"})
+		if err == nil {
+			log.Println("Kernel version: " + output)
+		}
 	})
 
 	BeforeEach(func() {
 		if !isSNO {
 			Skip("Test is only applicable to Single Node cluster")
 		}
-		if rtProfile == nil {
-			Skip("No RT profile found on cluster")
+		if perfProfile == nil {
+			Skip("No performance profile with reserved and isolated cpu set configuration found on cluster")
 		}
 		Expect(node).ToNot(Equal(nil))
-		mgmtCPUSet = cpuset.MustParse(string(*rtProfile.Spec.CPU.Reserved))
+		mgmtCPUSet = cpuset.MustParse(string(*perfProfile.Spec.CPU.Reserved))
 		mgmtCPULimit = mgmtCPUSet.Size()
 	})
 
@@ -99,7 +105,7 @@ var _ = Describe("SNO core reduction", func() {
 				workloadStartTime = time.Now().UTC()
 				time.Sleep(20 * time.Second)
 				// stressNg cpu count is roughly 1/3.5 of total isolated cores
-				workloadPods = ranhelper.DeployWorkloadPods(rtProfile, node)
+				workloadPods = ranhelper.DeployWorkloadPods(perfProfile, node)
 			} else {
 				Expect(workloadPods).ToNot(BeEmpty())
 			}

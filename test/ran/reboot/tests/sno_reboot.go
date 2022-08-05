@@ -27,26 +27,32 @@ var _ = Describe("SNO Reboot", func() {
 	var (
 		node         *corev1.Node
 		isSNO        bool
-		rtProfile    *performancev2.PerformanceProfile
+		perfProfile  *performancev2.PerformanceProfile
 		workloadPods []*corev1.Pod
 	)
 
 	execute.BeforeAll(func() {
 		isSNO, _ = nodes.IsSingleNodeCluster(helper.Apiclient)
-		rtProfile, _ = rancpuhelper.GetRTPerformanceProfile()
+		perfProfile, _ = rancpuhelper.GetPerformanceProfileWithCPUSet()
 		// Get node for testing
 		workers, err := nodes.GetByRole(helper.Apiclient, parameters.RoleWorker)
 		Expect(err).ToNot(HaveOccurred())
 		node = &workers[0]
-		workloadPods = ranhelper.DeployWorkloadPods(rtProfile, node)
+		workloadPods = ranhelper.DeployWorkloadPods(perfProfile, node)
+
+		// Print out kernel version with best effort
+		output, err := helper.ExecCommandOnNode(node, []string{"uname", "-r"})
+		if err == nil {
+			log.Println("Kernel version: " + output)
+		}
 	})
 
 	BeforeEach(func() {
 		if !isSNO {
 			Skip("Test is only applicable to Single Node cluster")
 		}
-		if rtProfile == nil {
-			Skip("No RT profile found on cluster")
+		if perfProfile == nil {
+			Skip("No performance profile with reserved and isolated cpu set configuration found on cluster")
 		}
 		Expect(node).ToNot(Equal(nil))
 		Expect(workloadPods).NotTo(Equal(nil))
