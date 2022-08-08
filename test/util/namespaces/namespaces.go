@@ -166,7 +166,7 @@ func Clean(operatorNamespace, namespace string, clientSet *testclient.ClientSet,
 		return err
 	}
 
-	err = CleanNetworkAttachmentDefinitionInNamespace(namespace, clientSet)
+	err = CleanNetworkAttachmentDefinitions(namespace, clientSet)
 
 	return err
 }
@@ -203,8 +203,8 @@ func CleanEventsInNamespace(namespace string, clientSet *testclient.ClientSet) e
 	return err
 }
 
-// CleanNetworkAttachmentDefinitionInNamespace removes all network-attachment-definition from the given namespace.
-func CleanNetworkAttachmentDefinitionInNamespace(namespace string, clientSet *testclient.ClientSet) error {
+// CleanNetworkAttachmentDefinitions removes all network-attachment-definition from the given namespace.
+func CleanNetworkAttachmentDefinitions(namespace string, clientSet *testclient.ClientSet) error {
 	nsExist := Exists(namespace, clientSet)
 
 	if !nsExist {

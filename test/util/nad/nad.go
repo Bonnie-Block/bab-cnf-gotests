@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	cniTypes "github.com/containernetworking/cni/pkg/types"
 	nadv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -18,6 +17,15 @@ type (
 
 	Link struct {
 		Name string `json:"name,omitempty"`
+	}
+
+	IPAM struct {
+		Type       string   `json:"type,omitempty"`
+		AddrRange  string   `json:"range,omitempty"`
+		RangeStart string   `json:"range_start,omitempty"`
+		RangeEnd   string   `json:"range_end,omitempty"`
+		Gateway    string   `json:"gateway,omitempty"`
+		Exclude    []string `json:"exclude,omitempty"`
 	}
 
 	Plugin struct {
@@ -39,25 +47,25 @@ type (
 		VrfName          string            `json:"vrfName,omitempty"`
 		Mode             string            `json:"mode,omitempty"`
 		Miimon           string            `json:"miimon,omitempty"`
-		Ipam             *cniTypes.IPAM    `json:"ipam,omitempty"`
+		Ipam             *IPAM             `json:"ipam,omitempty"`
 		Capabilities     *Capability       `json:"capabilities,omitempty"`
 		Sysctl           map[string]string `json:"sysctl,omitempty"`
 		Links            []Link            `json:"links,omitempty"`
 	}
 
 	MasterPlugin struct {
-		CniVersion string         `json:"cniVersion,omitempty"`
-		Name       string         `json:"name,omitempty"`
-		Type       string         `json:"type,omitempty"`
-		Master     string         `json:"master,omitempty"`
-		Ipam       *cniTypes.IPAM `json:"ipam,omitempty"`
-		Plugins    *[]Plugin      `json:"plugins,omitempty"`
+		CniVersion string    `json:"cniVersion,omitempty"`
+		Name       string    `json:"name,omitempty"`
+		Type       string    `json:"type,omitempty"`
+		Master     string    `json:"master,omitempty"`
+		Ipam       *IPAM     `json:"ipam,omitempty"`
+		Plugins    *[]Plugin `json:"plugins,omitempty"`
 	}
 
 	NetworkAttachmentDefinitionBuilder struct {
-		definition        nadv1.NetworkAttachmentDefinition
+		Definition        nadv1.NetworkAttachmentDefinition
 		metaPluginConfigs []Plugin
-		ipam              *cniTypes.IPAM
+		ipam              *IPAM
 		errorMsg          string
 	}
 )
@@ -66,7 +74,7 @@ type (
 func NewNadBuilder(name string, namespace string) *NetworkAttachmentDefinitionBuilder {
 	return &NetworkAttachmentDefinitionBuilder{
 		metaPluginConfigs: []Plugin{},
-		definition: nadv1.NetworkAttachmentDefinition{
+		Definition: nadv1.NetworkAttachmentDefinition{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
 				Namespace: namespace,
@@ -79,7 +87,7 @@ func NewNadBuilder(name string, namespace string) *NetworkAttachmentDefinitionBu
 }
 
 // WithIpam adds ipam to NetworkAttachmentDefinition resource.
-func (b *NetworkAttachmentDefinitionBuilder) WithIpam(ipam *cniTypes.IPAM) *NetworkAttachmentDefinitionBuilder {
+func (b *NetworkAttachmentDefinitionBuilder) WithIpam(ipam *IPAM) *NetworkAttachmentDefinitionBuilder {
 	b.ipam = ipam
 
 	return b
@@ -110,11 +118,11 @@ func (b *NetworkAttachmentDefinitionBuilder) BuildWithMasterPluginString(
 		return nil, fmt.Errorf(b.errorMsg)
 	}
 
-	if b.definition.Spec.Config != "" {
+	if b.Definition.Spec.Config != "" {
 		return nil, fmt.Errorf("error nad spec config is not empty")
 	}
 
-	b.definition.Spec.Config = masterPlugin
+	b.Definition.Spec.Config = masterPlugin
 
 	return b, nil
 }
@@ -136,7 +144,7 @@ func (b *NetworkAttachmentDefinitionBuilder) Build() (*NetworkAttachmentDefiniti
 
 	nadConfig := MasterPlugin{}
 	nadConfig.CniVersion = "0.4.0"
-	nadConfig.Name = b.definition.Name
+	nadConfig.Name = b.Definition.Name
 	nadConfig.Ipam = b.ipam
 	nadConfig.Plugins = &b.metaPluginConfigs
 
@@ -155,14 +163,14 @@ func (b *NetworkAttachmentDefinitionBuilder) Build() (*NetworkAttachmentDefiniti
 		return nil, fmt.Errorf("can not marshal cni config")
 	}
 
-	b.definition.Spec.Config = string(nadConfigJSONString)
+	b.Definition.Spec.Config = string(nadConfigJSONString)
 
 	return b, nil
 }
 
 // GetString prints NetworkAttachmentDefinition resource.
 func (b *NetworkAttachmentDefinitionBuilder) GetString() (string, error) {
-	nadByte, err := json.MarshalIndent(b.definition, "", "    ")
+	nadByte, err := json.MarshalIndent(b.Definition, "", "    ")
 	if err != nil {
 		return "", err
 	}
@@ -172,7 +180,7 @@ func (b *NetworkAttachmentDefinitionBuilder) GetString() (string, error) {
 
 // Create creates NetworkAttachmentDefinition resource.
 func (b *NetworkAttachmentDefinitionBuilder) Create(clientSet *client.ClientSet) error {
-	if b.definition.Spec.Config == "" {
+	if b.Definition.Spec.Config == "" {
 		return fmt.Errorf("error to create network-attachment-definitions object because it's config is empty")
 	}
 
@@ -180,7 +188,7 @@ func (b *NetworkAttachmentDefinitionBuilder) Create(clientSet *client.ClientSet)
 		return fmt.Errorf(b.errorMsg)
 	}
 
-	err := clientSet.Create(context.TODO(), &b.definition)
+	err := clientSet.Create(context.TODO(), &b.Definition)
 	if err != nil {
 		return fmt.Errorf("fail to create NAD object due to: %w", err)
 	}
@@ -189,7 +197,7 @@ func (b *NetworkAttachmentDefinitionBuilder) Create(clientSet *client.ClientSet)
 }
 
 // DefineMacVlanPlugin returns mac-vlan plugin config.
-func DefineMacVlanPlugin(master string, ipam *cniTypes.IPAM) *Plugin {
+func DefineMacVlanPlugin(master string, ipam *IPAM) *Plugin {
 	return &Plugin{
 		Type:   "macvlan",
 		Master: master,
@@ -214,9 +222,22 @@ func DefineTuningPluginWithSysctl(sysctlConfig map[string]string) *Plugin {
 }
 
 // DefineStaticIpam returns static ipam config.
-func DefineStaticIpam() *cniTypes.IPAM {
-	return &cniTypes.IPAM{
-		Type: "static",
+func DefineStaticIpam() *IPAM {
+	return DefineIpam("static")
+}
+
+// DefineIpam returns static ipam config.
+func DefineIpam(ipamType string) *IPAM {
+	return &IPAM{
+		Type: ipamType,
+	}
+}
+
+// DefineIpamWhereabouts returns whereabouts ipam config.
+func DefineIpamWhereabouts(addrRange string) *IPAM {
+	return &IPAM{
+		Type:      "whereabouts",
+		AddrRange: addrRange,
 	}
 }
 
@@ -230,7 +251,7 @@ func DefineMasterPlugin(name string, plugin []Plugin) *MasterPlugin {
 }
 
 // DefineBondPlugin returns master nad plugin config.
-func DefineBondPlugin(ipam *cniTypes.IPAM, bondPorts []string, bondMode string) *Plugin {
+func DefineBondPlugin(ipam *IPAM, bondPorts []string, bondMode string) *Plugin {
 	bondPlugin := &Plugin{
 		Type:             "bond",
 		Mode:             bondMode,

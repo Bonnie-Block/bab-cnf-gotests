@@ -24,7 +24,7 @@ func CopyMap(originalMap map[string]string) map[string]string {
 	return newMap
 }
 
-// MarshalTypeToString returns give struck in json string format.
+// MarshalTypeToString returns given struck in json string format.
 func MarshalTypeToString(typeToMarshal interface{}) (string, error) {
 	marshaledBytes, err := json.Marshal(typeToMarshal)
 

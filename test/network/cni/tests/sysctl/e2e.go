@@ -92,7 +92,7 @@ var _ = Describe("CNF Sysctl", func() {
 		Expect(err).ToNot(HaveOccurred(), "error to clean SR-IOV networks from the namespace")
 
 		By("Clean NADs from the namespace")
-		err = namespaces.CleanNetworkAttachmentDefinitionInNamespace(netcniparameters.TestNamespace, helper.Apiclient)
+		err = namespaces.CleanNetworkAttachmentDefinitions(netcniparameters.TestNamespace, helper.Apiclient)
 		Expect(err).ToNot(HaveOccurred(),
 			fmt.Sprintf("error to clean NetworkAttachmentDefinition from the namespace %s",
 				netcniparameters.TestNamespace))

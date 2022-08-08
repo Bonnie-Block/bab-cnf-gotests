@@ -1,8 +1,6 @@
 package vrf
 
 import (
-	"fmt"
-
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/cni/tests"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -21,40 +19,41 @@ var _ = Describe("CNF VRF", func() {
 	describe := netcnihelper.DescribeParameters
 
 	var (
-		sriovInfos *cluster.EnabledNodes
-		testFail   = ""
+		sriovInfos    *cluster.EnabledNodes
+		testSetupFail = true
 	)
 
 	execute.BeforeAll(func() {
 		By("Discover SRIOV Node Interfaces")
 		var err error
 		sriovInfos, err = cluster.DiscoverSriov(generalHelper.Apiclient, generalParam.SriovOperatorNamespace)
-		if err != nil {
-			testFail = fmt.Sprintf("Error discover SRIOV node info: %s", err)
-			Expect(err).ToNot(HaveOccurred(), testFail)
-		}
+		Expect(err).ToNot(HaveOccurred(), "error to discover SR-IOV interfaces")
 		SetupSriovBeforeAll(generalHelper.Config, sriovInfos, netcniparameters.VRFIpamDHCP, false)
+		testSetupFail = false
 	})
 
 	BeforeEach(func() {
-		if testFail != "" {
-			Fail(testFail)
+		if testSetupFail {
+			Fail("Test failed due to error in BeforeAll")
 		}
+
 		tests.CleanPodFromNamespaceAndWaitUntilItsEmpty()
 	})
 
 	// 36323
 	DescribeTable("Integration: SRIOV, IPAM: dynamic, Interfaces: 1, Scheme: 2 Pods 2 VRFs ip network overlap",
 		func(node string, ipStack string) {
-			netcnihelper.TestVRFScenario(
+
+			vrfClientNetConfig, vrfServerNetConfig := netcnihelper.DefineVrfTestParamStaticMac(
+				netcniparameters.TestSriovNetworkRed, netcniparameters.TestSriovNetworkBlue)
+			testVRFScenario(
 				node,
 				ipStack,
-				"overLapToVRF",
+				netcniparameters.VRFIpamDHCP,
 				generalHelper.Config,
 				sriovInfos.Nodes,
-				netcniparameters.TestSriovNetworkBlue,
-				netcniparameters.TestSriovNetworkRed,
-				netcniparameters.VRFIpamDHCP)
+				vrfClientNetConfig,
+				vrfServerNetConfig)
 		},
 		Entry(describe, netcniparameters.SameNode, netcniparameters.IPStackIPv4),
 		Entry(describe, netcniparameters.DiffNode, netcniparameters.IPStackIPv4),

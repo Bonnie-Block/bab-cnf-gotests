@@ -208,6 +208,13 @@ func GetLog(cs *testclient.ClientSet, p *corev1.Pod, s time.Duration, containerN
 	return buf.String(), nil
 }
 
+// RedefinePodWithAnnotation updates the pod definition with an annotation.
+func RedefinePodWithAnnotation(pod *corev1.Pod, annotation map[string]string) *corev1.Pod {
+	pod.ObjectMeta.Annotations = annotation
+
+	return pod
+}
+
 // RedefinePodWithNetwork updates the pod definition with a network annotation.
 func RedefinePodWithNetwork(pod *corev1.Pod, networksSpec string) *corev1.Pod {
 	pod.ObjectMeta.Annotations = map[string]string{"k8s.v1.cni.cncf.io/networks": networksSpec}

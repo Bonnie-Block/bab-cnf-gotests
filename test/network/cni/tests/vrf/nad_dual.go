@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nad"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -24,7 +26,7 @@ var _ = Describe("CNF VRF", func() {
 		nodeListString []string
 		vrfBlue        netattdefv1.NetworkAttachmentDefinition
 		vrfRed         netattdefv1.NetworkAttachmentDefinition
-		testFail       = ""
+		testSetupFail  = true
 	)
 
 	execute.BeforeAll(func() {
@@ -34,36 +36,35 @@ var _ = Describe("CNF VRF", func() {
 
 		By(fmt.Sprintf("Create %s namespace", netcniparameters.TestNamespace))
 		err := namespaces.Create(netcniparameters.TestNamespace, generalHelper.Apiclient)
-		if err != nil {
-			testFail = fmt.Sprintf("Error to create namespace %s: %s", netcniparameters.TestNamespace, err)
-			Expect(err).ToNot(HaveOccurred(), testFail)
-		}
+		Expect(err).ToNot(HaveOccurred(), "error creating namespace")
 		validMacVlanInterfaces := netcnihelper.GetNodeValidMacVlanInterface(
 			nodeListString[0],
 			generalHelper.Config,
 			2,
 		)
 
+		removeSRIOVNetworksAndNADsFromNamespace()
+
 		By("Adding NADs")
 		vrfBlue = netcnihelper.AddVRFNad(
 			"test-vrf-blue",
 			validMacVlanInterfaces[0].Name,
 			netcniparameters.VRFBlueName,
-			netcniparameters.VRFIpamStatic,
-			"")
+			nad.DefineIpam("static"))
 
 		vrfRed = netcnihelper.AddVRFNad(
 			"test-vrf-red",
 			validMacVlanInterfaces[1].Name,
 			netcniparameters.VRFRedName,
-			netcniparameters.VRFIpamStatic,
-			"")
+			nad.DefineIpam("static"))
+		testSetupFail = false
 	})
 
 	BeforeEach(func() {
-		if testFail != "" {
-			Fail(testFail)
+		if testSetupFail {
+			Fail("Test failed due to error in BeforeAll")
 		}
+
 		By("Cleaning up resources before test")
 		err := namespaces.CleanPods(netcniparameters.TestNamespace, generalHelper.Apiclient)
 		Expect(err).ToNot(HaveOccurred())
@@ -71,15 +72,16 @@ var _ = Describe("CNF VRF", func() {
 	// 36306
 	DescribeTable("Integration: NAD, IPAM: static, Interfaces: 2, Scheme: 2 Pods 2 VRFs network overlap",
 		func(node string, ipStack string) {
-			netcnihelper.TestVRFScenario(
+			vrfClientNetConfig, vrfServerNetConfig := netcnihelper.DefineClientServerVRFsIPConfig(
+				vrfRed.Name, vrfBlue.Name, "overLapToVRF", ipStack)
+			testVRFScenario(
 				node,
 				ipStack,
-				"overLapToVRF",
+				netcniparameters.VRFIpamStatic,
 				generalHelper.Config,
 				nodeListString,
-				vrfBlue.Name,
-				vrfRed.Name,
-				netcniparameters.VRFIpamStatic)
+				vrfClientNetConfig,
+				vrfServerNetConfig)
 		},
 		Entry(describe, netcniparameters.SameNode, netcniparameters.IPStackIPv4),
 		Entry(describe, netcniparameters.DiffNode, netcniparameters.IPStackIPv4),
@@ -89,15 +91,16 @@ var _ = Describe("CNF VRF", func() {
 	// 36314
 	DescribeTable("Integration: NAD, IPAM: static, Interfaces: 2, Scheme: 2 Pods 2 VRFs Different IP networks",
 		func(node string, ipStack string) {
-			netcnihelper.TestVRFScenario(
+			vrfClientNetConfig, vrfServerNetConfig := netcnihelper.DefineClientServerVRFsIPConfig(
+				vrfRed.Name, vrfBlue.Name, "nonOverLap", ipStack)
+			testVRFScenario(
 				node,
 				ipStack,
-				"nonOverLap",
+				netcniparameters.VRFIpamStatic,
 				generalHelper.Config,
 				nodeListString,
-				vrfBlue.Name,
-				vrfRed.Name,
-				netcniparameters.VRFIpamStatic)
+				vrfClientNetConfig,
+				vrfServerNetConfig)
 		},
 		Entry(describe, netcniparameters.SameNode, netcniparameters.IPStackIPv4),
 		Entry(describe, netcniparameters.DiffNode, netcniparameters.IPStackIPv4),
@@ -107,15 +110,19 @@ var _ = Describe("CNF VRF", func() {
 	// 36300
 	DescribeTable("Integration: NAD, IPAM: static, Interfaces: 2, Scheme: 2 Pods 2 VRFs OCP Primary network overlap",
 		func(node string, ipStack string) {
-			netcnihelper.TestVRFScenario(
+			vrfClientNetConfig, vrfServerNetConfig := defineClientServerVRFsIPOverlapConfig(
+				vrfRed.Name, vrfBlue.Name, node, nodeListString)
+			if ipStack == netcniparameters.IPStackIPv6 {
+				Skip("Skipping SDN IPv6 is not currently tested")
+			}
+			testVRFScenario(
 				node,
 				ipStack,
-				"overLapToSDN",
+				netcniparameters.VRFIpamStatic,
 				generalHelper.Config,
 				nodeListString,
-				vrfBlue.Name,
-				vrfRed.Name,
-				netcniparameters.VRFIpamStatic)
+				vrfClientNetConfig,
+				vrfServerNetConfig)
 		},
 		Entry(describe, netcniparameters.SameNode, netcniparameters.IPStackIPv4),
 		Entry(describe, netcniparameters.DiffNode, netcniparameters.IPStackIPv4),

@@ -3,23 +3,18 @@ package netcniparameters
 import (
 	"fmt"
 
-	multus "gopkg.in/k8snetworkplumbingwg/multus-cni.v3/pkg/types"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
+
 	k8sv1 "k8s.io/api/core/v1"
 )
 
 var (
 	NetworkWithSysctlMutation    = "test-sysct-mutation"
 	NetworkWithoutSysctlMutation = "test-no-sysct-mutation"
-	FirstNetworkConfig           = multus.NetworkSelectionElement{
-		Name:      "test-nad-sysctl-first",
-		IPRequest: []string{"10.100.100.200/24"},
-	}
-	SecondNetworkConfig = multus.NetworkSelectionElement{
-		Name:      "test-nad-sysctl-second",
-		IPRequest: []string{"10.100.200.200/24"},
-	}
-	ResourceNameSysctl         = "sriovnicsysctl"
-	AllFlagsSysctlPluginConfig = map[string]string{
+	FirstNetworkConfig           = *pod.DefinePodNetStaticIP("test-nad-sysctl-first", "10.100.100.200/24")
+	SecondNetworkConfig          = *pod.DefinePodNetStaticIP("test-nad-sysctl-second", "10.100.200.200/24")
+	ResourceNameSysctl           = "sriovnicsysctl"
+	AllFlagsSysctlPluginConfig   = map[string]string{
 		"net.ipv4.conf.IFNAME.accept_redirects":        "0",
 		"net.ipv4.conf.IFNAME.accept_source_route":     "0",
 		"net.ipv4.conf.IFNAME.disable_policy":          "1",

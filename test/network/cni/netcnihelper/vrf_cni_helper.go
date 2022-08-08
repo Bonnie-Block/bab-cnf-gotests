@@ -1,13 +1,12 @@
 package netcnihelper
 
 import (
-	"context"
 	"fmt"
 	"strings"
 
-	netattdefv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nad"
 
+	netattdefv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -39,64 +38,18 @@ func GetNodeValidMacVlanInterface(nodeName string, config *config.Config, reques
 }
 
 // AddVRFNad creates a Network Attachment Definition for static and dynamic IP addresses.
-// For static IPs leave the "ipRange" argument empty ("").
-func AddVRFNad(nadName string, ifName string, vrfName string, ipam string, ipRange string,
-) netattdefv1.NetworkAttachmentDefinition {
-	vrfDefinition := netattdefv1.NetworkAttachmentDefinition{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: nadName,
-			Namespace:    netcniparameters.TestNamespace,
-		},
-		Spec: netattdefv1.NetworkAttachmentDefinitionSpec{
-			Config: fmt.Sprintf(
-				`{
-					"cniVersion": "0.4.0",
-					"name": "macvlan-vrf",
-					"plugins":
-					[
-						{
-							"type": "macvlan",
-							"master": "%s",`,
-				ifName),
-		}}
-
-	switch ipam {
-	case netcniparameters.VRFIpamStatic, netcniparameters.VRFIpamDHCP:
-		vrfDefinition.Spec.Config += fmt.Sprintf(
-			`
-							"ipam": {"type": "%s"}
-						},
-						{
-							"type": "vrf",
-							"vrfname": "%s"
-						}
-					]
-				}`,
-			ipam, vrfName)
-	case netcniparameters.IpamWhereabouts:
-		vrfDefinition.Spec.Config += fmt.Sprintf(
-			`
-							"ipam":
-							{
-								"type": "%s",
-								"range": "%s"
-							}
-						},
-						{
-							"type": "vrf",
-							"vrfname": "%s"
-						}
-					]
-				}`,
-			ipam,
-			ipRange,
-			vrfName)
+func AddVRFNad(nadName, ifName, vrfName string, ipam *nad.IPAM) netattdefv1.NetworkAttachmentDefinition {
+	nadPlugins := []*nad.Plugin{
+		nad.DefineMacVlanPlugin(ifName, ipam),
+		nad.DefineVrfPlugin(vrfName),
 	}
 
-	err := generalHelper.Apiclient.Create(context.Background(), &vrfDefinition)
+	nadBuilder, err := nad.NewNadBuilder(nadName, netcniparameters.TestNamespace).WithPlugins(nadPlugins).Build()
 	Expect(err).ToNot(HaveOccurred())
+	err = nadBuilder.Create(generalHelper.Apiclient)
+	Expect(err).ToNot(HaveOccurred(), "error to build nad config with duplicated flag")
 
-	return vrfDefinition
+	return nadBuilder.Definition
 }
 
 // GetNodeInterfaces returns list of requested interfaces.
