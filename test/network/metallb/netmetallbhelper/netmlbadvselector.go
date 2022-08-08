@@ -183,7 +183,7 @@ func validateBGPPeerSelectorRoutes(masterNodeFRRPod k8sv1.Pod, workerNodesAdress
 			err := CheckBGPRoutes(&masterNodeFRRPod, workerNodesAdresses, route, ipStack, netmlbparameters.PrefixLen32)
 
 			return err
-		}, 1*time.Minute, 2*time.Second).ShouldNot(HaveOccurred(), "error checking BGP route")
+		}, 2*time.Minute, 2*time.Second).ShouldNot(HaveOccurred(), "error checking BGP route")
 	}
 }
 
