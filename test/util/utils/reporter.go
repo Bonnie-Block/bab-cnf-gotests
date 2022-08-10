@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -86,7 +87,7 @@ func ReportIfFailed(report types.SpecReport, testSuite string, nSpaces map[strin
 				config.PathToPodExecLogs, path.Join(reporter.ReportPath, tcReportFolderName, podExecLogsFName))
 
 			if err != nil {
-				log.Fatalf("Failed to move pod exec logs %s to report folder: %s", config.PathToPodExecLogs, err)
+				log.Printf("Failed to move pod exec logs %s to report folder: %s", config.PathToPodExecLogs, err)
 			}
 		}
 	}
@@ -95,6 +96,11 @@ func ReportIfFailed(report types.SpecReport, testSuite string, nSpaces map[strin
 }
 
 func moveFile(sourcePath, destPath string) error {
+	_, err := os.Stat(sourcePath)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+
 	inputFile, err := os.Open(sourcePath)
 
 	if err != nil {
