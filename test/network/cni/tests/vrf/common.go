@@ -115,7 +115,7 @@ func podHasCorrectVrfConfig(podName string, vrfNetConfigs []netcniparameters.Vrf
 
 			return strings.Contains(vrfIface.String(), vrfMapConfig.IPAddr)
 		}, netcniparameters.PodWaitingTime, 5*time.Second).Should(
-			BeTrue(), fmt.Errorf("VRF interface is not present"))
+			BeTrue(), "VRF interface is not present")
 
 		Eventually(func() bool {
 			vrfRouteTable, _ := pod.ExecCommand(helper.Apiclient, *runningPod, validateVRFRouteTableCommand)
@@ -127,7 +127,7 @@ func podHasCorrectVrfConfig(podName string, vrfNetConfigs []netcniparameters.Vrf
 
 			return strings.Contains(vrfRouteTable.String(), vrfMapConfig.IPAddr)
 		}, netcniparameters.PodWaitingTime, 5*time.Second).Should(
-			BeTrue(), fmt.Errorf(fmt.Sprintf("VRF %s route table is not present", vrfMapConfig.VrfName)))
+			BeTrue(), fmt.Sprintf("VRF %s route table is not present", vrfMapConfig.VrfName))
 	}
 }
 
