@@ -14,21 +14,23 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	ptpv1 "github.com/openshift/ptp-operator/api/v1"
 )
 
 var _ = Describe("PTP Events", func() {
 	var (
 		workerNodesList []corev1.Node
+		err             error
+		ptpDaemonPods   *corev1.PodList
 	)
 
 	execute.BeforeAll(func() {
-		var err error
-
 		// Get all worker nodes
 		workerNodesList, err = nodes.GetByRole(helper.Apiclient, "worker")
 		Expect(err).NotTo(HaveOccurred())
 
-		ptpDaemonPods, err := helper.Apiclient.Pods(parameters.PtpOperatorNamespace).List(context.Background(),
+		ptpDaemonPods, err = helper.Apiclient.Pods(parameters.PtpOperatorNamespace).List(context.Background(),
 			metav1.ListOptions{
 				LabelSelector: parameters.PtpDaemonsetLabelSelector})
 		Expect(err).NotTo(HaveOccurred())
@@ -41,9 +43,8 @@ var _ = Describe("PTP Events", func() {
 	})
 
 	BeforeEach(func() {
-
 		// Validate that PTP event container is running
-		ptpDaemonPods, err := helper.Apiclient.Pods(parameters.PtpOperatorNamespace).List(context.Background(),
+		ptpDaemonPods, err = helper.Apiclient.Pods(parameters.PtpOperatorNamespace).List(context.Background(),
 			metav1.ListOptions{
 				LabelSelector: parameters.PtpDaemonsetLabelSelector})
 		Expect(err).NotTo(HaveOccurred())
@@ -110,7 +111,8 @@ var _ = Describe("PTP Events", func() {
 		})
 
 		Context("PTP events metrics", func() {
-			It("should have 'LOCKED' clock state", func() {
+			// todo add test case number
+			XIt("should have 'LOCKED' clock state", func() {
 				for _, clockValueState := range ranptpparameters.MetricMap["openshift_ptp_clock_state"] {
 					if clockValueState.Interface != "master" {
 						Expect(clockValueState.ClockStateValue).Should(Equal(ranptpparameters.LockedState))
@@ -118,7 +120,8 @@ var _ = Describe("PTP Events", func() {
 				}
 			})
 
-			It("should have the 'phc2sys' and  'ptp4l' process in 'UP' state", func() {
+			// todo add test case number
+			XIt("should have the 'phc2sys' and  'ptp4l' process in 'UP' state", func() {
 				for _, processState := range ranptpparameters.MetricMap["openshift_ptp_process_status"] {
 					if ranptpparameters.PTP4L == processState.Process {
 						Expect(processState.ProcessStatusValue).Should(Equal(ranptpparameters.Up))
@@ -129,5 +132,19 @@ var _ = Describe("PTP Events", func() {
 				}
 			})
 		})
+
+		Context("reset Interfaces", func() {
+			// todo add test case number
+			It("slave" /*todo add what is should be*/, func() {
+				//get master slave interface
+				ptpv1.GetInterfaces()
+			})
+
+			// todo add test case number
+			It("master" /*todo add what is should be*/, func() {
+
+			})
+		})
+
 	})
 })

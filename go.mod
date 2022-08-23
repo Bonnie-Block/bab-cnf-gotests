@@ -20,7 +20,7 @@ require (
 	github.com/openshift/api v3.9.1-0.20191111211345-a27ff30ebf09+incompatible
 	github.com/openshift/client-go v0.0.0-20210916133943-9acee1a0fb83
 	github.com/openshift/machine-config-operator v4.2.0-alpha.0.0.20190917115525-033375cbe820+incompatible
-	github.com/openshift/ptp-operator v0.0.0-20220420200832-a9a0fd9f505c
+	github.com/openshift/ptp-operator v0.0.0-20220616154021-73c849ad6b4b
 	github.com/opentracing/opentracing-go v1.2.0
 	github.com/operator-framework/api v0.10.7
 	github.com/operator-framework/operator-lifecycle-manager v3.11.0+incompatible

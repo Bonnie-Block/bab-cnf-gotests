@@ -739,7 +739,7 @@ github.com/openshift/machine-config-operator/pkg/generated/informers/externalver
 github.com/openshift/machine-config-operator/pkg/generated/informers/externalversions/machineconfiguration.openshift.io
 github.com/openshift/machine-config-operator/pkg/generated/informers/externalversions/machineconfiguration.openshift.io/v1
 github.com/openshift/machine-config-operator/pkg/generated/listers/machineconfiguration.openshift.io/v1
-# github.com/openshift/ptp-operator v0.0.0-20220420200832-a9a0fd9f505c
+# github.com/openshift/ptp-operator v0.0.0-20220616154021-73c849ad6b4b
 ## explicit; go 1.15
 github.com/openshift/ptp-operator/api/v1
 github.com/openshift/ptp-operator/pkg/client/clientset/versioned/scheme
