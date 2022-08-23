@@ -30,19 +30,24 @@ var _ = Describe("CNF SRIOV", func() {
 	if !sriovSmokeTestMode {
 
 		var (
-			sriovInterfaces []*sriovv1.InterfaceExt
-			sriovCrdsList   []*v1.CustomResourceDefinition
-			clientPod       *corev1.Pod
+			sriovInterfaces       []*sriovv1.InterfaceExt
+			sriovCrdsList         []*v1.CustomResourceDefinition
+			clientPod             *corev1.Pod
+			connectivityScenarion string
 		)
 		execute.BeforeAll(func() {
-			netsriovhelper.VerifySriovOperatorInstalledAndPreconfigured(operatorGroup, sriovSubscription)
+			netsriovhelper.VerifySriovOperatorInstalledAndPreconfigured(namespace, operatorGroup, sriovSubscription)
 
 			By("Collect info about installed SR-IOV operator")
 			sriovInfos, err := cluster.DiscoverSriov(
 				helper.Apiclient,
 				parameters.SriovOperatorNamespace)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(len(sriovInfos.Nodes)).To(BeNumerically(">", 1))
+			Expect(len(sriovInfos.Nodes)).To(BeNumerically(">=", 1))
+			connectivityScenarion = netsriovparameters.ConnectivitySameNodeSamePF
+			if len(sriovInfos.Nodes) > 1 {
+				connectivityScenarion = netsriovparameters.ConnectivityDiffNodeDiffPF
+			}
 			sriovInterfaces, err = sriovInfos.FindSriovDevices(sriovInfos.Nodes[0])
 			Expect(err).ToNot(HaveOccurred())
 
@@ -53,7 +58,7 @@ var _ = Describe("CNF SRIOV", func() {
 			By("Run Client and Server pods")
 			netsriovhelper.RunServerPod(
 				netsriovparameters.CommunicationProtocolUnicastICMP, netsriovparameters.MTUStandard,
-				netsriovparameters.ConnectivityDiffNodeDiffPF, sriovInfos, helper.Config,
+				connectivityScenarion, sriovInfos, helper.Config,
 				netsriovparameters.SriovStaticNetworkUsualMTUName, nil, false,
 				netsriovparameters.ServerMacAddress, netsriovparameters.ServerPodIP,
 				netsriovparameters.TestInterfaceName, netsriovparameters.IpamStatic)
@@ -219,11 +224,9 @@ var _ = Describe("CNF SRIOV", func() {
 
 				By("Deploy SR-IOV operator namespace")
 				Expect(namespaces.Exists(parameters.SriovOperatorNamespace, helper.Apiclient)).To(BeFalse())
-				err := namespaces.Create(parameters.SriovOperatorNamespace, helper.Apiclient)
-				Expect(err).ToNot(HaveOccurred())
 
 				By("Deploy SR-IOV operator")
-				err = netsriovhelper.DeploySriovOperator(&operatorGroup, sriovSubscription)
+				err := netsriovhelper.DeploySriovOperator(namespace, &operatorGroup, sriovSubscription)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Validate that SR-IOV operator installed with all the components")
@@ -281,7 +284,7 @@ var _ = Describe("CNF SRIOV", func() {
 				Expect(err).ToNot(HaveOccurred())
 				netsriovhelper.RunServerPod(
 					netsriovparameters.CommunicationProtocolUnicastICMP, netsriovparameters.MTUStandard,
-					netsriovparameters.ConnectivityDiffNodeDiffPF, sriovInfos, helper.Config,
+					connectivityScenarion, sriovInfos, helper.Config,
 					netsriovparameters.SriovStaticNetworkUsualMTUName, nil, false,
 					netsriovparameters.ServerMacAddress, netsriovparameters.ServerPodIP,
 					netsriovparameters.TestInterfaceName, netsriovparameters.IpamStatic)

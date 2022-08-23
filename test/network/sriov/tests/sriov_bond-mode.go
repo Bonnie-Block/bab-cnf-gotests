@@ -34,7 +34,7 @@ var _ = Describe("CNF SRIOV: Bond CNI.", func() {
 	)
 
 	execute.BeforeAll(func() {
-		netsriovhelper.VerifySriovOperatorInstalledAndPreconfigured(operatorGroup, sriovSubscription)
+		netsriovhelper.VerifySriovOperatorInstalledAndPreconfigured(namespace, operatorGroup, sriovSubscription)
 		By("Discover SRIOV interfaces")
 		sriovInfos, err = cluster.DiscoverSriov(
 			Apiclient,

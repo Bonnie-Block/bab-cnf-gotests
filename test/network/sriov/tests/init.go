@@ -5,6 +5,8 @@ import (
 	"log"
 	"os"
 
+	corev1 "k8s.io/api/core/v1"
+
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/sriov/netsriovparameters"
 
 	v1 "github.com/operator-framework/api/pkg/operators/v1"
@@ -19,6 +21,7 @@ var (
 	sriovSmokeTestMode bool
 	operatorGroup      v1.OperatorGroup
 	sriovSubscription  *v1alpha1.Subscription
+	namespace          *corev1.Namespace
 )
 
 func init() {
@@ -45,7 +48,15 @@ func init() {
 
 	sriovSubscription, err = helper.Apiclient.Subscriptions(parameters.SriovOperatorNamespace).Get(
 		context.TODO(), netsriovparameters.SriovOperatorSubscriptionName, metav1.GetOptions{})
+
 	if err != nil {
 		log.Fatalf("error to collect sriov Subscription resource %s", err)
+	}
+
+	namespace, err = helper.Apiclient.Namespaces().Get(
+		context.TODO(), parameters.SriovOperatorNamespace, metav1.GetOptions{})
+
+	if err != nil {
+		log.Fatalf("error to collect sriov namespace resource %s", err)
 	}
 }

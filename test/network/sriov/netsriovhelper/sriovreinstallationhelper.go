@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
+
 	. "github.com/onsi/ginkgo/v2"
 
 	olmv1 "github.com/operator-framework/api/pkg/operators/v1"
@@ -19,17 +21,27 @@ import (
 )
 
 // DeploySriovOperator deploys SR-IOV operator on given cluster.
-func DeploySriovOperator(operatorGroup *olmv1.OperatorGroup, sriovSubscription *v1alpha1.Subscription) error {
-	err := namespaces.Create(parameters.SriovOperatorNamespace, helper.Apiclient)
+func DeploySriovOperator(namespace *corev1.Namespace, operatorGroup *olmv1.OperatorGroup,
+	sriovSubscription *v1alpha1.Subscription) error {
+	err := helper.Apiclient.Create(context.TODO(),
+		&corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        namespace.Name,
+				Annotations: namespace.Annotations,
+				Labels:      namespace.Labels,
+			},
+		})
+
 	if err != nil {
-		return err
+		return fmt.Errorf("can not deploy operator namespace %w", err)
 	}
 
 	err = helper.Apiclient.Create(context.TODO(),
 		&olmv1.OperatorGroup{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      operatorGroup.Name,
-				Namespace: operatorGroup.Namespace},
+				Name:        operatorGroup.Name,
+				Namespace:   operatorGroup.Namespace,
+				Annotations: operatorGroup.Annotations},
 			Spec: olmv1.OperatorGroupSpec{
 				TargetNamespaces: operatorGroup.Spec.TargetNamespaces},
 		},
@@ -42,14 +54,16 @@ func DeploySriovOperator(operatorGroup *olmv1.OperatorGroup, sriovSubscription *
 	err = helper.Apiclient.Create(context.TODO(),
 		&v1alpha1.Subscription{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      sriovSubscription.Name,
-				Namespace: sriovSubscription.Namespace,
+				Name:        sriovSubscription.Name,
+				Namespace:   sriovSubscription.Namespace,
+				Annotations: sriovSubscription.Annotations,
 			},
 			Spec: &v1alpha1.SubscriptionSpec{
 				Channel:                sriovSubscription.Spec.Channel,
 				Package:                sriovSubscription.Spec.Package,
 				CatalogSource:          sriovSubscription.Spec.CatalogSource,
 				CatalogSourceNamespace: sriovSubscription.Spec.CatalogSourceNamespace,
+				InstallPlanApproval:    v1alpha1.ApprovalAutomatic,
 			},
 		},
 	)

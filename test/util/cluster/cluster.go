@@ -23,8 +23,8 @@ type EnabledNodes struct {
 }
 
 var (
-	supportedDrivers = []string{"mlx5_core", "i40e", "ixgbe"}
-	supportedDevices = []string{"1583", "158b", "10fb", "1015", "1017"}
+	supportedDrivers = []string{"mlx5_core", "i40e", "ixgbe", "ice"}
+	supportedDevices = []string{"1583", "1593", "158b", "10fb", "1015", "1017"}
 )
 
 // DiscoverSriov retrieves Sriov related information of a given cluster.

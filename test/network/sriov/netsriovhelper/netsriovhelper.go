@@ -966,14 +966,14 @@ func SriovPreConfiguration() {
 	SetupSriovConfig(sriovInfos, snoTimeoutMultiplier)
 }
 
-func VerifySriovOperatorInstalledAndPreconfigured(operatorGroup v1.OperatorGroup,
+func VerifySriovOperatorInstalledAndPreconfigured(namespace *corev1.Namespace, operatorGroup v1.OperatorGroup,
 	sriovSubscription *v1alpha1.Subscription) {
 	By("Checking if SR-IOV operator installed")
 
 	if IsSriovOperatorInstalled() != nil {
 		By("SR-IOV Operator is not installed, start deployment")
 
-		err := DeploySriovOperator(&operatorGroup, sriovSubscription)
+		err := DeploySriovOperator(namespace, &operatorGroup, sriovSubscription)
 		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(
