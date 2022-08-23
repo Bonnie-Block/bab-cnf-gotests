@@ -18,17 +18,17 @@ type SwitchCredentials struct {
 func NewSwitchCredentials() (*SwitchCredentials, error) {
 	user, err := Config.GetSwitchUser()
 	if err != nil {
-		return nil, fmt.Errorf("error to get switch user %w", err)
+		return nil, err
 	}
 
 	pass, err := Config.GetSwitchPass()
 	if err != nil {
-		return nil, fmt.Errorf("error to get switch password %w", err)
+		return nil, err
 	}
 
 	ipAddress, err := Config.GetSwitchIP()
 	if err != nil {
-		return nil, fmt.Errorf("error to get switch IP address %w", err)
+		return nil, err
 	}
 
 	return &SwitchCredentials{

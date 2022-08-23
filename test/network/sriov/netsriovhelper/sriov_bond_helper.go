@@ -110,15 +110,19 @@ func TestActiveActiveBondScenario(
 	protocol, bondMode, ipAddrServer, ipAddrClient string) {
 	By("Validating test parameters")
 
+	switchCredentials, err := NewSwitchCredentials()
+	if err != nil {
+		Skip(fmt.Sprintf("Failed to get switch credentials: %s", err))
+	}
+
+	switchInterfaces, err := Config.GetSwitchInterfaces()
+	if err != nil {
+		Skip(fmt.Sprintf("Failed to get switch interfaces: %s", err))
+	}
+
 	bondActiveActiveParameters, err := netsriovparameters.NewBondActiveActive(mtu,
 		bondMode, protocol)
 	Expect(err).ToNot(HaveOccurred())
-
-	switchCredentials, err := NewSwitchCredentials()
-	Expect(err).ToNot(HaveOccurred(), "Failed to create switch credentials object")
-
-	switchInterfaces, err := Config.GetSwitchInterfaces()
-	Expect(err).ToNot(HaveOccurred(), "Failed to get switch interfaces")
 
 	if len(switchInterfaces) != 4 {
 		Skip(fmt.Sprintf("Wrong number of switch interfaces %v, should be 4", switchInterfaces))
