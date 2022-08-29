@@ -47,7 +47,7 @@ var _ = BeforeSuite(func() {
 	Expect(ptpNamespaceExists).To(BeTrue())
 
 	// Check for an aqm-router namespace is exists
-	aqmNamespaceExists := namespaces.Exists(parameters.PtpOperatorNamespace, helper.Apiclient)
+	aqmNamespaceExists := namespaces.Exists(ranptpparameters.AqmNamespace, helper.Apiclient)
 	Expect(aqmNamespaceExists).To(BeTrue())
 
 	ptpDaemonPods, err := helper.Apiclient.Pods(parameters.PtpOperatorNamespace).List(context.Background(),

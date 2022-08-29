@@ -2,10 +2,12 @@ package tests
 
 import (
 	"context"
+	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	ptpv1 "github.com/openshift/ptp-operator/api/v1"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ptp/ranptphelper"
@@ -14,8 +16,6 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	ptpv1 "github.com/openshift/ptp-operator/api/v1"
 )
 
 var _ = Describe("PTP Events", func() {
@@ -35,7 +35,7 @@ var _ = Describe("PTP Events", func() {
 				LabelSelector: parameters.PtpDaemonsetLabelSelector})
 		Expect(err).NotTo(HaveOccurred())
 
-		// Get the metrics details before changes
+		// Get the metrics details before changes_ptp_events_bc
 		ptpMetricsBuff, err := ranptphelper.GetPTPMetrics(ptpDaemonPods.Items[0])
 		Expect(err).NotTo(HaveOccurred())
 		err = ranptphelper.MetricParser(ptpMetricsBuff)
@@ -111,8 +111,7 @@ var _ = Describe("PTP Events", func() {
 		})
 
 		Context("PTP events metrics", func() {
-			// todo add test case number
-			XIt("should have 'LOCKED' clock state", func() {
+			It("should have 'LOCKED' clock state", func() {
 				for _, clockValueState := range ranptpparameters.MetricMap["openshift_ptp_clock_state"] {
 					if clockValueState.Interface != "master" {
 						Expect(clockValueState.ClockStateValue).Should(Equal(ranptpparameters.LockedState))
@@ -120,8 +119,7 @@ var _ = Describe("PTP Events", func() {
 				}
 			})
 
-			// todo add test case number
-			XIt("should have the 'phc2sys' and  'ptp4l' process in 'UP' state", func() {
+			It("should have the 'phc2sys' and  'ptp4l' process in 'UP' state", func() {
 				for _, processState := range ranptpparameters.MetricMap["openshift_ptp_process_status"] {
 					if ranptpparameters.PTP4L == processState.Process {
 						Expect(processState.ProcessStatusValue).Should(Equal(ranptpparameters.Up))
@@ -134,17 +132,70 @@ var _ = Describe("PTP Events", func() {
 		})
 
 		Context("reset Interfaces", func() {
-			// todo add test case number
-			It("slave" /*todo add what is should be*/, func() {
-				//get master slave interface
-				ptpv1.GetInterfaces()
+			It("should generate an events when slave interface goes down and up", func() {
+				nodeToPtpDaemonPod := ranptphelper.NodesToPtpDaemonPods(workerNodesList, ptpDaemonPods)
+				ifaces, err := ranptphelper.GetInterfaces(ptpv1.Slave)
+				Expect(err).NotTo(HaveOccurred())
+				for _, ptpDaemonPod := range nodeToPtpDaemonPod {
+					for _, iface := range ifaces {
+						By(fmt.Sprintf("verify event entering to HoldOver state after salve interface %s goes down", iface))
+						err = ranptphelper.SetInterfaceStatus(ptpDaemonPod,
+							parameters.PtpContainerName,
+							iface,
+							ranptpparameters.Off)
+						Expect(err).NotTo(HaveOccurred())
+
+						newEvent, err := ranptphelper.GetEventValueFromEnd(ptpDaemonPod, 1)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(newEvent).Should(Equal(ranptpparameters.HoldOver))
+
+						By(fmt.Sprintf("verify event FreeRun after salve interface %s goes down", iface))
+						lastEvent, err := ranptphelper.GetLastEventValue(ptpDaemonPod)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(lastEvent).Should(Equal(ranptpparameters.FreeRun))
+
+						By(fmt.Sprintf("verify event entering to Locked state after salve interface %s goes up", iface))
+						err = ranptphelper.SetInterfaceStatus(&ptpDaemonPods.Items[0],
+							parameters.PtpContainerName,
+							iface,
+							ranptpparameters.On)
+						Expect(err).NotTo(HaveOccurred())
+						lastEvent, err = ranptphelper.WaitForLastEvent(ptpDaemonPod)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(lastEvent).Should(Equal(ranptpparameters.Locked))
+					}
+				}
 			})
 
-			// todo add test case number
-			It("master" /*todo add what is should be*/, func() {
+			It("should have no effect when master interface goes down and up", func() {
+				nodeToPtpDaemonPod := ranptphelper.NodesToPtpDaemonPods(workerNodesList, ptpDaemonPods)
+				ifaces, err := ranptphelper.GetInterfaces(ptpv1.Master)
+				Expect(err).NotTo(HaveOccurred())
+				for _, ptpDaemonPod := range nodeToPtpDaemonPod {
+					for _, iface := range ifaces {
+						By(fmt.Sprintf("verify event is still in Locked state after master interface %s goes down", iface))
+						err = ranptphelper.SetInterfaceStatus(ptpDaemonPod,
+							parameters.PtpContainerName,
+							iface,
+							ranptpparameters.Off)
+						Expect(err).NotTo(HaveOccurred())
 
+						lastEvent, err := ranptphelper.WaitForLastEvent(ptpDaemonPod)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(lastEvent).Should(Equal(ranptpparameters.Locked))
+
+						By(fmt.Sprintf("verify event is still in Locked state after master interface %s goes up", iface))
+						err = ranptphelper.SetInterfaceStatus(&ptpDaemonPods.Items[0],
+							parameters.PtpContainerName,
+							iface,
+							ranptpparameters.On)
+						Expect(err).NotTo(HaveOccurred())
+						lastEvent, err = ranptphelper.WaitForLastEvent(ptpDaemonPod)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(lastEvent).Should(Equal(ranptpparameters.Locked))
+					}
+				}
 			})
 		})
-
 	})
 })

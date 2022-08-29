@@ -8,6 +8,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	"context"
 	"fmt"
@@ -19,6 +20,12 @@ import (
 // GetLastEventValue gets a pod "pod" and returns the last state of the last published event,
 // if no event was published within the last 24 hours, an error is occurred.
 func GetLastEventValue(ptpPod *corev1.Pod) (string, error) {
+	return GetEventValueFromEnd(ptpPod, 0)
+}
+
+// GetEventValueFromEnd gets a pod, "pod", and returns the "eventNumFromEnd" before last value of published event,
+// if no event was published within the last 24 hours, an error is occurred.
+func GetEventValueFromEnd(ptpPod *corev1.Pod, eventNumFromEnd int) (string, error) {
 	logs, err := pod.GetLog(helper.Apiclient, ptpPod, 24*time.Hour, ranptpparameters.ContainerName)
 	if nil != err {
 		return "", err
@@ -27,18 +34,25 @@ func GetLastEventValue(ptpPod *corev1.Pod) (string, error) {
 	var eventStrings []string
 	eventStrings = getEventsLogs(logs, eventStrings)
 
-	if len(eventStrings) == 0 {
+	eventStringsLen := len(eventStrings)
+	if eventStringsLen == 0 {
 		return "", fmt.Errorf("no events were found")
 	}
 
-	lastLogEvent := eventStrings[len(eventStrings)-1]
-	log := LogStrToLogStrct(lastLogEvent)
-	msg := EventMsgParser(log.Msg)
+	eventIndex := eventStringsLen - eventNumFromEnd - 1
+	if 0 > eventIndex {
+		return "", fmt.Errorf("no events exisit %d before the last event", eventNumFromEnd)
+	}
+
+	lastLogEvent := eventStrings[len(eventStrings)-eventNumFromEnd-1]
+
+	logStruct := LogStrToLogStrct(lastLogEvent)
+	msg := EventMsgParser(logStruct.Msg)
 
 	return msg.Data.Values[0].Value, nil
 }
 
-// WaitForClusterRecover waits up to 45 minutes for all clusters in a given node " node"to recover,
+// WaitForClusterRecover waits up to 45 minutes for all clusters in a given node "node" to recover,
 // if at list one cluster is not recovers, an error is occurred.
 func WaitForClusterRecover(node *corev1.Node) error {
 	// Wait for linux to be reachable via ping and record time
@@ -73,8 +87,8 @@ func NodesToPtpDaemonPods(nodesList []corev1.Node, podsList *corev1.PodList) map
 	nodeToPtpDaemonPod := make(map[*corev1.Node]*corev1.Pod)
 
 	podMap := make(map[string]*corev1.Pod)
-	for _, pod := range podsList.Items {
-		podMap[pod.Spec.NodeName] = &pod
+	for _, podInList := range podsList.Items {
+		podMap[podInList.Spec.NodeName] = &podInList
 	}
 
 	nodeMap := make(map[*corev1.Node]string)
@@ -99,13 +113,50 @@ func GetPtpDaemonPodFromNode(node *corev1.Node) (*corev1.Pod, error) {
 		return nil, err
 	}
 
-	for _, pod := range ptpDaemonPods.Items {
-		if pod.Spec.NodeName == node.Name {
-			return &pod, nil
+	for _, daemonPod := range ptpDaemonPods.Items {
+		if daemonPod.Spec.NodeName == node.Name {
+			return &daemonPod, nil
 		}
 	}
 
 	return nil, fmt.Errorf("no new ptp daemon pod were created in %s node", node.Name)
+}
+
+// WaitForLastEvent waits at least 5 seconds and up to 1 minute for the last event.
+// The function returns the last events and an error if any occurred.
+func WaitForLastEvent(ptpPod *corev1.Pod) (string, error) {
+	log.Println("Waiting at least 5 seconds for new event")
+
+	currEventValue, err := GetLastEventValue(ptpPod)
+	if nil != err {
+		return "", err
+	}
+
+	var newEventValue string
+
+	err = wait.Poll(5*time.Second, 1*time.Minute, func() (bool, error) {
+		// conditional function that checks if no new event accorded during the last 5 seconds
+		newEventValue, err = GetLastEventValue(ptpPod)
+		if nil != err {
+			return false, err
+		}
+
+		if currEventValue != newEventValue {
+			currEventValue = newEventValue
+
+			return false, nil
+		}
+
+		return true, nil
+	})
+
+	if nil != err {
+		return "", err
+	}
+
+	log.Println("Got the last event")
+
+	return newEventValue, nil
 }
 
 // getEventsLogs gets a long string "logs" and an empty array of strings "eventStrings".

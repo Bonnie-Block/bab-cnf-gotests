@@ -5,6 +5,8 @@ type InterfaceRole int8
 type ProcessStatus int8
 type Process int8
 type Status int
+type InterfaceState string
+type RoleMap map[string]string
 
 const (
 	FreeRunState  ClockState = 0
@@ -26,6 +28,9 @@ const (
 	Success Status = 0
 	Failed  Status = 1
 	Active  Status = 2
+
+	Off InterfaceState = "down"
+	On  InterfaceState = "up"
 )
 
 var (
@@ -37,7 +42,7 @@ var (
 		"":        -1,
 	}
 
-	// ProcessMap is used to compere the wanted status value with the one in the metrics that are read from the cluster.
+	// ProcessMap is used to compare the wanted status value with the one in the metrics that are read from the cluster.
 	ProcessMap = map[string]Process{
 		"ptp4l":   PTP4L,
 		"phc2sys": PHC2SYS,
@@ -46,6 +51,9 @@ var (
 
 	// MetricMap contains all the metrics detail, the key is the metric name.
 	MetricMap map[string][]MetricDetails
+
+	// InterfacesRoleMap maps Interface IDs to their role (master/slave).
+	InterfacesRoleMap map[string]RoleMap
 )
 
 type MetricDetails struct {
