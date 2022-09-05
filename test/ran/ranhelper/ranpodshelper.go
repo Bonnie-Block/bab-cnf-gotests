@@ -9,7 +9,7 @@ import (
 	"time"
 
 	. "github.com/onsi/gomega"
-	performancev2 "github.com/openshift-kni/performance-addon-operators/api/v2"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -17,7 +17,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/kubernetes/pkg/kubelet/cm/cpuset"
 
+	performancev2 "github.com/openshift-kni/performance-addon-operators/api/v2"
 	"github.com/openshift-kni/performance-addon-operators/pkg/controller/performanceprofile/components"
+
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran"
@@ -187,56 +189,6 @@ func DefineOslatPod(profile *performancev2.PerformanceProfile, nodeName string, 
 	return pod
 }
 
-// DeployProcessExporter deploys process exporter and returns the daemonset and error if any.
-func DeployProcessExporter() *appsv1.DaemonSet {
-	configsDir := helper.Config.Ran.ProcessExporterConfigsDir
-	image := helper.Config.Ran.ProcessExporterImage
-
-	daemonset, err := helper.Apiclient.DaemonSets(parameters.PromNamespace).Get(
-		context.Background(),
-		ran.ProcessExporterPodName, metav1.GetOptions{},
-	)
-	if err != nil {
-		err = ApplyObjects(configsDir)
-	} else {
-		err = UpdateObjects(configsDir)
-	}
-
-	Expect(err).ShouldNot(HaveOccurred())
-	Eventually(func() error {
-		daemonset, err = helper.Apiclient.DaemonSets(parameters.PromNamespace).Get(
-			context.Background(),
-			ran.ProcessExporterPodName,
-			metav1.GetOptions{},
-		)
-		if err != nil {
-			log.Println("Failed to retrieve status for daemonset: ", daemonset.Name)
-
-			return err
-		}
-		if daemonset.Spec.Template.Spec.Containers[0].Image != image {
-			// Update dummy image to configured value
-			daemonset.Spec.Template.Spec.Containers[0].Image = image
-			_, _ = helper.Apiclient.DaemonSets(parameters.PromNamespace).Update(
-				context.Background(),
-				daemonset,
-				metav1.UpdateOptions{},
-			)
-
-			return fmt.Errorf("image updated, retrieve updated daemonset in next round")
-		}
-		if daemonset.Status.NumberReady == daemonset.Status.DesiredNumberScheduled {
-			log.Printf("All pods are ready in daemonset: %s\n", daemonset.Name)
-
-			return nil
-		}
-
-		return fmt.Errorf("not all daemon pods are ready in daemonset: %s", daemonset.Name)
-	}, 5*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
-
-	return daemonset
-}
-
 // DeleteProcessExporter deletes process exporter daemonset.
 func DeleteProcessExporter() {
 	configsDir := helper.Config.Ran.ProcessExporterConfigsDir
@@ -343,4 +295,51 @@ func CleanupRanTestResources() {
 			Expect(err).ToNot(HaveOccurred())
 		}
 	}
+}
+
+// DeployProcessExporter deploys process exporter and returns the daemonset and error if any.
+func DeployProcessExporter() *appsv1.DaemonSet {
+	daemonset, err := helper.Apiclient.DaemonSets(parameters.PromNamespace).Get(
+		context.Background(),
+		ran.ProcessExporterPodName, metav1.GetOptions{},
+	)
+	if err != nil {
+		err = ApplyObjects(helper.Config.Ran.ProcessExporterConfigsDir)
+	} else {
+		err = UpdateObjects(helper.Config.Ran.ProcessExporterConfigsDir)
+	}
+
+	Expect(err).ShouldNot(HaveOccurred())
+	Eventually(func() error {
+		daemonset, err = helper.Apiclient.DaemonSets(parameters.PromNamespace).Get(
+			context.Background(),
+			ran.ProcessExporterPodName,
+			metav1.GetOptions{},
+		)
+		if err != nil {
+			log.Println("Failed to retrieve status for daemonset: ", daemonset.Name)
+
+			return err
+		}
+		if daemonset.Spec.Template.Spec.Containers[0].Image != helper.Config.Ran.ProcessExporterImage {
+			// Update dummy helper.Config.Ran.ProcessExporterImage to configured value
+			daemonset.Spec.Template.Spec.Containers[0].Image = helper.Config.Ran.ProcessExporterImage
+			_, _ = helper.Apiclient.DaemonSets(parameters.PromNamespace).Update(
+				context.Background(),
+				daemonset,
+				metav1.UpdateOptions{},
+			)
+
+			return fmt.Errorf("image updated, retrieve updated daemonset in next round")
+		}
+		if daemonset.Status.NumberReady == daemonset.Status.DesiredNumberScheduled {
+			log.Printf("All pods are ready in daemonset: %s\n", daemonset.Name)
+
+			return nil
+		}
+
+		return fmt.Errorf("not all daemon pods are ready in daemonset: %s", daemonset.Name)
+	}, 5*time.Minute, 5*time.Second).ShouldNot(HaveOccurred())
+
+	return daemonset
 }

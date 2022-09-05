@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 
@@ -74,44 +73,38 @@ func decodeResponse(resp *http.Response) (ZtSubscribeResponseType, error) {
 // To work around this limit, we retry sending the request until we get a good response.
 func SendEventZt(eventService *redfish.EventService, msgID string) error {
 	var (
-		err          error
-		resp         *http.Response
-		retryCounter int
+		err  error
+		resp *http.Response
 	)
 
 	payload := ztPayload{
 		MessageID: msgID,
 	}
+
 	err = wait.PollImmediate(ranhweventparameters.ZTSendEventInterval, ranhweventparameters.ZTSendEventTimeout,
-		func() (done bool, err error) {
-			retryCounter++
+		func() (bool, error) {
 			resp, err = eventService.Client.Post(submitTestEventTarget, payload)
-			if err != nil {
-				if ranhweventparameters.DebugTest {
-					log.Printf("During SendEventZt() got this error: %v will retry\n", err)
-				}
-
-				return false, nil
+			if err == nil {
+				return true, nil
+			} else if ranhweventparameters.DebugTest {
+				log.Printf("During SendEventZt() got this error: %v will retry\n", err)
 			}
 
-			if retryCounter > 2 && ranhweventparameters.DebugTest {
-				log.Printf("this took %v retries to succeed\n", retryCounter)
+			if resp != nil {
+				_ = resp.Body.Close()
 			}
-			err = resp.Body.Close()
 
-			return true, err
+			return false, nil
 		})
-
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to send event to ZT systems due to: %w", err)
 	}
-
 	defer resp.Body.Close()
 
 	valid := map[int]bool{http.StatusAccepted: true}
 
 	if !valid[resp.StatusCode] {
-		body, err := ioutil.ReadAll(resp.Body)
+		body, err := io.ReadAll(resp.Body)
 		if err != nil {
 			return fmt.Errorf("failed to read response from send event request due to: %w", err)
 		}

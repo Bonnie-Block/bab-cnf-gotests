@@ -18,17 +18,24 @@ type RedfishConfig struct {
 }
 
 const (
-	Dell string = "dell"
-	Hpe  string = "hpe"
-	ZT   string = "zt"
+	AppName                       = "hw-event-proxy"
+	ConsumerContainerName         = "cloud-event-consumer"
+	NamespaceConsumer             = "openshift-bare-metal-events"
+	AppPodLabel                   = "app=" + AppName
+	ConsumerPodLabel              = "app=consumer"
+	Dell                   string = "dell"
+	Hpe                    string = "hpe"
+	ZT                     string = "zt"
+	SecretName                    = "redfish-basic-auth"
+	DellRedfishOem                = "Dell"
+	HpeRedfishOem                 = "Hpe"
+	ZTRedfishOem                  = "Ami"
+	AppRouteName                  = AppName
+	ConsumerDeploymentName        = "consumer"
 )
 
 var (
-	ConsumerContainerName = "cloud-event-consumer"
-	NamespaceConsumer     = "openshift-bare-metal-events"
-	AppPodLabel           = "app=hw-event-proxy"
-	ConsumerPodLabel      = "app=consumer"
-	Redfish               = RedfishConfig{
+	Redfish = RedfishConfig{
 		helper.Config.Ran.BmcHosts,
 		helper.Config.Ran.BmcUser,
 		helper.Config.Ran.BmcPassword,
@@ -66,8 +73,8 @@ var (
 		"EventLog.1.0.ResourceUpdated",
 		"EventLog.1.0.ResourceUpdated",
 	}
-	ZTSendEventInterval = 5 * time.Second
-	ZTSendEventTimeout  = 30 * time.Second
+	ZTSendEventInterval = 17 * time.Second
+	ZTSendEventTimeout  = (17 * 6) * time.Second
 
 	HpEvents = []string{
 		"iLOEvents.2.1.ServerPoweredOff",
@@ -87,9 +94,12 @@ var (
 		"AMP0309",
 		"AMP0310",
 	}
-	DellRedfishOem = "Dell"
-	HpeRedfishOem  = "Hpe"
-	ZTRedfishOem   = "Ami"
+
+	HwEventCsv               = "bare-metal-event-relay.v4.11.0"
+	RequiredImages           = []string{"kube_rbac_proxy_image", "cloud_event_proxy_image"}
+	ConsumerManifestTemplate = "ranhwevent-consumer/consumer_manifest.j2"
+	CustomResourceDefinition = "openshift-bare-metal-events"
+	ConsumerImageName        = "cloud_event_consumer"
 )
 
 func GetPDU() bool {

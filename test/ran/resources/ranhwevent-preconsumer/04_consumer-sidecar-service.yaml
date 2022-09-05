@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    prometheus.io/scrape: "true"
+    service.alpha.openshift.io/serving-cert-secret-name: sidecar-consumer-secret
+  labels:
+    app: consumer-service
+  name: consumer-sidecar-service
+  namespace: openshift-bare-metal-events
+spec:
+  ports:
+  - name: metrics
+    port: 8443
+    targetPort: https
+  selector:
+    app: consumer
+  type: ClusterIP

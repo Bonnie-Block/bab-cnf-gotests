@@ -34,7 +34,7 @@ func DeleteObjects(resDir string) error {
 	return modifyObjects(deleteMode, resDir)
 }
 
-// UpdateObjects updates existing resurces based on manifests from given directory.
+// UpdateObjects updates existing resources based on manifests from given directory.
 func UpdateObjects(resDir string) error {
 	return modifyObjects(updateMode, resDir)
 }

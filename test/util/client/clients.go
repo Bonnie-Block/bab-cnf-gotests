@@ -13,11 +13,13 @@ import (
 	performancev2 "github.com/openshift-kni/performance-addon-operators/api/v2"
 	operv1 "github.com/openshift/api/operator/v1"
 	clientconfigv1 "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
+	routev1 "github.com/openshift/client-go/route/clientset/versioned/typed/route/v1"
 	mcv1 "github.com/openshift/machine-config-operator/pkg/apis/machineconfiguration.openshift.io/v1"
 	clientmachineconfigv1 "github.com/openshift/machine-config-operator/pkg/generated/clientset/versioned/typed/machineconfiguration.openshift.io/v1"
 	ptpv1 "github.com/openshift/ptp-operator/pkg/client/clientset/versioned/typed/ptp/v1"
 	olm2 "github.com/operator-framework/operator-lifecycle-manager/pkg/api/client/clientset/versioned/scheme"
 	olm "github.com/operator-framework/operator-lifecycle-manager/pkg/api/client/clientset/versioned/typed/operators/v1alpha1"
+	bmerv1alpha1 "github.com/redhat-cne/hw-event-proxy-operator/api/v1alpha1"
 	fecv2 "github.com/smart-edge-open/sriov-fec-operator/sriov-fec/api/v2"
 	metallbv1beta1 "go.universe.tf/metallb/api/v1beta1"
 	apiext "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -50,6 +52,7 @@ type ClientSet struct {
 	ptpv1.PtpV1Interface
 	olm.OperatorsV1alpha1Interface
 	clientnetattdefv1.K8sCniCncfIoV1Interface
+	routev1.RouteV1Interface
 }
 
 // New returns a *ClientBuilder with the given kubeconfig.
@@ -87,6 +90,7 @@ func New(kubeconfig string) *ClientSet {
 	clientSet.RbacV1Interface = rbacv1client.NewForConfigOrDie(config)
 	clientSet.OperatorsV1alpha1Interface = olm.NewForConfigOrDie(config)
 	clientSet.K8sCniCncfIoV1Interface = clientnetattdefv1.NewForConfigOrDie(config)
+	clientSet.RouteV1Interface = routev1.NewForConfigOrDie(config)
 
 	clientSet.Config = config
 
@@ -136,6 +140,10 @@ func New(kubeconfig string) *ClientSet {
 	}
 
 	if err := operv1.AddToScheme(crScheme); err != nil {
+		panic(err)
+	}
+
+	if err := bmerv1alpha1.AddToScheme(crScheme); err != nil {
 		panic(err)
 	}
 

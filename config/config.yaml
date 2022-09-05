@@ -14,3 +14,5 @@ ran:
   process_exporter_resources: test/ran/resources/process-exporter/
   bmc_user: root
   bmc_password: calvin
+  hw_event_consumer_image: registry.kni-qe-11.lab.eng.rdu2.redhat.com:5000/redhat-cne/cloud-event-consumer@sha256:c27cb8d1596193e0f7e1c09189de16b817f882211387c5d0a40447f74a1fc39c
+  hw_event_consumer_manifests: ../resources/ranhwevent-preconsumer/

@@ -15,9 +15,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/stmcginnis/gofish/redfish"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhwevent/ranhweventhelper/consumers"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhwevent/ranhweventhelper/nodevendor"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhwevent/ranhweventhelper/ocp"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhwevent/ranhweventhelper/rfclient"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhwevent/ranhweventparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
@@ -43,44 +41,71 @@ var _ = Describe("HW event proxy", func() {
 		By("Query the node under test redfish vendor")
 		LocalNodeVendor, err = nodevendor.GetRedfishVendor(ranhweventparameters.Redfish.Session)
 		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("On redfish vendor query, got this error: %v\n", err))
-		ConsumersList, _ = consumers.GetConsumers()
+		ConsumersList, _ = ranhweventhelper.GetConsumers()
 		eventService, _ = ranhweventparameters.Redfish.Session.Service.EventService()
 		if helper.Config.Ran.RanEventTestDebug != "" {
 			ranhweventparameters.DebugTest = true
-			fmt.Printf("Test debug flag is on")
+			log.Println("Test debug flag is on")
 		}
+		By("Get predefined Vendor events")
+		testEvents, err = rfclient.GetVendorTestEvents(LocalNodeVendor, ranhweventparameters.Redfish)
+		Expect(err).ShouldNot(HaveOccurred())
 
 	})
 
 	// OCP-47124
 	It("Validate single Redfish event", func() {
-		By("Get predefined Vendor events")
-		testEvents, err = rfclient.GetVendorTestEvents(LocalNodeVendor, ranhweventparameters.Redfish)
-		Expect(err).ShouldNot(HaveOccurred())
-
 		By("Send events to redfish and verify them in the consumers")
 		err := TestEvents(ConsumersList, testEvents, eventService, LocalNodeVendor)
+		Expect(err).ShouldNot(HaveOccurred())
+	})
+	// OCP-48698
+	It("Validate 10k Redfish event", func() {
+		if LocalNodeVendor == ranhweventparameters.ZT {
+			Skip("Zt systems found which is too slow in sending many events skipping this test.")
+		}
+		var manyEvents []string
+		for i := 0; i < 10000/len(testEvents); i++ {
+			manyEvents = append(manyEvents, testEvents...)
+		}
+
+		By("Send events to redfish and verify them in the consumers")
+		err := TestEvents(ConsumersList, manyEvents, eventService, LocalNodeVendor)
 		Expect(err).ShouldNot(HaveOccurred())
 	})
 	// OCP-47125
 	It("Hw-event-proxy app recovery", func() {
 		By("Validate consumer receive events")
 		err := TestEvents(ConsumersList, testEvents, eventService, LocalNodeVendor)
-		Expect(err).ShouldNot(HaveOccurred())
+		Expect(err).ShouldNot(HaveOccurred(), fmt.Sprintf("failed to verify expected events due to: %v", err))
 
-		By("Delete the app pod")
+		By("List the app pod by label")
 		appPods, err := helper.Apiclient.Pods(ranhweventparameters.NamespaceConsumer).List(context.Background(),
 			metav1.ListOptions{
 				LabelSelector: ranhweventparameters.AppPodLabel})
-		Expect(err).ShouldNot(HaveOccurred())
-		log.Printf("Delete app pod %v and wait for it to restart\n", appPods.Items[0].Name)
-		err = ocp.RestartPod(ranhweventparameters.AppPodLabel, 5*time.Minute)
-		Expect(err).NotTo(HaveOccurred())
+		Expect(err).ShouldNot(HaveOccurred(), fmt.Sprintf(
+			"failed to list app pod with label %v due to: %v ", ranhweventparameters.AppPodLabel, err))
 
+		By(fmt.Sprintf("Delete app pod %v and wait for it to restart\n", appPods.Items[0].Name))
+		err = ranhweventhelper.RestartPod(ranhweventparameters.AppPodLabel, 5*time.Minute)
+		Expect(err).NotTo(HaveOccurred(), fmt.Sprintf(
+			"failed to restart pod by label %v due to: %v", ranhweventparameters.AppPodLabel, err))
+
+		pod, err := ranhweventhelper.GetPodByLabel(ranhweventparameters.AppPodLabel)
+		Expect(err).NotTo(HaveOccurred(), fmt.Sprintf(
+			"failed to get pod by label: %v due to: %v", ranhweventparameters.AppPodLabel, err))
+
+		if ranhweventparameters.DebugTest {
+			log.Println("Status after application restart:")
+			log.Printf("pod.Status.Phase: %v running is: %v\n", pod.Status.Phase, corev1.PodRunning)
+			for index, container := range pod.Status.ContainerStatuses {
+				log.Printf("container[%v] status: %v\n", index, container.Ready)
+			}
+		}
 		By("Validate again consumer receives events")
+		log.Print("Second test")
 		err = TestEvents(ConsumersList, testEvents, eventService, LocalNodeVendor)
-		Expect(err).ShouldNot(HaveOccurred())
-
+		Expect(err).ShouldNot(HaveOccurred(), fmt.Sprintf("failed to verify expected events due to: %v", err))
 	})
 
 })
@@ -98,8 +123,11 @@ func VerifyEvents(consumersList *corev1.PodList, testEvents []string, consumerOu
 	for i := 0; i < (len(consumersList.Items) * len(testEvents)); i++ {
 		select {
 		case <-timeout.Done():
-			sumResults(consumersList, testEvents, timeoutDuration, results)
+			log.Printf("Timeout reached while not all the expected events were received by the consumers.")
+			log.Printf("Issuing an end to the consumers checkers. They may report an error," +
+				" as they were still waiting for incoming events")
 			cancelTimeout()
+			sumResults(consumersList, testEvents, timeoutDuration, results)
 
 			return fmt.Errorf("timeout reached waiting for consumer events")
 
@@ -184,14 +212,24 @@ func ConsumerVerifyEvents(cancelCtx context.Context, consumerPod corev1.Pod, exp
 			Follow:    true,
 		})
 
-	LogStream, _ := req.Stream(cancelCtx)
+	LogStream, err := req.Stream(cancelCtx)
+	if err != nil {
+		log.Printf("failed to open log stream to %v container: %v due to: %v\n",
+			consumerPod.Name, ranhweventparameters.ConsumerContainerName, err)
 
-	defer LogStream.Close()
+		return
+	}
+
 	scanner := bufio.NewScanner(LogStream)
 
 	for {
 		select {
 		case <-cancelCtx.Done():
+			err = LogStream.Close()
+			if err != nil {
+				log.Printf("failed to close log stream from consumer pod: %v due to: %v\n", consumerPod.Name, err)
+			}
+
 			break
 		case expectedEvent = <-expectedEventIn:
 			for scanner.Scan() {
@@ -203,8 +241,14 @@ func ConsumerVerifyEvents(cancelCtx context.Context, consumerPod corev1.Pod, exp
 				}
 			}
 
-			if scanner.Err() != nil {
-				log.Printf("scanner error in ConsumerVerifyEvents(): %v for %v\n", scanner.Err(), consumerPod.Name)
+			// if this is stopped with context, then it is OK
+			if scanner.Err() != nil && scanner.Err().Error() != "context canceled" {
+				log.Printf("ConsumerVerifyEvents() got error while reading the logs from consumer pod: %v\n",
+					consumerPod.Name)
+				log.Printf("Last line was: \"%v\"\n", line)
+				log.Printf("Then got this error: %v\n", scanner.Err())
+
+				return
 			}
 		}
 	}
@@ -253,6 +297,10 @@ func processEvents(
 // or ok.
 func TestEvents(consumersList *corev1.PodList, testEvents []string, eventService *redfish.EventService,
 	localNodeVendor string) error {
+	if testEvents == nil || len(testEvents) < 1 {
+		return fmt.Errorf("got no vendor events to test")
+	}
+
 	ctx := context.Background()
 	cancelCtx, endConsumerCheckers := context.WithCancel(ctx)
 
@@ -271,12 +319,15 @@ func TestEvents(consumersList *corev1.PodList, testEvents []string, eventService
 	for _, sentMsgID := range testEvents {
 		err := rfclient.SendEvent(eventService, sentMsgID, localNodeVendor)
 		if err != nil {
+			log.Print("error on sending redfish event")
 			endConsumerCheckers()
 
 			return fmt.Errorf(fmt.Sprintf("failed to send event: %v due to: %v", sentMsgID, err))
 		}
 
-		log.Printf("Sent: %v\n", sentMsgID)
+		if ranhweventparameters.DebugTest {
+			log.Printf("Sent: %v\n", sentMsgID)
+		}
 
 		for _, consumerPod := range consumersList.Items {
 			consumerInChannels[consumerPod.Name] <- sentMsgID

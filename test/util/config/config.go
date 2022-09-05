@@ -52,6 +52,8 @@ type Config struct {
 		PduAddr                   string `envconfig:"PDU_ADDR"`
 		PduSocket                 string `envconfig:"PDU_SOCKET"`
 		RanEventTestDebug         string `envconfig:"RAN_EVENT_TEST_DEBUG"`
+		HwEventConsumerImage      string `yaml:"hw_event_consumer_image" envconfig:"RAN_HW_EVENT_CONSUMER_IMAGE"`
+		HwEventConfigsDir         string `yaml:"hw_event_consumer_manifests"`
 	} `yaml:"ran"`
 }
 

@@ -2,6 +2,7 @@ package ranhwevent
 
 import (
 	"fmt"
+	"log"
 	"runtime"
 	"testing"
 
@@ -9,17 +10,17 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
 	"github.com/stmcginnis/gofish/redfish"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhwevent/ranhweventhelper/consumers"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhwevent/ranhweventhelper/nodevendor"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhwevent/ranhweventhelper/ocp"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhwevent/ranhweventhelper/rfclient"
-	corev1 "k8s.io/api/core/v1"
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhwevent/ranhweventhelper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhwevent/ranhweventhelper/nodevendor"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhwevent/ranhweventhelper/rfclient"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhwevent/ranhweventparameters"
 	_ "gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhwevent/tests"
 	testutils "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/utils"
+	corev1 "k8s.io/api/core/v1"
 )
 
 var (
@@ -45,6 +46,19 @@ func TestHwEvent(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
+	// Openshift related pre-test checks
+	err = ranhweventhelper.CheckCustomResourceDefinition()
+	if err != nil {
+		Skip(fmt.Sprintf("Got this error when query feature custom resource definition: %v , skip testing", err))
+	}
+	var ready bool
+	ready, err = helper.IsDeploymentInstalled(
+		helper.Apiclient, ranhweventparameters.NamespaceConsumer, ranhweventparameters.AppName)
+	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Failed to query Hardware event deplyment due to: %v", err))
+	if !ready {
+		Skip("Skip testing due to missing hardware event proxy deployment")
+	}
+	// Redfish related pre-test checks
 	By("Verify redfish hostname is defined")
 	Expect(ranhweventparameters.Redfish.Hostname).ToNot(BeEmpty(),
 		"Please set BMC_HOSTS environment variable to the URL for the tested node.")
@@ -68,25 +82,58 @@ var _ = BeforeSuite(func() {
 
 	By("Creating privileged pods in order to query node vendor")
 	PrivilegedPods = helper.CreatePrivilegedPods("")
-	Expect(len(PrivilegedPods)).ToNot(Equal(0),
+	Expect(PrivilegedPods).ToNot(BeEmpty(),
 		"Missing Privileged pods")
 
 	By("Query the node under test redfish vendor")
 	LocalNodeVendor, err = nodevendor.GetRedfishVendor(ranhweventparameters.Redfish.Session)
 	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("On redfish vendor query, got this error: %v\n", err))
 
+	// Define the redfish access to the kubernetes operator using a secret
+	err = ranhweventhelper.CreateHwEventSecret(
+		ranhweventparameters.SecretName,
+		ranhweventparameters.NamespaceConsumer,
+		ranhweventparameters.Redfish.Hostname,
+		ranhweventparameters.Redfish.Username,
+		ranhweventparameters.Redfish.Password)
+
+	// In case the secret is already defined, do not fail the test
+	if err != nil && err.Error() == "HwEvent secret already exist. skip creating it" {
+		log.Println("Secret already defined. skip creating it.")
+	} else {
+		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("failed to create secret due to: %v", err))
+	}
+
 	By("Verify that redfish has a HTTPS target to send the events defined")
-	// This info can be queried form the open shift cluster, but will be added in a separate commit
-	Expect(helper.Config.Ran.EventReceiver).ToNot(BeEmpty(),
-		fmt.Sprintf("Please set EVENT_RECEIVER environment variable."+
-			" This is the output of $ get route -n %v", ranhweventparameters.NamespaceConsumer))
-	// check this HTTPS is alive
-	// check operator is active
+	ranhweventparameters.Redfish.EventReceiver, err = ranhweventhelper.GetAppRoute()
+	Expect(err).ToNot(HaveOccurred())
+
+	// check this HTTPS is alive retry if deployment is in progress.
+	err = ranhweventhelper.GetHTTPS(ranhweventparameters.Redfish.EventReceiver)
+	Expect(err).ToNot(HaveOccurred())
+
+	By("Check ClusterServiceVersions mirrored images necessary for consumer deploy")
+	mirroredImages, err := ranhweventhelper.GetDeployImages()
+	Expect(mirroredImages).ToNot(BeEmpty(), err)
+
+	By("Check consumer image is defined")
+	Expect(helper.Config.Ran.HwEventConsumerImage).ToNot(BeEmpty(),
+		"RAN_HW_EVENT_CONSUMER_IMAGE environment is missing")
+
+	By("Deploy consumers")
+	err = ranhweventhelper.DeployConsumers(mirroredImages)
+
+	// In case the consumer already exist on the cluster an error with the string skip will be returned.
+	if err != nil && err.Error() == "consumers already deployed in cluster. skipping creating them" {
+		log.Printf("Consumers creating skipped: %v", err)
+	} else {
+		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("failed to deploy consumers due to: %v", err))
+	}
 
 	By("Check consumers exist")
-	ConsumersList, err = consumers.GetConsumers()
+	ConsumersList, err = ranhweventhelper.GetConsumers()
 	Expect(err).ToNot(HaveOccurred(), err)
-	Expect(ConsumersList.Items).ToNot(Equal(0), "Missing consumers")
+	Expect(ConsumersList.Items).ToNot(BeEmpty(), "Missing consumers")
 
 	By("Purge previous redfish subscriptions")
 	err = rfclient.ClearSubscriptions(ranhweventparameters.Redfish)
@@ -100,17 +147,26 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = AfterSuite(func() {
-	By("Purge privileged pods that were created for test")
-	err = ocp.PurgePrivPodNamespace()
-	Expect(err).ShouldNot(HaveOccurred(), fmt.Sprintf("Failed to purge privileged pods due to: %v\n",
-		err))
+	By("Remove consumer pods")
+	destroyErrors := ranhweventhelper.DestroyConsumers()
+	Expect(destroyErrors).To(BeEmpty(), destroyErrors)
 
 	By("Unsubscribe events")
 	err := rfclient.Unsubscribe(subscriptionURI, eventService)
 	Expect(err).ToNot(HaveOccurred(), err)
 
+	By("Remove Hw event secret")
+	err = ranhweventhelper.DeleteHwEventSecret(
+		ranhweventparameters.NamespaceConsumer, ranhweventparameters.SecretName)
+	Expect(err).ToNot(HaveOccurred(), err)
 	By("End redfish session.")
 	ranhweventparameters.Redfish.Session.Logout()
+
+	By("Purge privileged pods that were created for test")
+	err = ranhweventhelper.PurgePrivPodNamespace()
+	Expect(err).ShouldNot(HaveOccurred(), fmt.Sprintf("Failed to purge privileged pods due to: %v\n",
+		err))
+
 })
 
 var _ = ReportAfterEach(func(report types.SpecReport) {
