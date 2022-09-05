@@ -1,16 +1,19 @@
 require (
 	github.com/Juniper/go-netconf v0.1.1
+	github.com/Masterminds/sprig v2.22.0+incompatible
 	github.com/containernetworking/cni v0.8.1
 	github.com/containers/podman/v2 v2.2.1
 	github.com/docker/docker v20.10.7+incompatible
 	github.com/golang/glog v1.0.0
 	github.com/gosnmp/gosnmp v1.35.0
+	github.com/hashicorp/go-retryablehttp v0.7.1
 	github.com/ishidawataru/sctp v0.0.0-20191218070446-00ab2ac2db07
 	github.com/k8snetworkplumbingwg/network-attachment-definition-client v1.1.1-0.20210510153419-66a699ae3b05
 	github.com/k8snetworkplumbingwg/sriov-network-operator v0.0.0-20201204053545-49045c36efb9
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/kennygrant/sanitize v1.2.4
 	github.com/metallb/metallb-operator v0.10.2
+	github.com/noirbizarre/gonja v0.0.0-20200629003239-4d051fd0be61
 	github.com/onsi/ginkgo/v2 v2.1.4
 	github.com/onsi/gomega v1.19.0
 	github.com/openshift-kni/performance-addon-operators v0.0.0-20210114132708-bcf9e53ff354
@@ -22,6 +25,7 @@ require (
 	github.com/operator-framework/api v0.10.7
 	github.com/operator-framework/operator-lifecycle-manager v3.11.0+incompatible
 	github.com/pkg/errors v0.9.1
+	github.com/redhat-cne/hw-event-proxy-operator v0.0.0-20220704173357-701293c0d4b5
 	github.com/smart-edge-open/sriov-fec-operator/sriov-fec v0.0.0-20220421094756-1803088bf003
 	github.com/stmcginnis/gofish v0.13.0
 	go.universe.tf/metallb v0.1.1-0.20220422145807-099c8990dc55
@@ -42,7 +46,6 @@ require (
 	github.com/BurntSushi/toml v0.3.1 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/Masterminds/semver v1.5.0 // indirect
-	github.com/Masterminds/sprig v2.22.0+incompatible // indirect
 	github.com/Microsoft/go-winio v0.5.1 // indirect
 	github.com/Microsoft/hcsshim v0.8.22 // indirect
 	github.com/VividCortex/ewma v1.1.1 // indirect
@@ -98,9 +101,11 @@ require (
 	github.com/google/gofuzz v1.1.0 // indirect
 	github.com/google/uuid v1.1.2 // indirect
 	github.com/googleapis/gnostic v0.5.5 // indirect
+	github.com/goph/emperror v0.17.1 // indirect
 	github.com/gorilla/mux v1.8.0 // indirect
 	github.com/gorilla/schema v1.2.0 // indirect
 	github.com/hashicorp/errwrap v1.0.0 // indirect
+	github.com/hashicorp/go-cleanhttp v0.5.1 // indirect
 	github.com/hashicorp/go-multierror v1.1.0 // indirect
 	github.com/hpcloud/tail v1.0.0 // indirect
 	github.com/huandu/xstrings v1.3.2 // indirect
@@ -179,7 +184,7 @@ require (
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect
 	gopkg.in/square/go-jose.v2 v2.5.1 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
-	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
+	gopkg.in/yaml.v3 v3.0.0 // indirect
 	k8s.io/component-base v0.23.5 // indirect
 	k8s.io/klog v1.0.0 // indirect
 	k8s.io/klog/v2 v2.60.1 // indirect
