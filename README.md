@@ -250,11 +250,20 @@ Push requested are tested in a pipeline with golangci-lint. It is advised to add
 In the case of a helper function that encounters an unexpected response, the function should log an error with the function name the error happened to assist with later test failure analysis.
 If the function can not resolve this error, it should return an error to the caller function, which should take action due to the error.
 
-## Troubleshooting
-### When running `ginkgo` I get this error: `flag provided but not defined: -ginkgo.timeout`
+#### Setup Vs. Tear-down
+When using automation for testing we want to accomplish two objects, accept the obvious test case automation:
+1. Keep the setup working, so even if a setup to the test is not crucial, do not fail the whole suite.
+2. If a single test fails, automation should clean up , and allow following tests to succeed.
 
-Reason: You installed ginkgo version 2+, and this repository supports only version 1.x
-Fix: go install github.com/onsi/ginkgo/ginkgo@v1.16.5
+This is why the test setup, known as Before in ginkgo, may use the "Expect" and fail the suite if the main testing setup gets an un predicted response, but the tear-down , known as After should not.
+I write the tear-down known as "After" in Ginkgo in a way that it will clean up in the reverse order the setup build the setup, but
+will not fail if any of the steps did not succeed as expected.
+
+Assume you set up in three steps, 1 ,2 then 3.
+And the setup fpr 3 fails.
+If tear-down tries to undo step 3 and fails, it should continue to try to undo step 2 and 1.
+
+## Troubleshooting
 
 ### Error using k8s.io during development of new tests
 Reason: Go version is below 1.18, and the k8s.io dependencies need go 1.18+
