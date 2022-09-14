@@ -844,6 +844,8 @@ github.com/juju/ansiterm v0.0.0-20180109212912-720a0952cc2a/go.mod h1:UJSiEoRfvx
 github.com/julienschmidt/httprouter v1.2.0/go.mod h1:SYymIcj16QtmaHHD7aYtjjsJG7VTCxuUUipMqKk8s4w=
 github.com/julienschmidt/httprouter v1.3.0/go.mod h1:JR6WtHb+2LUe8TCKY3cZOxFyyO8IZAc4RVcycCCAKdM=
 github.com/jung-kurt/gofpdf v1.0.3-0.20190309125859-24315acbbda5/go.mod h1:7Id9E/uU8ce6rXgefFLlgrJj/GYY22cpxn+r32jIOes=
+github.com/k8snetworkplumbingwg/multi-networkpolicy v0.0.0-20220419111628-220baf5d60c1 h1:HMqLZdKd6ss6ido/iYY4uhhrwcZAwuamDtm3xJJLs44=
+github.com/k8snetworkplumbingwg/multi-networkpolicy v0.0.0-20220419111628-220baf5d60c1/go.mod h1:HuHy9LL+LaLL5DIysczJsS86MygueDGC6PBvM1GP2EQ=
 github.com/k8snetworkplumbingwg/network-attachment-definition-client v0.0.0-20200626054723-37f83d1996bc/go.mod h1:+1DpV8uIwteAhxNO0lgRox8gHkTG6w3OeDfAlg+qqjA=
 github.com/k8snetworkplumbingwg/network-attachment-definition-client v1.1.1-0.20210510153419-66a699ae3b05 h1:vIZIhdbcm2eoTzSyaBQqgKLHzymSBbXpudf+2Wv4FNM=
 github.com/k8snetworkplumbingwg/network-attachment-definition-client v1.1.1-0.20210510153419-66a699ae3b05/go.mod h1:+1DpV8uIwteAhxNO0lgRox8gHkTG6w3OeDfAlg+qqjA=

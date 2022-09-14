@@ -8,6 +8,7 @@ require (
 	github.com/gosnmp/gosnmp v1.35.0
 	github.com/hashicorp/go-retryablehttp v0.7.1
 	github.com/ishidawataru/sctp v0.0.0-20191218070446-00ab2ac2db07
+	github.com/k8snetworkplumbingwg/multi-networkpolicy v0.0.0-20220419111628-220baf5d60c1
 	github.com/k8snetworkplumbingwg/network-attachment-definition-client v1.1.1-0.20210510153419-66a699ae3b05
 	github.com/k8snetworkplumbingwg/sriov-network-operator v0.0.0-20201204053545-49045c36efb9
 	github.com/kelseyhightower/envconfig v1.4.0
