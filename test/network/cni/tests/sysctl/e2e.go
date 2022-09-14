@@ -12,6 +12,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/cni/netcnihelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/cni/netcniparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/cni/tests"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/nethelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/cluster"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
@@ -64,10 +65,10 @@ var _ = Describe("CNF Sysctl", func() {
 		}
 
 		By("Find available sr-iov interfaces")
-		validSriovInterfaces = tests.GatherSriovInterfaces(sriovInfos, helper.Config, 1)
+		validSriovInterfaces = nethelper.GatherSriovInterfaces(sriovInfos, helper.Config, 1)
 
 		By("Define sysctl sr-iov policy")
-		tests.DefineAndCreateSriovPoliciesListOnSriovInterfaceList(
+		nethelper.DefineAndCreateSriovPoliciesListOnSriovInterfaceList(
 			[]string{netcniparameters.ResourceNameSysctl}, validSriovInterfaces, 12)
 
 		By("Waiting until SRIOV become stable after sr-iov policy configuration")
@@ -85,10 +86,11 @@ var _ = Describe("CNF Sysctl", func() {
 		}
 
 		By("Clean pods from the namespace")
-		tests.CleanPodFromNamespaceAndWaitUntilItsEmpty()
+		err := namespaces.CleanPodAndWaitUntilItsEmpty(helper.Apiclient, netcniparameters.TestNamespace)
+		Expect(err).ToNot(HaveOccurred(), "failed to remove pods")
 
 		By("Clean SR-IOV network from the namespace")
-		err := namespaces.CleanNetworks(parameters.SriovOperatorNamespace, helper.Apiclient)
+		err = namespaces.CleanNetworks(parameters.SriovOperatorNamespace, helper.Apiclient)
 		Expect(err).ToNot(HaveOccurred(), "error to clean SR-IOV networks from the namespace")
 
 		By("Clean NADs from the namespace")
@@ -173,7 +175,7 @@ var _ = Describe("CNF Sysctl", func() {
 
 			By("Define sr-iov network without sysctl flags")
 			createSysctlTuningSriovNetwork(validSriovInterfaces[0],
-				nil, netcniparameters.SriovPolicyName, false)
+				nil, parameters.SriovPolicyName, false)
 
 			By("Define bond nad without sysctl plugin")
 
@@ -268,7 +270,7 @@ var _ = Describe("CNF Sysctl", func() {
 		It("sriov-bond. Set accept_redirects=0 on first bond NAD and 1 on the second bond NAD", func() {
 			By("Define sr-iov network without sysctl mutation flags")
 			createSysctlTuningSriovNetwork(validSriovInterfaces[0],
-				nil, netcniparameters.SriovPolicyName, false)
+				nil, parameters.SriovPolicyName, false)
 
 			By("Define bond nad without sysctl plugin")
 

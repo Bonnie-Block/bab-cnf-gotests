@@ -122,6 +122,17 @@ func IsDeploymentInstalled(
 	return true, nil
 }
 
+// IsDaemonsetInstalled checks if daemonset is installed.
+func IsDaemonsetInstalled(
+	cs *client.ClientSet, operatorNamespace string, daemonsetName string) (bool, error) {
+	_, err := cs.DaemonSets(operatorNamespace).Get(context.Background(), daemonsetName, metav1.GetOptions{})
+	if err != nil {
+		return false, err
+	}
+
+	return true, nil
+}
+
 // IsDeploymentReady checks if deployment is ready.
 func IsDeploymentReady(cs *client.ClientSet, operatorNamespace string, deploymentName string) (bool, error) {
 	deployment, err := cs.Deployments(operatorNamespace).Get(context.Background(), deploymentName, metav1.GetOptions{})

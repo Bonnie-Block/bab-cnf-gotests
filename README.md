@@ -55,6 +55,7 @@ The list of available features:
 * *ACC100*
 * *CNF-TESTS*
 * *MetalLB*
+* *Policy*
 
 ##### Available features for RAN suite
 * *CPU*

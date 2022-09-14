@@ -215,14 +215,14 @@ func DefineClientServerVRFsIPConfig(vrfRedName, vrfBlueName, scenario, ipStack s
 
 func defineVRFIpConfig(nadName, vrfName, ipAddr string) netcniparameters.VrfNetConfig {
 	multusIntName := netcniparameters.MultusFirstInterfaceName
-	subnet := netparameters.IPV4Subnet
+	subnet := netparameters.IPSubnet24
 
 	if vrfName == netcniparameters.VRFRedName {
 		multusIntName = netcniparameters.MultusSecondInterfaceName
 	}
 
 	if strings.Contains(ipAddr, ":") {
-		subnet = netparameters.IPV6Subnet
+		subnet = netparameters.IPSubnet64
 	}
 
 	return netcniparameters.VrfNetConfig{

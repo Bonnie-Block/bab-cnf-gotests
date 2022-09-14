@@ -253,3 +253,29 @@ func waitForNetworkAttachmentDefinitionDeletion(
 		return true, nil
 	})
 }
+
+// CleanPodAndWaitUntilItsEmpty removes pod from namespace and wait until it's empty.
+func CleanPodAndWaitUntilItsEmpty(clientSet *testclient.ClientSet, namespace string) error {
+	err := CleanPods(namespace, clientSet)
+	if err != nil {
+		return fmt.Errorf("error to remove list of pods from the namepsace %s: %w",
+			namespace, err)
+	}
+
+	err = wait.PollImmediate(time.Second, 1*time.Minute, func() (bool, error) {
+		podsList, err := clientSet.Pods(namespace).List(
+			context.Background(), metav1.ListOptions{})
+		if err != nil {
+			return false, err
+		}
+
+		return len(podsList.Items) == 0, nil
+	})
+
+	if err != nil {
+		return fmt.Errorf("error to remove list of pods from the namepsace %s: %w",
+			namespace, err)
+	}
+
+	return nil
+}

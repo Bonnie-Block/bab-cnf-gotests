@@ -3,10 +3,12 @@ package client
 import (
 	"os"
 
+	"github.com/golang/glog"
+
+	multinetpolicyapiv1 "github.com/k8snetworkplumbingwg/multi-networkpolicy/pkg/apis/k8s.cni.cncf.io/v1beta1"
+	multinetpolicyclientv1 "github.com/k8snetworkplumbingwg/multi-networkpolicy/pkg/client/clientset/versioned/typed/k8s.cni.cncf.io/v1beta1"
 	netattdefv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	clientnetattdefv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/client/clientset/versioned/typed/k8s.cni.cncf.io/v1"
-
-	"github.com/golang/glog"
 	sriovv1 "github.com/k8snetworkplumbingwg/sriov-network-operator/api/v1"
 	clientsriovv1 "github.com/k8snetworkplumbingwg/sriov-network-operator/pkg/client/clientset/versioned/typed/sriovnetwork/v1"
 	metallboperatorv1beta1 "github.com/metallb/metallb-operator/api/v1beta1"
@@ -46,6 +48,7 @@ type ClientSet struct {
 	clientmachineconfigv1.MachineconfigurationV1Interface
 	networkv1client.NetworkingV1Client
 	cguv1alpha1.ClustergroupupgradesoperatorV1alpha1Interface
+	multinetpolicyclientv1.K8sCniCncfIoV1beta1Interface
 	appsv1client.AppsV1Interface
 	discovery.DiscoveryInterface
 	rbacv1client.RbacV1Interface
@@ -96,6 +99,8 @@ func New(kubeconfig string) *ClientSet {
 	clientSet.K8sCniCncfIoV1Interface = clientnetattdefv1.NewForConfigOrDie(config)
 	clientSet.RouteV1Interface = routev1.NewForConfigOrDie(config)
 	clientSet.ClustergroupupgradesoperatorV1alpha1Interface = cguv1alpha1.NewForConfigOrDie(config)
+	clientSet.K8sCniCncfIoV1beta1Interface = multinetpolicyclientv1.NewForConfigOrDie(config)
+
 	clientSet.Config = config
 
 	crScheme := runtime.NewScheme()
@@ -152,6 +157,10 @@ func New(kubeconfig string) *ClientSet {
 	}
 
 	if err := policiesv1.AddToScheme(crScheme); err != nil {
+		panic(err)
+	}
+
+	if err := multinetpolicyapiv1.AddToScheme(crScheme); err != nil {
 		panic(err)
 	}
 

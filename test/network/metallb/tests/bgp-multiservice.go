@@ -172,7 +172,7 @@ var _ = Describe("MetalLB BGP", func() {
 		frrPod := netmetallbhelper.DefineFrrPodWithTestContainer(masterNode.Name, netmlbparameters.TestNamespace)
 		frrPodWithNAD := pod.RedefinePodWithNetwork(frrPod,
 			fmt.Sprintf(`[{"name": "%s", "ips": ["%s/%s"]}]`, netmlbparameters.ExternalNADName,
-				ipv4metalLBIPList[0], netparameters.IPV4Subnet))
+				ipv4metalLBIPList[0], netparameters.IPSubnet24))
 		masterNodeFRRPod := helper.WaitUntilPodCreatedAndRunning(frrPodWithNAD, netmlbparameters.PodWaitingTime)
 
 		By("Checking that BGP sessions are established")

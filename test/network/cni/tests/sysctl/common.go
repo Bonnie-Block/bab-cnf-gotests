@@ -10,7 +10,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/cni/netcnihelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/cni/netcniparameters"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/cni/tests"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/nethelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nad"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 	multus "gopkg.in/k8snetworkplumbingwg/multus-cni.v3/pkg/types"
@@ -23,19 +23,20 @@ func defineCreatePodWithNetworksAndWaitUntilRunning(podNetworks []multus.Network
 
 func createSysctlTuningSriovNetwork(
 	sriovInterface *sriovv1.InterfaceExt, sysctlFlags map[string]string, sriovNetworkName string, withIpam bool) {
-	sysctlPluginConfig, err := netcnihelper.MarshalTypeToString(nad.DefineTuningPluginWithSysctl(sysctlFlags))
+	sysctlPluginConfig, err := nethelper.MarshalTypeToString(nad.DefineTuningPluginWithSysctl(sysctlFlags))
 	Expect(err).ToNot(HaveOccurred(), "error marshal sysctlPlugin")
 
 	ipam := ""
 
 	if withIpam {
-		ipam, err = netcnihelper.MarshalTypeToString(nad.DefineStaticIpam())
+		ipam, err = nethelper.MarshalTypeToString(nad.DefineStaticIpam())
 		Expect(err).ToNot(HaveOccurred(), "error marshal ipam")
 	}
 
 	By("Define and create sr-iov sysctl network")
-	tests.DefineAndCreateSriovNetwork(
-		sriovNetworkName, sriovInterface, netcniparameters.ResourceNameSysctl, ipam, sysctlPluginConfig)
+	nethelper.DefineAndCreateSriovNetwork(
+		sriovInterface, sriovNetworkName, netcniparameters.ResourceNameSysctl, ipam, sysctlPluginConfig,
+		netcniparameters.TestNamespace)
 }
 
 func verifySysctlKernelParametersConfiguredOnPodInterface(

@@ -259,7 +259,7 @@ func validatePrefix(masterNodeFRRPod *k8sv1.Pod, workerNodesAdresses []string, i
 
 		ipFamily = netparameters.IPV4Family
 
-	case netparameters.IPV6Subnet:
+	case netparameters.IPSubnet64:
 		routes = []string{netmlbparameters.AddressPoolV6Prefix126[0]}
 		if prefixLenght != netmlbparameters.PrefixLen128 {
 			routes = []string{netmlbparameters.AddressPoolV6Prefix128[0]}

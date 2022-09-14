@@ -210,19 +210,19 @@ func DefineAnnotationWithIPStack(ipStack string,
 	ipv4metalLBIP string, ipv6metalLBIP string,
 	clusterIPStack string, nadName string) string {
 	if ipStack == netparameters.IPV4Family {
-		return fmt.Sprintf(`[{"name": "%s", "ips": ["%s/%s"]}]`, nadName, ipv4metalLBIP, netparameters.IPV4Subnet)
+		return fmt.Sprintf(`[{"name": "%s", "ips": ["%s/%s"]}]`, nadName, ipv4metalLBIP, netparameters.IPSubnet24)
 	}
 
 	if clusterIPStack == netparameters.IPV4Family {
 		Skip("Cluster does not support IPv6")
 	}
 
-	if ipStack == netparameters.IPV6Subnet {
-		return fmt.Sprintf(`["%s/%s"]}]`, ipv6metalLBIP, netparameters.IPV6Subnet)
+	if ipStack == netparameters.IPSubnet64 {
+		return fmt.Sprintf(`["%s/%s"]}]`, ipv6metalLBIP, netparameters.IPSubnet64)
 	}
 
 	return fmt.Sprintf(`["%s/%s","%s/%s"]}]`, ipv4metalLBIP,
-		netparameters.IPV4Subnet, ipv6metalLBIP, netparameters.IPV6Subnet)
+		netparameters.IPSubnet24, ipv6metalLBIP, netparameters.IPSubnet64)
 }
 
 func sctpToService(masterFRRPod *k8sv1.Pod, ipStack string, addressPool []string) error {

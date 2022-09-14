@@ -2,7 +2,6 @@ package netcnihelper
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -10,6 +9,8 @@ import (
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/cni/netcniparameters"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
+
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -22,17 +23,6 @@ func CopyMap(originalMap map[string]string) map[string]string {
 	}
 
 	return newMap
-}
-
-// MarshalTypeToString returns given struck in json string format.
-func MarshalTypeToString(typeToMarshal interface{}) (string, error) {
-	marshaledBytes, err := json.Marshal(typeToMarshal)
-
-	if err != nil {
-		return "", fmt.Errorf("fail to marshal type due to: %w", err)
-	}
-
-	return string(marshaledBytes), err
 }
 
 // DefinePodNetworks returns mutation pod function.
@@ -142,7 +132,7 @@ func defineNetCfg(netName string, ipAddr []string, useBond bool) []multus.Networ
 		{Name: netName, IPRequest: ipAddr}}
 	if useBond {
 		netParam[0].InterfaceRequest = netcniparameters.BondInterfaceName
-		bondLinkConfig := multus.NetworkSelectionElement{Name: netcniparameters.SriovPolicyName}
+		bondLinkConfig := multus.NetworkSelectionElement{Name: parameters.SriovPolicyName}
 		netParam = append([]multus.NetworkSelectionElement{bondLinkConfig, bondLinkConfig}, netParam...)
 	}
 

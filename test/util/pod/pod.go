@@ -141,11 +141,28 @@ func RedefineWithRestartPolicy(pod *corev1.Pod, restartPolicy corev1.RestartPoli
 
 // RedefineWithInitContainer adds init container to pod's manifest.
 func RedefineWithInitContainer(pod *corev1.Pod, command []string) *corev1.Pod {
-	pod.Spec.InitContainers = []corev1.Container{{
-		Name:    "initcontainer",
-		Image:   pod.Spec.Containers[0].Image,
-		Command: command,
-	}}
+	return redefineInitContainerPrivileged(pod, command, false)
+}
+
+func RedefineWithPrivilegedInitContainer(pod *corev1.Pod, command []string) *corev1.Pod {
+	return redefineInitContainerPrivileged(pod, command, true)
+}
+
+// RedefineWithMultiplePrivilegedContainers add additional privileged containers to the pod manifest .
+func RedefineWithMultiplePrivilegedContainers(pod *corev1.Pod, containers map[string][]string) *corev1.Pod {
+	trueValue := true
+
+	for containerName, command := range containers {
+		container := corev1.Container{
+			Name:    containerName,
+			Image:   pod.Spec.Containers[0].Image,
+			Command: command,
+			SecurityContext: &corev1.SecurityContext{
+				Privileged: &trueValue,
+			},
+		}
+		pod.Spec.Containers = append(pod.Spec.Containers, container)
+	}
 
 	return pod
 }
@@ -389,4 +406,19 @@ func writePodExecLogsToDebugFile(logToStore string) {
 	log.SetOutput(openFile)
 	log.Print(logToStore)
 	log.SetOutput(os.Stdout)
+}
+
+func redefineInitContainerPrivileged(pod *corev1.Pod, command []string, privileged bool) *corev1.Pod {
+	trueValue := privileged
+
+	pod.Spec.InitContainers = []corev1.Container{{
+		Name:    "initcontainer",
+		Image:   pod.Spec.Containers[0].Image,
+		Command: command,
+		SecurityContext: &corev1.SecurityContext{
+			Privileged: &trueValue,
+		},
+	}}
+
+	return pod
 }

@@ -120,7 +120,7 @@ func podHasCorrectVrfConfig(podName string, vrfNetConfigs []netcniparameters.Vrf
 		Eventually(func() bool {
 			vrfRouteTable, _ := pod.ExecCommand(helper.Apiclient, *runningPod, validateVRFRouteTableCommand)
 			if strings.Contains(vrfMapConfig.IPAddr, ":") {
-				_, ipnet, _ := net.ParseCIDR(vrfMapConfig.IPAddr + "/" + netparameters.IPV6Subnet)
+				_, ipnet, _ := net.ParseCIDR(vrfMapConfig.IPAddr + "/" + netparameters.IPSubnet64)
 
 				return strings.Contains(vrfRouteTable.String(), ipnet.String())
 			}

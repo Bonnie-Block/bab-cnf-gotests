@@ -1,8 +1,6 @@
 package vrf
 
 import (
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/cni/tests"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -12,6 +10,7 @@ import (
 	generalParam "gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/cluster"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 )
 
 var _ = Describe("CNF VRF", func() {
@@ -37,7 +36,9 @@ var _ = Describe("CNF VRF", func() {
 			Fail("Test failed due to error in BeforeAll")
 		}
 
-		tests.CleanPodFromNamespaceAndWaitUntilItsEmpty()
+		err := namespaces.CleanPodAndWaitUntilItsEmpty(generalHelper.Apiclient,
+			netcniparameters.TestNamespace)
+		Expect(err).ToNot(HaveOccurred(), "failed to remove pods")
 	})
 
 	// 36323

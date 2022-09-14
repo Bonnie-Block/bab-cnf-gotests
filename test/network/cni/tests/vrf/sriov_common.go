@@ -8,7 +8,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/cni/netcnihelper"
+
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/nethelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/cluster"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nad"
@@ -36,7 +37,7 @@ func SetupSriovBeforeAll(config *config.Config, sriovInfos *cluster.EnabledNodes
 		sriovNetworkInterfaceIndexBlue = 1
 	}
 
-	validSriovInterfaces := tests.GatherSriovInterfaces(sriovInfos, config, requestedInterface)
+	validSriovInterfaces := nethelper.GatherSriovInterfaces(sriovInfos, config, requestedInterface)
 
 	By(fmt.Sprintf("Clean test namespace %s", netcniparameters.TestNamespace))
 	tests.CleanSriovNetworkSriovPolicyNadsAndPods()
@@ -45,30 +46,32 @@ func SetupSriovBeforeAll(config *config.Config, sriovInfos *cluster.EnabledNodes
 	tests.WaitUntilSriovBecomesStable()
 
 	By("Define sr-iov Policies")
-	tests.DefineAndCreateSriovPoliciesListOnSriovInterfaceList(resourceNameRange, validSriovInterfaces, 5)
+	nethelper.DefineAndCreateSriovPoliciesListOnSriovInterfaceList(resourceNameRange, validSriovInterfaces, 5)
 
 	By("Define sr-iov network ipam config")
 
-	ipam, err := netcnihelper.MarshalTypeToString(cniTypes.IPAM{Type: ipamType})
+	ipam, err := nethelper.MarshalTypeToString(cniTypes.IPAM{Type: ipamType})
 	Expect(err).ToNot(HaveOccurred(), "error to marshal ipam to string")
 
 	By("Define sr-iov network cni vrf red plugin config")
 
-	vrfRedPlugin, err := netcnihelper.MarshalTypeToString(nad.DefineVrfPlugin(netcniparameters.VRFRedName))
+	vrfRedPlugin, err := nethelper.MarshalTypeToString(nad.DefineVrfPlugin(netcniparameters.VRFRedName))
 	Expect(err).ToNot(HaveOccurred(), "error to marshal vrf red to string")
 
 	By("Define sr-iov network cni vrf blue plugin config")
 
-	vrfBluePlugin, err := netcnihelper.MarshalTypeToString(nad.DefineVrfPlugin(netcniparameters.VRFBlueName))
+	vrfBluePlugin, err := nethelper.MarshalTypeToString(nad.DefineVrfPlugin(netcniparameters.VRFBlueName))
 	Expect(err).ToNot(HaveOccurred(), "error to marshal vrf blue to string")
 
 	By("Define and create sr-iov networks red")
-	tests.DefineAndCreateSriovNetwork(netcniparameters.TestSriovNetworkRed,
-		validSriovInterfaces[sriovNetworkInterfaceIndexRed], resourceNameVrfRed, ipam, vrfRedPlugin)
+	nethelper.DefineAndCreateSriovNetwork(validSriovInterfaces[sriovNetworkInterfaceIndexRed],
+		netcniparameters.TestSriovNetworkRed, resourceNameVrfRed, ipam, vrfRedPlugin,
+		netcniparameters.TestNamespace)
 
 	By("Define and create sr-iov networks blue")
-	tests.DefineAndCreateSriovNetwork(netcniparameters.TestSriovNetworkBlue,
-		validSriovInterfaces[sriovNetworkInterfaceIndexBlue], resourceNameVrfBlue, ipam, vrfBluePlugin)
+	nethelper.DefineAndCreateSriovNetwork(validSriovInterfaces[sriovNetworkInterfaceIndexBlue],
+		netcniparameters.TestSriovNetworkBlue, resourceNameVrfBlue, ipam, vrfBluePlugin,
+		netcniparameters.TestNamespace)
 
 	By("Waiting until SRIOV become stable")
 	tests.WaitUntilSriovBecomesStable()

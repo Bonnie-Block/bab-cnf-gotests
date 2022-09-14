@@ -11,8 +11,11 @@ import (
 
 	v1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 
+	"github.com/onsi/gomega"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/netparameters"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 
 	sriovv1 "github.com/k8snetworkplumbingwg/sriov-network-operator/api/v1"
@@ -266,7 +269,7 @@ func DefineDhcpServerPod(
 
 	return pod.RedefineAsPrivileged(
 		pod.RedefineWithVolume(
-			pod.RedefineWithInitContainer(
+			pod.RedefineWithPrivilegedInitContainer(
 				pod.RedefineWithCommand(
 					pod.RedefineAsNetRaw(
 						pod.RedefinePodWithNetwork(
@@ -309,15 +312,85 @@ func DefineIPFamily(ipAddress string) (ipFamily string, subnet string, err error
 		return "", "", fmt.Errorf("not valid IP %s", ipAddress)
 	}
 
-	subnet = netparameters.IPV4Subnet
+	subnet = netparameters.IPSubnet24
 	ipFamily = netparameters.IPV4Family
 
 	if strings.Contains(ipAddress, ":") {
-		subnet = netparameters.IPV6Subnet
+		subnet = netparameters.IPSubnet64
 		ipFamily = netparameters.IPV6Family
 	}
 
 	return ipFamily, subnet, nil
+}
+
+// MarshalTypeToString returns given struck in json string format.
+func MarshalTypeToString(typeToMarshal interface{}) (string, error) {
+	marshaledBytes, err := json.Marshal(typeToMarshal)
+
+	if err != nil {
+		return "", fmt.Errorf("fail to marshal type due to: %w", err)
+	}
+
+	return string(marshaledBytes), err
+}
+
+// GatherSriovInterfaces returns the request number of sr-iov interfaces that are present on cluster.
+func GatherSriovInterfaces(
+	sriovInfos *cluster.EnabledNodes, config *config.Config, requestedInterface int) []*sriovv1.InterfaceExt {
+	sriovInterfaces, err := sriovInfos.FindSriovDevices(sriovInfos.Nodes[0])
+	gomega.Expect(err).ToNot(gomega.HaveOccurred(), "error to find sr-iov interfaces")
+	validSriovInterfaces, err := config.GetSriovInterfaces(sriovInterfaces, requestedInterface)
+	gomega.Expect(err).ToNot(gomega.HaveOccurred(),
+		"error to find valid sr-iov interfaces from env var CNF_INTERFACES_LIST")
+
+	return validSriovInterfaces
+}
+
+// DefineAndCreateSriovPoliciesListOnSriovInterfaceList defines sr-iov policy on interface list.
+func DefineAndCreateSriovPoliciesListOnSriovInterfaceList(
+	resourceNamesList []string, validSriovInterfaces []*sriovv1.InterfaceExt, vfNumber int) {
+	gomega.Expect(len(resourceNamesList)).To(gomega.BeNumerically("<=", len(validSriovInterfaces)),
+		"not enough sr-iov interfaces available to create requested policies")
+
+	var sriovPolicyList []*sriovv1.SriovNetworkNodePolicy
+
+	for idx, resourceName := range resourceNamesList {
+		sriovPolicyList = append(sriovPolicyList, helper.DefineSriovPolicy(
+			fmt.Sprintf("%s%d", parameters.SriovPolicyName, idx),
+			parameters.SriovOperatorNamespace,
+			validSriovInterfaces[idx],
+			vfNumber,
+			fmt.Sprintf("#0-%d", vfNumber-1),
+			1500,
+			resourceName,
+			"netdevice"))
+	}
+
+	for _, sriovPolicy := range sriovPolicyList {
+		err := helper.Apiclient.Create(context.Background(), sriovPolicy)
+		gomega.Expect(err).ToNot(gomega.HaveOccurred(), fmt.Sprintf("error to create sr-iov policy %v", sriovPolicy))
+	}
+}
+
+// DefineAndCreateSriovNetwork defines and creates sr-iov network.
+func DefineAndCreateSriovNetwork(
+	sriovInterface *sriovv1.InterfaceExt, name, resourceName, ipam, metaPluginConfig, namespace string) {
+	err := CreateSriovNetwork(
+		helper.Apiclient,
+		sriovInterface,
+		name,
+		namespace,
+		parameters.SriovOperatorNamespace,
+		resourceName,
+		ipam,
+		defineSriovNetworkMetaPlugins(metaPluginConfig))
+	gomega.Expect(err).ToNot(gomega.HaveOccurred(), "error creating sr-iov network")
+}
+
+func defineSriovNetworkMetaPlugins(pluginConfig string) func(network *sriovv1.SriovNetwork) {
+	return func(network *sriovv1.SriovNetwork) {
+		network.Spec.MetaPluginsConfig = pluginConfig
+	}
 }
 
 func lastAddr(network *net.IPNet) (net.IP, error) {
