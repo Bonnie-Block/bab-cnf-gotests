@@ -3,6 +3,7 @@ package pod
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -24,6 +25,31 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	testclient "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
 )
+
+type NetAnnotation struct {
+	Name    string   `json:"name,omitempty"`
+	IntFace string   `json:"interface,omitempty"`
+	Ips     []string `json:"ips,omitempty"`
+	Mac     string   `json:"mac,omitempty"`
+	Default bool     `json:"default,omitempty"`
+}
+
+func GetIPFromDefaultNetAnnotation(pod *corev1.Pod) (string, error) {
+	var netAnnotations []NetAnnotation
+
+	podNetMap := pod.Annotations["k8s.v1.cni.cncf.io/network-status"]
+
+	err := json.Unmarshal([]byte(podNetMap), &netAnnotations)
+	if err != nil {
+		return "", err
+	}
+
+	if netAnnotations[0].Default {
+		return netAnnotations[0].Ips[0], nil
+	}
+
+	return "", fmt.Errorf("error to collect default ip pod ip address")
+}
 
 func getDefinition(namespace string, image string) *corev1.Pod {
 	podObject := &corev1.Pod{

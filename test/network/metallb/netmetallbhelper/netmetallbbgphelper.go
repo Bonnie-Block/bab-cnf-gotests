@@ -55,7 +55,7 @@ func DefineFRRBGPConfigMap(ipAddresses []string, configMapName string, localAS i
 
 	temp, err := template.New("bgp Config Template").Parse(netmlbparameters.BgpConfigTemplate)
 
-	if routePropagate[0] == netmlbparameters.PropagateTrue {
+	if len(routePropagate) > 1 && routePropagate[0] == netmlbparameters.PropagateTrue {
 		temp, err = template.New("bgp Config Template").Parse(netmlbparameters.BgpRoutePropagate)
 		Expect(err).ToNot(HaveOccurred())
 	}
@@ -482,11 +482,21 @@ func CreateFRRContainerOnMaster(
 			netmlbparameters.BREXInterface))
 	Expect(err).ToNot(HaveOccurred())
 
-	masterConfigMap := DefineFRRBGPConfigMap(
-		workerNodesAdresses,
-		frrConfigName,
-		bgpASN,
-		ipStack, routePropagate[0])
+	var masterConfigMap *k8sv1.ConfigMap
+
+	if len(routePropagate) > 0 {
+		masterConfigMap = DefineFRRBGPConfigMap(
+			workerNodesAdresses,
+			frrConfigName,
+			bgpASN,
+			ipStack, routePropagate[0])
+	} else {
+		masterConfigMap = DefineFRRBGPConfigMap(
+			workerNodesAdresses,
+			frrConfigName,
+			bgpASN,
+			ipStack)
+	}
 
 	_, err = helper.Apiclient.ConfigMaps(netmlbparameters.TestNamespace).Create(
 		context.TODO(),

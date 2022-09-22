@@ -331,15 +331,30 @@ func DefineAndRunMlbClientPod(node string, image string, appLabel string, argCom
 	return runningPod
 }
 
-// DefineAndRunMlbServerPod with nginx listening on port 80 and sctp on port 50000.
-func DefineAndRunMlbServerPod(node string, image string, appLabel string, argCommand []string) *k8sv1.Pod {
+func DefineMlbServerPod(node, image, appLabel string, argCommand []string) *k8sv1.Pod {
 	podDefNodeLabel := pod.RedefineWithLabel(
 		pod.DefinePodOnNode(netmlbparameters.TestNamespace, image, node), "app", appLabel)
-	podDefPrivCommand := pod.RedefineAsPrivileged(pod.RedefineWithCommand(podDefNodeLabel,
+
+	return pod.RedefineAsPrivileged(pod.RedefineWithCommand(podDefNodeLabel,
 		[]string{"/bin/bash", "-c"},
 		argCommand))
+}
+
+// DefineAndRunMlbServerPod runs server pod based on given image and cmd arguments.
+func DefineAndRunMlbServerPod(node, image, appLabel string, argCommand []string) *k8sv1.Pod {
+	podDefPrivCommand := DefineMlbServerPod(node, image, appLabel, argCommand)
 
 	return helper.WaitUntilPodCreatedAndRunning(podDefPrivCommand, netmlbparameters.PodWaitingTime)
+}
+
+// DefineAndRunMlbServerPodWithSecondContainer runs server pod with two containers based on given image
+// and cmd arguments.
+func DefineAndRunMlbServerPodWithSecondContainer(
+	node, image, appLabel string, argCommand []string, container *k8sv1.Container) *k8sv1.Pod {
+	mlbServerPod := DefineMlbServerPod(node, image, appLabel, argCommand)
+	mlbServerPod.Spec.Containers = append([]k8sv1.Container{*container}, mlbServerPod.Spec.Containers...)
+
+	return helper.WaitUntilPodCreatedAndRunning(mlbServerPod, netmlbparameters.PodWaitingTime)
 }
 
 // DefineMlbPodMaster creates a pod on a Master node.
