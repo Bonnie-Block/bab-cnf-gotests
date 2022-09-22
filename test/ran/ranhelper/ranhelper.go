@@ -3,6 +3,9 @@ package ranhelper
 import (
 	"context"
 	"fmt"
+	"os"
+
+	testclient "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -32,6 +35,21 @@ func ApplyObjects(resDir string) error {
 // DeleteObjects removes manifests from given directory from cluster.
 func DeleteObjects(resDir string) error {
 	return modifyObjects(deleteMode, resDir)
+}
+
+// DefineAPIClient creates new api client instance connected to given cluster.
+func DefineAPIClient(kubeconfigEnvVar string) (*testclient.ClientSet, error) {
+	kubeFilePath, present := os.LookupEnv(kubeconfigEnvVar)
+	if !present {
+		return nil, fmt.Errorf("can not load api client. Please check %s env var", kubeconfigEnvVar)
+	}
+
+	clients := testclient.New(kubeFilePath)
+	if clients == nil {
+		return nil, fmt.Errorf("client is not set please check %s env variable", kubeconfigEnvVar)
+	}
+
+	return clients, nil
 }
 
 // UpdateObjects updates existing resources based on manifests from given directory.
