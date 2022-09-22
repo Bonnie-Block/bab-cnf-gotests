@@ -6,6 +6,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+
 	"io"
 	"log"
 	"net/http"
@@ -20,6 +21,7 @@ import (
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/k8snetworkplumbingwg/sriov-network-operator/pkg/render"
 	"github.com/noirbizarre/gonja"
+	"github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"github.com/pkg/errors"
 	bmerv1alpha1 "github.com/redhat-cne/hw-event-proxy-operator/api/v1alpha1"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
@@ -158,7 +160,7 @@ func GetHTTPS(url string) error {
 }
 
 // GetAppRoute uses ranhweventparameters to query the application exposed path.
-func GetAppRoute() (path string, err error) {
+func GetAppRoute() (string, error) {
 	routeList, err := helper.Apiclient.Routes(ranhweventparameters.NamespaceConsumer).List(context.Background(),
 		metav1.ListOptions{})
 	if err != nil {
@@ -167,9 +169,9 @@ func GetAppRoute() (path string, err error) {
 
 	for _, route := range routeList.Items {
 		if route.Name == ranhweventparameters.AppRouteName {
-			appPath := "https://" + route.Spec.Host + "/webhook"
+			routePath := "https://" + route.Spec.Host + "/webhook"
 
-			return appPath, err
+			return routePath, nil
 		}
 
 		log.Print("GetAppRoute() host: " + route.Spec.Host)
@@ -203,26 +205,43 @@ func GetConsumers() (*corev1.PodList, error) {
 func GetDeployImages() (map[string]string, error) {
 	var images = make(map[string]string)
 
-	csv, err := helper.Apiclient.ClusterServiceVersions(ranhweventparameters.NamespaceConsumer).Get(
-		context.TODO(), ranhweventparameters.HwEventCsv, metav1.GetOptions{})
+	csvs, err := helper.Apiclient.ClusterServiceVersions(ranhweventparameters.NamespaceConsumer).List(
+		context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return images, fmt.Errorf("failed to query ClusterServiceVersions at namespace: %v named: %v due to: %w",
 			ranhweventparameters.NamespaceConsumer, ranhweventparameters.HwEventCsv, err)
 	}
 
+	var csv v1alpha1.ClusterServiceVersion
+	for _, csv = range csvs.Items {
+		if strings.HasPrefix(csv.Name, ranhweventparameters.HwEventCsv) {
+			break
+		}
+	}
+	// the CSV starts with "bare-metal-event-relay" but ends with specific version .4.10.0-202208150436
+	if !strings.HasPrefix(csv.Name, ranhweventparameters.HwEventCsv) {
+		return images, fmt.Errorf(
+			"failed to find a ClusterServiceVersions starting with %v", ranhweventparameters.HwEventCsv)
+	}
+
 	for _, relatedImage := range csv.Spec.RelatedImages {
-		for _, requiredImage := range ranhweventparameters.RequiredImages {
-			if strings.HasPrefix(relatedImage.Name, requiredImage) {
-				log.Printf("found mirrored image for %v at %v\n", relatedImage.Name, relatedImage.Image)
-				images[relatedImage.Name] = relatedImage.Image
+		// open shift 4.10 and 4.11 images differ, so I am checking for both
+		for imageRole, imageOptions := range ranhweventparameters.RequiredImages {
+			for _, imageOption := range imageOptions {
+				if strings.HasPrefix(relatedImage.Name, imageOption) {
+					log.Printf("found mirrored image for %v as %v\n", imageRole, imageOption)
+
+					images[imageRole] = relatedImage.Image
+				}
 			}
 		}
 	}
 
-	if len(ranhweventparameters.RequiredImages) > len(images) {
-		for _, requiredImage := range ranhweventparameters.RequiredImages {
-			if images[requiredImage] == "" {
-				return images, fmt.Errorf("image %v was not found in CSV: %v", requiredImage, csv.Name)
+	if len(getMapKeys(ranhweventparameters.RequiredImages)) > len(images) {
+		for imageRole := range ranhweventparameters.RequiredImages {
+			_, exist := images[imageRole]
+			if !exist {
+				return images, fmt.Errorf("image for %v was not found in CSV: %v", imageRole, csv.Name)
 			}
 		}
 	}
@@ -240,7 +259,7 @@ func getTemplatePath() (string, error) {
 	// this should be ranhwevent and parent is ran dir
 	parentDir := filepath.Dir(currentDir)
 
-	return parentDir + string(os.PathSeparator) + helper.Config.Ran.HwEventConfigsDir, nil
+	return parentDir + string(os.PathSeparator), nil
 }
 
 // GetConsumerManifest renders a jinja template with mirrored images locations.
@@ -260,8 +279,8 @@ func GetConsumerManifest(images map[string]string) (string, error) {
 	}
 
 	return template.Execute(gonja.Context{
-		ranhweventparameters.RequiredImages[0]: images[ranhweventparameters.RequiredImages[0]],
-		ranhweventparameters.RequiredImages[1]: images[ranhweventparameters.RequiredImages[1]],
+		"kube_rbac_proxy_image":                images["kube_rbac_proxy_image"],
+		"cloud_event_proxy_image":              images["cloud_event_proxy_image"],
 		ranhweventparameters.ConsumerImageName: images[ranhweventparameters.ConsumerImageName],
 	})
 }
@@ -325,33 +344,6 @@ func DeployConsumers(mirroredImages map[string]string) error {
 		return fmt.Errorf("consumers already deployed in cluster. skipping creating them")
 	}
 
-	_, err = os.Stat(helper.Config.Ran.HwEventConfigsDir)
-
-	if os.IsNotExist(err) {
-		pwd, _ := os.Getwd()
-
-		return fmt.Errorf("failed to find directory: %v in current path: %v",
-			helper.Config.Ran.HwEventConfigsDir, pwd)
-	}
-
-	_, err = helper.Apiclient.Deployments(ranhweventparameters.NamespaceConsumer).Get(
-		context.Background(),
-		ranhweventparameters.ConsumerDeploymentName,
-		metav1.GetOptions{},
-	)
-
-	if err != nil {
-		err = ranhelper.ApplyObjects(helper.Config.Ran.HwEventConfigsDir)
-	} else {
-		err = ranhelper.UpdateObjects(helper.Config.Ran.HwEventConfigsDir)
-	}
-
-	if err != nil {
-		log.Printf("failed to deploy consumers due to: %v\n", err)
-
-		return fmt.Errorf("failed to deploy consumers due to: %w", err)
-	}
-
 	// consumer pod needs the mirrored images
 	err = deployConsumerPod(mirroredImages)
 	if err != nil {
@@ -405,6 +397,36 @@ func DeployConsumers(mirroredImages map[string]string) error {
 
 	if err != nil {
 		return fmt.Errorf("failed to Deploy consumers due to: %w", err)
+	}
+
+	return nil
+}
+
+// ConfigHwEventProxyObjects create various hw event proxy cluster objects to allow application to start working.
+func ConfigHwEventProxyObjects() error {
+	_, err := os.Stat(helper.Config.Ran.HwEventConfigsDir)
+
+	if os.IsNotExist(err) {
+		pwd, _ := os.Getwd()
+
+		return fmt.Errorf("failed to find directory: %v in current path: %v",
+			helper.Config.Ran.HwEventConfigsDir, pwd)
+	}
+
+	_, err = helper.Apiclient.Deployments(ranhweventparameters.NamespaceConsumer).Get(
+		context.Background(),
+		ranhweventparameters.ConsumerDeploymentName,
+		metav1.GetOptions{},
+	)
+
+	if err != nil {
+		err = ranhelper.ApplyObjects(helper.Config.Ran.HwEventConfigsDir)
+	} else {
+		err = ranhelper.UpdateObjects(helper.Config.Ran.HwEventConfigsDir)
+	}
+
+	if err != nil {
+		return fmt.Errorf("failed to deploy application config due to: %w", err)
 	}
 
 	return nil
@@ -662,4 +684,28 @@ func CheckCustomResourceDefinition() error {
 
 	return fmt.Errorf("failed to find custum resource definition: %v in cluster",
 		ranhweventparameters.CustomResourceDefinition)
+}
+
+// WaitForDeploymentReady wait for a deployment to reach ready state or timeout at 5 Min.
+// returns bool for if ready and error.
+func WaitForDeploymentReady(client *client.ClientSet, namespace, deployment string) (err error) {
+	err = wait.PollImmediate(5*time.Second, 5*time.Minute, func() (bool, error) {
+		ready, err := helper.IsDeploymentReady(client, namespace, deployment)
+		if err == nil && ready {
+			return true, nil
+		}
+
+		return false, err
+	})
+
+	return err
+}
+
+func getMapKeys(input map[string][]string) []string {
+	output := make([]string, 0, len(input))
+	for key := range input {
+		output = append(output, key)
+	}
+
+	return output
 }

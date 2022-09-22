@@ -48,7 +48,6 @@ type Config struct {
 		BmcHosts                  string `envconfig:"BMC_HOSTS"`
 		BmcUser                   string `yaml:"bmc_user" envconfig:"BMC_USER"`
 		BmcPassword               string `yaml:"bmc_password" envconfig:"BMC_PASSWORD"`
-		EventReceiver             string `yaml:"event_receiver" envconfig:"EVENT_RECEIVER"`
 		PduAddr                   string `envconfig:"PDU_ADDR"`
 		PduSocket                 string `envconfig:"PDU_SOCKET"`
 		RanEventTestDebug         string `envconfig:"RAN_EVENT_TEST_DEBUG"`

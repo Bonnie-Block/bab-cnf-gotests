@@ -51,13 +51,7 @@ var _ = BeforeSuite(func() {
 	if err != nil {
 		Skip(fmt.Sprintf("Got this error when query feature custom resource definition: %v , skip testing", err))
 	}
-	var ready bool
-	ready, err = helper.IsDeploymentInstalled(
-		helper.Apiclient, ranhweventparameters.NamespaceConsumer, ranhweventparameters.AppName)
-	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Failed to query Hardware event deplyment due to: %v", err))
-	if !ready {
-		Skip("Skip testing due to missing hardware event proxy deployment")
-	}
+
 	// Redfish related pre-test checks
 	By("Verify redfish hostname is defined")
 	Expect(ranhweventparameters.Redfish.Hostname).ToNot(BeEmpty(),
@@ -80,15 +74,6 @@ var _ = BeforeSuite(func() {
 			ranhweventparameters.Redfish.Password,
 			err))
 
-	By("Creating privileged pods in order to query node vendor")
-	PrivilegedPods = helper.CreatePrivilegedPods("")
-	Expect(PrivilegedPods).ToNot(BeEmpty(),
-		"Missing Privileged pods")
-
-	By("Query the node under test redfish vendor")
-	LocalNodeVendor, err = nodevendor.GetRedfishVendor(ranhweventparameters.Redfish.Session)
-	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("On redfish vendor query, got this error: %v\n", err))
-
 	// Define the redfish access to the kubernetes operator using a secret
 	err = ranhweventhelper.CreateHwEventSecret(
 		ranhweventparameters.SecretName,
@@ -103,22 +88,34 @@ var _ = BeforeSuite(func() {
 	} else {
 		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("failed to create secret due to: %v", err))
 	}
-
-	By("Verify that redfish has a HTTPS target to send the events defined")
-	ranhweventparameters.Redfish.EventReceiver, err = ranhweventhelper.GetAppRoute()
-	Expect(err).ToNot(HaveOccurred())
-
-	// check this HTTPS is alive retry if deployment is in progress.
-	err = ranhweventhelper.GetHTTPS(ranhweventparameters.Redfish.EventReceiver)
-	Expect(err).ToNot(HaveOccurred())
+	err = ranhweventhelper.WaitForDeploymentReady(
+		helper.Apiclient, ranhweventparameters.NamespaceConsumer, ranhweventparameters.AppName)
+	Expect(err).ShouldNot(HaveOccurred(), fmt.Sprintf(
+		"Hardware event deployment is not ready after creating secret due to: %v", err))
 
 	By("Check ClusterServiceVersions mirrored images necessary for consumer deploy")
 	mirroredImages, err := ranhweventhelper.GetDeployImages()
-	Expect(mirroredImages).ToNot(BeEmpty(), err)
+	Expect(err).ShouldNot(HaveOccurred(), fmt.Sprintf(
+		"failed to get images to be used from ClusterServiceVersions due to: %v", err))
 
 	By("Check consumer image is defined")
 	Expect(helper.Config.Ran.HwEventConsumerImage).ToNot(BeEmpty(),
 		"RAN_HW_EVENT_CONSUMER_IMAGE environment is missing")
+
+	By("Configure the cluster objects for hardware event proxy")
+	err = ranhweventhelper.ConfigHwEventProxyObjects()
+	Expect(err).ShouldNot(HaveOccurred(), fmt.Sprintf("failed to config app due to: %v", err))
+
+	By("Check routing to app service exist")
+	ranhweventparameters.Redfish.EventReceiver, err = ranhweventhelper.GetAppRoute()
+
+	Expect(err).ShouldNot(HaveOccurred(), fmt.Sprintf(
+		"failed to find routing to application, so it can not receive events due to: %v", err))
+	By("Verify that redfish has a HTTPS target to send the events defined")
+	// check this HTTPS is alive retry if deployment is in progress.
+	err = ranhweventhelper.GetHTTPS(ranhweventparameters.Redfish.EventReceiver)
+	Expect(err).ShouldNot(HaveOccurred(), fmt.Sprintf(
+		"failed to verify HTTPS is ready to recive events due to: %v", err))
 
 	By("Deploy consumers")
 	err = ranhweventhelper.DeployConsumers(mirroredImages)
@@ -127,46 +124,50 @@ var _ = BeforeSuite(func() {
 	if err != nil && err.Error() == "consumers already deployed in cluster. skipping creating them" {
 		log.Printf("Consumers creating skipped: %v", err)
 	} else {
-		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("failed to deploy consumers due to: %v", err))
+		Expect(err).ShouldNot(HaveOccurred(), fmt.Sprintf("failed to deploy consumers due to: %v", err))
 	}
 
 	By("Check consumers exist")
 	ConsumersList, err = ranhweventhelper.GetConsumers()
-	Expect(err).ToNot(HaveOccurred(), err)
-	Expect(ConsumersList.Items).ToNot(BeEmpty(), "Missing consumers")
+	Expect(err).ShouldNot(HaveOccurred(), fmt.Sprintf("failed to check consumers exist due to: %v", err))
+
+	By("Creating privileged pods in order to query node vendor")
+	PrivilegedPods = helper.CreatePrivilegedPods("")
+
+	By("Query the node under test redfish vendor")
+	LocalNodeVendor, err = nodevendor.GetRedfishVendor(ranhweventparameters.Redfish.Session)
+	Expect(err).ShouldNot(HaveOccurred(), fmt.Sprintf("On redfish vendor query, got this error: %v\n", err))
 
 	By("Purge previous redfish subscriptions")
 	err = rfclient.ClearSubscriptions(ranhweventparameters.Redfish)
-	Expect(err).ToNot(HaveOccurred(), err)
+	if err != nil {
+		log.Printf("failed to purge previous redfish subscriptions due to: %v", err)
+	}
 
 	By("Subscribe to events")
 	subscriptionURI, eventService, err = rfclient.Subscribe(LocalNodeVendor, ranhweventparameters.Redfish)
-	Expect(err).ShouldNot(HaveOccurred())
-	Expect(subscriptionURI).ToNot(Equal(nil))
+	Expect(err).ShouldNot(HaveOccurred(), fmt.Sprintf("failed to subscribe to redfish events due to: %v", err))
+	Expect(subscriptionURI).ToNot(Equal(nil), "failed to get subscription URI replay")
 
 })
 
 var _ = AfterSuite(func() {
+	var teardownErrors []error
+	By("Unsubscribe events")
+	teardownErrors = append(teardownErrors, rfclient.Unsubscribe(subscriptionURI, eventService))
+	By("Purge privileged pods that were created for test")
+	teardownErrors = append(teardownErrors, ranhweventhelper.PurgePrivPodNamespace())
 	By("Remove consumer pods")
 	destroyErrors := ranhweventhelper.DestroyConsumers()
-	Expect(destroyErrors).To(BeEmpty(), destroyErrors)
-
-	By("Unsubscribe events")
-	err := rfclient.Unsubscribe(subscriptionURI, eventService)
-	Expect(err).ToNot(HaveOccurred(), err)
-
+	teardownErrors = append(teardownErrors, destroyErrors...)
 	By("Remove Hw event secret")
-	err = ranhweventhelper.DeleteHwEventSecret(
-		ranhweventparameters.NamespaceConsumer, ranhweventparameters.SecretName)
-	Expect(err).ToNot(HaveOccurred(), err)
+	teardownErrors = append(teardownErrors, ranhweventhelper.DeleteHwEventSecret(
+		ranhweventparameters.NamespaceConsumer, ranhweventparameters.SecretName))
 	By("End redfish session.")
 	ranhweventparameters.Redfish.Session.Logout()
+	By("Check errors in tear-down")
 
-	By("Purge privileged pods that were created for test")
-	err = ranhweventhelper.PurgePrivPodNamespace()
-	Expect(err).ShouldNot(HaveOccurred(), fmt.Sprintf("Failed to purge privileged pods due to: %v\n",
-		err))
-
+	Expect(teardownErrors).Should(BeEmpty())
 })
 
 var _ = ReportAfterEach(func(report types.SpecReport) {

@@ -40,7 +40,7 @@ var (
 		helper.Config.Ran.BmcUser,
 		helper.Config.Ran.BmcPassword,
 		"https://" + helper.Config.Ran.BmcHosts,
-		"https://" + helper.Config.Ran.EventReceiver + "/webhook",
+		"",
 		map[string]bool{},
 		&gofish.APIClient{},
 	}
@@ -95,9 +95,14 @@ var (
 		"AMP0310",
 	}
 
-	HwEventCsv               = "bare-metal-event-relay.v4.11.0"
-	RequiredImages           = []string{"kube_rbac_proxy_image", "cloud_event_proxy_image"}
-	ConsumerManifestTemplate = "ranhwevent-consumer/consumer_manifest.j2"
+	HwEventCsv = "bare-metal-event-relay."
+	// RequiredImages in 4_11 "kube_rbac_proxy_image", "cloud_event_proxy_image" .
+	// RequiredImages in 4_10 "ose-kube-rbac-proxy", "ose-cloud-event-proxy" .
+	RequiredImages = map[string][]string{
+		"kube_rbac_proxy_image":   {"ose-kube-rbac-proxy", "kube_rbac_proxy_image"},
+		"cloud_event_proxy_image": {"ose-cloud-event-proxy", "cloud_event_proxy_image"},
+	}
+	ConsumerManifestTemplate = "resources/ranhwevent-consumer/consumer_manifest.j2"
 	CustomResourceDefinition = "openshift-bare-metal-events"
 	ConsumerImageName        = "cloud_event_consumer"
 )
