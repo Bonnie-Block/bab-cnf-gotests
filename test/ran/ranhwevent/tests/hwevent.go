@@ -47,7 +47,7 @@ var _ = Describe("HW event proxy", func() {
 			ranhweventparameters.DebugTest = true
 			log.Println("Test debug flag is on")
 		}
-		By("Get predefined Vendor events")
+		By("Get predefined Vendor events for: " + LocalNodeVendor)
 		testEvents, err = rfclient.GetVendorTestEvents(LocalNodeVendor, ranhweventparameters.Redfish)
 		Expect(err).ShouldNot(HaveOccurred())
 

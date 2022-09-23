@@ -229,7 +229,7 @@ func GetDeployImages() (map[string]string, error) {
 		for imageRole, imageOptions := range ranhweventparameters.RequiredImages {
 			for _, imageOption := range imageOptions {
 				if strings.HasPrefix(relatedImage.Name, imageOption) {
-					log.Printf("found mirrored image for %v as %v\n", imageRole, imageOption)
+					log.Printf("Found %v image: %v\n", imageRole, relatedImage.Image)
 
 					images[imageRole] = relatedImage.Image
 				}
@@ -695,7 +695,7 @@ func WaitForDeploymentReady(client *client.ClientSet, namespace, deployment stri
 			return true, nil
 		}
 
-		return false, err
+		return false, nil
 	})
 
 	return err

@@ -153,10 +153,10 @@ var _ = BeforeSuite(func() {
 
 var _ = AfterSuite(func() {
 	var teardownErrors []error
-	By("Unsubscribe events")
-	teardownErrors = append(teardownErrors, rfclient.Unsubscribe(subscriptionURI, eventService))
-	By("Purge privileged pods that were created for test")
-	teardownErrors = append(teardownErrors, ranhweventhelper.PurgePrivPodNamespace())
+	if eventService != nil {
+		By("Unsubscribe events")
+		teardownErrors = append(teardownErrors, rfclient.Unsubscribe(subscriptionURI, eventService))
+	}
 	By("Remove consumer pods")
 	destroyErrors := ranhweventhelper.DestroyConsumers()
 	teardownErrors = append(teardownErrors, destroyErrors...)
@@ -165,8 +165,10 @@ var _ = AfterSuite(func() {
 		ranhweventparameters.NamespaceConsumer, ranhweventparameters.SecretName))
 	By("End redfish session.")
 	ranhweventparameters.Redfish.Session.Logout()
-	By("Check errors in tear-down")
+	By("Purge privileged pods that were created for test")
+	teardownErrors = append(teardownErrors, ranhweventhelper.PurgePrivPodNamespace())
 
+	By("Check errors in tear-down")
 	Expect(teardownErrors).Should(BeEmpty())
 })
 
