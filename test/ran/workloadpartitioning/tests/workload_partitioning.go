@@ -37,7 +37,6 @@ var _ = Describe("SNO management workload partitioning", func() {
 		perfProfile *performancev2.PerformanceProfile
 		mgmtCPUSet  cpuset.CPUSet
 		isolCPUSet  cpuset.CPUSet
-		totalCPUSet cpuset.CPUSet
 		pod         *corev1.Pod
 	)
 
@@ -50,7 +49,6 @@ var _ = Describe("SNO management workload partitioning", func() {
 		node = &workers[0]
 		mgmtCPUSet = cpuset.MustParse(string(*perfProfile.Spec.CPU.Reserved))
 		isolCPUSet = cpuset.MustParse(string(*perfProfile.Spec.CPU.Isolated))
-		totalCPUSet = mgmtCPUSet.Union(isolCPUSet)
 
 		// Print out kernel version with best effort
 		output, err := helper.ExecCommandOnNode(node, []string{"uname", "-r"})
@@ -278,7 +276,7 @@ var _ = Describe("SNO management workload partitioning", func() {
 				if containerInfo.Namespace == pod.Namespace && containerInfo.PodName == pod.Name {
 					Expect(containerInfo.Shares).To(BeEquivalentTo(cpuReq * 1024))
 					podCPUSet := cpuset.MustParse(containerInfo.Cpus)
-					Expect(podCPUSet.String()).To(BeEquivalentTo(totalCPUSet.String()))
+					Expect(podCPUSet.String()).To(BeEquivalentTo(isolCPUSet.String()))
 
 					return
 				}
@@ -313,7 +311,7 @@ var _ = Describe("SNO management workload partitioning", func() {
 				if containerInfo.Namespace == pod.Namespace && containerInfo.PodName == pod.Name {
 					Expect(containerInfo.Shares).To(BeEquivalentTo(1024))
 					podCPUSet := cpuset.MustParse(containerInfo.Cpus)
-					Expect(podCPUSet.String()).To(BeEquivalentTo(totalCPUSet.String()))
+					Expect(podCPUSet.String()).To(BeEquivalentTo(isolCPUSet.String()))
 
 					return
 				}
