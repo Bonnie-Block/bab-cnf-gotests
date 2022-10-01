@@ -137,9 +137,9 @@ func GetByRole(cs *client.ClientSet, role string) ([]corev1.Node, error) {
 }
 
 // GetPhysicalNodeInterfaces return list of interfaces.
-func GetPhysicalNodeInterfaces(clientSet *client.ClientSet, node string) ([]NodeInterface, error) {
+func GetPhysicalNodeInterfaces(clientSet *client.ClientSet, node, namespace string) ([]NodeInterface, error) {
 	defer func() {
-		_ = namespaces.CleanPods("default", clientSet)
+		_ = namespaces.CleanPods(namespace, clientSet)
 	}()
 
 	cfgData, err := config.NewConfig()
@@ -148,8 +148,8 @@ func GetPhysicalNodeInterfaces(clientSet *client.ClientSet, node string) ([]Node
 		return nil, err
 	}
 
-	privilegedPod := pod.RedefineWithHostNetwork(pod.DefinePodOnNode("default", cfgData.Network.TestContainerImage, node))
-	runningPrivilegedPod, err := clientSet.Pods("default").Create(
+	privilegedPod := pod.RedefineWithHostNetwork(pod.DefinePodOnNode(namespace, cfgData.Network.TestContainerImage, node))
+	runningPrivilegedPod, err := clientSet.Pods(namespace).Create(
 		context.Background(),
 		privilegedPod,
 		metav1.CreateOptions{},
@@ -162,7 +162,7 @@ func GetPhysicalNodeInterfaces(clientSet *client.ClientSet, node string) ([]Node
 	var podStatus *corev1.Pod
 
 	for start := time.Now(); time.Since(start) < time.Second*120; {
-		podStatus, _ = clientSet.Pods("default").Get(context.Background(), runningPrivilegedPod.Name, metav1.GetOptions{})
+		podStatus, _ = clientSet.Pods(namespace).Get(context.Background(), runningPrivilegedPod.Name, metav1.GetOptions{})
 		if podStatus.Status.Phase == corev1.PodRunning {
 			break
 		}

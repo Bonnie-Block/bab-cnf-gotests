@@ -39,6 +39,7 @@ func PullTestImage(cnfNodeLabel string, image string) {
 			pod.RedefineWithCommand(
 				pod.DefinePodOnNode("default", image, node.Name),
 				[]string{"echo", "image pulled Successfully && exit 0"}, []string{}), k8sv1.RestartPolicyNever)
+		pullPodDefenition.Spec.Containers[0].SecurityContext = &parameters.DefaultSecurityContext
 		pullPod, err := Apiclient.Pods("default").Create(
 			context.Background(),
 			pullPodDefenition,

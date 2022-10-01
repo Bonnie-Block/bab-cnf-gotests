@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	TestNamespace                             = "cni-test"
+	TestNamespace                             = "metallb-test"
 	AddressPoolName                           = "address-pool"
 	AddressPoolL2                             = "layer2-pool"
 	Layer2                                    = "layer2"
@@ -98,6 +98,7 @@ const (
 	BGPPeerName2v6                            = "bgp-peer2v6"
 	LogLevelDebug                             = "debugging"
 	LogLevelInfo                              = "informational"
+	FRRContainerName                          = "frr"
 )
 
 var (

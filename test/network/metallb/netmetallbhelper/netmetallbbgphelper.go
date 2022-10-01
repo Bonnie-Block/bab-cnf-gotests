@@ -529,7 +529,8 @@ func RemoveMetallbBGPTestSetup(nadNameList []string, configMapName []string) {
 // ValidateLocalPref verifies local pref from FRR is equal to configured Local Pref.
 func ValidateLocalPref(frrPod *k8sv1.Pod, localPref uint32, ipFamily string) error {
 	res, err := pod.ExecCommand(helper.Apiclient, *frrPod,
-		append(netmlbparameters.VtyshFRRCmdPrefix, fmt.Sprintf("show ip bgp %s json", ipFamily)))
+		append(netmlbparameters.VtyshFRRCmdPrefix, fmt.Sprintf("show ip bgp %s json", ipFamily)),
+		netmlbparameters.FRRContainerName)
 	if err != nil {
 		return errors.Wrapf(err, "Failed to query routes")
 	}

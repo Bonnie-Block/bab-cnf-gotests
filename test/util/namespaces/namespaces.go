@@ -37,6 +37,12 @@ func Create(namespace string, cs *testclient.ClientSet) error {
 	_, err := cs.Namespaces().Create(context.Background(), &k8sv1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: namespace,
+			Labels: map[string]string{
+				"pod-security.kubernetes.io/audit":               "privileged",
+				"pod-security.kubernetes.io/enforce":             "privileged",
+				"pod-security.kubernetes.io/warn":                "privileged",
+				"security.openshift.io/scc.podSecurityLabelSync": "false",
+			},
 		}}, metav1.CreateOptions{})
 
 	if k8serrors.IsAlreadyExists(err) {

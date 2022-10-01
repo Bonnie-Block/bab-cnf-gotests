@@ -171,7 +171,7 @@ func getNodeValidMacVlanInterface(nodeName string, config *config.Config, reques
 
 	var macVlanInterfaces []nodes.NodeInterface
 
-	nodeInterfaceList, err := nodes.GetPhysicalNodeInterfaces(helper.Apiclient, nodeName)
+	nodeInterfaceList, err := nodes.GetPhysicalNodeInterfaces(helper.Apiclient, nodeName, netcniparameters.TestNamespace)
 	Expect(err).ToNot(HaveOccurred(), "error to collect node physical NICs")
 
 	for _, oneInterface := range nodeInterfaceList {

@@ -414,7 +414,7 @@ func HTTPMlbPod(
 		}
 	}
 
-	command = fmt.Sprintf("curl --interface %s %s --max-time 5", sourceIPAddr, destIPAddr)
+	command = fmt.Sprintf("curl --interface %s %s --max-time 10", sourceIPAddr, destIPAddr)
 
 	if ipFamily == netparameters.IPV6Family {
 		command = fmt.Sprint("curl --interface ", sourceIPAddr, "[", destIPAddr, "]", "--max-time 5")
@@ -681,7 +681,7 @@ func IsProtocolConfigured(protocolPrefix string) bool {
 
 	for _, speakerPod := range speakerPodList.Items {
 		configStateOut, err := pod.ExecCommand(helper.Apiclient, speakerPod,
-			[]string{"vtysh", "-c", "sh run"})
+			[]string{"vtysh", "-c", "sh run"}, netmlbparameters.FRRContainerName)
 		Expect(err).ToNot(HaveOccurred())
 
 		configs := strings.Split(configStateOut.String(), "!")
@@ -970,7 +970,7 @@ func AddOrDeleteNodeSecIPAddViaSpeaker(action string,
 	}
 
 	buffer, err := pod.ExecCommand(helper.Apiclient, speakerPodList.Items[0], []string{"ip", "add", action,
-		netmlbparameters.IPSecondaryInterface1 + "/" + subnet, "dev", secInterface})
+		netmlbparameters.IPSecondaryInterface1 + "/" + subnet, "dev", secInterface}, netmlbparameters.FRRContainerName)
 	if err != nil {
 		return buffer.String(), err
 	}
