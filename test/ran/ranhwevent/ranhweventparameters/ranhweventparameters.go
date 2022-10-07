@@ -89,10 +89,10 @@ var (
 		"iLOEvents.2.1.ServerPoweredOff",
 	}
 
+	// use only critical alarms.
 	IDRACEvents = []string{
-		"AMP0300", "AMP0301", "AMP0302", "AMP0303", "AMP0304", "AMP0306", "AMP0307", "AMP0308",
-		"AMP0309",
-		"AMP0310",
+		"TMP0101", "TMP0103", "TMP0104", "TMP0107", "TMP0109",
+		"TMP0110", "TMP0113", "TMP0115", "TMP0116", "TMP0119",
 	}
 
 	HwEventCsv = "bare-metal-event-relay."

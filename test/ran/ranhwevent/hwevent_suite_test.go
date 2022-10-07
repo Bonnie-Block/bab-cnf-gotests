@@ -169,7 +169,9 @@ var _ = AfterSuite(func() {
 	teardownErrors = append(teardownErrors, ranhweventhelper.PurgePrivPodNamespace())
 
 	By("Check errors in tear-down")
-	Expect(teardownErrors).Should(BeEmpty())
+	for _, err := range teardownErrors {
+		Expect(err).ShouldNot(HaveOccurred())
+	}
 })
 
 var _ = ReportAfterEach(func(report types.SpecReport) {

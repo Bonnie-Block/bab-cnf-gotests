@@ -8,10 +8,10 @@ import (
 	"log"
 	"net/http"
 	"sort"
+	"time"
 
 	"github.com/stmcginnis/gofish"
 	"github.com/stmcginnis/gofish/redfish"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhwevent/ranhweventparameters"
 )
 
 // GetIdracEvents query Dell's Idrac registry to get events to use in test.
@@ -60,11 +60,13 @@ func GetIdracEvents(c *gofish.APIClient) ([]string, error) {
 // SendEventDell sends event according to msgId and returns error.
 func SendEventDell(eventservice *redfish.EventService, msgID string) error {
 	payload := dellPayloadType{
-		Destination: ranhweventparameters.Redfish.EventReceiver,
-		EventTypes:  redfish.SupportedEventTypes["Alert"],
-		Context:     eventContext,
-		Protocol:    redfish.RedfishEventDestinationProtocol,
-		MessageID:   msgID,
+		EventID:           "TestEventId",
+		EventTimestamp:    time.Now().Format(time.RFC3339), // "2019-07-29T15:13:49Z",
+		EventType:         "Alert",                         // redfish.SupportedEventTypes["Alert"],
+		Message:           "Test Event",
+		MessageID:         msgID,
+		OriginOfCondition: "/redfish/v1/Systems/1/",
+		Severity:          "OK",
 	}
 	resp, err := eventservice.Client.Post(submitTestEventTarget, payload)
 

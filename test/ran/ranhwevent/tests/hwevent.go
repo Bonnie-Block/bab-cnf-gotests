@@ -59,20 +59,6 @@ var _ = Describe("HW event proxy", func() {
 		err := TestEvents(ConsumersList, testEvents, eventService, LocalNodeVendor)
 		Expect(err).ShouldNot(HaveOccurred())
 	})
-	// OCP-48698
-	It("Validate 10k Redfish event", func() {
-		if LocalNodeVendor == ranhweventparameters.ZT {
-			Skip("Zt systems found which is too slow in sending many events skipping this test.")
-		}
-		var manyEvents []string
-		for i := 0; i < 10000/len(testEvents); i++ {
-			manyEvents = append(manyEvents, testEvents...)
-		}
-
-		By("Send events to redfish and verify them in the consumers")
-		err := TestEvents(ConsumersList, manyEvents, eventService, LocalNodeVendor)
-		Expect(err).ShouldNot(HaveOccurred())
-	})
 	// OCP-47125
 	It("Hw-event-proxy app recovery", func() {
 		By("Validate consumer receive events")
@@ -107,7 +93,20 @@ var _ = Describe("HW event proxy", func() {
 		err = TestEvents(ConsumersList, testEvents, eventService, LocalNodeVendor)
 		Expect(err).ShouldNot(HaveOccurred(), fmt.Sprintf("failed to verify expected events due to: %v", err))
 	})
+	// OCP-48698
+	It("Validate 10k Redfish event", func() {
+		if LocalNodeVendor == ranhweventparameters.ZT {
+			Skip("Zt systems found which is too slow in sending many events skipping this test.")
+		}
+		var manyEvents []string
+		for i := 0; i < 10000/len(testEvents); i++ {
+			manyEvents = append(manyEvents, testEvents...)
+		}
 
+		By("Send events to redfish and verify them in the consumers")
+		err := TestEvents(ConsumersList, manyEvents, eventService, LocalNodeVendor)
+		Expect(err).ShouldNot(HaveOccurred())
+	})
 })
 
 // VerifyEvents collects channel messages from the go routines supervising the consumers
@@ -238,6 +237,8 @@ func ConsumerVerifyEvents(cancelCtx context.Context, consumerPod corev1.Pod, exp
 
 				if eventJSON != "" {
 					processEvents(eventJSON, localNodeVendor, expectedEvent, consumerPod, verificationReportChannel)
+
+					break
 				}
 			}
 

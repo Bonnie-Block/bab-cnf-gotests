@@ -69,7 +69,7 @@ type (
 		}
 	}
 
-	// zTsubscriptionPayload is the dellPayloadType to create the event subscription.
+	// zTsubscriptionPayload to create the event subscription.
 	zTsubscriptionPayload struct {
 		Destination string                           `json:"Destination"`
 		Protocol    redfish.EventDestinationProtocol `json:"Protocol,omitempty"`
@@ -129,11 +129,14 @@ type (
 	}
 
 	dellPayloadType struct {
-		Destination string                           `json:"Destination"`
-		EventTypes  redfish.EventType                `json:"EventTypes"`
-		Context     string                           `json:"Context"`
-		Protocol    redfish.EventDestinationProtocol `json:"Protocol"`
-		MessageID   string                           `json:"MessageId"`
+		EventID           string `json:"EventID"`
+		EventTimestamp    string `json:"EventTimestamp"`
+		EventType         string `json:"EventType"`
+		Message           string
+		MessageArgs       []string
+		MessageID         string `json:"MessageId"`
+		OriginOfCondition string
+		Severity          string
 	}
 
 	hpePayloadType struct {
