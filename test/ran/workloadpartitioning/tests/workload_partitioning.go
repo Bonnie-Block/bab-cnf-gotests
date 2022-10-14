@@ -483,6 +483,13 @@ func createsTestMgmtNamespace() {
 			Name: ran.NamespaceTesting,
 			Annotations: map[string]string{
 				ranwpparameters.AnnotationWpNamespaceKey: ranwpparameters.AnnotationWpNamespaceValue},
+			Labels: map[string]string{
+				// Required for privileged pods in OCP 4.12 and newer
+				"pod-security.kubernetes.io/audit":               "privileged",
+				"pod-security.kubernetes.io/enforce":             "privileged",
+				"pod-security.kubernetes.io/warn":                "privileged",
+				"security.openshift.io/scc.podSecurityLabelSync": "false",
+			},
 		}}
 		_, err := helper.Apiclient.Namespaces().Create(context.Background(), namespace, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
