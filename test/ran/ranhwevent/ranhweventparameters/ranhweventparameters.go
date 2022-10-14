@@ -62,16 +62,11 @@ var (
 	HPEPowerOffEvents  = []string{"iLOEvents.2.1.PowerSupplyACPowerLoss", "iLOEvents.2.1.PowerRedundancyLost"}
 
 	ZtEvents = []string{
+		"EventLog.1.0.StatusChange",
+		"EventLog.1.0.ResourceAdded",
 		"EventLog.1.0.ResourceUpdated",
-		"EventLog.1.0.ResourceUpdated",
-		"EventLog.1.0.ResourceUpdated",
-		"EventLog.1.0.ResourceUpdated",
-		"EventLog.1.0.ResourceUpdated",
-		"EventLog.1.0.ResourceUpdated",
-		"EventLog.1.0.ResourceUpdated",
-		"EventLog.1.0.ResourceUpdated",
-		"EventLog.1.0.ResourceUpdated",
-		"EventLog.1.0.ResourceUpdated",
+		"EventLog.1.0.ResourceRemoved",
+		"EventLog.1.0.Alert",
 	}
 	ZTSendEventInterval = 17 * time.Second
 	ZTSendEventTimeout  = (17 * 6) * time.Second

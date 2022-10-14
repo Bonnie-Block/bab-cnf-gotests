@@ -236,9 +236,10 @@ func ConsumerVerifyEvents(cancelCtx context.Context, consumerPod corev1.Pod, exp
 				eventJSON := ranhweventhelper.IsEventJSON(line)
 
 				if eventJSON != "" {
-					processEvents(eventJSON, localNodeVendor, expectedEvent, consumerPod, verificationReportChannel)
-
-					break
+					if processEvents(eventJSON, localNodeVendor, expectedEvent, consumerPod, verificationReportChannel) {
+						// if expected event is found, break to process next expectedEventIn
+						break
+					}
 				}
 			}
 
@@ -260,37 +261,44 @@ func processEvents(
 	localNodeVendor string,
 	expectedEvent string,
 	consumerPod corev1.Pod,
-	verificationReportChannel chan string) {
+	verificationReportChannel chan string) bool {
 	events, err := ranhweventhelper.GetMsgID(eventJSON)
 	if err != nil {
 		verificationReportChannel <- fmt.Sprintf("%v/%v/%v",
 			consumerPod.Name, expectedEvent, statusFail)
-	} else {
 
-		for _, event := range events {
-			if rfclient.GetSkippedEvents(localNodeVendor)[event.MessageID] {
-				if ranhweventparameters.DebugTest {
-					log.Printf("Skipping event: %v for consumer: %v\n", event.MessageID, consumerPod.Name)
-				}
-			} else {
-				if event.MessageID != expectedEvent {
-					log.Printf("Event verification failed for consumer %v "+
-						"expected msgId: %v got: %v at event timestamp: %v\n",
-						consumerPod.Name, expectedEvent, event.MessageID, event.EventTimestamp)
-					verificationReportChannel <- fmt.Sprintf("%v/%v/%v",
-						consumerPod.Name, expectedEvent, statusFail)
-				} else {
-					if ranhweventparameters.DebugTest {
-						log.Printf("Consumer: %v received event: %v\n",
-							consumerPod.Name,
-							event.MessageID)
-					}
-					verificationReportChannel <- fmt.Sprintf("%v/%v/%v",
-						consumerPod.Name, expectedEvent, statusOk)
-				}
-			}
-		}
+		return false
 	}
+
+	for _, event := range events {
+		if rfclient.GetSkippedEvents(localNodeVendor)[event.MessageID] {
+			if ranhweventparameters.DebugTest {
+				log.Printf("Skipping event: %v for consumer: %v\n", event.MessageID, consumerPod.Name)
+			}
+
+			return false
+		}
+
+		if event.MessageID != expectedEvent {
+			log.Printf("Event verification failed for consumer %v "+
+				"expected msgId: %v got: %v at event timestamp: %v\n",
+				consumerPod.Name, expectedEvent, event.MessageID, event.EventTimestamp)
+			verificationReportChannel <- fmt.Sprintf("%v/%v/%v",
+				consumerPod.Name, expectedEvent, statusFail)
+
+			return false
+		}
+
+		if ranhweventparameters.DebugTest {
+			log.Printf("Consumer: %v received event: %v\n",
+				consumerPod.Name,
+				event.MessageID)
+		}
+		verificationReportChannel <- fmt.Sprintf("%v/%v/%v",
+			consumerPod.Name, expectedEvent, statusOk)
+	}
+
+	return true
 }
 
 // TestEvents starts the Goroutines and collects the validation results returns which

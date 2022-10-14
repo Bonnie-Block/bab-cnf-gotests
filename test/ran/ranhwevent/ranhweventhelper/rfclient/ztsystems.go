@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math/rand"
 	"net/http"
+	"time"
 
 	"github.com/stmcginnis/gofish"
 	"github.com/stmcginnis/gofish/redfish"
@@ -83,6 +85,10 @@ func SendEventZt(eventService *redfish.EventService, msgID string) error {
 
 	err = wait.PollImmediate(ranhweventparameters.ZTSendEventInterval, ranhweventparameters.ZTSendEventTimeout,
 		func() (bool, error) {
+
+			// Add a random delay between 1-2 seconds.
+			// This get rid of the most of issue from https://bugzilla.redhat.com/show_bug.cgi?id=2094842
+			addRandomDelay(1000, 1000)
 			resp, err = eventService.Client.Post(submitTestEventTarget, payload)
 			if err == nil {
 				return true, nil
@@ -113,4 +119,10 @@ func SendEventZt(eventService *redfish.EventService, msgID string) error {
 	}
 
 	return nil
+}
+
+func addRandomDelay(baseMilsec int, rangeMilsec int) {
+	rand.Seed(time.Now().UnixNano())
+	r := rand.Intn(rangeMilsec)
+	time.Sleep(time.Duration(r+baseMilsec) * time.Millisecond)
 }
