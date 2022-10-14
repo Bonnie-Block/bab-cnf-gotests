@@ -20,7 +20,6 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhwevent/ranhweventparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -65,31 +64,32 @@ var _ = Describe("HW event proxy", func() {
 		err := TestEvents(ConsumersList, testEvents, eventService, LocalNodeVendor)
 		Expect(err).ShouldNot(HaveOccurred(), fmt.Sprintf("failed to verify expected events due to: %v", err))
 
-		By("List the app pod by label")
-		appPods, err := helper.Apiclient.Pods(ranhweventparameters.NamespaceConsumer).List(context.Background(),
-			metav1.ListOptions{
-				LabelSelector: ranhweventparameters.AppPodLabel})
-		Expect(err).ShouldNot(HaveOccurred(), fmt.Sprintf(
-			"failed to list app pod with label %v due to: %v ", ranhweventparameters.AppPodLabel, err))
+		oldPod, err := ranhweventhelper.GetPodByLabel(ranhweventparameters.AppPodLabel)
+		Expect(err).NotTo(HaveOccurred(), fmt.Sprintf(
+			"failed to get pod by label: %v due to: %v", ranhweventparameters.AppPodLabel, err))
 
-		By(fmt.Sprintf("Delete app pod %v and wait for it to restart\n", appPods.Items[0].Name))
+		By(fmt.Sprintf("Delete app pod %v and wait for it to restart\n", oldPod.Name))
 		err = ranhweventhelper.RestartPod(ranhweventparameters.AppPodLabel, 5*time.Minute)
 		Expect(err).NotTo(HaveOccurred(), fmt.Sprintf(
 			"failed to restart pod by label %v due to: %v", ranhweventparameters.AppPodLabel, err))
 
-		pod, err := ranhweventhelper.GetPodByLabel(ranhweventparameters.AppPodLabel)
+		newPod, err := ranhweventhelper.GetPodByLabel(ranhweventparameters.AppPodLabel)
 		Expect(err).NotTo(HaveOccurred(), fmt.Sprintf(
 			"failed to get pod by label: %v due to: %v", ranhweventparameters.AppPodLabel, err))
 
+		By(fmt.Sprintf("New app pod %v is running\n", newPod.Name))
+		Expect(newPod.Name).NotTo(Equal(oldPod.Name), fmt.Sprintf(
+			"failed to restart pod %v", oldPod.Name))
+
 		if ranhweventparameters.DebugTest {
 			log.Println("Status after application restart:")
-			log.Printf("pod.Status.Phase: %v running is: %v\n", pod.Status.Phase, corev1.PodRunning)
-			for index, container := range pod.Status.ContainerStatuses {
+			log.Printf("pod.Status.Phase: %v running is: %v\n", newPod.Status.Phase, corev1.PodRunning)
+			for index, container := range newPod.Status.ContainerStatuses {
 				log.Printf("container[%v] status: %v\n", index, container.Ready)
 			}
 		}
+
 		By("Validate again consumer receives events")
-		log.Print("Second test")
 		err = TestEvents(ConsumersList, testEvents, eventService, LocalNodeVendor)
 		Expect(err).ShouldNot(HaveOccurred(), fmt.Sprintf("failed to verify expected events due to: %v", err))
 	})

@@ -585,7 +585,7 @@ func RestartPod(label string, timeout time.Duration) error {
 		if err != nil {
 			return false, err
 		}
-		if pod.UID != podUID {
+		if pod.UID == podUID {
 			return false, nil
 		}
 
