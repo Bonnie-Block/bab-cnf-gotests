@@ -1,10 +1,12 @@
 package netmetallbhelper
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"net"
+	"strings"
 	"time"
 
 	metallbv1beta1 "go.universe.tf/metallb/api/v1beta1"
@@ -441,8 +443,20 @@ func TestBGPBlockRouteAdvertisment(ipStack string,
 }
 
 func parseAddressFamilyInfo(frrPods []k8sv1.Pod, addressFamilyInfo string) (int, error) {
-	vtyshRes, err := pod.ExecCommand(helper.Apiclient, frrPods[0],
-		append(netmlbparameters.VtyshFRRCmdPrefix, "sh bgp neighbors json"))
+	var (
+		vtyshRes bytes.Buffer
+		err      error
+	)
+
+	if strings.Contains(frrPods[0].Name, "speaker") {
+		vtyshRes, err = pod.ExecCommand(helper.Apiclient, frrPods[0],
+			append(netmlbparameters.VtyshFRRCmdPrefix, "sh bgp neighbors json"),
+			netmlbparameters.FRRContainerName)
+	} else {
+		vtyshRes, err = pod.ExecCommand(helper.Apiclient, frrPods[0],
+			append(netmlbparameters.VtyshFRRCmdPrefix, "sh bgp neighbors json"))
+	}
+
 	if err != nil {
 		return 0, err
 	}

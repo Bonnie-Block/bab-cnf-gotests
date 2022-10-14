@@ -8,6 +8,7 @@ import (
 	"net"
 	"sort"
 	"strconv"
+	"strings"
 	"text/template"
 	"time"
 
@@ -528,9 +529,20 @@ func RemoveMetallbBGPTestSetup(nadNameList []string, configMapName []string) {
 
 // ValidateLocalPref verifies local pref from FRR is equal to configured Local Pref.
 func ValidateLocalPref(frrPod *k8sv1.Pod, localPref uint32, ipFamily string) error {
-	res, err := pod.ExecCommand(helper.Apiclient, *frrPod,
-		append(netmlbparameters.VtyshFRRCmdPrefix, fmt.Sprintf("show ip bgp %s json", ipFamily)),
-		netmlbparameters.FRRContainerName)
+	var (
+		res bytes.Buffer
+		err error
+	)
+
+	if strings.Contains(frrPod.Name, "speaker") {
+		res, err = pod.ExecCommand(helper.Apiclient, *frrPod,
+			append(netmlbparameters.VtyshFRRCmdPrefix, fmt.Sprintf("show ip bgp %s json", ipFamily)),
+			netmlbparameters.FRRContainerName)
+	} else {
+		res, err = pod.ExecCommand(helper.Apiclient, *frrPod,
+			append(netmlbparameters.VtyshFRRCmdPrefix, fmt.Sprintf("show ip bgp %s json", ipFamily)))
+	}
+
 	if err != nil {
 		return errors.Wrapf(err, "Failed to query routes")
 	}
@@ -555,7 +567,8 @@ func ValidateLocalPref(frrPod *k8sv1.Pod, localPref uint32, ipFamily string) err
 func ValidateBGPTimers(speakerPods []k8sv1.Pod, timerSettings []int) error {
 	for _, speakerPod := range speakerPods {
 		vtyshRes, err := pod.ExecCommand(helper.Apiclient, speakerPod,
-			append(netmlbparameters.VtyshFRRCmdPrefix, "show ip bgp neighbor json"))
+			append(netmlbparameters.VtyshFRRCmdPrefix, "show ip bgp neighbor json"),
+			netmlbparameters.FRRContainerName)
 		if err != nil {
 			return err
 		}

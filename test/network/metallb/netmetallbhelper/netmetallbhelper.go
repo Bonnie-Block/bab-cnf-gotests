@@ -790,7 +790,7 @@ func UpdateSpeakerNodeLabel() {
 			metav1.ListOptions{LabelSelector: netmlbparameters.SpeakersLabelSelector},
 		)
 
-		return len(speakerPodList.Items) == len(workerNodeList)
+		return len(speakerPodList.Items) == 0
 	}, 1*time.Minute, 1*time.Second).Should(BeTrue())
 
 	for _, worker := range workerNodeList {
@@ -817,7 +817,8 @@ func AddOrDeleteSpeakerStaticRoute(action string, nextHopMap map[string]string, 
 	for _, speakerPod := range speakerPodList.Items {
 		buffer, err = pod.ExecCommand(helper.Apiclient,
 			speakerPod,
-			[]string{"ip", "route", action, destIP, "via", nextHopMap[speakerPod.Spec.NodeName]})
+			[]string{"ip", "route", action, destIP, "via", nextHopMap[speakerPod.Spec.NodeName]},
+			netmlbparameters.FRRContainerName)
 		if err != nil {
 			return buffer.String(), err
 		}
@@ -1084,7 +1085,7 @@ func ValidateLogLevel(logLevel string) error {
 
 	for _, speakerFRRPod := range speakerPods.Items {
 		outPut, err := pod.ExecCommand(helper.Apiclient, speakerFRRPod,
-			[]string{"vtysh", "-c", "show logging"})
+			[]string{"vtysh", "-c", "show logging"}, netmlbparameters.FRRContainerName)
 		if err != nil {
 			return fmt.Errorf("error on executing command: %s: %w", outPut.String(), err)
 		}

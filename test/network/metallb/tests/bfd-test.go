@@ -109,7 +109,6 @@ var _ = Describe("BFD", func() {
 				ipv4metalLBIPList[0],
 				masterNode.Name,
 				netmlbparameters.ExternalNADName)
-
 			By("Checking that BGP and BFD sessions are established and up")
 
 			Eventually(func() bool {

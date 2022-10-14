@@ -4,17 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/metallb/netmlbparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/nethelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/netparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
-
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -87,6 +86,7 @@ func TestMetalLBBFD(scenario string, clientPod *k8sv1.Pod,
 	}, netmlbparameters.PodWaitingTime, netmlbparameters.Interval).Should(BeNumerically("==", len(workerNodeList)-1))
 
 	By("Checking that BGP and BFD sessions are down with one BGPpeer and continue to work with another")
+	time.Sleep(300 * time.Millisecond)
 	Expect(nethelper.IsBFDHasStatus(clientPod, firstWorkerNodeAddress,
 		netmlbparameters.BFDStatusDown)).ShouldNot(HaveOccurred())
 	Expect(IsBGPNeighborshipHasState(clientPod, firstWorkerNodeAddress,
