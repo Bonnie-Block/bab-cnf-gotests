@@ -17,6 +17,7 @@ import (
 	"github.com/k8snetworkplumbingwg/sriov-network-operator/pkg/render"
 	"github.com/pkg/errors"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
+	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -116,6 +117,22 @@ func updateObject(obj *unstructured.Unstructured) error {
 	obj.SetFinalizers(existing.GetFinalizers())
 
 	return helper.Apiclient.Client.Update(context.TODO(), obj)
+}
+
+// IsContainerExists check if a given contained, 'containerName', exists in a given pod, 'pod'.
+// the function return 'true' if the container exists and 'false' if not.
+func IsContainerExistInPod(pod k8sv1.Pod, containerName string) bool {
+	containers := pod.Status.ContainerStatuses
+
+	for _, container := range containers {
+		if container.Name == containerName {
+			log.Printf("found %s container\n", containerName)
+
+			return true
+		}
+	}
+
+	return false
 }
 
 // WaitForClusterReachable waits for cluster reachable by listing cluster nodes and expecting it to work.

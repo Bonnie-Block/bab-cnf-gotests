@@ -173,19 +173,3 @@ func getEventsLogs(logs string, eventStrings []string) []string {
 
 	return eventStrings
 }
-
-// IsContainerExists check if a given contained, 'containerName', exists in a given pod, 'ptpPod'.
-// the function return 'true' if the container exists and 'false' if not.
-func IsContainerExists(ptpPod corev1.Pod, containerName string) bool {
-	containers := ptpPod.Status.ContainerStatuses
-
-	for _, container := range containers {
-		if container.Name == containerName {
-			log.Printf("found %s container\n", containerName)
-
-			return true
-		}
-	}
-
-	return false
-}

@@ -6,9 +6,9 @@ import (
 	. "github.com/onsi/gomega"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ptp/ranptphelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ptp/ranptpparameters"
 	_ "gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ptp/tests"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 	testutils "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -60,7 +60,7 @@ var _ = BeforeSuite(func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		// Make suse event-proxy-container exists
-		if !ranptphelper.IsContainerExists(ptpDaemonPod, ranptpparameters.ContainerName) {
+		if !ranhelper.IsContainerExistInPod(ptpDaemonPod, ranptpparameters.ContainerName) {
 			Skip(fmt.Sprintf("cannot run test if %s is not exists in the pod", ranptpparameters.ContainerName))
 		}
 	}
