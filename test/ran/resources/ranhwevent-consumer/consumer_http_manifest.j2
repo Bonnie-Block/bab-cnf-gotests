@@ -1,0 +1,88 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: consumer
+  name: consumer
+  namespace: openshift-bare-metal-events
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: consumer
+  template:
+    metadata:
+      labels:
+        app: consumer
+    spec:
+      containers:
+      - args:
+        - --local-api-addr=127.0.0.1:9089
+        - --api-path=/api/cloudNotifications/v1/
+        - --api-addr=127.0.0.1:9085
+        env:
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: CONSUMER_TYPE
+          value: HW
+        - name: LOG_LEVEL
+          value: debug
+        image: {{ cloud_event_consumer }}
+        name: cloud-event-consumer
+      - args:
+        - --metrics-addr=127.0.0.1:9091
+        - --store-path=/store
+        - --transport-host=$(TRANSPORT_PROTOCAL)://$(TRANSPORT_SERVICE).$(TRANSPORT_NAMESPACE).svc.cluster.local:$(TRANSPORT_PORT)
+        - --http-event-publishers=hw-event-publisher-service.$(TRANSPORT_NAMESPACE).svc.cluster.local:$(TRANSPORT_PORT)
+        - --api-port=9085
+        env:
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: TRANSPORT_PROTOCAL
+          value: http
+        - name: TRANSPORT_SERVICE
+          value: consumer-events-subscription-service
+        - name: TRANSPORT_NAMESPACE
+          value: openshift-bare-metal-events
+        - name: TRANSPORT_PORT
+          value: "9043"
+        - name: LOG_LEVEL
+          value: debug
+        image: {{ cloud_event_proxy_image }}
+        name: cloud-event-sidecar
+        ports:
+        - containerPort: 9091
+          name: metrics-port
+        volumeMounts:
+        - mountPath: /store
+          name: pubsubstore
+      - args:
+        - --logtostderr
+        - --secure-listen-address=:8443
+        - --tls-cipher-suites=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_RSA_WITH_AES_128_CBC_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256
+        - --upstream=http://127.0.0.1:9091/
+        - --tls-private-key-file=/etc/metrics/tls.key
+        - --tls-cert-file=/etc/metrics/tls.crt
+        image: {{ kube_rbac_proxy_image }}
+        name: kube-rbac-proxy
+        ports:
+        - containerPort: 8443
+          name: https
+        resources:
+          requests:
+            cpu: 10m
+            memory: 20Mi
+        volumeMounts:
+        - mountPath: /etc/metrics
+          name: sidecar-certs
+      serviceAccountName: sidecar-consumer-sa
+      volumes:
+      - emptyDir: {}
+        name: pubsubstore
+      - name: sidecar-certs
+        secret:
+          secretName: sidecar-consumer-secret

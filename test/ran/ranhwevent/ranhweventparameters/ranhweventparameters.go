@@ -32,6 +32,8 @@ const (
 	ZTRedfishOem                  = "Ami"
 	AppRouteName                  = AppName
 	ConsumerDeploymentName        = "consumer"
+	TransportHTTP                 = "http"
+	TransportAMQP                 = "amqp"
 )
 
 var (
@@ -97,9 +99,12 @@ var (
 		"kube_rbac_proxy_image":   {"ose-kube-rbac-proxy", "kube_rbac_proxy_image"},
 		"cloud_event_proxy_image": {"ose-cloud-event-proxy", "cloud_event_proxy_image"},
 	}
-	ConsumerManifestTemplate = "resources/ranhwevent-consumer/consumer_manifest.j2"
+	ConsumerManifestHTTP     = "resources/ranhwevent-consumer/consumer_http_manifest.j2"
+	ConsumerManifestAMQP     = "resources/ranhwevent-consumer/consumer_amqp_manifest.j2"
 	CustomResourceDefinition = "openshift-bare-metal-events"
 	ConsumerImageName        = "cloud_event_consumer"
+	// transport type retrieved from hw-event-proxy and to be used in consumer deployment.
+	TransportType = TransportHTTP
 )
 
 func GetPDU() bool {

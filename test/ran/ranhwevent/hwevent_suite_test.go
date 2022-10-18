@@ -93,6 +93,18 @@ var _ = BeforeSuite(func() {
 	Expect(err).ShouldNot(HaveOccurred(), fmt.Sprintf(
 		"Hardware event deployment is not ready after creating secret due to: %v", err))
 
+	transportType, err := ranhweventhelper.GetTransportType(
+		helper.Apiclient, ranhweventparameters.NamespaceConsumer, ranhweventparameters.AppName)
+	Expect(err).ShouldNot(HaveOccurred(), fmt.Sprintf(
+		"GetTransportType error: %v", err))
+	if transportType != "" {
+		ranhweventparameters.TransportType = transportType
+		log.Printf("Use tranportType %v\n", transportType)
+	} else {
+		log.Printf("WARNING: failed to get transportType from hw-event-proxy, use default tranportType %v\n",
+			ranhweventparameters.TransportType)
+	}
+
 	By("Check ClusterServiceVersions mirrored images necessary for consumer deploy")
 	mirroredImages, err := ranhweventhelper.GetDeployImages()
 	Expect(err).ShouldNot(HaveOccurred(), fmt.Sprintf(
@@ -118,7 +130,7 @@ var _ = BeforeSuite(func() {
 		"failed to verify HTTPS is ready to recive events due to: %v", err))
 
 	By("Deploy consumers")
-	err = ranhweventhelper.DeployConsumers(mirroredImages)
+	err = ranhweventhelper.DeployConsumers(mirroredImages, ranhweventparameters.TransportType)
 
 	// In case the consumer already exist on the cluster an error with the string skip will be returned.
 	if err != nil && err.Error() == "consumers already deployed in cluster. skipping creating them" {

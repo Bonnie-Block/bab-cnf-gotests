@@ -263,7 +263,7 @@ func getTemplatePath() (string, error) {
 }
 
 // GetConsumerManifest renders a jinja template with mirrored images locations.
-func GetConsumerManifest(images map[string]string) (string, error) {
+func GetConsumerManifest(images map[string]string, transportType string) (string, error) {
 	if len(images) < 3 {
 		return "", fmt.Errorf("GetConsumerManifest() failed due to less images then expected: %v", images)
 	}
@@ -273,7 +273,15 @@ func GetConsumerManifest(images map[string]string) (string, error) {
 		return "", fmt.Errorf("failed to get template path due to: %w", err)
 	}
 
-	template, err := gonja.FromFile(templatePath + ranhweventparameters.ConsumerManifestTemplate)
+	var manifestPath string
+
+	if transportType == ranhweventparameters.TransportHTTP {
+		manifestPath = ranhweventparameters.ConsumerManifestHTTP
+	} else if transportType == ranhweventparameters.TransportAMQP {
+		manifestPath = ranhweventparameters.ConsumerManifestAMQP
+	}
+
+	template, err := gonja.FromFile(templatePath + manifestPath)
 	if err != nil {
 		return "", err
 	}
@@ -337,7 +345,7 @@ func renderTemplate(manifest string, renderData *render.RenderData) (*bytes.Buff
 
 // DeployConsumers renders templates from yaml files and creates these objects in the cluster
 // it also returns the consumer manifest that is created using mirrored images.
-func DeployConsumers(mirroredImages map[string]string) error {
+func DeployConsumers(mirroredImages map[string]string, transportType string) error {
 	consumers, err := GetConsumers()
 
 	if err == nil && len(consumers.Items) > 0 {
@@ -345,7 +353,7 @@ func DeployConsumers(mirroredImages map[string]string) error {
 	}
 
 	// consumer pod needs the mirrored images
-	err = deployConsumerPod(mirroredImages)
+	err = deployConsumerPod(mirroredImages, transportType)
 	if err != nil {
 		return fmt.Errorf("failed to create consumer pod due to: %w", err)
 	}
@@ -432,8 +440,8 @@ func ConfigHwEventProxyObjects() error {
 	return nil
 }
 
-func deployConsumerPod(mirroredImages map[string]string) error {
-	manifest, err := GetConsumerManifest(mirroredImages)
+func deployConsumerPod(mirroredImages map[string]string, transportType string) error {
+	manifest, err := GetConsumerManifest(mirroredImages, transportType)
 
 	if err != nil {
 		return err
@@ -699,6 +707,28 @@ func WaitForDeploymentReady(client *client.ClientSet, namespace, deployment stri
 	})
 
 	return err
+}
+
+// GetTransportType ...
+func GetTransportType(client *client.ClientSet, namespace, deployment string) (transportType string, err error) {
+	d, err := client.Deployments(namespace).Get(context.Background(), deployment, metav1.GetOptions{})
+	if err != nil {
+		return "", err
+	}
+
+	for _, c := range d.Spec.Template.Spec.Containers {
+		if (c.Name == "cloud-event-proxy") || (c.Name == "cloud-event-sidecar") {
+			for _, a := range c.Args {
+				if strings.Contains(a, "transport-host=http") {
+					return ranhweventparameters.TransportHTTP, nil
+				} else if strings.Contains(a, "transport-host=amqp") {
+					return ranhweventparameters.TransportAMQP, nil
+				}
+			}
+		}
+	}
+
+	return "", nil
 }
 
 func getMapKeys(input map[string][]string) []string {
