@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
-
 	"runtime"
 	"testing"
 
@@ -53,6 +53,15 @@ var _ = BeforeSuite(func() {
 	err = VerifyTalmIsInstalled()
 	Expect(err).ToNot(HaveOccurred())
 	PurgeYamlResources()
+
+	log.Println("initializing spoke1 name")
+	rantalmparameters.Spoke1Name = rantalmhelper.
+		GetClusterName(os.Getenv("KUBECONFIG")) // assume SNO is from kubeconf
+	Expect(rantalmparameters.Spoke1Name).ToNot(BeZero())
+
+	log.Println("initializing hub clientset")
+	rantalmparameters.HubClientset = rantalmhelper.InitHubClient(helper.Config.Ran.KubeconfigHub)
+	Expect(rantalmparameters.HubClientset).ToNot(BeNil())
 })
 
 var _ = AfterSuite(func() {
@@ -105,6 +114,10 @@ func PurgeYamlResources() {
 	// Get the current directory
 	pwd, err := os.Getwd()
 	Expect(err).ToNot(HaveOccurred())
+
+	if _, err := os.Stat(pwd + "/tests/resources"); os.IsNotExist(err) {
+		return
+	}
 
 	// Open the yaml file
 	files, err := ioutil.ReadDir(pwd + "/tests/resources")

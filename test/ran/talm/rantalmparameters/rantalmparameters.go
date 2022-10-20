@@ -3,6 +3,8 @@ package rantalmparameters
 import (
 	"time"
 
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
+
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/k8sreporter"
 )
 
@@ -25,4 +27,6 @@ var (
 		// Depends on https://issues.redhat.com/browse/CNF-6462
 		// {Cr: &talmv1alpha1.ClusterGroupUpgrade},
 	}
+	HubClientset *client.ClientSet // initialized in BeforeSuite
+	Spoke1Name   string            // initialized in BeforeSuite
 )

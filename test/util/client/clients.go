@@ -10,6 +10,7 @@ import (
 	sriovv1 "github.com/k8snetworkplumbingwg/sriov-network-operator/api/v1"
 	clientsriovv1 "github.com/k8snetworkplumbingwg/sriov-network-operator/pkg/client/clientset/versioned/typed/sriovnetwork/v1"
 	metallboperatorv1beta1 "github.com/metallb/metallb-operator/api/v1beta1"
+	cguv1alpha1 "github.com/openshift-kni/cluster-group-upgrades-operator/pkg/generated/clientset/versioned/typed/clustergroupupgradesoperator/v1alpha1"
 	performancev2 "github.com/openshift-kni/performance-addon-operators/api/v2"
 	operv1 "github.com/openshift/api/operator/v1"
 	clientconfigv1 "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
@@ -27,22 +28,24 @@ import (
 	discovery "k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes/scheme"
 	appsv1client "k8s.io/client-go/kubernetes/typed/apps/v1"
+	batchv1client "k8s.io/client-go/kubernetes/typed/batch/v1"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	networkv1client "k8s.io/client-go/kubernetes/typed/networking/v1"
 	rbacv1client "k8s.io/client-go/kubernetes/typed/rbac/v1"
-
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // ClientSet provides the struct to talk with relevant API.
 type ClientSet struct {
+	batchv1client.BatchV1Interface
 	corev1client.CoreV1Interface
 	clientconfigv1.ConfigV1Interface
 	clientmachineconfigv1.MachineconfigurationV1Interface
 	networkv1client.NetworkingV1Client
-
+	cguv1alpha1.ClustergroupupgradesoperatorV1alpha1Interface
 	appsv1client.AppsV1Interface
 	discovery.DiscoveryInterface
 	rbacv1client.RbacV1Interface
@@ -79,6 +82,7 @@ func New(kubeconfig string) *ClientSet {
 	}
 
 	clientSet := &ClientSet{}
+	clientSet.BatchV1Interface = batchv1client.NewForConfigOrDie(config)
 	clientSet.CoreV1Interface = corev1client.NewForConfigOrDie(config)
 	clientSet.ConfigV1Interface = clientconfigv1.NewForConfigOrDie(config)
 	clientSet.MachineconfigurationV1Interface = clientmachineconfigv1.NewForConfigOrDie(config)
@@ -91,8 +95,7 @@ func New(kubeconfig string) *ClientSet {
 	clientSet.OperatorsV1alpha1Interface = olm.NewForConfigOrDie(config)
 	clientSet.K8sCniCncfIoV1Interface = clientnetattdefv1.NewForConfigOrDie(config)
 	clientSet.RouteV1Interface = routev1.NewForConfigOrDie(config)
-
-	clientSet.Config = config
+	clientSet.ClustergroupupgradesoperatorV1alpha1Interface = cguv1alpha1.NewForConfigOrDie(config)
 
 	crScheme := runtime.NewScheme()
 	if err := scheme.AddToScheme(crScheme); err != nil {
@@ -144,6 +147,10 @@ func New(kubeconfig string) *ClientSet {
 	}
 
 	if err := bmerv1alpha1.AddToScheme(crScheme); err != nil {
+		panic(err)
+	}
+
+	if err := policiesv1.AddToScheme(crScheme); err != nil {
 		panic(err)
 	}
 

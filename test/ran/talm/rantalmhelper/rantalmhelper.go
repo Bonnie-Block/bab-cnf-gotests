@@ -2,8 +2,17 @@ package rantalmhelper
 
 import (
 	"context"
+	"log"
 	"strings"
 	"time"
+
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
+	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
+
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/talm/rantalmparameters"
+	testClient "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -207,4 +216,67 @@ func GetTalmCondition(object unstructured.Unstructured, conditionType string) (m
 	}
 
 	return metav1.Condition{}, nil
+}
+
+// GetClientConfig is for when switching context or for when generating a new clientset.
+func GetClientConfig(kubeconfigPath string) (*rest.Config, error) {
+	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+		&clientcmd.ClientConfigLoadingRules{ExplicitPath: kubeconfigPath},
+		&clientcmd.ConfigOverrides{
+			CurrentContext: "",
+		}).ClientConfig()
+}
+
+// GetClusterName extracts the cluster name from provided kubeconfig. It assumes the there's exactly 1 cluster.
+func GetClusterName(kubeconfigPath string) string {
+	rawConfig, _ := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+		&clientcmd.ClientConfigLoadingRules{ExplicitPath: kubeconfigPath},
+		&clientcmd.ConfigOverrides{
+			CurrentContext: "",
+		}).RawConfig()
+
+	for clusterName := range rawConfig.Clusters {
+		log.Println("cluster name: ", clusterName)
+
+		return clusterName
+	}
+
+	return ""
+}
+
+// InitHubClient initializes a new HubClient.
+func InitHubClient(kubeconfig string) *testClient.ClientSet {
+	h := testClient.New(kubeconfig)
+	clientConfig, _ := GetClientConfig(kubeconfig)
+	h.Config = clientConfig
+
+	return h
+}
+
+// GetHubclient getter for hubclient.
+func GetHubclient() *testClient.ClientSet {
+	return rantalmparameters.HubClientset
+}
+
+// GetSpoke1Name getter spoke1 cluster name.
+func GetSpoke1Name() string {
+	return rantalmparameters.Spoke1Name
+}
+
+// AllPoliciesExist checks if polices, named in config, is already deployed.
+func AllPoliciesExist(listPolicy policiesv1.PolicyList) bool {
+	count := 0
+
+	for _, curPolicy := range helper.Config.Ran.TalmPrecachePolicies {
+		for _, deployedPolicy := range listPolicy.Items {
+			if curPolicy == deployedPolicy.Name {
+				count++
+
+				log.Printf("policy found:%s in ns:%s createTS:%s",
+					curPolicy, deployedPolicy.Namespace, deployedPolicy.CreationTimestamp)
+			}
+		}
+	}
+
+	return count == len(helper.Config.Ran.TalmPrecachePolicies)
 }

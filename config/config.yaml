@@ -16,3 +16,6 @@ ran:
   bmc_password: calvin
   hw_event_consumer_image: quay.io/redhat-cne/cloud-event-consumer:latest
   hw_event_consumer_manifests: ../resources/ranhwevent-preconsumer/
+  talm_precache_policies:
+    - common-config-policy
+    - common-subscriptions-policy
