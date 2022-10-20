@@ -119,3 +119,7 @@ issues:
     - path: test/cnf-tests/discovery/tests/discovery.go
       linters:
         - lll
+    # Exclude lll issues for long lines with yaml|json|envconfig tag
+    - linters:
+        - lll
+      source: '^.*`(yaml|json|envconfig):".*"\s{0,1}`'

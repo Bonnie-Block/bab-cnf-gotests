@@ -2,3 +2,5 @@
 .vscode
 reports/
 *.test
+# ignore macos generated files
+.DS_Store

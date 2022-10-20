@@ -424,7 +424,7 @@ github.com/go-kit/kit/log/level
 # github.com/go-logfmt/logfmt v0.5.1
 ## explicit; go 1.17
 github.com/go-logfmt/logfmt
-# github.com/go-logr/logr v1.2.0
+# github.com/go-logr/logr v1.2.2
 ## explicit; go 1.16
 github.com/go-logr/logr
 # github.com/godbus/dbus/v5 v5.0.4
@@ -456,9 +456,10 @@ github.com/google/go-cmp/cmp/internal/diff
 github.com/google/go-cmp/cmp/internal/flags
 github.com/google/go-cmp/cmp/internal/function
 github.com/google/go-cmp/cmp/internal/value
-# github.com/google/gofuzz v1.1.0
+# github.com/google/gofuzz v1.2.0
 ## explicit; go 1.12
 github.com/google/gofuzz
+github.com/google/gofuzz/bytesource
 # github.com/google/uuid v1.1.2
 ## explicit
 github.com/google/uuid
@@ -681,6 +682,11 @@ github.com/opencontainers/runtime-tools/validate
 github.com/opencontainers/selinux/go-selinux
 github.com/opencontainers/selinux/go-selinux/label
 github.com/opencontainers/selinux/pkg/pwalk
+# github.com/openshift-kni/cluster-group-upgrades-operator v0.0.0-20221017224444-e88a0080ec62
+## explicit; go 1.17
+github.com/openshift-kni/cluster-group-upgrades-operator/api/v1alpha1
+github.com/openshift-kni/cluster-group-upgrades-operator/pkg/generated/clientset/versioned/scheme
+github.com/openshift-kni/cluster-group-upgrades-operator/pkg/generated/clientset/versioned/typed/clustergroupupgradesoperator/v1alpha1
 # github.com/openshift-kni/performance-addon-operators v0.0.0-20210114132708-bcf9e53ff354 => github.com/openshift-kni/performance-addon-operators v0.0.41002-0.20220421170057-29733f5d3dd6
 ## explicit; go 1.17
 github.com/openshift-kni/performance-addon-operators/api/v1
@@ -882,7 +888,7 @@ go.universe.tf/metallb/api/validate
 # go4.org v0.0.0-20201209231011-d4a079459e60
 ## explicit; go 1.13
 go4.org/errorutil
-# golang.org/x/crypto v0.0.0-20210921155107-089bfa567519
+# golang.org/x/crypto v0.0.0-20220214200702-86341886e292
 ## explicit; go 1.17
 golang.org/x/crypto/blowfish
 golang.org/x/crypto/cast5
@@ -890,7 +896,6 @@ golang.org/x/crypto/chacha20
 golang.org/x/crypto/curve25519
 golang.org/x/crypto/curve25519/internal/field
 golang.org/x/crypto/ed25519
-golang.org/x/crypto/ed25519/internal/edwards25519
 golang.org/x/crypto/internal/poly1305
 golang.org/x/crypto/internal/subtle
 golang.org/x/crypto/openpgp
@@ -1158,7 +1163,7 @@ k8s.io/apimachinery/pkg/watch
 k8s.io/apimachinery/third_party/forked/golang/json
 k8s.io/apimachinery/third_party/forked/golang/netutil
 k8s.io/apimachinery/third_party/forked/golang/reflect
-# k8s.io/client-go v1.5.2 => k8s.io/client-go v0.23.0
+# k8s.io/client-go v12.0.0+incompatible => k8s.io/client-go v0.23.0
 ## explicit; go 1.16
 k8s.io/client-go/applyconfigurations/admissionregistration/v1
 k8s.io/client-go/applyconfigurations/admissionregistration/v1beta1
@@ -1423,6 +1428,12 @@ k8s.io/utils/internal/third_party/forked/golang/net
 k8s.io/utils/net
 k8s.io/utils/pointer
 k8s.io/utils/trace
+# open-cluster-management.io/governance-policy-propagator v0.8.0
+## explicit; go 1.18
+open-cluster-management.io/governance-policy-propagator/api/v1
+# open-cluster-management.io/multicloud-operators-subscription v0.6.0
+## explicit; go 1.17
+open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1
 # sigs.k8s.io/controller-runtime v0.11.1 => sigs.k8s.io/controller-runtime v0.11.1
 ## explicit; go 1.17
 sigs.k8s.io/controller-runtime
