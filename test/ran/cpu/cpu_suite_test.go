@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/onsi/ginkgo/v2/types"
+	"github.com/onsi/gomega/format"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -37,6 +38,8 @@ func TestCpu(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
+	// Handle large output from must-gather for newer gomega versions
+	format.MaxLength = 50000
 	// Create privileged pods for ran testing if not already exist, and leave them on system.
 	ranhelper.CleanupRanTestResources()
 	helper.CreatePrivilegedPods("")
@@ -54,6 +57,8 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = AfterSuite(func() {
+	// Revert to default
+	format.MaxLength = 4000
 	log.Println("Deleting test namespace", ran.NamespaceTesting)
 	err := namespaces.DeleteAndWait(helper.Apiclient, ran.NamespaceTesting, timeout)
 	Expect(err).ToNot(HaveOccurred())
