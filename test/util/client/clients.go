@@ -96,6 +96,7 @@ func New(kubeconfig string) *ClientSet {
 	clientSet.K8sCniCncfIoV1Interface = clientnetattdefv1.NewForConfigOrDie(config)
 	clientSet.RouteV1Interface = routev1.NewForConfigOrDie(config)
 	clientSet.ClustergroupupgradesoperatorV1alpha1Interface = cguv1alpha1.NewForConfigOrDie(config)
+	clientSet.Config = config
 
 	crScheme := runtime.NewScheme()
 	if err := scheme.AddToScheme(crScheme); err != nil {
