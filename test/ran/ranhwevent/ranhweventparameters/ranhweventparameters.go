@@ -73,17 +73,18 @@ var (
 	ZTSendEventInterval = 17 * time.Second
 	ZTSendEventTimeout  = (17 * 6) * time.Second
 
+	// HP EventService.SubmitTestEvent API accepts any fake message IDs.
 	HpEvents = []string{
-		"iLOEvents.2.1.ServerPoweredOff",
-		"iLOEvents.2.1.ServerPoweredOff",
-		"iLOEvents.2.1.ServerPoweredOff",
-		"iLOEvents.2.1.ServerPoweredOff",
-		"iLOEvents.2.1.ServerPoweredOff",
-		"iLOEvents.2.1.ServerPoweredOff",
-		"iLOEvents.2.1.ServerPoweredOff",
-		"iLOEvents.2.1.ServerPoweredOff",
-		"iLOEvents.2.1.ServerPoweredOff",
-		"iLOEvents.2.1.ServerPoweredOff",
+		"iLOEvents.2.1.TempNotif1",
+		"iLOEvents.2.1.FanNotif1",
+		"iLOEvents.2.1.DiskNotif1",
+		"iLOEvents.2.1.PowerNotif1",
+		"iLOEvents.2.1.MemoeryNotif1",
+		"iLOEvents.2.1.TempNotif2",
+		"iLOEvents.2.1.FanNotif2",
+		"iLOEvents.2.1.DiskNotif2",
+		"iLOEvents.2.1.PowerNotif2",
+		"iLOEvents.2.1.MemoeryNotif2",
 	}
 
 	// use only critical alarms.

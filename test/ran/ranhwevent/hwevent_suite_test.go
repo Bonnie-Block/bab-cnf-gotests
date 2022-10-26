@@ -5,6 +5,7 @@ import (
 	"log"
 	"runtime"
 	"testing"
+	"time"
 
 	"github.com/onsi/ginkgo/v2/types"
 
@@ -161,6 +162,10 @@ var _ = BeforeSuite(func() {
 	Expect(err).ShouldNot(HaveOccurred(), fmt.Sprintf("failed to subscribe to redfish events due to: %v", err))
 	Expect(subscriptionURI).ToNot(Equal(nil), "failed to get subscription URI replay")
 
+	if ranhweventparameters.TransportType == ranhweventparameters.TransportHTTP {
+		log.Printf("Add 5 seconds delay for HTTP transport to be ready")
+		time.Sleep(5 * time.Second)
+	}
 })
 
 var _ = AfterSuite(func() {

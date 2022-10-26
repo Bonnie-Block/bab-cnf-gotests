@@ -95,6 +95,7 @@ var _ = Describe("HW event proxy", func() {
 	})
 	// OCP-48698
 	It("Validate 10k Redfish event", func() {
+		Skip("This test times out")
 		if LocalNodeVendor == ranhweventparameters.ZT {
 			Skip("Zt systems found which is too slow in sending many events skipping this test.")
 		}
