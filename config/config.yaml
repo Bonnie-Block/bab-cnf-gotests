@@ -19,3 +19,4 @@ ran:
   talm_precache_policies:
     - common-config-policy
     - common-subscriptions-policy
+  ocp_upgrade_upstream_url: "https://api.openshift.com/api/upgrades_info/v1/graph"

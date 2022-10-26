@@ -54,6 +54,7 @@ type Config struct {
 		HwEventConsumerImage      string   `yaml:"hw_event_consumer_image" envconfig:"RAN_HW_EVENT_CONSUMER_IMAGE"`
 		HwEventConfigsDir         string   `yaml:"hw_event_consumer_manifests"`
 		KubeconfigHub             string   `envconfig:"KUBECONFIG_HUB"`
+		OcpUpgradeUpstreamURL     string   `yaml:"ocp_upgrade_upstream_url" envconfig:"OCP_UPGRADE_UPSTREAM_URL"`
 		TalmPrecachePolicies      []string `envconfig:"TALM_PRECACHE_POLICIES" yaml:"talm_precache_policies"`
 	} `yaml:"ran"`
 }
