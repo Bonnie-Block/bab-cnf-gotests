@@ -86,7 +86,7 @@ func TestMetalLBBFD(scenario string, clientPod *k8sv1.Pod,
 	}, netmlbparameters.PodWaitingTime, netmlbparameters.Interval).Should(BeNumerically("==", len(workerNodeList)-1))
 
 	By("Checking that BGP and BFD sessions are down with one BGPpeer and continue to work with another")
-	time.Sleep(300 * time.Millisecond)
+	time.Sleep(1200 * time.Millisecond)
 	Expect(nethelper.IsBFDHasStatus(clientPod, firstWorkerNodeAddress,
 		netmlbparameters.BFDStatusDown)).ShouldNot(HaveOccurred())
 	Expect(IsBGPNeighborshipHasState(clientPod, firstWorkerNodeAddress,

@@ -138,8 +138,17 @@ var (
 )
 
 // MlbTestParameters contains test parameters for MetalLB tests.
-type MlbTestParameters struct {
-	Node string
-}
+type (
+	MlbTestParameters struct {
+		Node string
+	}
 
-type MetalLBLogLevel string
+	// NodeResourcePatch updates node based on Path and Value vars.
+	NodeResourcePatch struct {
+		Operation string            `json:"op"`
+		Path      string            `json:"path"`
+		Value     map[string]string `json:"value"`
+	}
+
+	MetalLBLogLevel string
+)

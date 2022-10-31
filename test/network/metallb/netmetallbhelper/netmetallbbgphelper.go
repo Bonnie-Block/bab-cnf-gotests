@@ -98,7 +98,7 @@ func DefineFRRBGPConfigMap(ipAddresses []string, configMapName string, localAS i
 	return bgpConfigMap
 }
 
-// CheckNeighborsStatus returns informations for the all the neighbors in the given
+// CheckNeighborsStatus returns information for the all the neighbors in the given
 // executor.
 func CheckNeighborsStatus(frrPod *k8sv1.Pod, ipStack string, neighborsIPAddresses []string) bool {
 	neighborState, err := pod.ExecCommand(helper.Apiclient, *frrPod,
