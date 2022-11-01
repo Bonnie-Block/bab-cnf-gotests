@@ -1177,7 +1177,6 @@ k8s.io/apimachinery/pkg/runtime/serializer/protobuf
 k8s.io/apimachinery/pkg/runtime/serializer/recognizer
 k8s.io/apimachinery/pkg/runtime/serializer/streaming
 k8s.io/apimachinery/pkg/runtime/serializer/versioning
-k8s.io/apimachinery/pkg/runtime/serializer/yaml
 k8s.io/apimachinery/pkg/selection
 k8s.io/apimachinery/pkg/types
 k8s.io/apimachinery/pkg/util/cache
@@ -1487,6 +1486,7 @@ open-cluster-management.io/config-policy-controller/api/v1
 # open-cluster-management.io/governance-policy-propagator v0.8.0
 ## explicit; go 1.18
 open-cluster-management.io/governance-policy-propagator/api/v1
+open-cluster-management.io/governance-policy-propagator/api/v1beta1
 # open-cluster-management.io/multicloud-operators-subscription v0.6.0
 ## explicit; go 1.17
 open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1

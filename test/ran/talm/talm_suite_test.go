@@ -3,8 +3,6 @@ package talm
 import (
 	"context"
 	"errors"
-	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"runtime"
@@ -18,20 +16,17 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/talm/rantalmhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/talm/rantalmparameters"
 	_ "gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/talm/tests"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 	testutils "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/utils"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/tools/clientcmd"
 )
 
 var _, currentFile, _, _ = runtime.Caller(0)
 
 var (
-	workerNodesList []corev1.Node
-	err             error
-	talmPods        *corev1.PodList
+	err      error
+	talmPods *corev1.PodList
 )
 
 func TestTalm(t *testing.T) {
@@ -48,41 +43,37 @@ func TestTalm(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	rantalmhelper.TalmDynamicClient, err = GetAuthenticatedDynamicClient()
+	// Create an ApiClient for each node
+	err = InitializeTalmClients()
 	Expect(err).ToNot(HaveOccurred())
+
+	// Make sure TALM is present
 	err = VerifyTalmIsInstalled()
 	Expect(err).ToNot(HaveOccurred())
-	PurgeYamlResources()
 
-	log.Println("initializing spoke1 name")
-	rantalmparameters.Spoke1Name = rantalmhelper.
-		GetClusterName(os.Getenv("KUBECONFIG")) // assume SNO is from kubeconf
-	Expect(rantalmparameters.Spoke1Name).ToNot(BeZero())
-
-	log.Println("initializing hub clientset")
-	rantalmparameters.HubClientset = rantalmhelper.InitHubClient(helper.Config.Ran.KubeconfigHub)
-	Expect(rantalmparameters.HubClientset).ToNot(BeNil())
+	// Delete the namespace before creating it to ensure it is in a consistent blank state
+	err = DeleteTalmTestNamespace()
+	err = CreateTalmTestNamespace()
+	Expect(err).ToNot(HaveOccurred())
 })
 
 var _ = AfterSuite(func() {
-	PurgeYamlResources()
+	// Deleting the namespace after the suite finishes ensures all the CGUs created are deleted
+	err = DeleteTalmTestNamespace()
 })
 
 var _ = ReportAfterEach(func(report types.SpecReport) {
 	testutils.ReportIfFailed(report, currentFile, rantalmparameters.TalmNamespaces, rantalmparameters.TalmCrds)
 })
 
+// VerifyTalmIsInstalled checks that talm pod+container is present and that CGUs can be fetched.
 func VerifyTalmIsInstalled() error {
-	// Get all worker nodes
-	workerNodesList, err = nodes.GetByRole(helper.Apiclient, "worker")
-	if err != nil {
-		return err
-	}
-
 	// Check for talm pods
-	talmPods, err = helper.Apiclient.Pods(rantalmparameters.TalmOperatorNamespace).List(context.Background(),
-		metav1.ListOptions{
-			LabelSelector: rantalmparameters.TalmPodLabelSelector})
+	talmPods, err = rantalmhelper.HubAPIClient.
+		Pods(rantalmparameters.TalmOperatorNamespace).
+		List(context.Background(),
+			metav1.ListOptions{
+				LabelSelector: rantalmparameters.TalmPodLabelSelector})
 	if err != nil {
 		return err
 	}
@@ -104,69 +95,143 @@ func VerifyTalmIsInstalled() error {
 		}
 	}
 
-	// Check for presence of ClusterGroupUpgrade CRD
-	// Depends on https://issues.redhat.com/browse/CNF-6462
+	// Fetch a list of CGUs (which should be empty) to verify that the CRD is present
+	_, err := rantalmhelper.HubAPIClient.
+		ClusterGroupUpgrades("default").
+		List(rantalmhelper.GetTestContext(), metav1.ListOptions{})
+	Expect(err).ToNot(HaveOccurred())
 
 	return nil
 }
 
-func PurgeYamlResources() {
-	// Get the current directory
-	pwd, err := os.Getwd()
-	Expect(err).ToNot(HaveOccurred())
-
-	if _, err := os.Stat(pwd + "/tests/resources"); os.IsNotExist(err) {
-		return
-	}
-
-	// Open the yaml file
-	files, err := ioutil.ReadDir(pwd + "/tests/resources")
-	Expect(err).ToNot(HaveOccurred())
-
-	for _, file := range files {
-		if !file.IsDir() {
-			// Open the yaml file
-			raw, err := ioutil.ReadFile(pwd + "/tests/resources/" + file.Name())
-			Expect(err).ToNot(HaveOccurred())
-
-			// Delete the resource
-			err = rantalmhelper.DeleteTalmResource(raw)
-			Expect(err).ToNot(HaveOccurred())
+// InitializeTalmClients is used to create the three API clients for the two spokes and hub.
+func InitializeTalmClients() error {
+	// Hub may be optional depending on what tests are running
+	if os.Getenv(rantalmparameters.HubKubeEnvKey) != "" {
+		rantalmhelper.HubAPIClient, err = ranhelper.DefineAPIClient(rantalmparameters.HubKubeEnvKey)
+		if err != nil {
+			return err
 		}
+
+		rantalmhelper.HubName, err = rantalmhelper.GetClusterName(rantalmparameters.HubKubeEnvKey)
+		if err != nil {
+			return err
+		}
+
+		ocpVersion, err := rantalmhelper.GetClusterVersion(rantalmhelper.HubAPIClient)
+		if err != nil {
+			return err
+		}
+
+		log.Printf("cluster %s has OCP version %s", rantalmhelper.HubName, ocpVersion)
 	}
+
+	// Spoke1 is the default kubeconfig
+	if os.Getenv(rantalmparameters.Spoke1KubeEnvKey) != "" {
+		rantalmhelper.Spoke1APIClient, err = ranhelper.DefineAPIClient(rantalmparameters.Spoke1KubeEnvKey)
+		if err != nil {
+			return err
+		}
+
+		rantalmhelper.Spoke1Name, err = rantalmhelper.GetClusterName(rantalmparameters.Spoke1KubeEnvKey)
+		if err != nil {
+			return err
+		}
+
+		ocpVersion, err := rantalmhelper.GetClusterVersion(rantalmhelper.Spoke1APIClient)
+		if err != nil {
+			return err
+		}
+
+		log.Printf("cluster %s has OCP version %s", rantalmhelper.Spoke1Name, ocpVersion)
+	}
+
+	// Spoke2 may be optional depending on what tests are running
+	if os.Getenv(rantalmparameters.Spoke2KubeEnvKey) != "" {
+		rantalmhelper.Spoke2APIClient, err = ranhelper.DefineAPIClient(rantalmparameters.Spoke2KubeEnvKey)
+		if err != nil {
+			return err
+		}
+
+		rantalmhelper.Spoke2Name, err = rantalmhelper.GetClusterName(rantalmparameters.Spoke2KubeEnvKey)
+		if err != nil {
+			return err
+		}
+
+		ocpVersion, err := rantalmhelper.GetClusterVersion(rantalmhelper.Spoke2APIClient)
+		if err != nil {
+			return err
+		}
+
+		log.Printf("cluster %s has OCP version %s", rantalmhelper.Spoke2Name, ocpVersion)
+	}
+
+	return nil
 }
 
-// As far as I can tell there is no way to get an actual dynamic client as oppose to an interface
-// Since the non-interface client is not exported by dynamic
-// nolint:ireturn
-func GetAuthenticatedDynamicClient() (dynamic.Interface, error) {
-	// Authentication flow inspired by https://stackoverflow.com/a/73461820
-	// Read the kubeconfig file
-	kubeconfigFile := os.Getenv("KUBECONFIG")
-	if kubeconfigFile == "" {
-		return nil, fmt.Errorf("unable to find kubeconfig file")
+// CreateTalmTestNamespace creates the TALM test namespace on each of the nodes.
+func CreateTalmTestNamespace() error {
+	// Hub may be optional depending on what tests are running
+	if os.Getenv(rantalmparameters.HubKubeEnvKey) != "" {
+		err = namespaces.Create(rantalmparameters.TalmTestNamespace, rantalmhelper.HubAPIClient)
+		if err != nil {
+			return err
+		}
 	}
 
-	// Read a config object
-	authConfig, err := clientcmd.LoadFromFile(kubeconfigFile)
-	if err != nil {
-		return nil, err
+	// Spoke1 is the default kubeconfig
+	if os.Getenv(rantalmparameters.Spoke1KubeEnvKey) != "" {
+		err = namespaces.Create(rantalmparameters.TalmTestNamespace, rantalmhelper.Spoke1APIClient)
+		if err != nil {
+			return err
+		}
 	}
 
-	// Convert the config object to a client config object
-	clientConfig := clientcmd.NewDefaultClientConfig(*authConfig, &clientcmd.ConfigOverrides{})
-
-	// Convert the client config to a rest config
-	restConfig, err := clientConfig.ClientConfig()
-	if err != nil {
-		return nil, err
+	// Spoke2 may be optional depending on what tests are running
+	if os.Getenv(rantalmparameters.Spoke2KubeEnvKey) != "" {
+		err = namespaces.Create(rantalmparameters.TalmTestNamespace, rantalmhelper.Spoke2APIClient)
+		if err != nil {
+			return err
+		}
 	}
 
-	// Create a dynamic client using the rest config
-	dynamicClient, err := dynamic.NewForConfig(restConfig)
-	if err != nil {
-		return nil, err
+	return nil
+}
+
+// DeleteTalmTestNamespace deletes the TALM test namespace on each of the nodes.
+func DeleteTalmTestNamespace() error {
+	// Hub may be optional depending on what tests are running
+	if os.Getenv(rantalmparameters.HubKubeEnvKey) != "" {
+		err = namespaces.DeleteAndWait(
+			rantalmhelper.HubAPIClient,
+			rantalmparameters.TalmTestNamespace,
+			rantalmparameters.TalmTestPollInterval)
+		if err != nil {
+			return err
+		}
 	}
 
-	return dynamicClient, nil
+	// Spoke1 is the default kubeconfig
+	if os.Getenv(rantalmparameters.Spoke1KubeEnvKey) != "" {
+		err = namespaces.DeleteAndWait(
+			rantalmhelper.Spoke1APIClient,
+			rantalmparameters.TalmTestNamespace,
+			rantalmparameters.TalmTestPollInterval)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Spoke2 may be optional depending on what tests are running
+	if os.Getenv(rantalmparameters.Spoke2KubeEnvKey) != "" {
+		err = namespaces.DeleteAndWait(
+			rantalmhelper.Spoke2APIClient,
+			rantalmparameters.TalmTestNamespace,
+			rantalmparameters.TalmTestPollInterval)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

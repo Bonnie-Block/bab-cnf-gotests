@@ -1,24 +1,71 @@
 package tests
 
 import (
-	"io/ioutil"
-	"os"
+	"fmt"
+	"log"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/talm/rantalmhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/talm/rantalmparameters"
+	testClient "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
-	"k8s.io/apimachinery/pkg/util/wait"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 )
 
 var _ = Describe("Talm Spoke Tests", func() {
 
+	// These tests only use the hub and spoke1
+	var clusterList []*testClient.ClientSet
+
 	execute.BeforeAll(func() {
+		// Initialize cluster list
+		clusterList = []*testClient.ClientSet{
+			rantalmhelper.HubAPIClient,
+			rantalmhelper.Spoke1APIClient,
+		}
+
+		// Check that the required clusters are present
+		err := rantalmhelper.IsClustersPresent(clusterList)
+		if err != nil {
+			Skip(fmt.Sprintf("error occurred validating required clusters are present: %s", err.Error()))
+		}
 	})
 
 	BeforeEach(func() {
+		// Cleanup state to make it consistent
+		for _, client := range clusterList {
+
+			// Cleanup everything
+			errList := rantalmhelper.CleanupTestResourcesOnClients(
+				[]*testClient.ClientSet{
+					client,
+				},
+				rantalmhelper.CguName,
+				rantalmhelper.PolicyName,
+				rantalmhelper.Namespace,
+				rantalmhelper.PlacementBindingName,
+				rantalmhelper.PlacementRule,
+				rantalmhelper.PolicySetName)
+			Expect(len(errList)).To(Equal(0))
+
+			// Create namespace
+			err := namespaces.Create(rantalmhelper.Namespace, client)
+			Expect(err).ToNot(HaveOccurred())
+		}
+	})
+
+	AfterEach(func() {
+		// Cleanup everything
+		errList := rantalmhelper.CleanupTestResourcesOnClients(
+			clusterList,
+			rantalmhelper.CguName,
+			rantalmhelper.PolicyName,
+			rantalmhelper.Namespace,
+			rantalmhelper.PlacementBindingName,
+			rantalmhelper.PlacementRule,
+			rantalmhelper.PolicySetName)
+		Expect(len(errList)).To(Equal(0))
 	})
 
 	Describe("Two spoke test", func() {
@@ -28,44 +75,45 @@ var _ = Describe("Talm Spoke Tests", func() {
 		// 		// https://issues.redhat.com/browse/CNF-6498
 		// 	})
 		// })
-		Context("where one of them is missing", func() {
+	})
+	Describe("One spoke test", func() {
+		Context("where the spoke is missing", func() {
 			It("should report the missing spoke", func() {
 				// Polarion test id 47949
 				// https://issues.redhat.com/browse/CNF-6497
 
-				// Get the current directory
-				pwd, err := os.Getwd()
-				Expect(err).ToNot(HaveOccurred())
-
-				// Open the yaml file
-				raw, err := ioutil.ReadFile(pwd + "/tests/resources/talm-cgu-missing-cluster.yaml")
-				Expect(err).ToNot(HaveOccurred())
-
-				// Apply the cgu
-				result, err := rantalmhelper.ApplyTalmResource(raw)
-				Expect(err).ToNot(HaveOccurred())
+				By("creating the cgu", func() {
+					err := rantalmhelper.CreateCguAndWait(
+						rantalmhelper.HubAPIClient,
+						[]string{
+							"non-existent-cluster",
+						},
+						[]string{
+							"non-existent-policy",
+						},
+						rantalmhelper.CguName,
+						rantalmhelper.Namespace,
+						1,
+						1,
+					)
+					Expect(err).ToNot(HaveOccurred())
+				})
 
 				// Wait for the cgu condition to show the expected error message
-				err = wait.PollImmediate(
-					rantalmparameters.TalmTestPollInterval,
-					rantalmparameters.TalmDefaultReconcileTime,
-					func() (done bool, err error) {
-						// Get the progressing condition
-						condition, err := rantalmhelper.GetTalmCondition(result, "ClustersSelected")
-						// The condition may not exist when we call this, so we need to wait for it to exist
-						if err != nil {
-							return false, err
-						}
+				By("waiting for the error condition to match", func() {
+					err := rantalmhelper.WaitForCguInCondition(
+						rantalmhelper.HubAPIClient,
+						rantalmhelper.CguName,
+						rantalmhelper.Namespace,
+						"ClustersSelected",
+						"Unable to select clusters: cluster non-existent-cluster is not a ManagedCluster",
+						"",
+						rantalmparameters.TalmDefaultReconcileTime*3,
+					)
+					Expect(err).ToNot(HaveOccurred())
+				})
 
-						// Check the error message
-						expectedError := "Unable to select clusters: cluster non-existent-cluster is not a ManagedCluster"
-						if condition.Message == expectedError {
-							return true, nil
-						}
-
-						return false, nil
-					})
-				Expect(err).ToNot(HaveOccurred())
+				log.Println("completed test")
 			})
 		})
 	})

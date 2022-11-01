@@ -56,6 +56,7 @@ type Config struct {
 		KubeconfigHub             string   `envconfig:"KUBECONFIG_HUB"`
 		OcpUpgradeUpstreamURL     string   `yaml:"ocp_upgrade_upstream_url" envconfig:"OCP_UPGRADE_UPSTREAM_URL"`
 		TalmPrecachePolicies      []string `envconfig:"TALM_PRECACHE_POLICIES" yaml:"talm_precache_policies"`
+		KubeconfigSpoke2          string   `envconfig:"KUBECONFIG_SPOKE2"`
 	} `yaml:"ran"`
 }
 

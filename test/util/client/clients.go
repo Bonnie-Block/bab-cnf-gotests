@@ -40,6 +40,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
+	policiesv1beta1 "open-cluster-management.io/governance-policy-propagator/api/v1beta1"
 	placementrulev1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -175,6 +176,10 @@ func New(kubeconfig string) *ClientSet {
 	}
 
 	if err := whereaboutsScheme.AddToScheme(crScheme); err != nil {
+		panic(err)
+	}
+
+	if err := policiesv1beta1.AddToScheme(crScheme); err != nil {
 		panic(err)
 	}
 

@@ -61,7 +61,7 @@ var _ = Describe("Talm precache", func() {
 		BeforeEach(func() {
 			log.Println("verifying list of policies in config are already available in hub required Precache operator")
 			var listPolicy policiesv1.PolicyList
-			err := rantalmhelper.GetHubclient().List(context.Background(), &listPolicy, runtimeclient.InNamespace(""))
+			err := rantalmhelper.HubAPIClient.List(context.Background(), &listPolicy, runtimeclient.InNamespace(""))
 			if err != nil {
 				log.Println(err)
 				Skip("could not list all policies from all namespaces")
@@ -79,7 +79,7 @@ var _ = Describe("Talm precache", func() {
 
 		It("tests for precache operator with multiple sources", func() {
 			By("creating CGU with created operator upgrade policy")
-			spokeClusters := []string{rantalmhelper.GetSpoke1Name()}
+			spokeClusters := []string{rantalmhelper.Spoke1Name}
 			policyNames := helper.Config.Ran.TalmPrecachePolicies
 			cgu = GetAndApplyNewCGU(CGUNameOperator, ran.NamespaceTesting, spokeClusters, policyNames)
 
@@ -111,7 +111,7 @@ var _ = Describe("Talm precache", func() {
 				CommonPrecacheOCPStepsAndGetNewPolicyPlacementRulePlacementBinding("Version", helper.Apiclient)
 
 			By("creating CGU with created clusterversion policy")
-			spokeClusters := []string{rantalmhelper.GetSpoke1Name()}
+			spokeClusters := []string{rantalmhelper.Spoke1Name}
 			policyNames := []string{policy.Name}
 			cgu = GetAndApplyNewCGU(CGUNameOCP, ran.NamespaceTesting, spokeClusters, policyNames)
 
@@ -126,7 +126,7 @@ var _ = Describe("Talm precache", func() {
 				CommonPrecacheOCPStepsAndGetNewPolicyPlacementRulePlacementBinding("Image", helper.Apiclient)
 
 			By("creating CGU with created clusterversion policy")
-			spokeClusters := []string{rantalmhelper.GetSpoke1Name()}
+			spokeClusters := []string{rantalmhelper.Spoke1Name}
 			policyNames := []string{policy.Name}
 			cgu = GetAndApplyNewCGU(CGUNameOCP, ran.NamespaceTesting, spokeClusters, policyNames)
 
@@ -197,7 +197,7 @@ func CommonPreCacheTeardownSteps(cgu *v1alpha1.ClusterGroupUpgrade) {
 func CommonPreCacheVerificationSteps(cguToTest *v1alpha1.ClusterGroupUpgrade) error {
 	By("waiting until CGU Succeeded")
 	Eventually(func() string {
-		cgu, err := rantalmhelper.GetHubclient().ClustergroupupgradesoperatorV1alpha1Interface.
+		cgu, err := rantalmhelper.HubAPIClient.ClustergroupupgradesoperatorV1alpha1Interface.
 			ClusterGroupUpgrades(ran.NamespaceTesting).Get(context.Background(), cguToTest.Name, metav1.GetOptions{})
 		Expect(err).To(BeNil())
 
@@ -207,16 +207,16 @@ func CommonPreCacheVerificationSteps(cguToTest *v1alpha1.ClusterGroupUpgrade) er
 			return ""
 		}
 
-		_, ok := cgu.Status.Precaching.Status[rantalmhelper.GetSpoke1Name()]
+		_, ok := cgu.Status.Precaching.Status[rantalmhelper.Spoke1Name]
 		if !ok {
 			log.Println("cluster name as key did not appear yet")
 
 			return ""
 		}
 
-		log.Printf("%s pre-cache status: %s\n", cgu.Name, cgu.Status.Precaching.Status[rantalmhelper.GetSpoke1Name()])
+		log.Printf("%s pre-cache status: %s\n", cgu.Name, cgu.Status.Precaching.Status[rantalmhelper.Spoke1Name])
 
-		return cgu.Status.Precaching.Status[rantalmhelper.GetSpoke1Name()]
+		return cgu.Status.Precaching.Status[rantalmhelper.Spoke1Name]
 	}, 10*time.Minute, 10*time.Second).Should(Equal("Succeeded"))
 
 	By("waiting until new precache pod in spoke1 succeeded and log reports done")
@@ -262,7 +262,7 @@ func GetAndApplyNewCGU(name string, namespace string, spokeClusterNames []string
 
 	PrintGeneratedCR(cgu)
 
-	_, err := rantalmhelper.GetHubclient().ClustergroupupgradesoperatorV1alpha1Interface.
+	_, err := rantalmhelper.HubAPIClient.ClustergroupupgradesoperatorV1alpha1Interface.
 		ClusterGroupUpgrades(namespace).Create(context.Background(), &cgu, metav1.CreateOptions{})
 
 	Expect(err).To(BeNil())
@@ -271,7 +271,7 @@ func GetAndApplyNewCGU(name string, namespace string, spokeClusterNames []string
 }
 
 func DeleteGeneratedCGU(name string, namespace string) error {
-	get, err := rantalmhelper.GetHubclient().ClustergroupupgradesoperatorV1alpha1Interface.
+	get, err := rantalmhelper.HubAPIClient.ClustergroupupgradesoperatorV1alpha1Interface.
 		ClusterGroupUpgrades(namespace).Get(context.Background(), name, metav1.GetOptions{})
 	if err != nil {
 		log.Printf("could not get %s in hub before performing delete: %s\n", name, err)
@@ -279,7 +279,7 @@ func DeleteGeneratedCGU(name string, namespace string) error {
 		PrintGeneratedCR(get)
 	}
 
-	err = rantalmhelper.GetHubclient().ClustergroupupgradesoperatorV1alpha1Interface.
+	err = rantalmhelper.HubAPIClient.ClustergroupupgradesoperatorV1alpha1Interface.
 		ClusterGroupUpgrades(namespace).Delete(context.Background(), name, metav1.DeleteOptions{})
 	if err != nil && !errors.IsNotFound(err) {
 		return fmt.Errorf("could not delete %s in hub: %w", name, err)
@@ -295,7 +295,7 @@ func PrintGeneratedCR(b interface{}) {
 }
 
 func DeleteGeneratedCR(obj runtimeclient.Object) {
-	err := rantalmhelper.GetHubclient().Delete(context.Background(), obj)
+	err := rantalmhelper.HubAPIClient.Delete(context.Background(), obj)
 	if err != nil && !errors.IsNotFound(err) {
 		log.Printf("could not delete generated CR: %s\n", err)
 	}
@@ -503,17 +503,17 @@ func ApplyAndWaitPolicyPlacementRulePlacementBinding(
 	policy *policiesv1.Policy,
 	placementRule *placementrulev1.PlacementRule,
 	placementBinding *policiesv1.PlacementBinding) error {
-	err := rantalmhelper.GetHubclient().Create(context.Background(), policy)
+	err := rantalmhelper.HubAPIClient.Create(context.Background(), policy)
 	if err != nil && !errors.IsAlreadyExists(err) {
 		return fmt.Errorf("could not apply generated policy: %w", err)
 	}
 
-	err = rantalmhelper.GetHubclient().Create(context.Background(), placementRule)
+	err = rantalmhelper.HubAPIClient.Create(context.Background(), placementRule)
 	if err != nil && !errors.IsAlreadyExists(err) {
 		return fmt.Errorf("could not apply generated placementRule: %w", err)
 	}
 
-	err = rantalmhelper.GetHubclient().Create(context.Background(), placementBinding)
+	err = rantalmhelper.HubAPIClient.Create(context.Background(), placementBinding)
 	if err != nil && !errors.IsAlreadyExists(err) {
 		return fmt.Errorf("could not apply generated placementBinding: %w", err)
 	}
@@ -524,7 +524,7 @@ func ApplyAndWaitPolicyPlacementRulePlacementBinding(
 			Namespace: policy.Namespace,
 			Name:      policy.Name,
 		}
-		err := rantalmhelper.GetHubclient().Get(context.Background(), c, &curPolicy)
+		err := rantalmhelper.HubAPIClient.Get(context.Background(), c, &curPolicy)
 		Expect(err).To(BeNil())
 
 		return curPolicy.Status.ComplianceState

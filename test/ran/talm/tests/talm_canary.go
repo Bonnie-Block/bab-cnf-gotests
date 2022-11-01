@@ -2,16 +2,18 @@ package tests
 
 import (
 	. "github.com/onsi/ginkgo/v2"
-
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/talm/rantalmhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
 )
 
 var _ = Describe("Talm Canary Tests", func() {
 
 	execute.BeforeAll(func() {
-	})
-
-	BeforeEach(func() {
+		// Check that the required clusters are present
+		err := rantalmhelper.IsClustersPresent(rantalmhelper.GetAllTestClients())
+		if err != nil {
+			Skip(err.Error())
+		}
 	})
 
 	Describe("Canary feature used", func() {

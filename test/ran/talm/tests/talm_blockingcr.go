@@ -2,7 +2,6 @@ package tests
 
 import (
 	. "github.com/onsi/ginkgo/v2"
-
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
 )
 
@@ -11,10 +10,7 @@ var _ = Describe("Talm Blocking CRs Tests", func() {
 	execute.BeforeAll(func() {
 	})
 
-	BeforeEach(func() {
-	})
-
-	Describe("Single batch test", func() {
+	Describe("Blocking CRs test", func() {
 		// Context("with blocking CRs missing", func() {
 		// 	It("Should report the missing CRs", func() {
 		// 		// Polarion test id 47956

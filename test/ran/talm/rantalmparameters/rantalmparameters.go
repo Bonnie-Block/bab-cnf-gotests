@@ -3,18 +3,20 @@ package rantalmparameters
 import (
 	"time"
 
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
-
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/k8sreporter"
 )
 
 const (
-	TalmOperatorNamespace    = "openshift-cluster-group-upgrades"
-	TalmPodName              = "cluster-group-upgrades-controller-manager"
+	HubKubeEnvKey            = "KUBECONFIG_HUB"
+	Spoke1KubeEnvKey         = "KUBECONFIG"
+	Spoke2KubeEnvKey         = "KUBECONFIG_SPOKE2"
 	TalmContainerName        = "manager"
-	TalmPodLabelSelector     = "pod-template-hash"
-	TalmTestPollInterval     = 15 * time.Second
 	TalmDefaultReconcileTime = 5 * time.Minute
+	TalmOperatorNamespace    = "openshift-cluster-group-upgrades"
+	TalmPodLabelSelector     = "pod-template-hash"
+	TalmPodNameHub           = "cluster-group-upgrades-controller-manager"
+	TalmTestNamespace        = "talm-test"
+	TalmTestPollInterval     = 15 * time.Second
 )
 
 var (
@@ -27,6 +29,4 @@ var (
 		// Depends on https://issues.redhat.com/browse/CNF-6462
 		// {Cr: &talmv1alpha1.ClusterGroupUpgrade},
 	}
-	HubClientset *client.ClientSet // initialized in BeforeSuite
-	Spoke1Name   string            // initialized in BeforeSuite
 )
