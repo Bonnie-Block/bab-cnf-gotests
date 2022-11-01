@@ -124,7 +124,7 @@ var _ = Describe("CNF MetalLB", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		l2Advertisement := netmetallbhelper.DefineL2Advertisement(netmlbparameters.L2AdvertisementName,
-			[]string{ipAddressPool.Name})
+			[]string{ipAddressPool.Name}, nil)
 		err = helper.Apiclient.Create(context.Background(), l2Advertisement)
 		Expect(err).ToNot(HaveOccurred())
 
@@ -202,7 +202,7 @@ var _ = Describe("CNF MetalLB", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		l2Advertisement := netmetallbhelper.DefineL2Advertisement(netmlbparameters.L2AdvertisementName,
-			[]string{ipAddressPool.Name})
+			[]string{ipAddressPool.Name}, nil)
 		err = helper.Apiclient.Create(context.Background(), l2Advertisement)
 		Expect(err).ToNot(HaveOccurred())
 

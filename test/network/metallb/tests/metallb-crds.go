@@ -281,12 +281,6 @@ var _ = Describe("MetalLb New CRDs", func() {
 			}
 			Expect(netmetallbhelper.GetGWMode()).To(BeTrue())
 
-			By("Creating a L2Advertisement")
-			err = helper.Apiclient.Create(context.Background(),
-				netmetallbhelper.DefineL2Advertisement(netmlbparameters.L2AdvertisementName,
-					[]string{netmlbparameters.AddressPoolName}))
-			Expect(err).ToNot(HaveOccurred(), "An unexpected error occurred while creating L2Advertisement.")
-
 			By(fmt.Sprintf("Adding IP to a secondary interface on the worker-0 %s", workerNodeList[0].Name))
 			sriovInfos, err := cluster.DiscoverSriov(helper.Apiclient, parameters.SriovOperatorNamespace)
 			Expect(err).ToNot(HaveOccurred(), "Failed to find sriov supported nodes")
@@ -299,6 +293,12 @@ var _ = Describe("MetalLb New CRDs", func() {
 				netmlbparameters.IPSecondaryInterface1, secInterfaces[0].Name)
 			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error occurred while"+
 				" adding IP address to the secondary interface %s.:%s", secInterfaces[0].Name, outputString))
+
+			By("Creating a L2Advertisement")
+			err = helper.Apiclient.Create(context.Background(),
+				netmetallbhelper.DefineL2Advertisement(netmlbparameters.L2AdvertisementName,
+					[]string{netmlbparameters.AddressPoolName}, []string{secInterfaces[0].Name}))
+			Expect(err).ToNot(HaveOccurred(), "An unexpected error occurred while creating L2Advertisement.")
 
 			By(fmt.Sprintf("Creating macvlan NAD with the secondary interface %s", secInterfaces[0].Name))
 			err = helper.Apiclient.Create(context.Background(),

@@ -316,8 +316,8 @@ func DefineBGPAdvertisement(name string,
 }
 
 // DefineL2Advertisement returns L2Advertisement for list of ipAddressPoolnames.
-func DefineL2Advertisement(name string, ipAddressPoolNames []string) *metallbv1beta1.L2Advertisement {
-	return &metallbv1beta1.L2Advertisement{
+func DefineL2Advertisement(name string, ipAddressPoolNames, l2Interfaces []string) *metallbv1beta1.L2Advertisement {
+	l2Advertisement := &metallbv1beta1.L2Advertisement{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: netmlbparameters.MetalLBOperatorNameSpace,
@@ -326,6 +326,11 @@ func DefineL2Advertisement(name string, ipAddressPoolNames []string) *metallbv1b
 			IPAddressPools: ipAddressPoolNames,
 		},
 	}
+	if len(l2Interfaces) > 0 {
+		l2Advertisement.Spec.Interfaces = l2Interfaces
+	}
+
+	return l2Advertisement
 }
 
 // DefineFrrPodWithTestContainer creates an FRR Pod with a test container.

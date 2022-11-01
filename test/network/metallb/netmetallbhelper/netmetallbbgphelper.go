@@ -55,7 +55,7 @@ func DefineFRRBGPConfigMap(ipAddresses []string, configMapName string, localAS i
 
 	temp, err := template.New("bgp Config Template").Parse(netmlbparameters.BgpConfigTemplate)
 
-	if len(routePropagate) > 1 && routePropagate[0] == netmlbparameters.PropagateTrue {
+	if len(routePropagate) > 0 && routePropagate[0] == netmlbparameters.PropagateTrue {
 		temp, err = template.New("bgp Config Template").Parse(netmlbparameters.BgpRoutePropagate)
 		Expect(err).ToNot(HaveOccurred())
 	}

@@ -414,11 +414,6 @@ func TestBGPBlockRouteAdvertisment(ipStack string,
 			workerNodesAdresses)
 	}, 1*time.Minute, netmlbparameters.Interval).Should(BeTrue())
 
-	Eventually(func() bool {
-		return CheckNeighborsStatus(masterNodeFRRPod, ipStack,
-			workerNodesAdresses)
-	}, 1*time.Minute, netmlbparameters.Interval).Should(BeTrue())
-
 	By("should validate BGP route is advertised from external FRR")
 
 	masterFRRSlice := []k8sv1.Pod{*masterNodeFRRPod}
