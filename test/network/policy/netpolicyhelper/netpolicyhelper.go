@@ -200,7 +200,7 @@ func PingIPViaInterface(clientPod *v1.Pod, serverIP, vrfName string) error {
 func validateMultiNetworkPolicyRunning() {
 	Eventually(func() error {
 		return helper.IsDaemonsetReady(helper.Apiclient,
-			netpolicyparameters.MultusNamespace, netpolicyparameters.NetworkPolicyDaemonsetName)
+			netparameters.MultusNamespace, netpolicyparameters.NetworkPolicyDaemonsetName)
 	}, 2*netpolicyparameters.PodWaitingTime, netpolicyparameters.RetryInterval).ShouldNot(HaveOccurred(),
 		"NetworkPolicy daemonset is not ready")
 }
@@ -208,7 +208,7 @@ func validateMultiNetworkPolicyRunning() {
 func validateMultiNetworkPolicyDeleted() {
 	Eventually(func() bool {
 		isNetworkPolicyDaemonsetInstalled, _ := helper.IsDaemonsetInstalled(helper.Apiclient,
-			netpolicyparameters.MultusNamespace, netpolicyparameters.NetworkPolicyDaemonsetName)
+			netparameters.MultusNamespace, netpolicyparameters.NetworkPolicyDaemonsetName)
 
 		return isNetworkPolicyDaemonsetInstalled
 	}, netpolicyparameters.PodWaitingTime, netpolicyparameters.RetryInterval).Should(BeFalse(),

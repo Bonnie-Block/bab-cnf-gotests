@@ -23,7 +23,6 @@ const (
 	SriovNetworkName           = "test-sriov-network-with-static-ipam"
 	SriovNetworkNameWithVRF    = "test-sriov-network-with-vrf"
 	ResourceNamePolicy         = "testsriovnicnetworkpolicy"
-	MultusNamespace            = "openshift-multus"
 	NetworkPolicyDaemonsetName = "multus-networkpolicy"
 	Pod1IPAddress              = "192.168.0.1"
 	Pod2IPAddress              = "192.168.0.2"

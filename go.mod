@@ -11,6 +11,7 @@ require (
 	github.com/k8snetworkplumbingwg/multi-networkpolicy v0.0.0-20220419111628-220baf5d60c1
 	github.com/k8snetworkplumbingwg/network-attachment-definition-client v1.1.1-0.20210510153419-66a699ae3b05
 	github.com/k8snetworkplumbingwg/sriov-network-operator v0.0.0-20201204053545-49045c36efb9
+	github.com/k8snetworkplumbingwg/whereabouts v0.5.4
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/kennygrant/sanitize v1.2.4
 	github.com/metallb/metallb-operator v0.10.2

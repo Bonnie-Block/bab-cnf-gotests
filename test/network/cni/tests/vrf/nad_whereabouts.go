@@ -1,10 +1,14 @@
 package vrf
 
 import (
+	"context"
 	"fmt"
 	"strings"
+	"time"
 
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/netparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nad"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -81,6 +85,8 @@ var _ = Describe("CNF VRF", func() {
 		By("Cleaning up resources before test")
 		err := namespaces.CleanPods(netcniparameters.TestNamespace, generalHelper.Apiclient)
 		Expect(err).ToNot(HaveOccurred())
+		waitUntilIPPoolIsEmpty(fmt.Sprintf("%s-%s", "10.255.255.0", netparameters.IPSubnet24))
+		waitUntilIPPoolIsEmpty(fmt.Sprintf("2001-100---%s", netparameters.IPSubnet64))
 	})
 
 	// 36325
@@ -109,3 +115,20 @@ var _ = Describe("CNF VRF", func() {
 		Entry(describe, netcniparameters.DiffNode, netcniparameters.IPStackIPv6),
 	)
 })
+
+func waitUntilIPPoolIsEmpty(ipPoolName string) {
+	_, err := generalHelper.Apiclient.IPPools(netparameters.MultusNamespace).Get(
+		context.TODO(), ipPoolName, v1.GetOptions{})
+
+	if err == nil {
+		Eventually(func() bool {
+			IPPool, err := generalHelper.Apiclient.IPPools(netparameters.MultusNamespace).Get(
+				context.TODO(), ipPoolName, v1.GetOptions{})
+			if err != nil {
+				return false
+			}
+
+			return len(IPPool.Spec.Allocations) == 0
+		}, 30, 3*time.Second).Should(BeTrue(), "error IPPools don't release ip address")
+	}
+}

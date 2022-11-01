@@ -10,4 +10,5 @@ const (
 	IPSubnet64                = "64"
 	IPSubnet32                = "32"
 	NetworkOperatorConfigName = "cluster"
+	MultusNamespace           = "openshift-multus"
 )

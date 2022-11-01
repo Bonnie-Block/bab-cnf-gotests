@@ -11,6 +11,9 @@ import (
 	clientnetattdefv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/client/clientset/versioned/typed/k8s.cni.cncf.io/v1"
 	sriovv1 "github.com/k8snetworkplumbingwg/sriov-network-operator/api/v1"
 	clientsriovv1 "github.com/k8snetworkplumbingwg/sriov-network-operator/pkg/client/clientset/versioned/typed/sriovnetwork/v1"
+	whereaboutsScheme "github.com/k8snetworkplumbingwg/whereabouts/pkg/client/clientset/versioned/scheme"
+	whereaboutsApi "github.com/k8snetworkplumbingwg/whereabouts/pkg/client/clientset/versioned/typed/whereabouts.cni.cncf.io/v1alpha1"
+
 	metallboperatorv1beta1 "github.com/metallb/metallb-operator/api/v1beta1"
 	cguv1alpha1 "github.com/openshift-kni/cluster-group-upgrades-operator/pkg/generated/clientset/versioned/typed/clustergroupupgradesoperator/v1alpha1"
 	performancev2 "github.com/openshift-kni/performance-addon-operators/api/v2"
@@ -60,6 +63,7 @@ type ClientSet struct {
 	olm.OperatorsV1alpha1Interface
 	clientnetattdefv1.K8sCniCncfIoV1Interface
 	routev1.RouteV1Interface
+	whereaboutsApi.WhereaboutsV1alpha1Interface
 }
 
 // New returns a *ClientBuilder with the given kubeconfig.
@@ -101,6 +105,7 @@ func New(kubeconfig string) *ClientSet {
 	clientSet.RouteV1Interface = routev1.NewForConfigOrDie(config)
 	clientSet.ClustergroupupgradesoperatorV1alpha1Interface = cguv1alpha1.NewForConfigOrDie(config)
 	clientSet.K8sCniCncfIoV1beta1Interface = multinetpolicyclientv1.NewForConfigOrDie(config)
+	clientSet.WhereaboutsV1alpha1Interface = whereaboutsApi.NewForConfigOrDie(config)
 
 	clientSet.Config = config
 
@@ -166,6 +171,10 @@ func New(kubeconfig string) *ClientSet {
 	}
 
 	if err := placementrulev1.AddToScheme(crScheme); err != nil {
+		panic(err)
+	}
+
+	if err := whereaboutsScheme.AddToScheme(crScheme); err != nil {
 		panic(err)
 	}
 
