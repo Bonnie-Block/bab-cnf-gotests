@@ -7,6 +7,9 @@ import (
 	"os"
 	"runtime"
 	"testing"
+	"time"
+
+	k8sErr "k8s.io/apimachinery/pkg/api/errors"
 
 	. "github.com/onsi/ginkgo/v2"
 	"github.com/onsi/ginkgo/v2/types"
@@ -52,14 +55,16 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 
 	// Delete the namespace before creating it to ensure it is in a consistent blank state
-	err = DeleteTalmTestNamespace()
+	err = DeleteTalmTestNamespace(true)
+	Expect(err).ToNot(HaveOccurred())
 	err = CreateTalmTestNamespace()
 	Expect(err).ToNot(HaveOccurred())
 })
 
 var _ = AfterSuite(func() {
 	// Deleting the namespace after the suite finishes ensures all the CGUs created are deleted
-	err = DeleteTalmTestNamespace()
+	err = DeleteTalmTestNamespace(false)
+	Expect(err).ToNot(HaveOccurred())
 })
 
 var _ = ReportAfterEach(func(report types.SpecReport) {
@@ -199,15 +204,17 @@ func CreateTalmTestNamespace() error {
 }
 
 // DeleteTalmTestNamespace deletes the TALM test namespace on each of the nodes.
-func DeleteTalmTestNamespace() error {
+func DeleteTalmTestNamespace(allowNotFound bool) error {
 	// Hub may be optional depending on what tests are running
 	if os.Getenv(rantalmparameters.HubKubeEnvKey) != "" {
 		err = namespaces.DeleteAndWait(
 			rantalmhelper.HubAPIClient,
 			rantalmparameters.TalmTestNamespace,
-			rantalmparameters.TalmTestPollInterval)
+			5*time.Minute)
 		if err != nil {
-			return err
+			if !allowNotFound || (allowNotFound && !k8sErr.IsNotFound(err)) {
+				return err
+			}
 		}
 	}
 
@@ -216,9 +223,11 @@ func DeleteTalmTestNamespace() error {
 		err = namespaces.DeleteAndWait(
 			rantalmhelper.Spoke1APIClient,
 			rantalmparameters.TalmTestNamespace,
-			rantalmparameters.TalmTestPollInterval)
+			5*time.Minute)
 		if err != nil {
-			return err
+			if !allowNotFound || (allowNotFound && !k8sErr.IsNotFound(err)) {
+				return err
+			}
 		}
 	}
 
@@ -227,9 +236,11 @@ func DeleteTalmTestNamespace() error {
 		err = namespaces.DeleteAndWait(
 			rantalmhelper.Spoke2APIClient,
 			rantalmparameters.TalmTestNamespace,
-			rantalmparameters.TalmTestPollInterval)
+			5*time.Minute)
 		if err != nil {
-			return err
+			if !allowNotFound || (allowNotFound && !k8sErr.IsNotFound(err)) {
+				return err
+			}
 		}
 	}
 

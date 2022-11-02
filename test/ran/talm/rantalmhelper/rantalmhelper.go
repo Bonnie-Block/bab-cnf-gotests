@@ -9,6 +9,9 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/yaml"
+
 	"github.com/openshift-kni/cluster-group-upgrades-operator/api/v1alpha1"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/talm/rantalmparameters"
@@ -83,7 +86,7 @@ func GetNamespaceDefinition(namespaceName string) *corev1.Namespace {
 // CreateSimplePolicyAndCgu is used to create a simplified CGU to cover the most common use case.
 // This will automatically create a single policy enforcing the compliance type on the provided object.
 // If you require multiple policies to be managed then consider CreateCgu() instead.
-func CreateSimplePolicyAndCgu(
+func CreatePolicyAndCgu(
 	client *testClient.ClientSet,
 	object runtime.Object,
 	complianceType configurationPolicyv1.ComplianceType,
@@ -93,12 +96,8 @@ func CreateSimplePolicyAndCgu(
 	placementBindingName string,
 	placementRule string,
 	namespace string,
-	clustersList []string,
 	clusterSelector metav1.LabelSelector,
-	canaryList []string,
-	cguName string,
-	timeout int,
-	maxConcurrency int) error {
+	cgu v1alpha1.ClusterGroupUpgrade) error {
 	// Step 1 - Create simple policy with all required components
 	err := CreatePolicyWithAllComponents(
 		client,
@@ -110,7 +109,7 @@ func CreateSimplePolicyAndCgu(
 		placementBindingName,
 		placementRule,
 		namespace,
-		clustersList,
+		cgu.Spec.Clusters,
 		clusterSelector,
 	)
 	if err != nil {
@@ -120,13 +119,7 @@ func CreateSimplePolicyAndCgu(
 	// Step 2 - Create the cgu
 	err = CreateCguAndWait(
 		client,
-		clustersList,
-		canaryList,
-		[]string{policyName},
-		cguName,
-		namespace,
-		timeout,
-		maxConcurrency,
+		cgu,
 	)
 	if err != nil {
 		return err
@@ -279,70 +272,54 @@ func DeleteCguAndWait(client *testClient.ClientSet, cguName string, namespace st
 // No policies, placements, bindings, policysets, etc will be created.
 func CreateCguAndWait(
 	client *testClient.ClientSet,
-	clustersList []string,
-	canaryList []string,
-	managedPolicies []string,
-	cguName string,
-	namespace string,
-	timeout int,
-	maxConcurrency int) error {
+	cgu v1alpha1.ClusterGroupUpgrade) error {
 	if client == nil {
 		return errors.New("provided nil client")
 	}
 
-	if len(clustersList) == 0 {
+	if len(cgu.Spec.Clusters) == 0 {
 		return errors.New("provided empty clustersList")
 	}
 
-	for _, cluster := range clustersList {
+	for _, cluster := range cgu.Spec.Clusters {
 		if cluster == "" {
 			return errors.New("provided empty cluster in clustersList")
 		}
 	}
 
-	if len(managedPolicies) == 0 {
+	if len(cgu.Spec.ManagedPolicies) == 0 {
 		return errors.New("provided empty managedPolicies")
 	}
 
-	for _, policy := range managedPolicies {
+	for _, policy := range cgu.Spec.ManagedPolicies {
 		if policy == "" {
 			return errors.New("provided empty policy in managedPolicies")
 		}
 		// If the fully generated name of the talm enforce policy is > 63 characters then they will just not work.
 		// There is some wiggle room here since there is an additional identifier on the end of the policy.
 		// So intead of hard erroring just print a warning if the length is possibly an issue.
-		if len(policy)+len(cguName) > 50 {
+		if len(policy)+len(cgu.Name) > 50 {
 			log.Println("Warning: Length of generated TALM policies may exceed character limit and not work")
 		}
 	}
 
-	if cguName == "" {
+	if cgu.Name == "" {
 		return errors.New("provided empty cguName")
 	}
 
 	log.Println("creating the cgu")
 
-	cgu := GetCguDefinition(
-		cguName,
-		clustersList,
-		canaryList,
-		managedPolicies,
-		namespace,
-		maxConcurrency,
-		timeout)
-
-	_, err := client.ClusterGroupUpgrades(namespace).
+	_, err := client.ClusterGroupUpgrades(cgu.Namespace).
 		Create(GetTestContext(), &cgu, metav1.CreateOptions{})
 
 	if err != nil {
 		return err
 	}
 
-	// Step 3 - Wait for it to exist
 	err = WaitUntilObjectExists(
 		client,
-		cguName,
-		namespace,
+		cgu.Name,
+		cgu.Namespace,
 		IsCguExist,
 	)
 
@@ -388,6 +365,9 @@ func WaitForCguInCondition(
 
 				return false, nil
 			}
+
+			log.Printf("%s in %s current condition - Status[%s]: Message[%s]",
+				cguName, namespace, condition.Status, condition.Message)
 
 			// Check the status if it was defined
 			if expectedStatus != "" {
@@ -492,7 +472,7 @@ func GetConfigurationPolicyDefinition(
 			APIVersion: "policy.open-cluster-management.io/v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: policyName,
+			Name: fmt.Sprintf("%s-config", policyName),
 		},
 		Spec: configurationPolicyv1.ConfigurationPolicySpec{
 			Severity:          "low",
@@ -1646,4 +1626,37 @@ func WaitUntilObjectDoesNotExist(
 	)
 
 	return err
+}
+
+// EnableCgu enable Cgu.
+func EnableCgu(client *testClient.ClientSet, cgu v1alpha1.ClusterGroupUpgrade) error {
+	payload := `{"spec":{"enable":true}}`
+
+	_, err := PatchCgu(client, payload, cgu, metav1.PatchOptions{})
+
+	return err
+}
+
+// PatchCgu patch CGU CR.
+func PatchCgu(client *testClient.ClientSet,
+	payload string,
+	cgu v1alpha1.ClusterGroupUpgrade,
+	options metav1.PatchOptions) (*v1alpha1.ClusterGroupUpgrade, error) {
+	return client.
+		ClustergroupupgradesoperatorV1alpha1Interface.
+		ClusterGroupUpgrades(cgu.Namespace).
+		Patch(context.Background(), cgu.Name, types.MergePatchType, []byte(payload), options)
+}
+
+// PrintCr print any CR.
+func PrintCr(b interface{}) error {
+	customResource, err := yaml.Marshal(b)
+
+	if err != nil {
+		return err
+	}
+
+	log.Printf("--- generated CR dump:\n%s\n", string(customResource))
+
+	return nil
 }

@@ -81,19 +81,16 @@ var _ = Describe("Talm Spoke Tests", func() {
 			It("should report the missing spoke", func() {
 
 				By("creating the cgu", func() {
+					cgu := rantalmhelper.GetCguDefinition(
+						rantalmhelper.CguName,
+						[]string{"non-existent-cluster"},
+						[]string{},
+						[]string{"non-existent-policy"},
+						rantalmhelper.Namespace, 1, 1)
+
 					err := rantalmhelper.CreateCguAndWait(
 						rantalmhelper.HubAPIClient,
-						[]string{
-							"non-existent-cluster",
-						},
-						[]string{},
-						[]string{
-							"non-existent-policy",
-						},
-						rantalmhelper.CguName,
-						rantalmhelper.Namespace,
-						1,
-						1,
+						cgu,
 					)
 					Expect(err).ToNot(HaveOccurred())
 				})

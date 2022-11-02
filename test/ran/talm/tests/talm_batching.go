@@ -79,19 +79,17 @@ var _ = Describe("Talm Batching Tests", func() {
 			It("reports the missing policy", func() {
 
 				By("create and enable a cgu with a managed policy that does not exist", func() {
+
+					cgu := rantalmhelper.GetCguDefinition(
+						rantalmhelper.CguName,
+						[]string{rantalmhelper.Spoke1Name},
+						[]string{},
+						[]string{"non-existent-policy"},
+						rantalmhelper.Namespace, 1, 1)
+
 					err := rantalmhelper.CreateCguAndWait(
 						rantalmhelper.HubAPIClient,
-						[]string{
-							rantalmhelper.Spoke1Name,
-						},
-						[]string{},
-						[]string{
-							"non-existent-policy",
-						},
-						rantalmhelper.CguName,
-						rantalmhelper.Namespace,
-						1,
-						1,
+						cgu,
 					)
 					Expect(err).ToNot(HaveOccurred())
 				})
@@ -144,7 +142,14 @@ var _ = Describe("Talm Batching Tests", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("creating the cgu and associated resources", func() {
-					err := rantalmhelper.CreateSimplePolicyAndCgu(
+					cgu := rantalmhelper.GetCguDefinition(
+						rantalmhelper.CguName,
+						[]string{rantalmhelper.Spoke2Name, rantalmhelper.Spoke2Name},
+						[]string{},
+						[]string{rantalmhelper.PolicyName},
+						rantalmhelper.Namespace, 1, 15)
+
+					err := rantalmhelper.CreatePolicyAndCgu(
 						rantalmhelper.HubAPIClient,
 						rantalmhelper.GetNamespaceDefinition(temporaryNamespace),
 						configurationPolicyv1.MustHave,
@@ -154,15 +159,8 @@ var _ = Describe("Talm Batching Tests", func() {
 						rantalmhelper.PlacementBindingName,
 						rantalmhelper.PlacementRule,
 						rantalmhelper.Namespace,
-						[]string{
-							rantalmhelper.Spoke1Name,
-							rantalmhelper.Spoke2Name,
-						},
 						metav1.LabelSelector{},
-						[]string{},
-						rantalmhelper.CguName,
-						15,
-						1,
+						cgu,
 					)
 					Expect(err).ToNot(HaveOccurred())
 				})

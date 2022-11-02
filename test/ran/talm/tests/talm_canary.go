@@ -83,61 +83,61 @@ var _ = Describe("Talm Canary Tests", Label("talmcanary"), func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("creating the enabled cgu wth canaries and associated resources", func() {
-					err := rantalmhelper.CreateSimplePolicyAndCgu(
-						rantalmhelper.HubAPIClient,
-						rantalmhelper.GetNamespaceDefinition(temporaryNamespace),
-						configurationPolicyv1.MustHave,
-						configurationPolicyv1.Inform,
-						rantalmhelper.PolicyName,
-						rantalmhelper.PolicySetName,
-						rantalmhelper.PlacementBindingName,
-						rantalmhelper.PlacementRule,
-						rantalmhelper.Namespace,
-						[]string{
+					By("creating the cgu and associated resources", func() {
+						cgu := rantalmhelper.GetCguDefinition(
+							rantalmhelper.CguName,
+							[]string{rantalmhelper.Spoke2Name, rantalmhelper.Spoke2Name},
+							[]string{rantalmhelper.Spoke2Name},
+							[]string{rantalmhelper.PolicyName},
+							rantalmhelper.Namespace, 1, 15)
+
+						err := rantalmhelper.CreatePolicyAndCgu(
+							rantalmhelper.HubAPIClient,
+							rantalmhelper.GetNamespaceDefinition(temporaryNamespace),
+							configurationPolicyv1.MustHave,
+							configurationPolicyv1.Inform,
+							rantalmhelper.PolicyName,
+							rantalmhelper.PolicySetName,
+							rantalmhelper.PlacementBindingName,
+							rantalmhelper.PlacementRule,
+							rantalmhelper.Namespace,
+							metav1.LabelSelector{},
+							cgu,
+						)
+						Expect(err).ToNot(HaveOccurred())
+					})
+
+					By("making sure the canary cluster (spoke2) starts first", func() {
+						err := rantalmhelper.WaitForClusterInProgressInCgu(
+							rantalmhelper.HubAPIClient,
+							rantalmhelper.CguName,
+							rantalmhelper.Spoke2Name,
+							rantalmhelper.Namespace,
+							rantalmparameters.TalmDefaultReconcileTime,
+						)
+						Expect(err).ToNot(HaveOccurred())
+					})
+
+					By("making sure the non-canary cluster (spoke1) has not started yet", func() {
+						started, err := rantalmhelper.IsClusterStartedInCgu(
+							rantalmhelper.HubAPIClient,
+							rantalmhelper.CguName,
 							rantalmhelper.Spoke1Name,
-							rantalmhelper.Spoke2Name,
-						},
-						metav1.LabelSelector{},
-						[]string{
-							rantalmhelper.Spoke2Name,
-						},
-						rantalmhelper.CguName,
-						15,
-						1,
-					)
+							rantalmhelper.Namespace,
+						)
+						Expect(err).ToNot(HaveOccurred())
+						Expect(started).To(BeFalse())
+					})
+
+					By("waiting for the cgu to finish successfully", func() {
+						err := rantalmhelper.WaitForCguToFinishSuccessfully(rantalmhelper.CguName, rantalmhelper.Namespace)
+						Expect(err).ToNot(HaveOccurred())
+					})
+
+					err = rantalmhelper.CleanupNamespace(clusterList, temporaryNamespace)
 					Expect(err).ToNot(HaveOccurred())
+
 				})
-
-				By("making sure the canary cluster (spoke2) starts first", func() {
-					err := rantalmhelper.WaitForClusterInProgressInCgu(
-						rantalmhelper.HubAPIClient,
-						rantalmhelper.CguName,
-						rantalmhelper.Spoke2Name,
-						rantalmhelper.Namespace,
-						rantalmparameters.TalmDefaultReconcileTime,
-					)
-					Expect(err).ToNot(HaveOccurred())
-				})
-
-				By("making sure the non-canary cluster (spoke1) has not started yet", func() {
-					started, err := rantalmhelper.IsClusterStartedInCgu(
-						rantalmhelper.HubAPIClient,
-						rantalmhelper.CguName,
-						rantalmhelper.Spoke1Name,
-						rantalmhelper.Namespace,
-					)
-					Expect(err).ToNot(HaveOccurred())
-					Expect(started).To(BeFalse())
-				})
-
-				By("waiting for the cgu to finish successfully", func() {
-					err := rantalmhelper.WaitForCguToFinishSuccessfully(rantalmhelper.CguName, rantalmhelper.Namespace)
-					Expect(err).ToNot(HaveOccurred())
-				})
-
-				err = rantalmhelper.CleanupNamespace(clusterList, temporaryNamespace)
-				Expect(err).ToNot(HaveOccurred())
-
 			})
 		})
 	})
