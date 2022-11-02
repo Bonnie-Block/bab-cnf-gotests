@@ -87,6 +87,7 @@ func CreateSimplePolicyAndCgu(
 	client *testClient.ClientSet,
 	object runtime.Object,
 	complianceType configurationPolicyv1.ComplianceType,
+	remediationAction configurationPolicyv1.RemediationAction,
 	policyName string,
 	policySetName string,
 	placementBindingName string,
@@ -101,6 +102,7 @@ func CreateSimplePolicyAndCgu(
 		client,
 		object,
 		complianceType,
+		remediationAction,
 		policyName,
 		policySetName,
 		placementBindingName,
@@ -451,6 +453,7 @@ func WaitForCguToTimeout(cguName string, namespace string) error {
 func GetConfigurationPolicyDefinition(
 	policyName string,
 	complianceType configurationPolicyv1.ComplianceType,
+	remediationAction configurationPolicyv1.RemediationAction,
 	object runtime.Object) configurationPolicyv1.ConfigurationPolicy {
 	return configurationPolicyv1.ConfigurationPolicy{
 		TypeMeta: metav1.TypeMeta{
@@ -462,7 +465,7 @@ func GetConfigurationPolicyDefinition(
 		},
 		Spec: configurationPolicyv1.ConfigurationPolicySpec{
 			Severity:          "low",
-			RemediationAction: "inform",
+			RemediationAction: remediationAction,
 			NamespaceSelector: configurationPolicyv1.Target{
 				Include: []configurationPolicyv1.NonEmptyString{"kube-*"},
 				Exclude: []configurationPolicyv1.NonEmptyString{"*"},
@@ -484,7 +487,11 @@ func GetConfigurationPolicyDefinition(
 }
 
 // GetPolicyDefinition is used to get a policy that can be used with a CGU.
-func GetPolicyDefinition(policyName string, namespace string, object runtime.Object) policiesv1.Policy {
+func GetPolicyDefinition(
+	policyName string,
+	namespace string,
+	object runtime.Object,
+	remediationAction configurationPolicyv1.RemediationAction) policiesv1.Policy {
 	return policiesv1.Policy{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Policy",
@@ -503,7 +510,7 @@ func GetPolicyDefinition(policyName string, namespace string, object runtime.Obj
 					},
 				},
 			},
-			RemediationAction: policiesv1.Inform,
+			RemediationAction: policiesv1.RemediationAction(remediationAction),
 		},
 	}
 }
@@ -645,6 +652,7 @@ func CreatePolicyWithAllComponents(
 	client *testClient.ClientSet,
 	object runtime.Object,
 	complianceType configurationPolicyv1.ComplianceType,
+	remediationAction configurationPolicyv1.RemediationAction,
 	policyName string,
 	policySetName string,
 	placementBindingName string,
@@ -683,9 +691,9 @@ func CreatePolicyWithAllComponents(
 	// Step 1 - Create the policy
 	log.Println("create the policy that the cgu will apply")
 
-	configurationPolicy := GetConfigurationPolicyDefinition(policyName, complianceType, object)
+	configurationPolicy := GetConfigurationPolicyDefinition(policyName, complianceType, remediationAction, object)
 
-	cguPolicy := GetPolicyDefinition(policyName, namespace, &configurationPolicy)
+	cguPolicy := GetPolicyDefinition(policyName, namespace, &configurationPolicy, remediationAction)
 
 	err := CreatePolicyAndWait(client, cguPolicy)
 
@@ -1377,17 +1385,18 @@ func WaitUntilObjectExists(
 	objectName string,
 	namespace string,
 	getStatus func(client *testClient.ClientSet, objectName string, namespace string) (bool, error)) error {
+	// Print the current check
+	log.Printf("Waiting until object '%s' exists in namespace '%s' on client '%s'",
+		objectName,
+		namespace,
+		client.Config.Host,
+	)
+
 	// Wait for it to exist
 	err := wait.PollImmediate(
 		15*time.Second,
 		5*time.Minute,
 		func() (bool, error) {
-			// Print the current check
-			log.Printf("Checking if object '%s' exists in namespace '%s' on client '%s'",
-				objectName,
-				namespace,
-				client.Config.Host,
-			)
 			status, err := getStatus(client, objectName, namespace)
 
 			// Print the check results
@@ -1413,17 +1422,18 @@ func WaitUntilObjectDoesNotExist(
 	objectName string,
 	namespace string,
 	getStatus func(client *testClient.ClientSet, objectName string, namespace string) (bool, error)) error {
+	// Print the current check
+	log.Printf("Waiting until object '%s' does not exist in namespace '%s' on client '%s'",
+		objectName,
+		namespace,
+		client.Config.Host,
+	)
+
 	// Wait for it to exist
 	err := wait.PollImmediate(
 		15*time.Second,
 		5*time.Minute,
 		func() (bool, error) {
-			// Print the current check
-			log.Printf("Checking if object '%s' exists in namespace '%s' on client '%s'",
-				objectName,
-				namespace,
-				client.Config.Host,
-			)
 			status, err := getStatus(client, objectName, namespace)
 
 			// Print the check results

@@ -81,6 +81,7 @@ var _ = Describe("Talm Spoke Tests", func() {
 			It("should report the missing spoke", func() {
 				// Polarion test id 47949
 				// https://issues.redhat.com/browse/CNF-6497
+				log.Println("starting test")
 
 				By("creating the cgu", func() {
 					err := rantalmhelper.CreateCguAndWait(

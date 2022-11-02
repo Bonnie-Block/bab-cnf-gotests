@@ -7,6 +7,7 @@ import (
 	"time"
 
 	testClient "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 
 	configv1 "github.com/openshift/api/config/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -99,6 +100,10 @@ var _ = Describe("Talm precache", func() {
 		var cgu v1alpha1.ClusterGroupUpgrade
 
 		BeforeEach(func() {
+			if !namespaces.Exists(ran.NamespaceTesting, rantalmhelper.HubAPIClient) {
+				Skip(fmt.Sprintf("missing required namespace '%s'", ran.NamespaceTesting))
+			}
+
 			err := DeleteGeneratedCGU(CGUNameOCP, ran.NamespaceTesting)
 			if err != nil {
 				Skip(fmt.Sprintf("could not delete cgu: %s", err))

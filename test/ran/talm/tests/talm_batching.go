@@ -66,7 +66,7 @@ var _ = Describe("Talm Batching Tests", func() {
 		Expect(len(errList)).To(Equal(0))
 	})
 
-	Describe("Single batch test", func() {
+	Describe("Single batch test", Label("talmsinglebatch"), func() {
 		// Context("where the CGU times out", func() {
 		// 	It("reports the timeout value", func() {
 		// 		// Polarion test id 47954
@@ -125,7 +125,7 @@ var _ = Describe("Talm Batching Tests", func() {
 		// })
 	})
 
-	Describe("Two batch test", func() {
+	Describe("Multiple batch test", Label("talmmultibatch"), func() {
 		// Context("where the first batch fails with continue option", func() {
 		// 	It("should finish the remaining batches", func() {
 		// 		// Polarion test id 47952
@@ -149,6 +149,7 @@ var _ = Describe("Talm Batching Tests", func() {
 			It("should completed the CGU", func() {
 				// Polarion test id 47947
 				// https://issues.redhat.com/browse/CNF-6479
+				log.Println("starting test")
 
 				temporaryNamespace := rantalmhelper.Namespace + "-temp"
 
@@ -157,6 +158,7 @@ var _ = Describe("Talm Batching Tests", func() {
 						rantalmhelper.HubAPIClient,
 						rantalmhelper.GetNamespaceDefinition(temporaryNamespace),
 						configurationPolicyv1.MustHave,
+						configurationPolicyv1.Inform,
 						rantalmhelper.PolicyName,
 						rantalmhelper.PolicySetName,
 						rantalmhelper.PlacementBindingName,
