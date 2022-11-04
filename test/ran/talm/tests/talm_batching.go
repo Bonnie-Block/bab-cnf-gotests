@@ -11,6 +11,7 @@ import (
 	testClient "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	configurationPolicyv1 "open-cluster-management.io/config-policy-controller/api/v1"
 )
 
@@ -22,15 +23,15 @@ var _ = Describe("Talm Batching Tests", func() {
 	execute.BeforeAll(func() {
 		// Initialize cluster list
 		clusterList = rantalmhelper.GetAllTestClients()
+	})
 
+	BeforeEach(func() {
 		// Check that the required clusters are present
 		err := rantalmhelper.IsClustersPresent(clusterList)
 		if err != nil {
 			Skip(fmt.Sprintf("error occurred validating required clusters are present: %s", err.Error()))
 		}
-	})
 
-	BeforeEach(func() {
 		// Cleanup state to make it consistent
 		for _, client := range clusterList {
 
@@ -83,6 +84,7 @@ var _ = Describe("Talm Batching Tests", func() {
 						[]string{
 							rantalmhelper.Spoke1Name,
 						},
+						[]string{},
 						[]string{
 							"non-existent-policy",
 						},
@@ -133,12 +135,13 @@ var _ = Describe("Talm Batching Tests", func() {
 		// 	})
 		// })
 		Context("where all batches are successful", func() {
+			// 47947
 			It("should completed the CGU", func() {
-				// Polarion test id 47947
-				// https://issues.redhat.com/browse/CNF-6479
 				log.Println("starting test")
 
 				temporaryNamespace := rantalmhelper.Namespace + "-temp"
+				err := rantalmhelper.CleanupNamespace(clusterList, temporaryNamespace)
+				Expect(err).ToNot(HaveOccurred())
 
 				By("creating the cgu and associated resources", func() {
 					err := rantalmhelper.CreateSimplePolicyAndCgu(
@@ -155,6 +158,8 @@ var _ = Describe("Talm Batching Tests", func() {
 							rantalmhelper.Spoke1Name,
 							rantalmhelper.Spoke2Name,
 						},
+						metav1.LabelSelector{},
+						[]string{},
 						rantalmhelper.CguName,
 						15,
 						1,
@@ -167,16 +172,9 @@ var _ = Describe("Talm Batching Tests", func() {
 					Expect(err).ToNot(HaveOccurred())
 				})
 
-				By("deleting the temporary namespace", func() {
-					for _, client := range clusterList {
-						if namespaces.Exists(temporaryNamespace, client) {
-							err := namespaces.DeleteAndWait(client, temporaryNamespace, 5*time.Minute)
-							Expect(err).ToNot(HaveOccurred())
-						}
-					}
-				})
+				err = rantalmhelper.CleanupNamespace(clusterList, temporaryNamespace)
+				Expect(err).ToNot(HaveOccurred())
 
-				log.Println("completed test")
 			})
 		})
 		// Context("where all the batches fail", func() {

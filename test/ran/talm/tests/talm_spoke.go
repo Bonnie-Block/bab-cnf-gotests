@@ -2,7 +2,6 @@ package tests
 
 import (
 	"fmt"
-	"log"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -24,15 +23,15 @@ var _ = Describe("Talm Spoke Tests", func() {
 			rantalmhelper.HubAPIClient,
 			rantalmhelper.Spoke1APIClient,
 		}
+	})
 
+	BeforeEach(func() {
 		// Check that the required clusters are present
 		err := rantalmhelper.IsClustersPresent(clusterList)
 		if err != nil {
 			Skip(fmt.Sprintf("error occurred validating required clusters are present: %s", err.Error()))
 		}
-	})
 
-	BeforeEach(func() {
 		// Cleanup state to make it consistent
 		for _, client := range clusterList {
 
@@ -78,10 +77,8 @@ var _ = Describe("Talm Spoke Tests", func() {
 	})
 	Describe("One spoke test", func() {
 		Context("where the spoke is missing", func() {
+			// 47949
 			It("should report the missing spoke", func() {
-				// Polarion test id 47949
-				// https://issues.redhat.com/browse/CNF-6497
-				log.Println("starting test")
 
 				By("creating the cgu", func() {
 					err := rantalmhelper.CreateCguAndWait(
@@ -89,6 +86,7 @@ var _ = Describe("Talm Spoke Tests", func() {
 						[]string{
 							"non-existent-cluster",
 						},
+						[]string{},
 						[]string{
 							"non-existent-policy",
 						},
@@ -113,8 +111,6 @@ var _ = Describe("Talm Spoke Tests", func() {
 					)
 					Expect(err).ToNot(HaveOccurred())
 				})
-
-				log.Println("completed test")
 			})
 		})
 	})

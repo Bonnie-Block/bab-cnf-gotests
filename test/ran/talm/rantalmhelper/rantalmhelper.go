@@ -94,6 +94,8 @@ func CreateSimplePolicyAndCgu(
 	placementRule string,
 	namespace string,
 	clustersList []string,
+	clusterSelector metav1.LabelSelector,
+	canaryList []string,
 	cguName string,
 	timeout int,
 	maxConcurrency int) error {
@@ -108,6 +110,8 @@ func CreateSimplePolicyAndCgu(
 		placementBindingName,
 		placementRule,
 		namespace,
+		clustersList,
+		clusterSelector,
 	)
 	if err != nil {
 		return err
@@ -117,6 +121,7 @@ func CreateSimplePolicyAndCgu(
 	err = CreateCguAndWait(
 		client,
 		clustersList,
+		canaryList,
 		[]string{policyName},
 		cguName,
 		namespace,
@@ -138,6 +143,7 @@ func CreateSimplePolicyAndCgu(
 func GetCguDefinition(
 	cguName string,
 	clusterList []string,
+	canaryList []string,
 	managedPolicies []string,
 	namespace string,
 	maxConcurrency int,
@@ -161,9 +167,42 @@ func GetCguDefinition(
 			RemediationStrategy: &v1alpha1.RemediationStrategySpec{
 				MaxConcurrency: maxConcurrency,
 				Timeout:        timeout,
+				Canaries:       canaryList,
 			},
 		},
 	}
+}
+
+// GetCgu is used to get the specified Cgu object from the cluster.
+func GetCgu(client *testClient.ClientSet, cguName string, namespace string) (v1alpha1.ClusterGroupUpgrade, error) {
+	// Validate inputs first
+	if cguName == "" {
+		return v1alpha1.ClusterGroupUpgrade{}, errors.New("provided empty cguName")
+	}
+
+	if namespace == "" {
+		return v1alpha1.ClusterGroupUpgrade{}, errors.New("provided empty namespace")
+	}
+
+	// TALM only runs on the hub so consider non hub API clients to be not existing
+	if client == HubAPIClient {
+		cgu, err := client.ClustergroupupgradesoperatorV1alpha1Interface.
+			ClusterGroupUpgrades(namespace).
+			Get(GetTestContext(), cguName, metav1.GetOptions{})
+
+		// Filter errors that don't matter
+		err = FilterMissingResourceErrors(err)
+		if err != nil {
+			return v1alpha1.ClusterGroupUpgrade{}, err
+		}
+
+		// Check if it matched
+		if cgu.Name == cguName {
+			return *cgu, nil
+		}
+	}
+
+	return v1alpha1.ClusterGroupUpgrade{}, errors.New("resource not found")
 }
 
 // IsCguExist can be used to check if a specific cgu exists.
@@ -177,17 +216,7 @@ func IsCguExist(client *testClient.ClientSet, cguName string, namespace string) 
 		return false, errors.New("provided empty namespace")
 	}
 
-	// TALM only runs on the hub so consider non hub API clients to be not existing
-	if client != HubAPIClient {
-		log.Println("skipping cgu existence check on non-hub cluster")
-
-		return false, nil
-	}
-
-	// Check if it exists
-	_, err := client.ClustergroupupgradesoperatorV1alpha1Interface.
-		ClusterGroupUpgrades(namespace).
-		Get(GetTestContext(), cguName, metav1.GetOptions{})
+	_, err := GetCgu(client, cguName, namespace)
 
 	// Filter errors that don't matter
 	filtered := FilterMissingResourceErrors(err)
@@ -251,6 +280,7 @@ func DeleteCguAndWait(client *testClient.ClientSet, cguName string, namespace st
 func CreateCguAndWait(
 	client *testClient.ClientSet,
 	clustersList []string,
+	canaryList []string,
 	managedPolicies []string,
 	cguName string,
 	namespace string,
@@ -295,6 +325,7 @@ func CreateCguAndWait(
 	cgu := GetCguDefinition(
 		cguName,
 		clustersList,
+		canaryList,
 		managedPolicies,
 		namespace,
 		maxConcurrency,
@@ -658,6 +689,8 @@ func CreatePolicyWithAllComponents(
 	placementBindingName string,
 	placementRule string,
 	namespace string,
+	clusters []string,
+	clusterSelector metav1.LabelSelector,
 ) error {
 	// Step 0 - Validate inputs
 	if client == nil {
@@ -715,10 +748,15 @@ func CreatePolicyWithAllComponents(
 		return err
 	}
 
-	// Step 3 - Create the placement rule
+	// Step 3 - Get a placement field
+	log.Println("creating the generic placement fields")
+
+	fields := GetPlacementFieldDefinition(clusters, clusterSelector)
+
+	// Step 4 - Create the placement rule
 	log.Println("creating the placementrule")
 
-	placement := GetPlacementRuleDefinition(placementRule, namespace)
+	placement := GetPlacementRuleDefinition(placementRule, namespace, fields)
 
 	err = CreatePlacementRuleAndWait(client, placement)
 
@@ -726,7 +764,7 @@ func CreatePolicyWithAllComponents(
 		return err
 	}
 
-	// Step 4 - Create the placement binding
+	// Step 5 - Create the placement binding
 	log.Println("creating the placementbinding")
 
 	placementBinding := GetPlacementBindingDefinition(
@@ -903,8 +941,27 @@ func CreatePlacementBindingAndWait(
 	Placement Rule helpers
 */
 
+// GetPlacementFieldDefinition is used to get a generic placement field for use with a placement rule.
+func GetPlacementFieldDefinition(
+	clusters []string,
+	clusterSelector metav1.LabelSelector) placementrulev1.GenericPlacementFields {
+	// Build the placement object we need in lieu of a flat string list
+	clustersPlacementField := []placementrulev1.GenericClusterReference{}
+	for _, cluster := range clusters {
+		clustersPlacementField = append(clustersPlacementField, placementrulev1.GenericClusterReference{Name: cluster})
+	}
+
+	return placementrulev1.GenericPlacementFields{
+		Clusters:        clustersPlacementField,
+		ClusterSelector: &clusterSelector,
+	}
+}
+
 // GetPlacementRuleDefinition is used to get a placement rule to use with a cgu.
-func GetPlacementRuleDefinition(placementRuleName string, namespace string) placementrulev1.PlacementRule {
+func GetPlacementRuleDefinition(
+	placementRuleName string,
+	namespace string,
+	placementFields placementrulev1.GenericPlacementFields) placementrulev1.PlacementRule {
 	return placementrulev1.PlacementRule{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "PlacementRule",
@@ -915,12 +972,7 @@ func GetPlacementRuleDefinition(placementRuleName string, namespace string) plac
 			Namespace: namespace,
 		},
 		Spec: placementrulev1.PlacementRuleSpec{
-			ClusterConditions: []placementrulev1.ClusterConditionFilter{
-				{
-					Status: "True",
-					Type:   "ManagedClusterConditionAvailable",
-				},
-			},
+			GenericPlacementFields: placementFields,
 		},
 	}
 }
@@ -1239,9 +1291,150 @@ func IsClustersPresent(clients []*testClient.ClientSet) error {
 	return nil
 }
 
+// IsClusterStartedInCgu can be used to check if a particular cluster has started
+// being remediated in the provided cgu and namespace.
+func IsClusterStartedInCgu(
+	client *testClient.ClientSet,
+	cguName string,
+	clusterName string,
+	namespace string) (bool, error) {
+	cgu, err := GetCgu(client, cguName, namespace)
+
+	if err != nil {
+		return false, err
+	}
+
+	clusterStatus := cgu.Status.Status.CurrentBatchRemediationProgress[clusterName]
+	if clusterStatus != nil {
+		if clusterStatus.State != "NotStarted" {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+// IsClusterInProgressInCgu can be used to check if a particular cluster is actively
+// being remediated in the provided cgu and namespace.
+func IsClusterInProgressInCgu(
+	client *testClient.ClientSet,
+	cguName string,
+	clusterName string,
+	namespace string) (bool, error) {
+	cgu, err := GetCgu(client, cguName, namespace)
+	if err != nil {
+		return false, err
+	}
+
+	clusterStatus := cgu.Status.Status.CurrentBatchRemediationProgress[clusterName]
+	if clusterStatus != nil {
+		if clusterStatus.State == "InProgress" {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+// WaitForClusterInProgressInCgu can be used to wait until the provided cluster is actively
+// being remediated in the provided cgu and namespace.
+func WaitForClusterInProgressInCgu(
+	client *testClient.ClientSet,
+	cguName string,
+	clusterName string,
+	namespace string,
+	timeout time.Duration) error {
+	// Print the current check
+	log.Printf("Waiting until cluster '%s' in progress in cgu '%s'",
+		clusterName,
+		cguName,
+	)
+
+	err := wait.PollImmediate(
+		15*time.Second,
+		timeout,
+		func() (bool, error) {
+			ok, err := IsClusterInProgressInCgu(client, cguName, clusterName, namespace)
+			if err != nil {
+				return true, err
+			}
+
+			return ok, nil
+		},
+	)
+
+	return err
+}
+
+// IsClusterCompletedSuccessfullyInCgu can be used to check if a particular cluster
+// has been successfully remediated in the provided cgu and namespace.
+func IsClusterCompletedSuccessfullyInCgu(
+	client *testClient.ClientSet,
+	cguName string,
+	clusterName string,
+	namespace string) (bool, error) {
+	cgu, err := GetCgu(client, cguName, namespace)
+	if err != nil {
+		return false, err
+	}
+
+	clusterStatus := cgu.Status.Status.CurrentBatchRemediationProgress[clusterName]
+	if clusterStatus != nil {
+		if clusterStatus.State == "Completed" {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+// WaitForClusterProgressInCgu can be used to wait until the provided cluster is
+// successfully remediated in the provided cgu and namespace.
+func WaitForClusterSuccessInCgu(
+	client *testClient.ClientSet,
+	cguName string,
+	clusterName string,
+	namespace string,
+	timeout time.Duration) error {
+	// Print the current check
+	log.Printf("Waiting until cluster '%s' in successful in cgu '%s'",
+		clusterName,
+		cguName,
+	)
+
+	err := wait.PollImmediate(
+		15*time.Second,
+		timeout,
+		func() (bool, error) {
+			ok, err := IsClusterCompletedSuccessfullyInCgu(client, cguName, clusterName, namespace)
+			if err != nil {
+				return true, err
+			}
+
+			return ok, nil
+		},
+	)
+
+	return err
+}
+
 /*
 	Cleanup helpers
 */
+
+// CleanupNamespace is used to cleanup a namespace on multiple clients.
+func CleanupNamespace(clients []*testClient.ClientSet, namespace string) error {
+	for _, client := range clients {
+		if namespaces.Exists(namespace, client) {
+			err := namespaces.DeleteAndWait(client, namespace, 5*time.Minute)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
 
 // CleanupTestResourcesOnClient is used to delete everything on a specific cluster.
 func CleanupTestResourcesOnClient(
