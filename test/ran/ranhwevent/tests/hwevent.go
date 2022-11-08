@@ -106,6 +106,40 @@ var _ = Describe("BMER", func() {
 		err = TestEvents(ConsumersList, testEvents, eventService, LocalNodeVendor)
 		Expect(err).ShouldNot(HaveOccurred(), fmt.Sprintf("failed to verify expected events due to: %v", err))
 	})
+	// OCP-47130
+	It("recovers from consumer app restart", func() {
+		if ranhweventparameters.TransportType == ranhweventparameters.TransportHTTP {
+			Skip("Skipping recovery tests for HTTP transport due to https://issues.redhat.com/browse/OCPBUGS-2832")
+		}
+		By("Validate consumer receive events")
+		err := TestEvents(ConsumersList, testEvents, eventService, LocalNodeVendor)
+		Expect(err).ShouldNot(HaveOccurred(), fmt.Sprintf("failed to verify expected events due to: %v", err))
+
+		oldPod, err := ranhweventhelper.GetPodByLabel(ranhweventparameters.ConsumerPodLabel)
+		Expect(err).NotTo(HaveOccurred(), fmt.Sprintf(
+			"failed to get pod by label: %v due to: %v", ranhweventparameters.ConsumerPodLabel, err))
+
+		By(fmt.Sprintf("Delete consumer pod %v and wait for it to restart\n", oldPod.Name))
+		err = ranhweventhelper.RestartPod(ranhweventparameters.ConsumerPodLabel, 5*time.Minute)
+		Expect(err).NotTo(HaveOccurred(), fmt.Sprintf(
+			"failed to restart pod by label %v due to: %v", ranhweventparameters.ConsumerPodLabel, err))
+
+		newPod, err := ranhweventhelper.GetPodByLabel(ranhweventparameters.ConsumerPodLabel)
+		Expect(err).NotTo(HaveOccurred(), fmt.Sprintf(
+			"failed to get pod by label: %v due to: %v", ranhweventparameters.ConsumerPodLabel, err))
+
+		By(fmt.Sprintf("New app pod %v is running\n", newPod.Name))
+		Expect(newPod.Name).NotTo(Equal(oldPod.Name), fmt.Sprintf(
+			"failed to restart pod %v", oldPod.Name))
+
+		By("Wait 5 seconds for consumer to be ready")
+		time.Sleep(5 * time.Second)
+		ConsumersList, _ = ranhweventhelper.GetConsumers()
+
+		By("Validate again consumer receives events")
+		err = TestEvents(ConsumersList, testEvents, eventService, LocalNodeVendor)
+		Expect(err).ShouldNot(HaveOccurred(), fmt.Sprintf("failed to verify expected events due to: %v", err))
+	})
 	// OCP-48698
 	It("delivers 10k Redfish event", func() {
 		Skip("This test times out")

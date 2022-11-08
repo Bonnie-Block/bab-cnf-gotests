@@ -598,10 +598,12 @@ func RestartPod(label string, timeout time.Duration) error {
 		if pod.UID == podUID {
 			return false, nil
 		}
-		if pod.Status.Phase == corev1.PodRunning &&
-			pod.Status.ContainerStatuses[0].Ready &&
-			pod.Status.ContainerStatuses[1].Ready &&
-			pod.Status.ContainerStatuses[2].Ready {
+		if pod.Status.Phase == corev1.PodRunning {
+			for _, c := range pod.Status.ContainerStatuses {
+				if !c.Ready {
+					return false, nil
+				}
+			}
 			log.Printf("Pod %v recovered", pod.Name)
 
 			return true, nil
