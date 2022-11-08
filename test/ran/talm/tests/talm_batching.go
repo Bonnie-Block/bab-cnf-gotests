@@ -68,12 +68,63 @@ var _ = Describe("Talm Batching Tests", func() {
 	})
 
 	Describe("Single batch test", Label("talmsinglebatch"), func() {
-		// Context("where the CGU times out", func() {
-		// 	It("reports the timeout value", func() {
-		// 		// Polarion test id 47954
-		// 		// https://issues.redhat.com/browse/CNF-6491
-		// 	})
-		// })
+		Context("where the CGU times out", func() {
+			// 47954
+			It("reports the timeout value", func() {
+
+				// Temporary namespace that will be created using the cgu
+				temporaryNamespace := rantalmhelper.Namespace + "-temp"
+
+				// If the namespace already exists then that might cause the policy to be considered already
+				// compliant as it is created, so make sure it does not exist
+				err := rantalmhelper.CleanupNamespace(clusterList, temporaryNamespace)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("creating the enabled cgu with an invalid object", func() {
+					cgu := rantalmhelper.GetCguDefinition(
+						rantalmhelper.CguName,
+						[]string{
+							rantalmhelper.Spoke1Name,
+						},
+						[]string{},
+						[]string{
+							rantalmhelper.PolicyName,
+						},
+						rantalmhelper.Namespace,
+						1,
+						4,
+					)
+
+					err := rantalmhelper.CreatePolicyAndCgu(
+						rantalmhelper.HubAPIClient,
+						rantalmhelper.GetInvalidNamespaceDefinition(temporaryNamespace),
+						configurationPolicyv1.MustHave,
+						configurationPolicyv1.Inform,
+						rantalmhelper.PolicyName,
+						rantalmhelper.PolicySetName,
+						rantalmhelper.PlacementBindingName,
+						rantalmhelper.PlacementRule,
+						rantalmhelper.Namespace,
+						metav1.LabelSelector{},
+						cgu,
+					)
+					Expect(err).ToNot(HaveOccurred())
+				})
+
+				By("waiting for the cgu to timeout", func() {
+					err := rantalmhelper.WaitForCguToTimeout(
+						rantalmhelper.CguName,
+						rantalmhelper.Namespace,
+					)
+					Expect(err).ToNot(HaveOccurred())
+				})
+
+				// Hypothetically the namespace should never exist but for safety clean it anyway
+				err = rantalmhelper.CleanupNamespace(clusterList, temporaryNamespace)
+				Expect(err).ToNot(HaveOccurred())
+
+			})
+		})
 		Context("where a managed policy is missing", func() {
 			// 47955
 			It("reports the missing policy", func() {

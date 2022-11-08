@@ -83,6 +83,21 @@ func GetNamespaceDefinition(namespaceName string) *corev1.Namespace {
 	}
 }
 
+// GetInvalidNamespaceDefition gets a namespace object that has its api version and kind fields mixed up.
+// This is useful because this object will never be able to be created by a policy and can therefore
+// be used to force a cgu to timeout for testing failure cases.
+func GetInvalidNamespaceDefinition(namespaceName string) *corev1.Namespace {
+	// Obtain a namespace object
+	namespaceObject := GetNamespaceDefinition(namespaceName)
+
+	// Mix up the API version and Kind fields to create an invalid object
+	// this invalid object cannot be created so the cgu will timeout
+	namespaceObject.APIVersion = namespaceName
+	namespaceObject.Kind = corev1.SchemeGroupVersion.Version
+
+	return namespaceObject
+}
+
 // CreateSimplePolicyAndCgu is used to create a simplified CGU to cover the most common use case.
 // This will automatically create a single policy enforcing the compliance type on the provided object.
 // If you require multiple policies to be managed then consider CreateCgu() instead.
