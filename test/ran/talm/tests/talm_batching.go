@@ -8,6 +8,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/talm/rantalmhelper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/talm/rantalmparameters"
 	testClient "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
@@ -80,6 +81,9 @@ var _ = Describe("Talm Batching Tests", func() {
 				err := rantalmhelper.CleanupNamespace(clusterList, temporaryNamespace)
 				Expect(err).ToNot(HaveOccurred())
 
+				// We will be verifying that the actual timeout is close to this value
+				expectedTimeout := 8
+
 				By("creating the enabled cgu with an invalid object", func() {
 					cgu := rantalmhelper.GetCguDefinition(
 						rantalmhelper.CguName,
@@ -92,7 +96,7 @@ var _ = Describe("Talm Batching Tests", func() {
 						},
 						rantalmhelper.Namespace,
 						1,
-						4,
+						expectedTimeout,
 					)
 
 					err := rantalmhelper.CreatePolicyAndCgu(
@@ -117,6 +121,25 @@ var _ = Describe("Talm Batching Tests", func() {
 						rantalmhelper.Namespace,
 					)
 					Expect(err).ToNot(HaveOccurred())
+				})
+
+				By("validating the timeout value was approximately correct", func() {
+					// We need to get the cgu so we can get the timestamps from it
+					cgu, err := rantalmhelper.GetCgu(rantalmhelper.HubAPIClient, rantalmhelper.CguName, rantalmhelper.Namespace)
+					Expect(err).ToNot(HaveOccurred())
+
+					// Get the start and end time from the cgu status
+					startTime := cgu.Status.Status.StartedAt
+					endTime := cgu.Status.Status.CompletedAt
+
+					// Get the runtime in minutes
+					// We only really care about the minutes here since the test is relatively short
+					runtime := endTime.Minute() - startTime.Minute()
+
+					// We expect that the total runtime should be about equal to the expected timeout
+					// In particular we expect it to be +/- one reconcile loop time (5 minutes)
+					Expect(runtime+int(rantalmparameters.TalmDefaultReconcileTime) >= expectedTimeout)
+					Expect(runtime-int(rantalmparameters.TalmDefaultReconcileTime) <= expectedTimeout)
 				})
 
 				// Hypothetically the namespace should never exist but for safety clean it anyway
