@@ -27,7 +27,7 @@ const (
 	statusFail = "FAIL"
 )
 
-var _ = Describe("HW event proxy", func() {
+var _ = Describe("BMER", func() {
 	var (
 		eventService    *redfish.EventService
 		testEvents      []string
@@ -53,13 +53,16 @@ var _ = Describe("HW event proxy", func() {
 	})
 
 	// OCP-47124
-	It("Validate single Redfish event", func() {
-		By("Send events to redfish and verify them in the consumers")
+	It("delivers Redfish events", func() {
+		By("Request test events from BMC Redfish API and verify events are received in consumer")
 		err := TestEvents(ConsumersList, testEvents, eventService, LocalNodeVendor)
 		Expect(err).ShouldNot(HaveOccurred())
 	})
 	// OCP-47125
-	It("Hw-event-proxy app recovery", func() {
+	It("recovers from hw-event-proxy app restart", func() {
+		if ranhweventparameters.TransportType == ranhweventparameters.TransportHTTP {
+			Skip("Skipping recovery tests for HTTP transport due to https://issues.redhat.com/browse/OCPBUGS-2832")
+		}
 		By("Validate consumer receive events")
 		err := TestEvents(ConsumersList, testEvents, eventService, LocalNodeVendor)
 		Expect(err).ShouldNot(HaveOccurred(), fmt.Sprintf("failed to verify expected events due to: %v", err))
@@ -81,20 +84,30 @@ var _ = Describe("HW event proxy", func() {
 		Expect(newPod.Name).NotTo(Equal(oldPod.Name), fmt.Sprintf(
 			"failed to restart pod %v", oldPod.Name))
 
-		if ranhweventparameters.DebugTest {
-			log.Println("Status after application restart:")
-			log.Printf("pod.Status.Phase: %v running is: %v\n", newPod.Status.Phase, corev1.PodRunning)
-			for index, container := range newPod.Status.ContainerStatuses {
-				log.Printf("container[%v] status: %v\n", index, container.Ready)
-			}
+		By("Validate again consumer receives events")
+		err = TestEvents(ConsumersList, testEvents, eventService, LocalNodeVendor)
+		Expect(err).ShouldNot(HaveOccurred(), fmt.Sprintf("failed to verify expected events due to: %v", err))
+	})
+	// OCP-47129
+	It("recovers from cloud-event-sidecar crash", func() {
+		if ranhweventparameters.TransportType == ranhweventparameters.TransportHTTP {
+			Skip("Skipping recovery tests for HTTP transport due to https://issues.redhat.com/browse/OCPBUGS-2832")
 		}
+		By("Validate consumer receive events")
+		err := TestEvents(ConsumersList, testEvents, eventService, LocalNodeVendor)
+		Expect(err).ShouldNot(HaveOccurred(), fmt.Sprintf("failed to verify expected events due to: %v", err))
+
+		By("Crash cloud-event-sidecar and wait for it to restart")
+		err = ranhweventhelper.RestartSidecar(ranhweventparameters.AppPodLabel, 5*time.Minute)
+		Expect(err).NotTo(HaveOccurred(), fmt.Sprintf(
+			"failed to restart pod by label %v due to: %v", ranhweventparameters.AppPodLabel, err))
 
 		By("Validate again consumer receives events")
 		err = TestEvents(ConsumersList, testEvents, eventService, LocalNodeVendor)
 		Expect(err).ShouldNot(HaveOccurred(), fmt.Sprintf("failed to verify expected events due to: %v", err))
 	})
 	// OCP-48698
-	It("Validate 10k Redfish event", func() {
+	It("delivers 10k Redfish event", func() {
 		Skip("This test times out")
 		if LocalNodeVendor == ranhweventparameters.ZT {
 			Skip("Zt systems found which is too slow in sending many events skipping this test.")

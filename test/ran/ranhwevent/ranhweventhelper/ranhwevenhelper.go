@@ -32,6 +32,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
+	podUtil "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -582,6 +583,7 @@ func RestartPod(label string, timeout time.Duration) error {
 	}
 
 	podUID := pod.UID
+	log.Printf("Deleting pod %v ...", pod.Name)
 	err = helper.Apiclient.Pods(pod.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{})
 
 	if err != nil {
@@ -596,12 +598,80 @@ func RestartPod(label string, timeout time.Duration) error {
 		if pod.UID == podUID {
 			return false, nil
 		}
+		if pod.Status.Phase == corev1.PodRunning &&
+			pod.Status.ContainerStatuses[0].Ready &&
+			pod.Status.ContainerStatuses[1].Ready &&
+			pod.Status.ContainerStatuses[2].Ready {
+			log.Printf("Pod %v recovered", pod.Name)
 
-		return pod.Status.Phase == corev1.PodRunning && pod.Status.ContainerStatuses[0].Ready, nil
+			return true, nil
+		}
+
+		return false, nil
 	})
 
 	if err != nil {
 		return fmt.Errorf("failed to restart pod named %v due to: %w", pod.Name, err)
+	}
+
+	return nil
+}
+
+// RestartSidecar kills the sidecar container in hw-event-proxy pod
+// then waits for a given timeout for the container to be back to Ready.
+func RestartSidecar(label string, timeout time.Duration) error {
+	pod, err := GetPodByLabel(label)
+
+	if err != nil {
+		return err
+	}
+
+	var restartCount int32
+
+	for _, c := range pod.Status.ContainerStatuses {
+		if isCloudEventSidecar(c.Name) {
+			restartCount = c.RestartCount
+
+			break
+		}
+	}
+
+	for _, c := range pod.Spec.Containers {
+		if isCloudEventSidecar(c.Name) {
+			log.Printf("Killing container %v ...", c.Name)
+			buffer, err := podUtil.ExecCommand(helper.Apiclient, pod, []string{"/bin/sh", "-c", "kill 1"}, c.Name)
+
+			if err != nil {
+				return fmt.Errorf("fail to kill sidecar %w: %s", err, buffer.String())
+			}
+
+			break
+		}
+	}
+
+	err = wait.PollImmediate(5*time.Second, timeout, func() (bool, error) {
+		// repolling pod object to get the latest status
+		pod, err := GetPodByLabel(label)
+		if err != nil {
+			return false, err
+		}
+		for _, c := range pod.Status.ContainerStatuses {
+			if isCloudEventSidecar(c.Name) {
+				if (c.RestartCount > restartCount) && c.Ready {
+					log.Printf("Container %v recovered, restart count %v -> %v", c.Name, restartCount, c.RestartCount)
+
+					return true, nil
+				}
+
+				return false, nil
+			}
+		}
+
+		return false, nil
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed to restart container named %v due to: %w", pod.Name, err)
 	}
 
 	return nil
@@ -717,7 +787,7 @@ func GetTransportType(client *client.ClientSet, namespace, deployment string) (t
 	}
 
 	for _, c := range d.Spec.Template.Spec.Containers {
-		if (c.Name == "cloud-event-proxy") || (c.Name == "cloud-event-sidecar") {
+		if isCloudEventSidecar(c.Name) {
 			for _, a := range c.Args {
 				if strings.Contains(a, "transport-host=http") {
 					return ranhweventparameters.TransportHTTP, nil
@@ -738,4 +808,12 @@ func getMapKeys(input map[string][]string) []string {
 	}
 
 	return output
+}
+
+func isCloudEventSidecar(name string) bool {
+	if (name == "cloud-event-proxy") || (name == "cloud-event-sidecar") {
+		return true
+	}
+
+	return false
 }
