@@ -12,6 +12,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ptp/ranptphelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ptp/ranptpparameters"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 	corev1 "k8s.io/api/core/v1"
@@ -79,7 +80,7 @@ var _ = Describe("PTP Events", func() {
 					metav1.DeleteOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
-				err = ranptphelper.WaitForClusterRecover(workerNode)
+				err = ranhelper.WaitForClusterRecover(workerNode, []string{parameters.PtpOperatorNamespace})
 				Expect(err).NotTo(HaveOccurred())
 
 				newPtpDaemonPod, err := ranptphelper.GetPtpDaemonPodFromNode(workerNode)
@@ -98,7 +99,7 @@ var _ = Describe("PTP Events", func() {
 			By("verify event LOCKED after node port went down")
 			helper.SoftRebootNodeAndWaitForDisconnect(&workerNode)
 
-			err = ranptphelper.WaitForClusterRecover(&workerNode)
+			err = ranhelper.WaitForClusterRecover(&workerNode, []string{parameters.PtpOperatorNamespace})
 			Expect(err).NotTo(HaveOccurred())
 
 			ptpDaemonPod, err := ranptphelper.GetPtpDaemonPodFromNode(&workerNode)

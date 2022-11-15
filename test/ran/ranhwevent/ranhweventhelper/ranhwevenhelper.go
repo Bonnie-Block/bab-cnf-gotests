@@ -162,7 +162,7 @@ func GetHTTPS(url string) error {
 
 // GetAppRoute uses ranhweventparameters to query the application exposed path.
 func GetAppRoute() (string, error) {
-	routeList, err := helper.Apiclient.Routes(ranhweventparameters.NamespaceConsumer).List(context.Background(),
+	routeList, err := helper.Apiclient.Routes(parameters.BmerOperatorNamespace).List(context.Background(),
 		metav1.ListOptions{})
 	if err != nil {
 		return "", err
@@ -179,18 +179,18 @@ func GetAppRoute() (string, error) {
 	}
 
 	return "", fmt.Errorf("failed to find route for app: %v in namespace: %v",
-		ranhweventparameters.AppRouteName, ranhweventparameters.NamespaceConsumer)
+		ranhweventparameters.AppRouteName, parameters.BmerOperatorNamespace)
 }
 
 // GetConsumers get all consumer pods that are deployed.
 func GetConsumers() (*corev1.PodList, error) {
-	consumerPods, err := helper.Apiclient.Pods(ranhweventparameters.NamespaceConsumer).List(context.Background(),
+	consumerPods, err := helper.Apiclient.Pods(parameters.BmerOperatorNamespace).List(context.Background(),
 		metav1.ListOptions{
 			LabelSelector: ranhweventparameters.ConsumerPodLabel})
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to get consumer pods from namespace: %v due to: %w",
-			ranhweventparameters.NamespaceConsumer, err)
+			parameters.BmerOperatorNamespace, err)
 	}
 
 	if ranhweventparameters.DebugTest {
@@ -206,11 +206,11 @@ func GetConsumers() (*corev1.PodList, error) {
 func GetDeployImages() (map[string]string, error) {
 	var images = make(map[string]string)
 
-	csvs, err := helper.Apiclient.ClusterServiceVersions(ranhweventparameters.NamespaceConsumer).List(
+	csvs, err := helper.Apiclient.ClusterServiceVersions(parameters.BmerOperatorNamespace).List(
 		context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return images, fmt.Errorf("failed to query ClusterServiceVersions at namespace: %v named: %v due to: %w",
-			ranhweventparameters.NamespaceConsumer, ranhweventparameters.HwEventCsv, err)
+			parameters.BmerOperatorNamespace, ranhweventparameters.HwEventCsv, err)
 	}
 
 	var csv v1alpha1.ClusterServiceVersion
@@ -362,7 +362,7 @@ func DeployConsumers(mirroredImages map[string]string, transportType string) err
 	var retryCounter int
 
 	err = wait.PollImmediate(5*time.Second, 5*time.Minute, func() (bool, error) {
-		deployment, err := helper.Apiclient.Deployments(ranhweventparameters.NamespaceConsumer).Get(
+		deployment, err := helper.Apiclient.Deployments(parameters.BmerOperatorNamespace).Get(
 			context.Background(),
 			ranhweventparameters.ConsumerDeploymentName,
 			metav1.GetOptions{},
@@ -378,7 +378,7 @@ func DeployConsumers(mirroredImages map[string]string, transportType string) err
 		if deployment.Spec.Template.Spec.Containers[0].Image != helper.Config.Ran.HwEventConsumerImage {
 			// Update dummy image to configured value
 			deployment.Spec.Template.Spec.Containers[0].Image = helper.Config.Ran.HwEventConsumerImage
-			_, err = helper.Apiclient.Deployments(ranhweventparameters.NamespaceConsumer).Update(
+			_, err = helper.Apiclient.Deployments(parameters.BmerOperatorNamespace).Update(
 				context.Background(),
 				deployment,
 				metav1.UpdateOptions{},
@@ -422,7 +422,7 @@ func ConfigHwEventProxyObjects() error {
 			helper.Config.Ran.HwEventConfigsDir, pwd)
 	}
 
-	_, err = helper.Apiclient.Deployments(ranhweventparameters.NamespaceConsumer).Get(
+	_, err = helper.Apiclient.Deployments(parameters.BmerOperatorNamespace).Get(
 		context.Background(),
 		ranhweventparameters.ConsumerDeploymentName,
 		metav1.GetOptions{},
@@ -491,7 +491,7 @@ func deployConsumerPod(mirroredImages map[string]string, transportType string) e
 // DestroyConsumers uses parameters from ranhweventparameters to destroy the consumer setup.
 // it returns a map of errors encountered during deletion of the setup.
 func DestroyConsumers() (destroyErrors []error) {
-	deployment, err := helper.Apiclient.Deployments(ranhweventparameters.NamespaceConsumer).Get(
+	deployment, err := helper.Apiclient.Deployments(parameters.BmerOperatorNamespace).Get(
 		context.Background(), ranhweventparameters.ConsumerDeploymentName, metav1.GetOptions{})
 
 	if err == nil {
@@ -513,7 +513,7 @@ func DestroyConsumers() (destroyErrors []error) {
 	}
 
 	err = wait.PollImmediate(5*time.Second, 5*time.Minute, func() (bool, error) {
-		_, err := helper.Apiclient.Deployments(ranhweventparameters.NamespaceConsumer).Get(
+		_, err := helper.Apiclient.Deployments(parameters.BmerOperatorNamespace).Get(
 			context.Background(),
 			ranhweventparameters.ConsumerDeploymentName,
 			metav1.GetOptions{},
@@ -679,10 +679,10 @@ func RestartSidecar(label string, timeout time.Duration) error {
 	return nil
 }
 
-// GetPodByLabel get all pods in the ranhweventparameters.NamespaceConsumer
+// GetPodByLabel get all pods in the parameters.BmerOperatorNamespace
 // that o have a given label.
 func GetPodByLabel(label string) (corev1.Pod, error) {
-	Pods, err := helper.Apiclient.Pods(ranhweventparameters.NamespaceConsumer).List(context.Background(),
+	Pods, err := helper.Apiclient.Pods(parameters.BmerOperatorNamespace).List(context.Background(),
 		metav1.ListOptions{
 			LabelSelector: label})
 

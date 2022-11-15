@@ -15,6 +15,7 @@ import (
 	"github.com/stmcginnis/gofish/redfish"
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhwevent/ranhweventhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhwevent/ranhweventhelper/nodevendor"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhwevent/ranhweventhelper/rfclient"
@@ -78,7 +79,7 @@ var _ = BeforeSuite(func() {
 	// Define the redfish access to the kubernetes operator using a secret
 	err = ranhweventhelper.CreateHwEventSecret(
 		ranhweventparameters.SecretName,
-		ranhweventparameters.NamespaceConsumer,
+		parameters.BmerOperatorNamespace,
 		ranhweventparameters.Redfish.Hostname,
 		ranhweventparameters.Redfish.Username,
 		ranhweventparameters.Redfish.Password)
@@ -90,12 +91,12 @@ var _ = BeforeSuite(func() {
 		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("failed to create secret due to: %v", err))
 	}
 	err = ranhweventhelper.WaitForDeploymentReady(
-		helper.Apiclient, ranhweventparameters.NamespaceConsumer, ranhweventparameters.AppName)
+		helper.Apiclient, parameters.BmerOperatorNamespace, ranhweventparameters.AppName)
 	Expect(err).ShouldNot(HaveOccurred(), fmt.Sprintf(
 		"Hardware event deployment is not ready after creating secret due to: %v", err))
 
 	transportType, err := ranhweventhelper.GetTransportType(
-		helper.Apiclient, ranhweventparameters.NamespaceConsumer, ranhweventparameters.AppName)
+		helper.Apiclient, parameters.BmerOperatorNamespace, ranhweventparameters.AppName)
 	Expect(err).ShouldNot(HaveOccurred(), fmt.Sprintf(
 		"GetTransportType error: %v", err))
 	if transportType != "" {
@@ -182,7 +183,7 @@ var _ = AfterSuite(func() {
 	teardownErrors = append(teardownErrors, destroyErrors...)
 	By("Remove Hw event secret")
 	teardownErrors = append(teardownErrors, ranhweventhelper.DeleteHwEventSecret(
-		ranhweventparameters.NamespaceConsumer, ranhweventparameters.SecretName))
+		parameters.BmerOperatorNamespace, ranhweventparameters.SecretName))
 	By("End redfish session.")
 	ranhweventparameters.Redfish.Session.Logout()
 	By("Purge privileged pods that were created for test")

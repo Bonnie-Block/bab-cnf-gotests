@@ -4,7 +4,6 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ptp/ranptpparameters"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -50,35 +49,6 @@ func GetEventValueFromEnd(ptpPod *corev1.Pod, eventNumFromEnd int) (string, erro
 	msg := EventMsgParser(logStruct.Msg)
 
 	return msg.Data.Values[0].Value, nil
-}
-
-// WaitForClusterRecover waits up to 45 minutes for all clusters in a given node "node" to recover,
-// if at list one cluster is not recovers, an error is occurred.
-func WaitForClusterRecover(node *corev1.Node) error {
-	// Wait for linux to be reachable via ping and record time
-	interval := 5 * time.Second
-
-	helper.WaitForNodeReachable(node)
-
-	err := ranhelper.WaitForClusterReachable()
-	if nil != err {
-		return err
-	}
-
-	workloadStableDuration := 40 * time.Second
-
-	unhealthyWorkloadPods := helper.WaitForAllPodsHealthy(
-		[]string{parameters.PtpOperatorNamespace},
-		45*time.Minute,
-		interval,
-		workloadStableDuration,
-	)
-
-	if len(unhealthyWorkloadPods) != 0 {
-		return fmt.Errorf("at least one pod was not recovered after 45 minutes")
-	}
-
-	return nil
 }
 
 // NodesToPtpDaemonPods gets a list of nodes "nodesList" and a list of ptp daemon pods "podsList".

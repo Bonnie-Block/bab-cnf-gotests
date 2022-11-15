@@ -161,3 +161,32 @@ func conditionFunc() (bool, error) {
 
 	return false, nil
 }
+
+// WaitForClusterRecover waits up to 45 minutes for all pods
+// in `namespaces` projects in a given node `node` to recover.
+func WaitForClusterRecover(node *k8sv1.Node, namespaces []string) error {
+	// Wait for linux to be reachable via ping and record time
+	interval := 5 * time.Second
+
+	helper.WaitForNodeReachable(node)
+
+	err := WaitForClusterReachable()
+	if nil != err {
+		return err
+	}
+
+	workloadStableDuration := 40 * time.Second
+
+	unhealthyWorkloadPods := helper.WaitForAllPodsHealthy(
+		namespaces,
+		45*time.Minute,
+		interval,
+		workloadStableDuration,
+	)
+
+	if len(unhealthyWorkloadPods) != 0 {
+		return fmt.Errorf("at least one pod was not recovered after 45 minutes")
+	}
+
+	return nil
+}

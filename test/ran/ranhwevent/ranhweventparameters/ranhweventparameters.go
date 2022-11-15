@@ -20,7 +20,6 @@ type RedfishConfig struct {
 const (
 	AppName                       = "hw-event-proxy"
 	ConsumerContainerName         = "cloud-event-consumer"
-	NamespaceConsumer             = "openshift-bare-metal-events"
 	AppPodLabel                   = "app=" + AppName
 	ConsumerPodLabel              = "app=consumer"
 	Dell                   string = "dell"
@@ -48,7 +47,7 @@ var (
 	}
 	// ReporterNamespacesToDump tells to reporter from where to collect logs.
 	ReporterNamespacesToDump = map[string]string{
-		parameters.HwEventProxyNamespace: NamespaceConsumer,
+		parameters.BmerOperatorNamespace: "bmer",
 		ran.NamespaceTesting:             "other",
 	}
 	// ReporterCrds tells to reporter what resources to collect.

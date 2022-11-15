@@ -5,14 +5,17 @@ import (
 )
 
 var (
+	AmqNamespace                      string
 	SriovOperatorNamespace            string
 	PtpOperatorNamespace              string
 	MachineConfigOperatorNamespace    string
 	PerformanceAddonOperatorNamespace string
-	HwEventProxyNamespace             string
+	BmerOperatorNamespace             string
 )
 
 func init() {
+	AmqNamespace = "amq-router"
+
 	PtpOperatorNamespace = os.Getenv("PTP_OPERATOR_NAMESPACE")
 	if PtpOperatorNamespace == "" {
 		PtpOperatorNamespace = ptpOperatorNamespace
@@ -34,5 +37,10 @@ func init() {
 
 	if MachineConfigOperatorNamespace == "" {
 		MachineConfigOperatorNamespace = performanceAddonOperatorNamespace
+	}
+
+	BmerOperatorNamespace = os.Getenv("BMER_OPERATOR_NAMESPACE")
+	if BmerOperatorNamespace == "" {
+		BmerOperatorNamespace = bmerOperatorNamespace
 	}
 }

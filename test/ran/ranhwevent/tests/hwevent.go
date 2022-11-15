@@ -15,6 +15,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/stmcginnis/gofish/redfish"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhwevent/ranhweventhelper/nodevendor"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhwevent/ranhweventhelper/rfclient"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhwevent/ranhweventparameters"
@@ -100,7 +102,7 @@ var _ = Describe("BMER", func() {
 		By("Crash cloud-event-sidecar and wait for it to restart")
 		err = ranhweventhelper.RestartSidecar(ranhweventparameters.AppPodLabel, 5*time.Minute)
 		Expect(err).NotTo(HaveOccurred(), fmt.Sprintf(
-			"failed to restart pod by label %v due to: %v", ranhweventparameters.AppPodLabel, err))
+			"failed to restart sidecar on pod %v due to: %v", ranhweventparameters.AppPodLabel, err))
 
 		By("Validate again consumer receives events")
 		err = TestEvents(ConsumersList, testEvents, eventService, LocalNodeVendor)
@@ -140,9 +142,45 @@ var _ = Describe("BMER", func() {
 		err = TestEvents(ConsumersList, testEvents, eventService, LocalNodeVendor)
 		Expect(err).ShouldNot(HaveOccurred(), fmt.Sprintf("failed to verify expected events due to: %v", err))
 	})
+	// OCP-47128
+	It("recovers from node restart", func() {
+		if ranhweventparameters.TransportType == ranhweventparameters.TransportHTTP {
+			Skip("Skipping recovery tests for HTTP transport due to https://issues.redhat.com/browse/OCPBUGS-2832")
+		}
+		By("Validate consumer receive events")
+		err := TestEvents(ConsumersList, testEvents, eventService, LocalNodeVendor)
+		Expect(err).ShouldNot(HaveOccurred(), fmt.Sprintf("failed to verify expected events due to: %v", err))
+
+		workerNode, err := ranhweventhelper.GetWorkerNode()
+		Expect(err).NotTo(HaveOccurred(), fmt.Sprintf(
+			"failed to get worker nodedue to: %v", err))
+
+		helper.SoftRebootNodeAndWaitForDisconnect(workerNode)
+
+		err = ranhelper.WaitForClusterRecover(workerNode, []string{parameters.AmqNamespace, parameters.BmerOperatorNamespace})
+		Expect(err).NotTo(HaveOccurred())
+
+		// Apply workaround for OCPBUGS-3454 by restarting sidecars
+		// Remove this step to verify the fix for OCPBUGS-3454
+		By("Restart cloud-event-sidecar on app pod")
+		err = ranhweventhelper.RestartSidecar(ranhweventparameters.AppPodLabel, 5*time.Minute)
+		Expect(err).NotTo(HaveOccurred(), fmt.Sprintf(
+			"failed to restart sidecar on pod %v due to: %v", ranhweventparameters.AppPodLabel, err))
+
+		// Remove this step to verify the fix for OCPBUGS-3454
+		By("Restart cloud-event-sidecar on consumer pod")
+		err = ranhweventhelper.RestartSidecar(ranhweventparameters.ConsumerPodLabel, 5*time.Minute)
+		Expect(err).NotTo(HaveOccurred(), fmt.Sprintf(
+			"failed to restart sidecar on pod %v due to: %v", ranhweventparameters.ConsumerPodLabel, err))
+
+		By("Validate again consumer receives events")
+		err = TestEvents(ConsumersList, testEvents, eventService, LocalNodeVendor)
+		Expect(err).ShouldNot(HaveOccurred(), fmt.Sprintf("failed to verify expected events due to: %v", err))
+	})
+
 	// OCP-48698
 	It("delivers 10k Redfish event", func() {
-		Skip("This test times out")
+		Skip("Skip in regular test suite since this test takes long time.")
 		if LocalNodeVendor == ranhweventparameters.ZT {
 			Skip("Zt systems found which is too slow in sending many events skipping this test.")
 		}
@@ -253,7 +291,7 @@ func ConsumerVerifyEvents(cancelCtx context.Context, consumerPod corev1.Pod, exp
 		line          string
 	)
 
-	req := helper.Apiclient.Pods(ranhweventparameters.NamespaceConsumer).GetLogs(consumerPod.Name,
+	req := helper.Apiclient.Pods(parameters.BmerOperatorNamespace).GetLogs(consumerPod.Name,
 		&corev1.PodLogOptions{
 			Container: ranhweventparameters.ConsumerContainerName,
 			Follow:    true,
