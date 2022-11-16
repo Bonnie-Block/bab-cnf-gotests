@@ -2,6 +2,7 @@ package tests
 
 import (
 	"context"
+	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -55,13 +56,13 @@ var _ = Describe("PTP Events", func() {
 			nodeToPtpDaemonPod := ranptphelper.NodesToPtpDaemonPods(workerNodesList, ptpDaemonPods)
 
 			for workerNode, ptpDaemonPod := range nodeToPtpDaemonPod {
-				By("verify event LOCKED")
+				By(fmt.Sprintf("verify event [LOCKED] on node %s", workerNode.Name))
 				lastEvent, err := ranptphelper.GetLastEventValue(ptpDaemonPod)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(lastEvent).Should(Equal(ranptpparameters.Locked))
 
 				// kill ptp pod.
-				By("verify event LOCKED after killing the publisher pod")
+				By("verify event [LOCKED] after killing the publisher pod")
 				err = helper.Apiclient.Pods(parameters.PtpOperatorNamespace).Delete(context.Background(),
 					ptpDaemonPod.Name,
 					metav1.DeleteOptions{})
@@ -83,7 +84,7 @@ var _ = Describe("PTP Events", func() {
 
 			// Node reboot for only one of the nodes
 			workerNode := workerNodesList[0]
-			By("verify event LOCKED after node port went down")
+			By(fmt.Sprintf("verify event [LOCKED] after node %s port went down", workerNode.Name))
 			helper.SoftRebootNodeAndWaitForDisconnect(&workerNode)
 
 			err = ranhelper.WaitForClusterRecover(&workerNode, []string{parameters.PtpOperatorNamespace})

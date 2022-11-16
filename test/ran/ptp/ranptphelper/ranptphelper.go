@@ -1,18 +1,15 @@
 package ranptphelper
 
 import (
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ptp/ranptpparameters"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
-
 	"context"
 	"fmt"
-	"log"
-	"strings"
+
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"time"
 )
 
@@ -22,33 +19,33 @@ func GetLastEventValue(ptpPod *corev1.Pod) (string, error) {
 	return GetEventValueFromEnd(ptpPod, 0)
 }
 
-// GetEventValueFromEnd gets a pod, "pod", and returns the "eventNumFromEnd" before last value of published event,
-// if no event was published within the last 24 hours, an error is occurred.
-func GetEventValueFromEnd(ptpPod *corev1.Pod, eventNumFromEnd int) (string, error) {
-	logs, err := pod.GetLog(helper.Apiclient, ptpPod, 24*time.Hour, ranptpparameters.ContainerName)
+// WaitForClusterRecover waits up to 45 minutes for all clusters in a given node "node" to recover,
+// if at list one cluster is not recovers, an error is occurred.
+func WaitForClusterRecover(node *corev1.Node) error {
+	// Wait for linux to be reachable via ping and record time
+	interval := 5 * time.Second
+
+	helper.WaitForNodeReachable(node)
+
+	err := ranhelper.WaitForClusterReachable()
 	if nil != err {
-		return "", err
+		return err
 	}
 
-	var eventStrings []string
-	eventStrings = getEventsLogs(logs, eventStrings)
+	workloadStableDuration := 40 * time.Second
 
-	eventStringsLen := len(eventStrings)
-	if eventStringsLen == 0 {
-		return "", fmt.Errorf("no events were found")
+	unhealthyWorkloadPods := helper.WaitForAllPodsHealthy(
+		[]string{parameters.PtpOperatorNamespace},
+		45*time.Minute,
+		interval,
+		workloadStableDuration,
+	)
+
+	if len(unhealthyWorkloadPods) != 0 {
+		return fmt.Errorf("at least one pod was not recovered after 45 minutes")
 	}
 
-	eventIndex := eventStringsLen - eventNumFromEnd - 1
-	if 0 > eventIndex {
-		return "", fmt.Errorf("no events exisit %d before the last event", eventNumFromEnd)
-	}
-
-	lastLogEvent := eventStrings[len(eventStrings)-eventNumFromEnd-1]
-
-	logStruct := LogStrToLogStrct(lastLogEvent)
-	msg := EventMsgParser(logStruct.Msg)
-
-	return msg.Data.Values[0].Value, nil
+	return nil
 }
 
 // NodesToPtpDaemonPods gets a list of nodes "nodesList" and a list of ptp daemon pods "podsList".
@@ -92,54 +89,14 @@ func GetPtpDaemonPodFromNode(node *corev1.Node) (*corev1.Pod, error) {
 	return nil, fmt.Errorf("no new ptp daemon pod were created in %s node", node.Name)
 }
 
-// WaitForLastEvent waits at least 5 seconds and up to 1 minute for the last event.
-// The function returns the last events and an error if any occurred.
-func WaitForLastEvent(ptpPod *corev1.Pod) (string, error) {
-	log.Println("Waiting at least 5 seconds for new event")
-
-	currEventValue, err := GetLastEventValue(ptpPod)
+// GetTimeoutVal gets the timeout value in seconds from the ptp configuration.
+// return value:    the holdover timeout duration and an error if any occurred.
+func GetTimeoutVal() (time.Duration, error) {
+	configList, err := helper.Apiclient.PtpConfigs(parameters.PtpOperatorNamespace).List(context.Background(),
+		metav1.ListOptions{})
 	if nil != err {
-		return "", err
+		return 0, err
 	}
 
-	var newEventValue string
-
-	err = wait.Poll(5*time.Second, 1*time.Minute, func() (bool, error) {
-		// conditional function that checks if no new event accorded during the last 5 seconds
-		newEventValue, err = GetLastEventValue(ptpPod)
-		if nil != err {
-			return false, err
-		}
-
-		if currEventValue != newEventValue {
-			currEventValue = newEventValue
-
-			return false, nil
-		}
-
-		return true, nil
-	})
-
-	if nil != err {
-		return "", err
-	}
-
-	log.Println("Got the last event")
-
-	return newEventValue, nil
-}
-
-// getEventsLogs gets a long string "logs" and an empty array of strings "eventStrings".
-// and fills "eventStrings" array with the logs that contain event state value.
-func getEventsLogs(logs string, eventStrings []string) []string {
-	logsSlice := strings.Split(logs, "\n")
-	for _, line := range logsSlice {
-		if strings.Contains(line, ranptpparameters.FreeRun) ||
-			strings.Contains(line, ranptpparameters.Locked) ||
-			strings.Contains(line, ranptpparameters.HoldOver) {
-			eventStrings = append(eventStrings, line)
-		}
-	}
-
-	return eventStrings
+	return time.Duration(configList.Items[0].Spec.Profile[0].PtpClockThreshold.HoldOverTimeout) * time.Second, nil
 }

@@ -1,6 +1,8 @@
 package ranptphelper
 
 import (
+	"fmt"
+
 	ptpv1api "github.com/openshift/ptp-operator/api/v1"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
@@ -10,14 +12,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"context"
-	"fmt"
 	"strconv"
 	"strings"
 )
 
 // GetInterfaces gets an interface role, "mode" and returns the interfaces' ID as a slice.
 // the function returns only "master" or "slave" interfaces.
-// an error are returned if any accord.
+// an error is returned if any occurred.
 func GetInterfaces(mode ptpv1api.PtpRole) ([]string, error) {
 	var interfaces []string
 
@@ -27,13 +28,15 @@ func GetInterfaces(mode ptpv1api.PtpRole) ([]string, error) {
 		return interfaces, err
 	}
 
+	interfacesRoleMap := make(map[string]ranptpparameters.RoleMap)
 	for _, config := range configList.Items {
-		err := interfaceSectionParser(config)
+		interfacesRoleMap, err = interfaceSectionParser(config, interfacesRoleMap)
 		if err != nil {
 			return interfaces, err
 		}
 	}
 
+	ranptpparameters.InterfacesRoleMap = interfacesRoleMap
 	for index, section := range ranptpparameters.InterfacesRoleMap {
 		if section["masterOnly"] == strconv.Itoa(int(mode)) {
 			interfaces = append(interfaces, index)
@@ -59,15 +62,14 @@ func SetInterfaceStatus(clientPod *corev1.Pod,
 
 // interfaceSectionParser parses the interface section of a given pointer to configuration file, "config".
 // an error is returned if any accord.
-func interfaceSectionParser(config ptpv1api.PtpConfig) error {
+func interfaceSectionParser(config ptpv1api.PtpConfig,
+	interfacesRoleMap map[string]ranptpparameters.RoleMap) (map[string]ranptpparameters.RoleMap, error) {
 	err := checkConfiguration(config)
 	if nil != err {
-		return err
+		return nil, err
 	}
 
 	lines := strings.Split(*config.Spec.Profile[0].Ptp4lConf, "\n")
-
-	ranptpparameters.InterfacesRoleMap = make(map[string]ranptpparameters.RoleMap)
 
 	for i, line := range lines {
 		if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
@@ -78,12 +80,12 @@ func interfaceSectionParser(config ptpv1api.PtpConfig) error {
 				ifaceRoleSlice := strings.Split(role, " ")
 				ifaceRole := make(map[string]string)
 				ifaceRole[ifaceRoleSlice[0]] = ifaceRoleSlice[1]
-				ranptpparameters.InterfacesRoleMap[ifaceID] = ifaceRole
+				interfacesRoleMap[ifaceID] = ifaceRole
 			}
 		}
 	}
 
-	return nil
+	return interfacesRoleMap, nil
 }
 
 // checkConfiguration returns an error in the following cases:

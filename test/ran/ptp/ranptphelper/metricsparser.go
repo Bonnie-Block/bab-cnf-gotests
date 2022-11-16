@@ -3,14 +3,14 @@ package ranptphelper
 import (
 	"bytes"
 	"fmt"
-	"math/big"
-	"strconv"
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ptp/ranptpparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 	corev1 "k8s.io/api/core/v1"
 
+	"math/big"
+	"strconv"
 	"strings"
 )
 
