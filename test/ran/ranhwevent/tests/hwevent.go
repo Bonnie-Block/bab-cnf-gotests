@@ -177,22 +177,6 @@ var _ = Describe("BMER", func() {
 		err = TestEvents(ConsumersList, testEvents, eventService, LocalNodeVendor)
 		Expect(err).ShouldNot(HaveOccurred(), fmt.Sprintf("failed to verify expected events due to: %v", err))
 	})
-
-	// OCP-48698
-	It("delivers 10k Redfish event", func() {
-		Skip("Skip in regular test suite since this test takes long time.")
-		if LocalNodeVendor == ranhweventparameters.ZT {
-			Skip("Zt systems found which is too slow in sending many events skipping this test.")
-		}
-		var manyEvents []string
-		for i := 0; i < 10000/len(testEvents); i++ {
-			manyEvents = append(manyEvents, testEvents...)
-		}
-
-		By("Send events to redfish and verify them in the consumers")
-		err := TestEvents(ConsumersList, manyEvents, eventService, LocalNodeVendor)
-		Expect(err).ShouldNot(HaveOccurred())
-	})
 })
 
 // VerifyEvents collects channel messages from the go routines supervising the consumers
