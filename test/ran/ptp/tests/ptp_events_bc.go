@@ -38,14 +38,12 @@ var _ = Describe("PTP Events", Ordered, func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		// Get the metrics details before changes_ptp_events_bc
-		ptpMetricsBuff, err := ranptphelper.GetPTPMetrics(ptpDaemonPods.Items[0])
-		Expect(err).NotTo(HaveOccurred())
-		err = ranptphelper.MetricParser(ptpMetricsBuff)
+		err := ranptphelper.GetPTPMetrics(ptpDaemonPods.Items[0])
 		Expect(err).NotTo(HaveOccurred())
 	})
 
 	BeforeEach(func() {
-		// Validate that PTP event container is running
+		// Validate that PTP event container is running1
 		ptpDaemonPods, err = helper.Apiclient.Pods(parameters.PtpOperatorNamespace).List(context.Background(),
 			metav1.ListOptions{
 				LabelSelector: parameters.PtpDaemonsetLabelSelector})
@@ -85,13 +83,13 @@ var _ = Describe("PTP Events", Ordered, func() {
 			nodeToPtpDaemonPod := ranptphelper.NodesToPtpDaemonPods(workerNodesList, ptpDaemonPods)
 
 			for workerNode, ptpDaemonPod := range nodeToPtpDaemonPod {
-				By("verify event LOCKED")
+				By("verify event [LOCKED]")
 				lastEvent, err := ranptphelper.GetLastEventValue(ptpDaemonPod)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(lastEvent).Should(Equal(ranptpparameters.Locked))
 
 				// kill ptp pod.
-				By("verify event LOCKED after killing the publisher pod")
+				By("verify event [LOCKED] after killing the publisher pod")
 				err = helper.Apiclient.Pods(parameters.PtpOperatorNamespace).Delete(context.Background(),
 					ptpDaemonPod.Name,
 					metav1.DeleteOptions{})
@@ -129,7 +127,7 @@ var _ = Describe("PTP Events", Ordered, func() {
 		})
 	})
 	Context("PTP events metrics", func() {
-		It("should have 'LOCKED' clock state", func() {
+		It("should have [LOCKED] clock state", func() {
 			for _, clockValueState := range ranptpparameters.MetricMap["openshift_ptp_clock_state"] {
 				if clockValueState.Interface != "master" {
 					Expect(clockValueState.ClockStateValue).Should(Equal(ranptpparameters.LockedState))
@@ -159,9 +157,8 @@ var _ = Describe("PTP Events", Ordered, func() {
 					By(fmt.Sprintf("verify phc2sys is on [LOCKED] state "+
 						"before slave NIC interface %s goes down on node %s", iface, workerNode.Name))
 					// metrics check
-					ptpMetricsBuff, err := ranptphelper.GetPTPMetrics(ptpDaemonPods.Items[0])
-					Expect(err).NotTo(HaveOccurred())
-					err = ranptphelper.MetricParser(ptpMetricsBuff)
+					log.Printf("Metrics check")
+					err := ranptphelper.GetPTPMetrics(ptpDaemonPods.Items[0])
 					Expect(err).NotTo(HaveOccurred())
 					for _, processState := range ranptpparameters.MetricMap["openshift_ptp_clock_state"] {
 						if iface == processState.Interface {
@@ -177,14 +174,14 @@ var _ = Describe("PTP Events", Ordered, func() {
 						ranptpparameters.Off)
 					Expect(err).NotTo(HaveOccurred())
 					// events check
+					log.Printf("Events check")
 					eventSlaveDown, err := ranptphelper.GetEventValueFromEndOfEventByKeyValue(ptpDaemonPod,
 						map[string]string{"type": "event.sync.ptp-status.ptp-state-change"}, 0)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(eventSlaveDown).Should(Equal(ranptpparameters.HoldOver))
 					// metrics check
-					ptpMetricsBuff, err = ranptphelper.GetPTPMetrics(ptpDaemonPods.Items[0])
-					Expect(err).NotTo(HaveOccurred())
-					err = ranptphelper.MetricParser(ptpMetricsBuff)
+					log.Printf("Metrics check")
+					err = ranptphelper.GetPTPMetrics(ptpDaemonPods.Items[0])
 					Expect(err).NotTo(HaveOccurred())
 					for _, processState := range ranptpparameters.MetricMap["openshift_ptp_clock_state"] {
 						if iface == processState.Interface {
@@ -201,14 +198,14 @@ var _ = Describe("PTP Events", Ordered, func() {
 					By(fmt.Sprintf("verify event [FREERUN] after salve interface "+
 						"%s goes down on node %s", iface, workerNode.Name))
 					// events check
+					log.Printf("Events check")
 					eventHoldoverTimeout, err := ranptphelper.GetEventValueFromEndOfEventByKeyValue(ptpDaemonPod,
 						map[string]string{"type": "event.sync.ptp-status.ptp-state-change"}, 0)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(eventHoldoverTimeout).Should(Equal(ranptpparameters.FreeRun))
 					// metrics check
-					ptpMetricsBuff, err = ranptphelper.GetPTPMetrics(ptpDaemonPods.Items[0])
-					Expect(err).NotTo(HaveOccurred())
-					err = ranptphelper.MetricParser(ptpMetricsBuff)
+					log.Printf("Metrics check")
+					err = ranptphelper.GetPTPMetrics(ptpDaemonPods.Items[0])
 					Expect(err).NotTo(HaveOccurred())
 					for _, processState := range ranptpparameters.MetricMap["openshift_ptp_clock_state"] {
 						if iface == processState.Interface {
@@ -216,7 +213,7 @@ var _ = Describe("PTP Events", Ordered, func() {
 						}
 					}
 
-					By(fmt.Sprintf("verify event entering to Locked state after salve interface"+
+					By(fmt.Sprintf("verify event entering to [LOCKED] state after salve interface"+
 						" %s goes up on node %s", iface, workerNode.Name))
 					err = ranptphelper.SetInterfaceStatus(&ptpDaemonPods.Items[0],
 						parameters.PtpContainerName,
@@ -227,14 +224,14 @@ var _ = Describe("PTP Events", Ordered, func() {
 					log.Println("10 seconds timeout after interface went up")
 					time.Sleep(10 * time.Second)
 					// events check
+					log.Printf("Events check")
 					eventSlaveUp, err := ranptphelper.GetEventValueFromEndOfEventByKeyValue(ptpDaemonPod,
 						map[string]string{"type": "event.sync.ptp-status.ptp-state-change"}, 0)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(eventSlaveUp).Should(Equal(ranptpparameters.Locked))
 					// metrics check
-					ptpMetricsBuff, err = ranptphelper.GetPTPMetrics(ptpDaemonPods.Items[0])
-					Expect(err).NotTo(HaveOccurred())
-					err = ranptphelper.MetricParser(ptpMetricsBuff)
+					log.Printf("Metrics check")
+					err = ranptphelper.GetPTPMetrics(ptpDaemonPods.Items[0])
 					Expect(err).NotTo(HaveOccurred())
 					for _, processState := range ranptpparameters.MetricMap["openshift_ptp_clock_state"] {
 						if iface == processState.Interface {
@@ -252,7 +249,7 @@ var _ = Describe("PTP Events", Ordered, func() {
 			for workerNode, ptpDaemonPod := range nodeToPtpDaemonPod {
 				for _, iface := range ifaces {
 					By(fmt.Sprintf(
-						"verify event is still in Locked state after master interface"+
+						"verify event is still on [LOCKED] state after master interface"+
 							" %s goes down on node %s", iface, workerNode.Name))
 					err = ranptphelper.SetInterfaceStatus(ptpDaemonPod,
 						parameters.PtpContainerName,
@@ -264,7 +261,7 @@ var _ = Describe("PTP Events", Ordered, func() {
 					Expect(err).NotTo(HaveOccurred())
 					Expect(lastEvent).Should(Equal(ranptpparameters.Locked))
 
-					By(fmt.Sprintf("verify event is still in Locked state after master interface %s goes up",
+					By(fmt.Sprintf("verify event is still on [LOCKED] state after master interface %s goes up",
 						iface))
 					err = ranptphelper.SetInterfaceStatus(&ptpDaemonPods.Items[0],
 						parameters.PtpContainerName,
@@ -279,7 +276,7 @@ var _ = Describe("PTP Events", Ordered, func() {
 		})
 	})
 
-	Context("rests process", func() {
+	Context("resets process", func() {
 		It("should recover the phc2sys process after killing it", func() {
 			nodeToPtpDaemonPod := ranptphelper.NodesToPtpDaemonPods(workerNodesList, ptpDaemonPods)
 			for workerNode, ptpDaemonPod := range nodeToPtpDaemonPod {

@@ -119,7 +119,7 @@ func updateObject(obj *unstructured.Unstructured) error {
 	return helper.Apiclient.Client.Update(context.TODO(), obj)
 }
 
-// IsContainerExists check if a given contained, 'containerName', exists in a given pod, 'pod'.
+// IsContainerExistInPod check if a given contained, 'containerName', exists in a given pod, 'pod'.
 // the function return 'true' if the container exists and 'false' if not.
 func IsContainerExistInPod(pod k8sv1.Pod, containerName string) bool {
 	containers := pod.Status.ContainerStatuses
