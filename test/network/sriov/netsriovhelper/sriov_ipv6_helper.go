@@ -9,6 +9,7 @@ import (
 	. "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/sriov/netsriovparameters"
 
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/nethelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/netparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/cluster"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
@@ -27,6 +28,10 @@ func TestSriovIPv6Scenario(
 	clientMacAddress,
 	serverMacAddress,
 	ipam string) {
+	if ipam == netsriovparameters.IpamWhereabouts {
+		nethelper.WaitUntilIPPoolIsEmpty("2001-1db8-85a3---126")
+	}
+
 	By("Validating test parameters")
 
 	connectivityParameters, err := netsriovparameters.NewConnectivityTestParameters(mtu, connectivity, protocol, false)

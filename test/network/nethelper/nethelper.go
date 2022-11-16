@@ -393,6 +393,23 @@ func defineSriovNetworkMetaPlugins(pluginConfig string) func(network *sriovv1.Sr
 	}
 }
 
+func WaitUntilIPPoolIsEmpty(ipPoolName string) {
+	_, err := helper.Apiclient.IPPools(netparameters.MultusNamespace).Get(
+		context.TODO(), ipPoolName, metav1.GetOptions{})
+
+	if err == nil {
+		gomega.Eventually(func() bool {
+			IPPool, err := helper.Apiclient.IPPools(netparameters.MultusNamespace).Get(
+				context.TODO(), ipPoolName, metav1.GetOptions{})
+			if err != nil {
+				return false
+			}
+
+			return len(IPPool.Spec.Allocations) == 0
+		}, 30, 3*time.Second).Should(gomega.BeTrue(), "error IPPools don't release ip address")
+	}
+}
+
 func lastAddr(network *net.IPNet) (net.IP, error) {
 	if network.IP.To4() == nil {
 		return net.IP{}, fmt.Errorf("%s", "does not support IPv6 addresses.")
