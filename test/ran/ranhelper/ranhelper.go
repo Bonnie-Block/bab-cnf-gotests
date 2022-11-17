@@ -190,3 +190,13 @@ func WaitForClusterRecover(node *k8sv1.Node, namespaces []string) error {
 
 	return nil
 }
+
+// Assumes rsa key is imported.
+func ExecSSHCommand(host string, user string, subcommands []string) (string, error) {
+	args := []string{"-o", "ConnectTimeout=10", "-o", "ControlMaster=auto", "-o", "ControlPersist=60s", "-o",
+		"BatchMode=yes", "-o", "StrictHostKeyChecking=no", "-l", user, host}
+	args = append(args, subcommands...)
+	output, err := helper.ExecAndLogCommand(true, 1*time.Minute, "ssh", args...)
+
+	return string(output), err
+}
