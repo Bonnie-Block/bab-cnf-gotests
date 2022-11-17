@@ -16,7 +16,14 @@ const (
 	TalmPodLabelSelector     = "pod-template-hash"
 	TalmPodNameHub           = "cluster-group-upgrades-controller-manager"
 	TalmTestNamespace        = "talm-test"
-	TalmTestPollInterval     = 15 * time.Second
+	TalmTestPollInterval     = 5 * time.Second
+	// common prefix.
+	PolicyNameCommonName       = "generated-policy"
+	PolicySetNameCommonName    = "generated-policyset"
+	PlacementRuleCommonName    = "generated-placementrule"
+	PlacementBindingCommonName = "generated-placementbinding"
+	CguCommonName              = "generated-cgu"
+	NsCommonName               = "generated-namespace"
 )
 
 var (

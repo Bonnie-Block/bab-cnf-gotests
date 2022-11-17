@@ -75,7 +75,7 @@ func GetAllTestClients() []*testClient.ClientSet {
 
 // GetNamespaceDefinition gets a namespace object with the provided name.
 func GetNamespaceDefinition(namespaceName string) *corev1.Namespace {
-	return &corev1.Namespace{
+	customResource := &corev1.Namespace{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Namespace",
 			APIVersion: corev1.SchemeGroupVersion.Version,
@@ -84,6 +84,12 @@ func GetNamespaceDefinition(namespaceName string) *corev1.Namespace {
 			Name: namespaceName,
 		},
 	}
+
+	if err := PrintCr(customResource); err != nil {
+		log.Println("error printing cr: ", err)
+	}
+
+	return customResource
 }
 
 // CreateSimplePolicyAndCgu is used to create a simplified CGU to cover the most common use case.
@@ -144,7 +150,7 @@ func GetCguDefinition(
 	namespace string,
 	maxConcurrency int,
 	timeout int) v1alpha1.ClusterGroupUpgrade {
-	return v1alpha1.ClusterGroupUpgrade{
+	customResource := v1alpha1.ClusterGroupUpgrade{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ClusterGroupUpgrade",
 			APIVersion: v1alpha1.SchemeGroupVersion.Version,
@@ -167,6 +173,12 @@ func GetCguDefinition(
 			},
 		},
 	}
+
+	if err := PrintCr(customResource); err != nil {
+		log.Println("error printing cr: ", err)
+	}
+
+	return customResource
 }
 
 // GetCgu is used to get the specified Cgu object from the cluster.
@@ -360,6 +372,9 @@ func WaitForCguInCondition(
 				return false, err
 			}
 
+			log.Printf("%s in %s current conditions: Message[%v]",
+				cguName, namespace, clusterGroupUpgrade.Status.Conditions)
+
 			// Get the condition
 			condition := meta.FindStatusCondition(clusterGroupUpgrade.Status.Conditions, conditionType)
 
@@ -369,9 +384,6 @@ func WaitForCguInCondition(
 
 				return false, nil
 			}
-
-			log.Printf("%s in %s current condition - Status[%s]: Message[%s]",
-				cguName, namespace, condition.Status, condition.Message)
 
 			// Check the status if it was defined
 			if expectedStatus != "" {
@@ -483,7 +495,7 @@ func GetConfigurationPolicyDefinition(
 	complianceType configurationPolicyv1.ComplianceType,
 	remediationAction configurationPolicyv1.RemediationAction,
 	object runtime.Object) configurationPolicyv1.ConfigurationPolicy {
-	return configurationPolicyv1.ConfigurationPolicy{
+	customResource := configurationPolicyv1.ConfigurationPolicy{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ConfigurationPolicy",
 			APIVersion: "policy.open-cluster-management.io/v1",
@@ -512,6 +524,12 @@ func GetConfigurationPolicyDefinition(
 			},
 		},
 	}
+
+	if err := PrintCr(customResource); err != nil {
+		log.Println("error printing cr: ", err)
+	}
+
+	return customResource
 }
 
 // GetPolicyDefinition is used to get a policy that can be used with a CGU.
@@ -520,7 +538,7 @@ func GetPolicyDefinition(
 	namespace string,
 	object runtime.Object,
 	remediationAction configurationPolicyv1.RemediationAction) policiesv1.Policy {
-	return policiesv1.Policy{
+	customResource := policiesv1.Policy{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Policy",
 			APIVersion: policiesv1.SchemeGroupVersion.Version,
@@ -541,6 +559,12 @@ func GetPolicyDefinition(
 			RemediationAction: policiesv1.RemediationAction(remediationAction),
 		},
 	}
+
+	if err := PrintCr(customResource); err != nil {
+		log.Println("error printing cr: ", err)
+	}
+
+	return customResource
 }
 
 // GetPolicy is used to get the specified policy object from the cluster.
@@ -790,7 +814,7 @@ func GetPlacementBindingDefinition(
 	policySetName string,
 	placementRuleName string,
 	namespace string) policiesv1.PlacementBinding {
-	return policiesv1.PlacementBinding{
+	customResource := policiesv1.PlacementBinding{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "PlacementBinding",
 			APIVersion: policiesv1.SchemeGroupVersion.Version,
@@ -812,6 +836,12 @@ func GetPlacementBindingDefinition(
 			},
 		},
 	}
+
+	if err := PrintCr(customResource); err != nil {
+		log.Println("error printing cr: ", err)
+	}
+
+	return customResource
 }
 
 // GetPlacementBinding can be used to get a specific placement binding object from the cluster.
@@ -948,10 +978,16 @@ func GetPlacementFieldDefinition(
 		clustersPlacementField = append(clustersPlacementField, placementrulev1.GenericClusterReference{Name: cluster})
 	}
 
-	return placementrulev1.GenericPlacementFields{
+	customResource := placementrulev1.GenericPlacementFields{
 		Clusters:        clustersPlacementField,
 		ClusterSelector: &clusterSelector,
 	}
+
+	if err := PrintCr(customResource); err != nil {
+		log.Println("error printing cr: ", err)
+	}
+
+	return customResource
 }
 
 // GetPlacementRuleDefinition is used to get a placement rule to use with a cgu.
@@ -959,7 +995,7 @@ func GetPlacementRuleDefinition(
 	placementRuleName string,
 	namespace string,
 	placementFields placementrulev1.GenericPlacementFields) placementrulev1.PlacementRule {
-	return placementrulev1.PlacementRule{
+	customResource := placementrulev1.PlacementRule{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "PlacementRule",
 			APIVersion: placementrulev1.SchemeGroupVersion.Version,
@@ -972,6 +1008,12 @@ func GetPlacementRuleDefinition(
 			GenericPlacementFields: placementFields,
 		},
 	}
+
+	if err := PrintCr(customResource); err != nil {
+		log.Println("error printing cr: ", err)
+	}
+
+	return customResource
 }
 
 // GetPlacementRule can be used to get a specific placement rule object from the cluster.
@@ -1100,7 +1142,7 @@ func GetPolicySetDefinition(
 	policySetName string,
 	policyList []policiesv1beta1.NonEmptyString,
 	namespace string) policiesv1beta1.PolicySet {
-	return policiesv1beta1.PolicySet{
+	customResource := policiesv1beta1.PolicySet{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "PolicySet",
 			APIVersion: policiesv1beta1.GroupVersion.Version,
@@ -1113,6 +1155,12 @@ func GetPolicySetDefinition(
 			Policies: policyList,
 		},
 	}
+
+	if err := PrintCr(customResource); err != nil {
+		log.Println("error printing cr: ", err)
+	}
+
+	return customResource
 }
 
 // GetPolicySet can be used to check if a specific policy set exists.
@@ -1561,7 +1609,9 @@ func CleanupTestResourcesOnClient(
 	placementBinding string,
 	placementRule string,
 	policySet string,
-	catsrcName string) []error {
+	catsrcName string,
+	deleteNs bool,
+) []error {
 	// Create a list of errorList
 	var errorList []error
 
@@ -1625,7 +1675,7 @@ func CleanupTestResourcesOnClient(
 	// Attempt to delete namespace
 	log.Printf("Deleting namespace '%s'", namespace)
 
-	if namespace != "" {
+	if namespace != "" && deleteNs {
 		if namespaces.Exists(namespace, client) {
 			err := namespaces.DeleteAndWait(client, namespace, 5*time.Minute)
 			if err != nil {
@@ -1664,8 +1714,9 @@ func CleanupTestResourcesOnClients(
 			placementBinding,
 			placementRule,
 			policySet,
-			catsrcName)
-
+			catsrcName,
+			true,
+		)
 		if len(cleanupErr) != 0 {
 			errors = append(errors, cleanupErr...)
 		}
