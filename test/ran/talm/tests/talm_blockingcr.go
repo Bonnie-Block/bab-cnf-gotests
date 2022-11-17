@@ -98,7 +98,7 @@ var _ = Describe("Talm Blocking CRs Tests", func() {
 			"Ready",
 			fmt.Sprintf("The ClusterGroupUpgrade CR is blocked by other "+
 				"CRs that have not yet completed: [%s]", fmt.Sprintf("%s-%s", cGUCommonName, blockingA)),
-			metav1.ConditionFalse, 5*time.Minute)
+			metav1.ConditionFalse, "", 5*time.Minute)
 		Expect(err).To(BeNil())
 
 		By("waiting for cgu A to succeed")
@@ -107,7 +107,7 @@ var _ = Describe("Talm Blocking CRs Tests", func() {
 			cguA.Namespace,
 			"Ready",
 			cguSuccessBlockingMsgA,
-			metav1.ConditionTrue, 5*time.Minute)
+			metav1.ConditionTrue, "", 5*time.Minute)
 		Expect(err).To(BeNil())
 
 		By("waiting for cgu B to succeed")
@@ -116,7 +116,7 @@ var _ = Describe("Talm Blocking CRs Tests", func() {
 			cguB.Namespace,
 			"Ready",
 			cguSuccessBlockingMsgB,
-			metav1.ConditionTrue, 5*time.Minute)
+			metav1.ConditionTrue, "", 5*time.Minute)
 		Expect(err).To(BeNil())
 	})
 

@@ -13,6 +13,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/openshift-kni/cluster-group-upgrades-operator/api/v1alpha1"
+	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/talm/rantalmparameters"
 	testClient "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
@@ -40,12 +41,14 @@ var (
 )
 
 const (
-	CguName              string = "talm-cgu"
-	Namespace            string = "talm-namespace"
-	PlacementBindingName string = "talm-placement-binding"
-	PlacementRule        string = "talm-placement-rule"
-	PolicyName           string = "talm-policy"
-	PolicySetName        string = "talm-policyset"
+	CguName                string = "talm-cgu"
+	Namespace              string = "talm-namespace"
+	PlacementBindingName   string = "talm-placement-binding"
+	PlacementRule          string = "talm-placement-rule"
+	PolicyName             string = "talm-policy"
+	PolicySetName          string = "talm-policyset"
+	CatalogSourceName      string = "talm-catsrc"
+	TemporaryNamespaceName string = Namespace + "-temp"
 )
 
 // GetTestContext fetches a k8s context object for the talm tests.
@@ -81,21 +84,6 @@ func GetNamespaceDefinition(namespaceName string) *corev1.Namespace {
 			Name: namespaceName,
 		},
 	}
-}
-
-// GetInvalidNamespaceDefition gets a namespace object that has its api version and kind fields mixed up.
-// This is useful because this object will never be able to be created by a policy and can therefore
-// be used to force a cgu to timeout for testing failure cases.
-func GetInvalidNamespaceDefinition(namespaceName string) *corev1.Namespace {
-	// Obtain a namespace object
-	namespaceObject := GetNamespaceDefinition(namespaceName)
-
-	// Mix up the API version and Kind fields to create an invalid object
-	// this invalid object cannot be created so the cgu will timeout
-	namespaceObject.APIVersion = namespaceName
-	namespaceObject.Kind = corev1.SchemeGroupVersion.Version
-
-	return namespaceObject
 }
 
 // CreateSimplePolicyAndCgu is used to create a simplified CGU to cover the most common use case.
@@ -350,6 +338,7 @@ func WaitForCguInCondition(
 	conditionType string,
 	expectedMessage string,
 	expectedStatus metav1.ConditionStatus,
+	expectedReason string,
 	timeout time.Duration) error {
 	// This will be used inside the wait to keep track of the current status
 	// Since we can't return an error outside the poll we need to save it outside the loop
@@ -410,7 +399,17 @@ func WaitForCguInCondition(
 				}
 			}
 
-			// If it did match we will return nil here to exist the eventually
+			if expectedReason != "" {
+				if condition.Reason != expectedMessage {
+					lastStatus = fmt.Errorf(
+						"actual reason '%s' did not match expected reason '%s'",
+						condition.Reason,
+						expectedReason,
+					)
+				}
+			}
+
+			// If it did match we will return nil here to exit the eventually
 			lastStatus = nil
 
 			return true, nil
@@ -422,7 +421,7 @@ func WaitForCguInCondition(
 
 // WaitForCguToStartProgressing waits until the provided CGU reaches the progressings tate
 // and the remediating non-compliant policies message.
-func WaitForCguToStartProgressing(cguName string, namespace string) error {
+func WaitForCguToStartProgressing(cguName string, namespace string, timeout time.Duration) error {
 	// Wait for the cgu to start
 	log.Println("waiting for CGU to start progressing")
 
@@ -431,15 +430,16 @@ func WaitForCguToStartProgressing(cguName string, namespace string) error {
 		cguName,
 		namespace,
 		"Progressing",
-		"Remediating non-compliant policies",
 		"",
-		rantalmparameters.TalmDefaultReconcileTime*3,
+		metav1.ConditionTrue,
+		"InProgress",
+		timeout,
 	)
 }
 
 // WaitForCguToFinishSuccessfully waits until the provided CGU reaches the succeeded state
 // and all clusters were successful message.
-func WaitForCguToFinishSuccessfully(cguName string, namespace string) error {
+func WaitForCguToFinishSuccessfully(cguName string, namespace string, timeout time.Duration) error {
 	// Wait for the cgu to finish
 	log.Println("waiting for CGU to finish successfully")
 
@@ -450,13 +450,14 @@ func WaitForCguToFinishSuccessfully(cguName string, namespace string) error {
 		"Succeeded",
 		"",
 		metav1.ConditionTrue,
-		rantalmparameters.TalmDefaultReconcileTime*3,
+		"Completed",
+		timeout,
 	)
 }
 
 // WaitForCguToFinishSuccessfully waits until the provided CGU reaches the succeeded state
 // and all clusters were successful message.
-func WaitForCguToTimeout(cguName string, namespace string) error {
+func WaitForCguToTimeout(cguName string, namespace string, timeout time.Duration) error {
 	// Wait for the cgu to timeout
 	log.Println("waiting for CGU to timeout")
 
@@ -465,9 +466,10 @@ func WaitForCguToTimeout(cguName string, namespace string) error {
 		cguName,
 		namespace,
 		"Succeeded",
-		"Policy remediation took too long",
 		"",
-		rantalmparameters.TalmDefaultReconcileTime*3,
+		"",
+		"TimedOut",
+		timeout,
 	)
 }
 
@@ -1231,6 +1233,125 @@ func CreatePolicySetAndWait(
 }
 
 /*
+	Catsrc helpers
+*/
+
+// GetCatsrcDefinition is used to get a catalog source definition for use in a policy.
+func GetCatsrcDefinition(
+	name string,
+	namespace string,
+	sourceType operatorsv1alpha1.SourceType,
+	priority int,
+	configMap string,
+	address string,
+	image string,
+	displayName string) operatorsv1alpha1.CatalogSource {
+	return operatorsv1alpha1.CatalogSource{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "CatalogSource",
+			APIVersion: operatorsv1alpha1.CatalogSourceCRDAPIVersion,
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: operatorsv1alpha1.CatalogSourceSpec{
+			SourceType:  sourceType,
+			Priority:    priority,
+			ConfigMap:   configMap,
+			Address:     address,
+			Image:       image,
+			DisplayName: displayName,
+			Description: "a catalog source created by the talm tests",
+			Publisher:   "cnf-gotests/test/ran/talm",
+		},
+	}
+}
+
+// GetCatsrc is used to get the specified catalog source object from the specified cluster.
+func GetCatsrc(client *testClient.ClientSet, name string, namespace string) (operatorsv1alpha1.CatalogSource, error) {
+	// Validate inputs first
+	if name == "" {
+		return operatorsv1alpha1.CatalogSource{}, errors.New("provided empty catsrc name")
+	}
+
+	if namespace == "" {
+		return operatorsv1alpha1.CatalogSource{}, errors.New("provided empty catsrc name")
+	}
+
+	catsrc, err := client.OperatorsV1alpha1Interface.CatalogSources(namespace).
+		Get(GetTestContext(), name, metav1.GetOptions{})
+
+	// Filter errors that don't matter
+	err = FilterMissingResourceErrors(err)
+
+	if err == nil {
+		return *catsrc, nil
+	}
+
+	return operatorsv1alpha1.CatalogSource{}, errors.New("resource not found")
+}
+
+// IsCatsrcExist is used to check if the specified catalog source object exists on the cluster.
+func IsCatsrcExist(client *testClient.ClientSet, name string, namespace string) (bool, error) {
+	// We can use another helper to get the object
+	catsrc, err := GetCatsrc(client, name, namespace)
+	err = FilterMissingResourceErrors(err)
+
+	// Filter any missing resource errors before checking the result
+	if err != nil {
+		return false, err
+	}
+
+	return catsrc.Name == name, nil
+}
+
+// DeleteCatsrcAndWait is used to delete the specified catalog source object and wait for it to no longer exist.
+func DeleteCatsrcAndWait(client *testClient.ClientSet, name string, namespace string) error {
+	// Check if it exists first
+	exists, err := IsCatsrcExist(client, name, namespace)
+	if err != nil {
+		return err
+	}
+
+	// If it exists then attempt to delete it
+	if exists {
+		// Delete the object
+		err := client.OperatorsV1alpha1Interface.CatalogSources(namespace).
+			Delete(GetTestContext(), name, metav1.DeleteOptions{})
+		if err != nil {
+			return err
+		}
+
+		// Wait until its gone
+		err = WaitUntilObjectDoesNotExist(client, name, namespace, IsCatsrcExist)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// CreateCatsrcAndWait is used to create the specified catalog source object and wait for it to exist.
+func CreateCatsrcAndWait(client *testClient.ClientSet, catsrc operatorsv1alpha1.CatalogSource) error {
+	// Create the catalog source
+	_, err := client.OperatorsV1alpha1Interface.CatalogSources(catsrc.Namespace).
+		Create(GetTestContext(), &catsrc, metav1.CreateOptions{})
+	if err != nil {
+		return err
+	}
+
+	// Wait for it to exist
+	err = WaitUntilObjectExists(client, catsrc.Name, catsrc.Namespace, IsCatsrcExist)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+/*
 	Cluster helpers
 */
 
@@ -1439,7 +1560,8 @@ func CleanupTestResourcesOnClient(
 	namespace string,
 	placementBinding string,
 	placementRule string,
-	policySet string) []error {
+	policySet string,
+	catsrcName string) []error {
 	// Create a list of errorList
 	var errorList []error
 
@@ -1490,6 +1612,16 @@ func CleanupTestResourcesOnClient(
 		errorList = append(errorList, err)
 	}
 
+	// Attempt to delete catsrc
+	if catsrcName != "" {
+		log.Printf("Deleting catsrc '%s'", catsrcName)
+
+		err = DeleteCatsrcAndWait(client, catsrcName, namespace)
+		if err != nil {
+			errorList = append(errorList, err)
+		}
+	}
+
 	// Attempt to delete namespace
 	log.Printf("Deleting namespace '%s'", namespace)
 
@@ -1514,7 +1646,8 @@ func CleanupTestResourcesOnClients(
 	createdNamespace string,
 	placementBinding string,
 	placementRule string,
-	policySet string) []error {
+	policySet string,
+	catsrcName string) []error {
 	// Create a list of errors
 	var errors []error
 
@@ -1531,7 +1664,8 @@ func CleanupTestResourcesOnClients(
 			placementBinding,
 			placementRule,
 			policySet,
-		)
+			catsrcName)
+
 		if len(cleanupErr) != 0 {
 			errors = append(errors, cleanupErr...)
 		}
