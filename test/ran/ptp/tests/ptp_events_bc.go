@@ -261,8 +261,8 @@ var _ = Describe("PTP Events", Ordered, func() {
 					Expect(err).NotTo(HaveOccurred())
 					Expect(lastEvent).Should(Equal(ranptpparameters.Locked))
 
-					By(fmt.Sprintf("verify event is still on [LOCKED] state after master interface %s goes up",
-						iface))
+					By(fmt.Sprintf("verify event is still on [LOCKED] state after master interface %s goes up on node %s",
+						iface, workerNode.Name))
 					err = ranptphelper.SetInterfaceStatus(&ptpDaemonPods.Items[0],
 						parameters.PtpContainerName,
 						iface,
@@ -276,29 +276,68 @@ var _ = Describe("PTP Events", Ordered, func() {
 		})
 	})
 
-	Context("resets process", func() {
+	Context("rests process", func() {
 		It("should recover the phc2sys process after killing it", func() {
 			nodeToPtpDaemonPod := ranptphelper.NodesToPtpDaemonPods(workerNodesList, ptpDaemonPods)
 			for workerNode, ptpDaemonPod := range nodeToPtpDaemonPod {
 				// get the phc2sys pid before killing it
-				pid, err := ranptphelper.GetProcessPID("phc2sys", ptpDaemonPod)
+				oldPID, err := ranptphelper.GetProcessPID(ptpDaemonPod, "phc2sys")
 				Expect(err).NotTo(HaveOccurred())
-				err = ranptphelper.KillPtpProcess("phc2sys", ptpDaemonPod)
+				err = ranptphelper.KillPtpProcess(ptpDaemonPod, "phc2sys")
 				Expect(err).NotTo(HaveOccurred())
-				By(fmt.Sprintf("verify a new phc2sys process is running after kill phc2sys process"+
-					" on node %s", workerNode.Name))
-				newPID, err := ranptphelper.GetProcessPID("phc2sys", ptpDaemonPod)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(newPID).ShouldNot(Equal(pid))
 
-				eventAfterDeath, err := ranptphelper.GetEventValueFromEnd(ptpDaemonPod, 1)
+				eventAfterKill, err := ranptphelper.GetEventValueFromEndOfEventByKeyValue(ptpDaemonPod,
+					map[string]string{"type": "event.sync.sync-status.os-clock-sync-state-change"}, 0)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(eventAfterDeath).Should(Equal(ranptpparameters.FreeRun))
-				lastValue, err := ranptphelper.GetLastEventValue(ptpDaemonPod)
+				newPID, err := ranptphelper.GetProcessPID(ptpDaemonPod, "phc2sys")
 				Expect(err).NotTo(HaveOccurred())
-				Expect(lastValue).Should(Equal(ranptpparameters.Locked))
+
+				eventAfterRecovery, err := ranptphelper.GetEventValueFromEndOfEventByKeyValue(ptpDaemonPod,
+					map[string]string{"type": "event.sync.sync-status.os-clock-sync-state-change"}, 0)
+				Expect(err).NotTo(HaveOccurred())
+				By(fmt.Sprintf("a new new phc2sys process is running after kill phc2sys process"+
+					" on node %s", workerNode.Name))
+				Expect(newPID).ShouldNot(Equal(oldPID))
+				By("event status changed to [FREERUN] after phc2sys process was killed")
+				Expect(eventAfterKill).Should(Equal(ranptpparameters.FreeRun))
+				By("event status changed to [LOCKED] after phc2sys process reset")
+				Expect(eventAfterRecovery).Should(Equal(ranptpparameters.Locked))
+			}
+		})
+
+		It("should create a new ptp4l process after killing a ptp4l process that is not"+
+			"related to the phc2sy process", func() {
+			nodeToPtpDaemonPod := ranptphelper.NodesToPtpDaemonPods(workerNodesList, ptpDaemonPods)
+			for workerNode, ptpDaemonPod := range nodeToPtpDaemonPod {
+				By(fmt.Sprintf("killing a ptp4l process onode %s", workerNode.Name))
+				// get the ptp4l PID that is not related to the phc2sys
+				oldPTP4lPID, err := ranptphelper.GetPTP4lPID(ptpDaemonPod, false)
+				Expect(err).NotTo(HaveOccurred())
+				oldPhc2sysPid, err := ranptphelper.GetProcessPID(ptpDaemonPod, "phc2sys")
+				Expect(err).NotTo(HaveOccurred())
+				err = ranptphelper.KillProcess(ptpDaemonPod, oldPTP4lPID)
+				Expect(err).NotTo(HaveOccurred())
+				event, err := ranptphelper.GetEventValueFromEndOfEventByKeyValue(ptpDaemonPod,
+					map[string]string{"type": "event.sync.ptp-status.ptp-state-change"}, 0)
+				Expect(err).NotTo(HaveOccurred())
+				newPTP4lPID, err := ranptphelper.GetPTP4lPID(ptpDaemonPod, false)
+				Expect(err).NotTo(HaveOccurred())
+				newEvent, err := ranptphelper.GetEventValueFromEndOfEventByKeyValue(ptpDaemonPod,
+					map[string]string{"type": "event.sync.ptp-status.ptp-state-change"}, 0)
+				Expect(err).NotTo(HaveOccurred())
+				newPhc2sysPid, err := ranptphelper.GetProcessPID(ptpDaemonPod, "phc2sys")
+				Expect(err).NotTo(HaveOccurred())
+
+				By("validate the event status changed to [FREERUN] after ptp4l process was killed")
+				Expect(event).Should(Equal(ranptpparameters.FreeRun))
+				By("validate a new ptp4l process reset")
+				Expect(newPTP4lPID).ShouldNot(Equal(oldPTP4lPID))
+				By("validate thr event status changed to [LOCKED] after ptp4l process reset")
+				Expect(newEvent).Should(Equal(ranptpparameters.Locked))
+				By(fmt.Sprintf("validate the phc2sys process not effected by killing the ptp4l process" +
+					"(same PID before and after reset the ptp4l process)"))
+				Expect(newPhc2sysPid).Should(Equal(oldPhc2sysPid))
 			}
 		})
 	})
-
 })

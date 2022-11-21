@@ -97,7 +97,7 @@ func metricParser(ptpMetricsBuff bytes.Buffer) error {
 func removeHashSigns(ptpMetricsBuff bytes.Buffer) []string {
 	var ptpMetricsNoHash []string
 
-	for _, line := range metricsBytesToStrings(ptpMetricsBuff) {
+	for _, line := range BytesToStrings(ptpMetricsBuff) {
 		if !strings.HasPrefix(line, "#") {
 			ptpMetricsNoHash = append(ptpMetricsNoHash, line)
 		}
@@ -339,14 +339,4 @@ func getProcessStatusValue() error {
 	}
 
 	return nil
-}
-
-// metricsBytesToStrings converts the metrics format from a buffer to an array of strings.
-// arguments:		"metrics"-	a metrics bytes buffer.
-// return value:	an array of strings for each line in the bytes buffer.
-func metricsBytesToStrings(metrics bytes.Buffer) []string {
-	var metricsStrs []string
-	metricsStrs = append(metricsStrs, strings.Split(metrics.String(), "\n")...)
-
-	return metricsStrs
 }
