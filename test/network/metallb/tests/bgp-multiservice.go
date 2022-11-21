@@ -188,7 +188,7 @@ var _ = Describe("MetalLB BGP", func() {
 		routesV4 := []string{netmlbparameters.AddressPoolS1[0], netmlbparameters.AddressPoolS2[0]}
 
 		Eventually(func() error {
-			return netmetallbhelper.CheckBGPRoutes(
+			return netmetallbhelper.CheckBGPRoutesMultipleNodes(
 				masterNodeFRRPod,
 				workerNodesAdresses,
 				routesV4,

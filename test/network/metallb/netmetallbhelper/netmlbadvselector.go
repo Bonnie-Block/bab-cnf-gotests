@@ -173,14 +173,16 @@ func validateBGPPeerSelectorRoutes(masterNodeFRRPod k8sv1.Pod, workerNodesAdress
 	switch advertise {
 	case false:
 		Eventually(func() error {
-			err := CheckBGPRoutes(&masterNodeFRRPod, workerNodesAdresses, route, ipStack, netmlbparameters.PrefixLen32)
+			err := CheckBGPRoutesMultipleNodes(&masterNodeFRRPod, workerNodesAdresses, route, ipStack,
+				netmlbparameters.PrefixLen32)
 
 			return err
 		}, 1*time.Minute, 2*time.Second).Should(Equal(fmt.Errorf("route %s not found", route[0])))
 
 	case true:
 		Eventually(func() error {
-			err := CheckBGPRoutes(&masterNodeFRRPod, workerNodesAdresses, route, ipStack, netmlbparameters.PrefixLen32)
+			err := CheckBGPRoutesMultipleNodes(&masterNodeFRRPod, workerNodesAdresses, route, ipStack,
+				netmlbparameters.PrefixLen32)
 
 			return err
 		}, 2*time.Minute, 2*time.Second).ShouldNot(HaveOccurred(), "error checking BGP route")

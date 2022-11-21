@@ -229,23 +229,12 @@ func parseNeighbors(vtyshRes string) []*netmlbparameters.Neighbor {
 	return res
 }
 
-// CheckBGPRoutes returns informations about routes in the external frr container
-// first for ipv4 routes and then for ipv6 routes.
-func CheckBGPRoutes(
-	frrPod *k8sv1.Pod,
-	neighborsIPAddresses []string,
-	routeList []string,
-	iPFamily string,
+// CheckBGPRoutesMultipleNodes returns informations about routes in the external frr container from two nodes.
+// Validates both IPv4 and IPv6 routes.
+func CheckBGPRoutesMultipleNodes(frrPod *k8sv1.Pod, neighborsIPAddresses, routeList []string, iPFamily string,
 	prefixLen int32) error {
-	// bgpStateOut example output after being parsed - map[4.4.4.100:{4.4.4.100/32 [10.46.55.116 10.46.55.115] 100}]
-	bgpStateOut, err := pod.ExecCommand(helper.Apiclient, *frrPod, append(netmlbparameters.VtyshFRRCmdPrefix,
-		fmt.Sprintf("show bgp %s json", iPFamily)))
+	routes, err := bgpStateOutput(frrPod, iPFamily)
 
-	if err != nil {
-		return err
-	}
-
-	routes, err := parseRoutes(bgpStateOut.String())
 	if err != nil {
 		return err
 	}
@@ -290,6 +279,101 @@ func CheckBGPRoutes(
 			if !ips[1].Equal(net.ParseIP(neighborsIPAddresses[3])) {
 				return fmt.Errorf("neighbour %s ip not matching", neighborsIPAddresses[3])
 			}
+		}
+	}
+
+	return err
+}
+
+// CheckBGPRoutesSingleNode returns informations about routes in the external frr container from a single node.
+// Validates both IPv4 and IPv6 routes.
+func CheckBGPRoutesSingleNode(frrPod *k8sv1.Pod, neighborsIPAddresses, routeList []string, iPFamily string,
+	prefixLen int32) error {
+	routes, err := bgpStateOutput(frrPod, iPFamily)
+
+	if err != nil {
+		return err
+	}
+
+	ips := make([]net.IP, 0)
+	err = checkRoutePrefix(routeList[0], neighborsIPAddresses[0], iPFamily, routes)
+
+	if err != nil {
+		return err
+	}
+
+	for _, route := range routeList {
+		ipRoutes, routePrefix := routes[route]
+
+		if !routePrefix {
+			return fmt.Errorf("route %s not found", route)
+		}
+
+		if uint32(prefixLen) != ipRoutes.PrefixLen {
+			return fmt.Errorf("advertised prefix %d is not equal to %d", prefixLen, ipRoutes.PrefixLen)
+		}
+
+		ips = append(ips, ipRoutes.NextHops...)
+
+		if iPFamily == netparameters.IPV4Family {
+			if !ips[0].Equal(net.ParseIP(neighborsIPAddresses[0])) {
+				return fmt.Errorf("neighbour %s ip not matching", neighborsIPAddresses[0])
+			}
+		}
+
+		if iPFamily == netparameters.IPV6Family {
+			if !ips[0].Equal(net.ParseIP(neighborsIPAddresses[2])) {
+				return fmt.Errorf("neighbour %s ip not matching", neighborsIPAddresses[2])
+			}
+		}
+
+		sort.Slice(ips, func(i, j int) bool {
+			return (bytes.Compare(ips[i], ips[j]) < 0)
+		})
+	}
+
+	return err
+}
+
+func bgpStateOutput(frrPod *k8sv1.Pod, iPFamily string) (map[string]netmlbparameters.Route, error) {
+	// bgpStateOut example output after being parsed - map[4.4.4.100:{4.4.4.100/32 [10.46.55.116 10.46.55.115] 100}]
+	bgpStateOut, err := pod.ExecCommand(helper.Apiclient, *frrPod, append(netmlbparameters.VtyshFRRCmdPrefix,
+		fmt.Sprintf("show bgp %s json", iPFamily)))
+
+	if err != nil {
+		return nil, err
+	}
+
+	routes, err := parseRoutes(bgpStateOut.String())
+	if err != nil {
+		return nil, err
+	}
+
+	return routes, err
+}
+
+// checkRoutePrefix validates the route and prefix from a single BGPPeer Node.
+func checkRoutePrefix(routeList, neighborsIPAddresses, iPFamily string,
+	routes map[string]netmlbparameters.Route) error {
+	var err error
+
+	ips := make([]net.IP, 0)
+	ipRoutes, routePrefix := routes[routeList]
+	ips = append(ips, ipRoutes.NextHops...)
+
+	if !routePrefix {
+		return fmt.Errorf("route %s not found", routeList)
+	}
+
+	if iPFamily == netparameters.IPV4Family {
+		if !ips[0].Equal(net.ParseIP(neighborsIPAddresses)) {
+			return fmt.Errorf("neighbour ip not matching")
+		}
+	}
+
+	if iPFamily == netparameters.IPV6Family {
+		if !ips[0].Equal(net.ParseIP(neighborsIPAddresses)) {
+			return fmt.Errorf("neighbour ip not matching")
 		}
 	}
 

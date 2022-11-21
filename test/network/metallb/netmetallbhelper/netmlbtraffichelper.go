@@ -134,7 +134,7 @@ func validateRoute(masterFRRPod *k8sv1.Pod, nodeIPAdresses []string, ipStack str
 
 	if ipStack == netparameters.DualIPFamily {
 		Eventually(func() error {
-			return CheckBGPRoutes(
+			return CheckBGPRoutesMultipleNodes(
 				masterFRRPod,
 				nodeIPAdresses,
 				routes,
@@ -144,7 +144,7 @@ func validateRoute(masterFRRPod *k8sv1.Pod, nodeIPAdresses []string, ipStack str
 	}
 
 	Eventually(func() error {
-		return CheckBGPRoutes(
+		return CheckBGPRoutesMultipleNodes(
 			masterFRRPod,
 			nodeIPAdresses,
 			routes,

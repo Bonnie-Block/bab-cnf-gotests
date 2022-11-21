@@ -269,7 +269,7 @@ func validatePrefix(masterNodeFRRPod *k8sv1.Pod, workerNodesAdresses []string, i
 	}
 
 	Eventually(func() error {
-		return CheckBGPRoutes(
+		return CheckBGPRoutesMultipleNodes(
 			masterNodeFRRPod,
 			workerNodesAdresses,
 			routes,

@@ -315,6 +315,27 @@ func DefineBGPAdvertisement(name string,
 	return bgpAdv
 }
 
+// RedefineBGPAdvertisementWithNodeSelector returns BGPAdvertisement for list of IPAddressPoolnames.
+func RedefineBGPAdvertisementWithNodeSelector(bgpAdvName, nodeName, ipStack string,
+	ipAddressPoolNames, bgpPeerName []string, prefixLenght int32, localPref uint32) *metallbv1beta1.BGPAdvertisement {
+	bgpAdvertismentDefintion := DefineBGPAdvertisement(bgpAdvName, ipAddressPoolNames, ipStack, prefixLenght, localPref)
+
+	bgpAdvertismentDefintion = updatebgpAdvertismentNodeSelectorNodeName(bgpAdvertismentDefintion, nodeName)
+	bgpAdvertismentDefintion.Spec.Peers = append(bgpAdvertismentDefintion.Spec.Peers, bgpPeerName[0])
+
+	return bgpAdvertismentDefintion
+}
+
+func updatebgpAdvertismentNodeSelectorNodeName(bgpAdvertismentDefintion *metallbv1beta1.BGPAdvertisement,
+	nodeName string) *metallbv1beta1.BGPAdvertisement {
+	bgpAdvertismentDefintion.Spec.NodeSelectors =
+		[]metav1.LabelSelector{
+			{MatchLabels: map[string]string{"kubernetes.io/hostname": nodeName}},
+		}
+
+	return bgpAdvertismentDefintion
+}
+
 // DefineL2Advertisement returns L2Advertisement for list of ipAddressPoolnames.
 func DefineL2Advertisement(name string, ipAddressPoolNames, l2Interfaces []string) *metallbv1beta1.L2Advertisement {
 	l2Advertisement := &metallbv1beta1.L2Advertisement{
