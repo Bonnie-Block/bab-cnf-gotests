@@ -411,8 +411,9 @@ func WaitForCguInCondition(
 				}
 			}
 
+			// Check the reason if it was defined
 			if expectedReason != "" {
-				if condition.Reason != expectedMessage {
+				if condition.Reason != expectedReason {
 					lastStatus = fmt.Errorf(
 						"actual reason '%s' did not match expected reason '%s'",
 						condition.Reason,
