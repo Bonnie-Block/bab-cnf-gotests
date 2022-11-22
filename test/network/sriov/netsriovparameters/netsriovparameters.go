@@ -14,6 +14,7 @@ const (
 	MTUJumbo                                      = 9000
 	MTUCustom                                     = 1450
 	MTUStandard                                   = 1500
+	VlanID                                        = 100
 	ConnectivityDiffNode                          = "2 pods on different node"
 	ConnectivitySameNodeDiffPF                    = "2 pods on the same node 2 different PF"
 	ConnectivitySameNodeSamePF                    = "2 pods on same node same PF"
@@ -40,6 +41,9 @@ const (
 	SriovStaticNetworkUsualMTUName                = "test-sriov-static-usual"
 	SriovStaticNetworkCustomMTUName               = "test-sriov-static-custom"
 	SriovStaticNetworkJumboFrameName              = "test-sriov-static-jumbo"
+	SriovStaticNetworkUsualMTUVlanName            = "test-sriov-static-usual-vlan"
+	SriovStaticNetworkCustomMTUVlanName           = "test-sriov-static-custom-vlan"
+	SriovStaticNetworkJumboFrameVlanName          = "test-sriov-static-jumbo-vlan"
 	SriovStaticNetworkUsualMTUNameDiff            = "test-sriov-static-usual-diff"
 	SriovStaticNetworkCustomMTUNameDiff           = "test-sriov-static-custom-diff"
 	SriovStaticNetworkJumboFrameNameDiff          = "test-sriov-static-jumbo-diff"

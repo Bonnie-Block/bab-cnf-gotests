@@ -21,6 +21,7 @@ import (
 
 func TestSriovIPv4Scenario(
 	mtu int,
+	vlan int,
 	protocol string,
 	connectivity string,
 	sriovInfos *cluster.EnabledNodes,
@@ -40,8 +41,9 @@ func TestSriovIPv4Scenario(
 	By("Defining test resources")
 
 	nodeSelector := defineNodeSelector(connectivity, sriovInfos)
-	serverNetworkName := defineServerNetworkName(mtu, ipam, netparameters.IPV4Family)
-	clientNetworkName := defineClientNetworkName(mtu, connectivityParameters.Connectivity, ipam, netparameters.IPV4Family)
+	serverNetworkName := defineServerNetworkName(mtu, vlan, ipam, netparameters.IPV4Family)
+	clientNetworkName := defineClientNetworkName(mtu, vlan, connectivityParameters.Connectivity, ipam,
+		netparameters.IPV4Family)
 	negativeFlag := false
 	clientTestCommand, err := DefineTestCommandParameters(
 		negativeFlag,
@@ -102,8 +104,9 @@ func TestSriovIPv4Scenario(
 	negativeFlag = true
 
 	if protocol == netsriovparameters.CommunicationProtocolUnicastSCTP {
-		serverNetworkName = defineClientNetworkName(mtu, connectivityParameters.Connectivity, ipam, netparameters.IPV4Family)
-		clientNetworkName = defineServerNetworkName(mtu, ipam, netparameters.IPV4Family)
+		serverNetworkName = defineClientNetworkName(mtu, 0, connectivityParameters.Connectivity, ipam,
+			netparameters.IPV4Family)
+		clientNetworkName = defineServerNetworkName(mtu, 0, ipam, netparameters.IPV4Family)
 	}
 
 	if protocol == netsriovparameters.CommunicationProtocolMulticastUDP ||

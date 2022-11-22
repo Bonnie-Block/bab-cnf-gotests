@@ -63,6 +63,7 @@ var _ = Describe("CNF SRIOV", func() {
 		func(mtu int, protocol string, connectivity string, bond bool) {
 			netsriovhelper.TestSriovIPv4Scenario(
 				mtu,
+				0,
 				protocol,
 				connectivity,
 				sriovInfos,
@@ -96,9 +97,46 @@ var _ = Describe("CNF SRIOV", func() {
 	)
 
 	DescribeTable(
+		"Ipam type: IP Static, Ip Stack: ipv4, Mac address: MAC static, Vlan",
+		func(mtu int, protocol string, connectivity string, bond bool) {
+			netsriovhelper.TestSriovIPv4Scenario(
+				mtu,
+				netsriovparameters.VlanID,
+				protocol,
+				connectivity,
+				sriovInfos,
+				Config,
+				netsriovparameters.ClientMacAddress,
+				netsriovparameters.ServerMacAddress,
+				netsriovparameters.IpamStatic)
+		},
+		netsriovhelper.BuildTableEntries(
+			sriovSmokeTestMode,
+			describe,
+			false,
+			[]int{
+				netsriovparameters.MTUCustom,
+				netsriovparameters.MTUJumbo,
+				netsriovparameters.MTUStandard,
+			},
+			[]string{
+				netsriovparameters.ConnectivitySameNodeSamePF,
+			},
+			[]string{
+				netsriovparameters.CommunicationProtocolUnicastICMP,
+				netsriovparameters.CommunicationProtocolUnicastTCP,
+				netsriovparameters.CommunicationProtocolUnicastUDP,
+				netsriovparameters.CommunicationProtocolMulticastUDP,
+				netsriovparameters.CommunicationProtocolBroadcastUDP,
+				netsriovparameters.CommunicationProtocolUnicastSCTP,
+			},
+		),
+	)
+
+	DescribeTable(
 		"Ipam type: IP Static, Ip Stack: ipv4, Mac address: MAC dynamic",
 		func(mtu int, protocol string, connectivity string, bond bool) {
-			netsriovhelper.TestSriovIPv4Scenario(mtu, protocol, connectivity, sriovInfos, Config, "", "",
+			netsriovhelper.TestSriovIPv4Scenario(mtu, 0, protocol, connectivity, sriovInfos, Config, "", "",
 				netsriovparameters.IpamStatic)
 		},
 		netsriovhelper.BuildTableEntries(
@@ -130,7 +168,7 @@ var _ = Describe("CNF SRIOV", func() {
 	DescribeTable(
 		"Ipam type: IP whereabouts, Ip Stack: ipv4, Mac address: MAC static",
 		func(mtu int, protocol string, connectivity string, bond bool) {
-			netsriovhelper.TestSriovIPv4Scenario(mtu, protocol, connectivity, sriovInfos, Config,
+			netsriovhelper.TestSriovIPv4Scenario(mtu, 0, protocol, connectivity, sriovInfos, Config,
 				netsriovparameters.ClientMacAddress,
 				netsriovparameters.ServerMacAddress,
 				netsriovparameters.IpamWhereabouts)

@@ -44,6 +44,14 @@ func defineSriovNetworkWithStaticIPAM(name string, resourceName string) *sriovv1
 	return sriovNetwork
 }
 
+// defineSriovNetworkWithStaticIPAMVlan builds SriovNetwork resource with static IPAM and a Vlan.
+func defineSriovNetworkWithStaticIPAMVlan(name string, resourceName string) *sriovv1.SriovNetwork {
+	sriovNetwork := defineSriovNetworkWithStaticIPAM(name, resourceName)
+	sriovNetwork.Spec.Vlan = netsriovparameters.VlanID
+
+	return sriovNetwork
+}
+
 // defineSriovNetworkWhereaboutsIPAM builds SriovNetwork resource with whereabouts IPAM.
 func defineSriovNetworkWhereaboutsIPAM(name, resourceName, ipRange string) *sriovv1.SriovNetwork {
 	sriovNetwork := DefineSriovNetwork(name, resourceName)
@@ -469,25 +477,25 @@ func DefineTestCommandParameters(
 	return testCommand, nil
 }
 
-func defineServerNetworkName(mtu int, ipam, ipFamily string) string {
-	return defineNetworkNameWithIpam(mtu, ipam, ipFamily)
+func defineServerNetworkName(mtu, vlan int, ipam, ipFamily string) string {
+	return defineNetworkNameWithIpam(mtu, vlan, ipam, ipFamily)
 }
 
-func defineClientNetworkName(mtu int, connectivity, ipam, ipFamily string) string {
+func defineClientNetworkName(mtu, vlan int, connectivity, ipam, ipFamily string) string {
 	var networkName string
 
 	if connectivity == netsriovparameters.ConnectivitySameNodeDiffPF ||
 		connectivity == netsriovparameters.ConnectivityDiffNodeDiffPF {
 		networkName = defineNetworkNameForDifferentNodes(mtu, ipam, ipFamily)
 	} else {
-		networkName = defineNetworkNameWithIpam(mtu, ipam, ipFamily)
+		networkName = defineNetworkNameWithIpam(mtu, vlan, ipam, ipFamily)
 	}
 
 	return networkName
 }
 
-func defineNetworkNameWithIpam(mtu int, ipam, ipFamily string) string {
-	networkName := defineNetworkNameWithStaticIpam(mtu)
+func defineNetworkNameWithIpam(mtu, vlan int, ipam, ipFamily string) string {
+	networkName := defineNetworkNameWithStaticIpam(mtu, vlan)
 
 	if ipam == netsriovparameters.IpamWhereabouts {
 		switch ipFamily {
@@ -527,8 +535,29 @@ func defineNetworkNameForDifferentNodes(mtu int, ipam, ipFamily string) string {
 	return networkName
 }
 
-func defineNetworkNameWithStaticIpam(mtu int) string {
+func defineNetworkNameWithStaticIpamVlan(mtu int) string {
 	var networkName string
+
+	switch mtu {
+	case netsriovparameters.MTUJumbo:
+		networkName = netsriovparameters.SriovStaticNetworkJumboFrameVlanName
+	case netsriovparameters.MTUStandard:
+		networkName = netsriovparameters.SriovStaticNetworkUsualMTUVlanName
+	case netsriovparameters.MTUCustom:
+		networkName = netsriovparameters.SriovStaticNetworkCustomMTUVlanName
+	default:
+		Skip(fmt.Sprintf("Unsupported test parameter mtu: %d", mtu))
+	}
+
+	return networkName
+}
+
+func defineNetworkNameWithStaticIpam(mtu, vlan int) string {
+	var networkName string
+
+	if vlan == netsriovparameters.VlanID {
+		return defineNetworkNameWithStaticIpamVlan(mtu)
+	}
 
 	switch mtu {
 	case netsriovparameters.MTUJumbo:
@@ -1007,6 +1036,15 @@ func getStaticIPAMSriovNetworkList() []*sriovv1.SriovNetwork {
 	jumboSriovStaticNetworkConfig := defineSriovNetworkWithStaticIPAM(
 		netsriovparameters.SriovStaticNetworkJumboFrameName,
 		netsriovparameters.TestResourceJumbo)
+	usualVlanSriovStaticNetworkConfig := defineSriovNetworkWithStaticIPAMVlan(
+		netsriovparameters.SriovStaticNetworkUsualMTUVlanName,
+		netsriovparameters.TestResourceUsual)
+	customVlanSriovStaticNetworkConfig := defineSriovNetworkWithStaticIPAMVlan(
+		netsriovparameters.SriovStaticNetworkCustomMTUVlanName,
+		netsriovparameters.TestResourceCustom)
+	jumboVlanSriovStaticNetworkConfig := defineSriovNetworkWithStaticIPAMVlan(
+		netsriovparameters.SriovStaticNetworkJumboFrameVlanName,
+		netsriovparameters.TestResourceJumbo)
 	usualSriovStaticNetworkConfigDiff := defineSriovNetworkWithStaticIPAM(
 		netsriovparameters.SriovStaticNetworkUsualMTUNameDiff,
 		netsriovparameters.TestResourceUsualDiff)
@@ -1018,8 +1056,10 @@ func getStaticIPAMSriovNetworkList() []*sriovv1.SriovNetwork {
 		netsriovparameters.TestResourceJumboDiff)
 
 	return []*sriovv1.SriovNetwork{usualSriovStaticNetworkConfig, customSriovStaticNetworkConfig,
-		jumboSriovStaticNetworkConfig, customSriovStaticNetworkConfigDiff,
-		jumboSriovStaticNetworkConfigDiff, usualSriovStaticNetworkConfigDiff}
+		jumboSriovStaticNetworkConfig, usualVlanSriovStaticNetworkConfig,
+		customVlanSriovStaticNetworkConfig, jumboVlanSriovStaticNetworkConfig,
+		customSriovStaticNetworkConfigDiff, jumboSriovStaticNetworkConfigDiff,
+		usualSriovStaticNetworkConfigDiff}
 }
 
 func getWhereaboutsIPAMIPv4SriovNetworkList() []*sriovv1.SriovNetwork {
