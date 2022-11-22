@@ -116,8 +116,10 @@ func DefineAndRunNGINXServer(label, workerName string) *k8sv1.Pod {
 // DefineAndCreateBGPAdvertisement configures and creates BGPAdvertisement resource on cluster.
 func DefineAndCreateBGPAdvertisement(bgpAdvName, iPAddPoolName, bgpPeerName string) error {
 	bgpAdvertisement := DefineBGPAdvertisement(
-		bgpAdvName, []string{iPAddPoolName},
+		bgpAdvName,
+		netmlbparameters.CommunityNoAdv,
 		netparameters.IPV4Family,
+		[]string{iPAddPoolName},
 		netmlbparameters.PrefixLen32,
 		netmlbparameters.LocalPref100,
 	)

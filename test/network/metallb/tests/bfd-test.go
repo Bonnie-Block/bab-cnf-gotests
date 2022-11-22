@@ -279,8 +279,9 @@ var _ = Describe("BFD", func() {
 
 				bgpAdvertisementDefinition := netmetallbhelper.DefineBGPAdvertisement(
 					netmlbparameters.BGPAdvertisementName,
-					[]string{ipAddressPoolDefinition.Name},
+					netmlbparameters.CommunityNoAdv,
 					ipStack,
+					[]string{ipAddressPoolDefinition.Name},
 					netmlbparameters.PrefixLen32,
 					netmlbparameters.LocalPref100)
 				err = helper.Apiclient.Create(context.Background(), bgpAdvertisementDefinition)

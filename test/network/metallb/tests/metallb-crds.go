@@ -85,11 +85,8 @@ var _ = Describe("MetalLb New CRDs", func() {
 			" creating IPAddressPool %s.", netmlbparameters.AddressPoolName))
 
 		bgpAdvertisementDefinition := netmetallbhelper.DefineBGPAdvertisement(
-			netmlbparameters.BGPAdvertisementName,
-			[]string{netmlbparameters.AddressPoolName},
-			netparameters.IPV4Family,
-			netmlbparameters.PrefixLen32,
-			netmlbparameters.LocalPref100)
+			netmlbparameters.BGPAdvertisementName, netmlbparameters.CommunityNoAdv, netparameters.IPV4Family,
+			[]string{netmlbparameters.AddressPoolName}, netmlbparameters.PrefixLen32, netmlbparameters.LocalPref100)
 		err = helper.Apiclient.Create(context.Background(), bgpAdvertisementDefinition)
 		Expect(err).ToNot(HaveOccurred(), "An unexpected error occurred while creating BGPAdvertisement.")
 

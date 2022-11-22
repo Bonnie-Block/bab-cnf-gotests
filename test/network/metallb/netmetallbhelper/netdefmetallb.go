@@ -121,7 +121,7 @@ func DefineRouterPod(nodeName string,
 }
 
 // defineFRRPodWithNetworkAndIP returns frr pod definition with network and IP.
-func defineFRRPodWithNetworkAndIP(masterNodeName string, ipAddress string, networkName string) *k8sv1.Pod {
+func defineFRRPodWithNetworkAndIP(masterNodeName, ipAddress, networkName string) *k8sv1.Pod {
 	frrPod := DefineFrrPodWithTestContainer(masterNodeName, netmlbparameters.TestNamespace)
 	_, subnet, _ := nethelper.DefineIPFamily(ipAddress)
 
@@ -277,7 +277,8 @@ func createPrivilegedPodMaster(image string, masterNodeName string) *k8sv1.Pod {
 	)
 
 	masterprivilegedPod = helper.WaitUntilPodCreatedAndRunning(
-		pod.RedefineWithObjectMeta(pod.RedefineOnMaster(masterprivilegedPod), podName, "", nil), 10*time.Minute)
+		pod.RedefineWithObjectMeta(pod.RedefineOnMaster(masterprivilegedPod), podName, "", nil),
+		10*time.Minute)
 
 	helper.WaitForPodsHealthy([]*k8sv1.Pod{masterprivilegedPod}, 1*time.Minute)
 
@@ -285,18 +286,17 @@ func createPrivilegedPodMaster(image string, masterNodeName string) *k8sv1.Pod {
 }
 
 // DefineBGPAdvertisement returns BGPAdvertisement for list of IPAddressPoolnames.
-func DefineBGPAdvertisement(name string,
-	ipAddressPoolNames []string,
-	ipStack string,
-	prefixLenght int32, localPref uint32) *metallbv1beta1.BGPAdvertisement {
+func DefineBGPAdvertisement(bgpAdvertiseName, communityName, ipStack string, ipAddressPoolNames []string,
+	prefixLenght int32,
+	localPref uint32) *metallbv1beta1.BGPAdvertisement {
 	bgpAdv := &metallbv1beta1.BGPAdvertisement{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
+			Name:      bgpAdvertiseName,
 			Namespace: netmlbparameters.MetalLBOperatorNameSpace,
 		},
 		Spec: metallbv1beta1.BGPAdvertisementSpec{
 			IPAddressPools: ipAddressPoolNames,
-			Communities:    []string{netmlbparameters.CommunityNoAdv},
+			Communities:    []string{communityName},
 			LocalPref:      localPref,
 		},
 	}
@@ -316,9 +316,10 @@ func DefineBGPAdvertisement(name string,
 }
 
 // RedefineBGPAdvertisementWithNodeSelector returns BGPAdvertisement for list of IPAddressPoolnames.
-func RedefineBGPAdvertisementWithNodeSelector(bgpAdvName, nodeName, ipStack string,
+func RedefineBGPAdvertisementWithNodeSelector(bgpAdvName, nodeName, communityName, ipStack string,
 	ipAddressPoolNames, bgpPeerName []string, prefixLenght int32, localPref uint32) *metallbv1beta1.BGPAdvertisement {
-	bgpAdvertismentDefintion := DefineBGPAdvertisement(bgpAdvName, ipAddressPoolNames, ipStack, prefixLenght, localPref)
+	bgpAdvertismentDefintion := DefineBGPAdvertisement(bgpAdvName, communityName, ipStack, ipAddressPoolNames,
+		prefixLenght, localPref)
 
 	bgpAdvertismentDefintion = updatebgpAdvertismentNodeSelectorNodeName(bgpAdvertismentDefintion, nodeName)
 	bgpAdvertismentDefintion.Spec.Peers = append(bgpAdvertismentDefintion.Spec.Peers, bgpPeerName[0])

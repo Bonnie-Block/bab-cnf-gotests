@@ -127,7 +127,6 @@ var _ = Describe("MetalLB NodeSelector", func() {
 			By("should create external FRR containers")
 
 			var ipv6Address string
-
 			clusterIPStack := netmetallbhelper.ValidateClusterIPStack()
 
 			if clusterIPStack != netparameters.IPV4Family {
@@ -170,9 +169,9 @@ var _ = Describe("MetalLB NodeSelector", func() {
 			err = helper.Apiclient.Create(
 				context.Background(),
 				netmetallbhelper.RedefineBGPAdvertisementWithNodeSelector(netmlbparameters.BGPAdvertisementName,
-					workerNodeList[0].Name, clusterIPStack, []string{netmlbparameters.AddressPoolS1Name},
-					[]string{netmlbparameters.BGPPeerName1v4}, netmlbparameters.PrefixLen32,
-					netmlbparameters.LocalPref100),
+					workerNodeList[0].Name, netmlbparameters.CommunityNoAdv, clusterIPStack,
+					[]string{netmlbparameters.AddressPoolS1Name}, []string{netmlbparameters.BGPPeerName1v4},
+					netmlbparameters.PrefixLen32, netmlbparameters.LocalPref100),
 			)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -180,9 +179,9 @@ var _ = Describe("MetalLB NodeSelector", func() {
 			err = helper.Apiclient.Create(
 				context.Background(),
 				netmetallbhelper.RedefineBGPAdvertisementWithNodeSelector(netmlbparameters.BGPAdvertisement2Name,
-					workerNodeList[1].Name, clusterIPStack, []string{netmlbparameters.AddressPoolS2Name},
-					[]string{netmlbparameters.BGPPeerName2v4}, netmlbparameters.PrefixLen32,
-					netmlbparameters.LocalPref100),
+					workerNodeList[1].Name, netmlbparameters.CommunityNoAdv, clusterIPStack,
+					[]string{netmlbparameters.AddressPoolS2Name}, []string{netmlbparameters.BGPPeerName2v4},
+					netmlbparameters.PrefixLen32, netmlbparameters.LocalPref100),
 			)
 			Expect(err).ToNot(HaveOccurred())
 			By("should validate routes to external FRR1 container")
@@ -213,6 +212,146 @@ var _ = Describe("MetalLB NodeSelector", func() {
 					[]string{netmlbparameters.AddressPoolS1[0]}, netparameters.IPV4Family,
 					netmlbparameters.PrefixLen32)
 			}, 30*time.Second, netmlbparameters.Interval).Should(HaveOccurred())
+		})
+	})
+
+	Context("Single IPAddressPool", func() {
+		var (
+			masterNodeFRRPod1 *k8sv1.Pod
+			masterNodeFRRPod2 *k8sv1.Pod
+		)
+
+		BeforeEach(func() {
+
+			By("should create one IPAddressPool")
+			ipAddressPool1 := netmetallbhelper.DefineMetalLBIPAddressPool(netmlbparameters.AddressPoolS1,
+				netparameters.IPV4Family, netmlbparameters.AddressPoolS1Name)
+
+			err := helper.Apiclient.Create(context.Background(), ipAddressPool1)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("should create two Services")
+
+			_, err = netmetallbhelper.DefineAndCreateLBService(netmlbparameters.TestNamespace, clusterIPStack,
+				netmlbparameters.AddressPoolS1Name, netmlbparameters.AppLabel1, netmlbparameters.ProtocolTCP,
+				netmlbparameters.ExtTrafPolCluster)
+			Expect(err).ToNot(HaveOccurred())
+
+			netmetallbhelper.DefineAndRunMlbServerPod(workerNodeList[0].Name,
+				helper.Config.Network.TestContainerImage,
+				netmlbparameters.AppLabel1, []string{netmlbparameters.ArgCommandNGINX})
+
+			_, err = netmetallbhelper.DefineAndCreateLBService(
+				netmlbparameters.TestNamespace, clusterIPStack, netmlbparameters.AddressPoolS2Name,
+				netmlbparameters.AppLabel2, netmlbparameters.ProtocolTCP, netmlbparameters.ExtTrafPolCluster)
+			Expect(err).ToNot(HaveOccurred())
+
+			netmetallbhelper.DefineAndRunMlbServerPod(workerNodeList[0].Name,
+				helper.Config.Network.TestContainerImage,
+				netmlbparameters.AppLabel2, []string{netmlbparameters.ArgCommandNGINX})
+
+			By("should create external FRR containers")
+
+			var ipv6Address string
+
+			clusterIPStack := netmetallbhelper.ValidateClusterIPStack()
+
+			if clusterIPStack != netparameters.IPV4Family {
+				ipv6Address = ipv6metalLBIPList[0]
+			}
+
+			masterNodeFRRPod1 = netmetallbhelper.CreateFRRContainerOnMaster(workerNodeList, masterNodeList[0],
+				ipv4metalLBIPList[0], ipv6Address, clusterIPStack, netmlbparameters.IBGPASN,
+				netmlbparameters.ExternalNADName, netparameters.MasterConfigMapName, netmlbparameters.PropagateFalse)
+
+			masterNodeFRRPod2 = netmetallbhelper.CreateFRRContainerOnMaster(workerNodeList, masterNodeList[1],
+				ipv4metalLBIPList[1], ipv6Address, clusterIPStack, netmlbparameters.IBGPASN,
+				netmlbparameters.External2NADName, netparameters.Master2ConfigMapName, netmlbparameters.PropagateFalse)
+
+			By("should create a BGP Peer on Speakers")
+
+			ipFamily := netparameters.IPV4Family
+
+			bgpPeerName1 := netmlbparameters.BGPPeerName1v4
+			bgpPeerName2 := netmlbparameters.BGPPeerName2v4
+
+			if clusterIPStack != netparameters.IPV4Family {
+				ipFamily = netparameters.IPV6Family
+				bgpPeerName1 = netmlbparameters.BGPPeerName1v6
+			}
+
+			err = netmetallbhelper.CreateSpeakerBGPPeerIPStack(ipFamily, ipv4metalLBIPList[0], ipv6Address,
+				netmlbparameters.IBGPASN, bgpPeerName1)
+			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Failed to create BGP Peer %s", bgpPeerName1))
+
+			err = netmetallbhelper.CreateSpeakerBGPPeerIPStack(ipFamily, ipv4metalLBIPList[1], ipv6Address,
+				netmlbparameters.IBGPASN, bgpPeerName2)
+			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Failed to create BGP Peer %s", bgpPeerName2))
+
+		})
+
+		It("Advertise a single IPAddressPool with different attributes using the node selector option", func() {
+			By("should create BGPAdvertisement for external FRR1 container")
+			err = helper.Apiclient.Create(
+				context.Background(),
+				netmetallbhelper.RedefineBGPAdvertisementWithNodeSelector(netmlbparameters.BGPAdvertisementName,
+					workerNodeList[0].Name, netmlbparameters.CommunityNoAdv, clusterIPStack,
+					[]string{netmlbparameters.AddressPoolS1Name}, []string{netmlbparameters.BGPPeerName1v4},
+					netmlbparameters.PrefixLen32, netmlbparameters.LocalPref100),
+			)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("should create BGPAdvertisement for external FRR2 container")
+			err = helper.Apiclient.Create(
+				context.Background(),
+				netmetallbhelper.RedefineBGPAdvertisementWithNodeSelector(netmlbparameters.BGPAdvertisement2Name,
+					workerNodeList[1].Name, netmlbparameters.CustomCommunity, clusterIPStack,
+					[]string{netmlbparameters.AddressPoolS1Name}, []string{netmlbparameters.BGPPeerName2v4},
+					netmlbparameters.PrefixLen32, netmlbparameters.LocalPref400),
+			)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("should validate routes to the external FRR containers")
+			workerNodesAdresses := nethelper.NodeIPsForFamily(workerNodeList, netparameters.IPV4Family)
+
+			Eventually(func() error {
+				return netmetallbhelper.CheckBGPRoutesSingleNode(masterNodeFRRPod1, []string{workerNodesAdresses[0]},
+					[]string{netmlbparameters.AddressPoolS1[0]}, netparameters.IPV4Family,
+					netmlbparameters.PrefixLen32)
+			}, 30*time.Second, netmlbparameters.Interval).ShouldNot(HaveOccurred(), fmt.Sprintf(
+				"Route is not as expected on FRR %s", masterNodeFRRPod1.Name))
+
+			Eventually(func() error {
+				return netmetallbhelper.CheckBGPRoutesSingleNode(masterNodeFRRPod2, []string{workerNodesAdresses[1]},
+					[]string{netmlbparameters.AddressPoolS1[0]}, netparameters.IPV4Family,
+					netmlbparameters.PrefixLen32)
+			}, 30*time.Second, netmlbparameters.Interval).ShouldNot(HaveOccurred(), fmt.Sprintf(
+				"Route is not as expected on FRR %s", masterNodeFRRPod2.Name))
+
+			By("should validate Local Preferences and Community settings to the external FRR containers")
+			err := netmetallbhelper.ValidateLocalPref(masterNodeFRRPod1, netmlbparameters.LocalPref100,
+				netparameters.IPV4Family)
+
+			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(
+				"Local Pref is not as expected on FRR %s", masterNodeFRRPod1.Name))
+
+			err = netmetallbhelper.ValidateLocalPref(masterNodeFRRPod2, netmlbparameters.LocalPref500,
+				netparameters.IPV4Family)
+
+			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(
+				"Local Pref is not as expected on FRR %s", masterNodeFRRPod2.Name))
+
+			err = netmetallbhelper.ValidateRouteCommunity(masterNodeFRRPod1, netmlbparameters.CommunityNoAdv,
+				netparameters.IPV4Family)
+
+			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(
+				"Community is not as expected on FRR %s", masterNodeFRRPod1.Name))
+
+			err = netmetallbhelper.ValidateRouteCommunity(masterNodeFRRPod2, netmlbparameters.CustomCommunity,
+				netparameters.IPV4Family)
+
+			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(
+				"Community is not as expected on FRR %s", masterNodeFRRPod2.Name))
 		})
 	})
 })

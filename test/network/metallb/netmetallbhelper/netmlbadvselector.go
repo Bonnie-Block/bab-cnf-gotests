@@ -249,10 +249,8 @@ func createExternalFRRs(masterNodeList, workerNodeList []k8sv1.Node, ipv4metalLB
 
 func defineBGPAdvertisementWithPeer(bgpAdvertisementName, addressPoolName, bgpPeerName,
 	ipStack string, localPref uint32) *v1beta1.BGPAdvertisement {
-	bgpAdvertisementDefinition := DefineBGPAdvertisement(bgpAdvertisementName,
-		[]string{addressPoolName},
-		ipStack,
-		netmlbparameters.PrefixLen32, localPref)
+	bgpAdvertisementDefinition := DefineBGPAdvertisement(bgpAdvertisementName, netmlbparameters.CommunityNoAdv, ipStack,
+		[]string{addressPoolName}, netmlbparameters.PrefixLen32, localPref)
 	bgpAdvertisementDefinition.Spec.Peers = []string{bgpPeerName}
 
 	return bgpAdvertisementDefinition

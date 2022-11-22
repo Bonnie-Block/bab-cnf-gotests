@@ -91,9 +91,8 @@ var _ = Describe("system metallb", func() {
 		err = helper.Apiclient.Create(
 			context.Background(),
 			netmetallbhelper.DefineBGPAdvertisement(
-				netmlbparameters.BGPAdvertisementName,
-				[]string{netmlbparameters.AddressPoolName},
-				"ipv4", 32, netmlbparameters.LocalPref100),
+				netmlbparameters.BGPAdvertisementName, netmlbparameters.CommunityNoAdv, "ipv4",
+				[]string{netmlbparameters.AddressPoolName}, 32, netmlbparameters.LocalPref100),
 		)
 
 		Expect(err).ToNot(HaveOccurred())
