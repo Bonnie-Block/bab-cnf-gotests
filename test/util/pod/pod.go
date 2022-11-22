@@ -88,6 +88,12 @@ func RedefineOnMaster(pod *corev1.Pod) *corev1.Pod {
 	return pod
 }
 
+func RedefineWithAdditionalContainer(pod *corev1.Pod, container corev1.Container) *corev1.Pod {
+	pod.Spec.Containers = append(pod.Spec.Containers, container)
+
+	return pod
+}
+
 // DefineWithHostNetwork  defines pod attached to Host network.
 func DefineWithHostNetwork(nodeName string, namespace string, image string) *corev1.Pod {
 	podObject := getDefinition(namespace, image)
@@ -273,6 +279,18 @@ func DefinePodOnNode(namespace string, image string, nodeName string) *corev1.Po
 	return pod
 }
 
+func DefineWithOptions(namespace string, image string, options ...AdditionalOptions) *corev1.Pod {
+	baseManifest := getDefinition(namespace, image)
+
+	for _, o := range options {
+		if o != nil {
+			o(baseManifest)
+		}
+	}
+
+	return baseManifest
+}
+
 // WaitForDeletion waits until the pod will be removed from the cluster.
 func WaitForDeletion(cs *testclient.ClientSet, pod *corev1.Pod, timeout time.Duration) error {
 	return wait.PollImmediate(time.Second, timeout, func() (bool, error) {
@@ -386,7 +404,8 @@ func DefineContainer(
 	return &corev1.Container{
 		Name:            name,
 		Image:           image,
-		Command:         command,
+		Command:         []string{"/bin/bash", "-c"},
+		Args:            command,
 		SecurityContext: securityContext,
 	}
 }

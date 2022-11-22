@@ -62,7 +62,7 @@ func TestBGPTable(ipStack string, workerNodeList []k8sv1.Node, masterNodeList []
 
 	By("should create service with 2 backend pods")
 
-	err = DefineAndCreateLBService(
+	_, err = DefineAndCreateLBService(
 		netmlbparameters.TestNamespace,
 		ipStack,
 		netmlbparameters.AddressPoolS1Name,
@@ -71,7 +71,7 @@ func TestBGPTable(ipStack string, workerNodeList []k8sv1.Node, masterNodeList []
 		k8sv1.ServiceExternalTrafficPolicyType(trafficPolicyName))
 	Expect(err).ToNot(HaveOccurred())
 
-	err = DefineAndCreateLBService(
+	_, err = DefineAndCreateLBService(
 		netmlbparameters.TestNamespace,
 		ipStack,
 		netmlbparameters.AddressPoolS1Name,

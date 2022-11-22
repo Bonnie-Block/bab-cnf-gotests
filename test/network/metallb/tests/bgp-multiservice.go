@@ -104,7 +104,7 @@ var _ = Describe("MetalLB BGP", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		By("should create service 1 with 2 backend pods")
-		err = netmetallbhelper.DefineAndCreateLBService(
+		_, err = netmetallbhelper.DefineAndCreateLBService(
 			netmlbparameters.TestNamespace,
 			netparameters.IPV4Family,
 			netmlbparameters.AddressPoolS1Name,
@@ -122,7 +122,7 @@ var _ = Describe("MetalLB BGP", func() {
 			netmlbparameters.AppLabel1, []string{netmlbparameters.ArgCommandNGINX})
 
 		By("should create service 2 with 2 backend pods")
-		err = netmetallbhelper.DefineAndCreateLBService(
+		_, err = netmetallbhelper.DefineAndCreateLBService(
 			netmlbparameters.TestNamespace,
 			netparameters.IPV4Family,
 			netmlbparameters.AddressPoolS2Name,
@@ -160,8 +160,9 @@ var _ = Describe("MetalLB BGP", func() {
 		Expect(err).ToNot(HaveOccurred())
 		masterConfigMap := netmetallbhelper.DefineFRRBGPConfigMap(workerNodesAdresses,
 			netparameters.MasterConfigMapName,
-			netmlbparameters.IBGPASN,
 			netparameters.IPV4Family,
+			64500,
+			netmlbparameters.IBGPASN,
 			netmlbparameters.PropagateFalse)
 		_, err = helper.Apiclient.ConfigMaps(netmlbparameters.TestNamespace).Create(
 			context.TODO(),

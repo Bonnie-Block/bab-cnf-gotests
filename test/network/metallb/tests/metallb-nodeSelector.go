@@ -106,7 +106,7 @@ var _ = Describe("MetalLB NodeSelector", func() {
 
 			By("should create two Services")
 
-			err = netmetallbhelper.DefineAndCreateLBService(netmlbparameters.TestNamespace, clusterIPStack,
+			_, err = netmetallbhelper.DefineAndCreateLBService(netmlbparameters.TestNamespace, clusterIPStack,
 				netmlbparameters.AddressPoolS1Name, netmlbparameters.AppLabel1, netmlbparameters.ProtocolTCP,
 				netmlbparameters.ExtTrafPolCluster)
 			Expect(err).ToNot(HaveOccurred())
@@ -115,7 +115,7 @@ var _ = Describe("MetalLB NodeSelector", func() {
 				helper.Config.Network.TestContainerImage,
 				netmlbparameters.AppLabel1, []string{netmlbparameters.ArgCommandNGINX})
 
-			err = netmetallbhelper.DefineAndCreateLBService(
+			_, err = netmetallbhelper.DefineAndCreateLBService(
 				netmlbparameters.TestNamespace, clusterIPStack, netmlbparameters.AddressPoolS2Name,
 				netmlbparameters.AppLabel2, netmlbparameters.ProtocolTCP, netmlbparameters.ExtTrafPolCluster)
 			Expect(err).ToNot(HaveOccurred())

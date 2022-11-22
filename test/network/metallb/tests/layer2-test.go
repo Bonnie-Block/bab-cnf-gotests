@@ -129,7 +129,7 @@ var _ = Describe("CNF MetalLB", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		By("should create a MetalLB service")
-		err = netmetallbhelper.DefineAndCreateLBService(
+		_, err = netmetallbhelper.DefineAndCreateLBService(
 			netmlbparameters.TestNamespace,
 			netparameters.IPV4Family,
 			netmlbparameters.AddressPoolL2,
@@ -210,7 +210,7 @@ var _ = Describe("CNF MetalLB", func() {
 		netmetallbhelper.UpdateSpeakerNodeLabel()
 
 		By("should create a MetalLB service")
-		err = netmetallbhelper.DefineAndCreateLBService(
+		_, err = netmetallbhelper.DefineAndCreateLBService(
 			netmlbparameters.TestNamespace,
 			netparameters.IPV4Family,
 			netmlbparameters.AddressPoolL2,

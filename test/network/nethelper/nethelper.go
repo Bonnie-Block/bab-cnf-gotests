@@ -166,6 +166,11 @@ func DefineFRRBFDConfigMap(configMapName string, testNamespace string,
 
 // DefineFRRPod returns Pod required for the FRR test setup.
 func DefineFRRPod(masterNodeName string, namespace string, hostNetwork bool) *k8sv1.Pod {
+	return DefineFRRPodWithConfigMap(masterNodeName, namespace, netparameters.MasterConfigMapName, hostNetwork)
+}
+
+// DefineFRRPodWithConfigMap returns Pod required for the FRR test setup with mounted configmap.
+func DefineFRRPodWithConfigMap(masterNodeName, namespace, configMapName string, hostNetwork bool) *k8sv1.Pod {
 	frrPod := pod.RedefineAsPrivileged(
 		pod.RedefineOnMaster(
 			pod.DefinePodOnNode(namespace, helper.Config.Network.FrrImage, masterNodeName)))
@@ -174,12 +179,12 @@ func DefineFRRPod(masterNodeName string, namespace string, hostNetwork bool) *k8
 	}
 
 	return pod.RedefineWithVolume(pod.RedefineWithCommand(frrPod, []string{}, []string{}),
-		netparameters.MasterConfigMapName,
+		configMapName,
 		"/etc/frr",
 		k8sv1.VolumeSource{
 			ConfigMap: &k8sv1.ConfigMapVolumeSource{
 				LocalObjectReference: k8sv1.LocalObjectReference{
-					Name: netparameters.MasterConfigMapName,
+					Name: configMapName,
 				},
 			},
 		}, false)
@@ -369,6 +374,31 @@ func DefineAndCreateSriovPoliciesListOnSriovInterfaceList(
 	for _, sriovPolicy := range sriovPolicyList {
 		err := helper.Apiclient.Create(context.Background(), sriovPolicy)
 		gomega.Expect(err).ToNot(gomega.HaveOccurred(), fmt.Sprintf("error to create sr-iov policy %v", sriovPolicy))
+	}
+}
+
+// DefinePodNetworks returns mutation pod function.
+func DefinePodNetworks(annotation map[string]string) func(podManifest *k8sv1.Pod) {
+	return func(podManifest *k8sv1.Pod) {
+		podManifest.ObjectMeta.Annotations = annotation
+	}
+}
+
+// DefinePodWIthSecurityContext returns function that add SecurityContext to pod manifest.
+func DefinePodWIthSecurityContext(securityContext *k8sv1.SecurityContext) func(podManifest *k8sv1.Pod) {
+	return func(podManifest *k8sv1.Pod) {
+		for idx := range podManifest.Spec.Containers {
+			podManifest.Spec.Containers[idx].SecurityContext = securityContext
+		}
+	}
+}
+
+func DefineSecurityContext(capability []k8sv1.Capability, privileged bool) *k8sv1.SecurityContext {
+	return &k8sv1.SecurityContext{
+		Capabilities: &k8sv1.Capabilities{
+			Add: capability,
+		},
+		Privileged: &privileged,
 	}
 }
 

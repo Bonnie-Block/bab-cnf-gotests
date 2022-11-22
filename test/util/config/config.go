@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 
 	"github.com/kelseyhightower/envconfig"
@@ -30,14 +31,16 @@ type Config struct {
 		DumpFailedTestsReportLocation string `envconfig:"REPORTER_ERROR_OUTPUT"`
 	} `yaml:"general"`
 	Network struct {
-		TestContainerImage   string `yaml:"test_container_image" envconfig:"NETWORK_TEST_CONTAINER_IMAGE"`
-		SriovInterfaces      string `envconfig:"CNF_INTERFACES_LIST"`
-		MetalLBAddressPoolIP string `envconfig:"METALLB_ADDR_LIST"`
-		FrrImage             string `yaml:"frr_image" envconfig:"FRR_IMAGE"`
-		SwitchUser           string `envconfig:"SWITCH_USER"`
-		SwitchPass           string `envconfig:"SWITCH_PASS"`
-		SwitchIP             string `envconfig:"SWITCH_IP"`
-		SwitchInterfaces     string `envconfig:"SWITCH_INTERFACES"`
+		TestContainerImage      string `yaml:"test_container_image" envconfig:"NETWORK_TEST_CONTAINER_IMAGE"`
+		SriovInterfaces         string `envconfig:"CNF_INTERFACES_LIST"`
+		MetalLBAddressPoolIP    string `envconfig:"METALLB_ADDR_LIST"`
+		MetalLBSwitchInterfaces string `envconfig:"METALLB_SWITCH_INTERFACES"`
+		MetalLBVlanIDs          string `envconfig:"METALLB_VLANS"`
+		FrrImage                string `yaml:"frr_image" envconfig:"FRR_IMAGE"`
+		SwitchUser              string `envconfig:"SWITCH_USER"`
+		SwitchPass              string `envconfig:"SWITCH_PASS"`
+		SwitchIP                string `envconfig:"SWITCH_IP"`
+		SwitchInterfaces        string `envconfig:"SWITCH_INTERFACES"`
 	} `yaml:"network"`
 	Ran struct {
 		CnfTestImage              string   `yaml:"cnf_test_image" envconfig:"CNF_TEST_IMAGE"`
@@ -126,19 +129,30 @@ func (c *Config) GetReportPath(file string) string {
 	return fmt.Sprintf("%s.xml", filepath.Join(c.General.ReportDirAbsPath, reportFileName))
 }
 
+// GetCnfInterfaces returns list of requested interfaces.
+func (c *Config) GetCnfInterfaces(requestedNumber int) ([]string, error) {
+	if c.Network.SriovInterfaces == "" {
+		return nil, fmt.Errorf("environment variable CNF_INTERFACES_LIST is not set")
+	}
+
+	requestedInterfaceList := strings.Split(c.Network.SriovInterfaces, ",")
+
+	if len(requestedInterfaceList) < requestedNumber {
+		return nil, fmt.Errorf("CNF_INTERFACES_LIST has less interfaces than requested by test suite")
+	}
+
+	return requestedInterfaceList, nil
+}
+
 // GetSriovInterfaces returns list of requested interfaces.
 func (c *Config) GetSriovInterfaces(
 	availableSriovInterfaces []*sriovv1.InterfaceExt, requestedNumber int) ([]*sriovv1.InterfaceExt, error) {
 	var validSriovIntefaceList []*sriovv1.InterfaceExt
 
-	if c.Network.SriovInterfaces == "" {
-		return nil, fmt.Errorf("environment variable CNF_INTERFACES_LIST is not set")
-	}
+	requestedSriovInterfaceList, err := c.GetCnfInterfaces(requestedNumber)
 
-	requestedSriovInterfaceList := strings.Split(c.Network.SriovInterfaces, ",")
-
-	if len(requestedSriovInterfaceList) < requestedNumber {
-		return nil, fmt.Errorf("CNF_INTERFACES_LIST has less interfaces than requested by test suite")
+	if err != nil {
+		return nil, err
 	}
 
 	for _, availableSriovInterface := range availableSriovInterfaces {
@@ -227,11 +241,64 @@ func (c *Config) GetSwitchPass() (string, error) {
 	return c.Network.SwitchPass, nil
 }
 
+func (c *Config) GetMetalLbVlanIds() ([]uint16, error) {
+	envValue := strings.Split(c.Network.MetalLBVlanIDs, ",")
+
+	if len(envValue) != 2 {
+		return nil, fmt.Errorf("check METALLB_VLANS env var. It reuires two vlans")
+	}
+
+	var vlanIds []uint16
+
+	for _, vlan := range envValue {
+		vlanID, err := strconv.Atoi(vlan)
+		if err != nil {
+			return nil, fmt.Errorf("vlan id %s should be interger", vlan)
+		}
+
+		if uint16(vlanID) > 4095 {
+			return nil, fmt.Errorf("vlan id %s should be less that 4095", vlan)
+		}
+
+		vlanIds = append(vlanIds, uint16(vlanID))
+	}
+
+	return vlanIds, nil
+}
+
 // GetSwitchInterfaces  checks the environmental variable and returns the value in []string.
 func (c *Config) GetSwitchInterfaces() ([]string, error) {
-	envValue := strings.Split(c.Network.SwitchInterfaces, ",")
+	return c.getSwitchInterfacesForSuite("sriov")
+}
+
+// GetMetalLbSwitchInterfaces checks the metalLb switch port environmental variable and returns the value in []string.
+func (c *Config) GetMetalLbSwitchInterfaces() ([]string, error) {
+	return c.getSwitchInterfacesForSuite("metallb")
+}
+
+// GetSwitchInterfacesForSuite checks the switch interface environmental variable for specific suite and returns
+// the value in []string.
+func (c *Config) getSwitchInterfacesForSuite(suiteName string) ([]string, error) {
+	metalLbSuiteName, srIovSuiteName := "metallb", "sriov"
+
+	var (
+		envVarName string
+		envValue   []string
+	)
+
+	switch suiteName {
+	case metalLbSuiteName:
+		envValue = strings.Split(c.Network.MetalLBSwitchInterfaces, ",")
+		envVarName = "METALLB_SWITCH_INTERFACES"
+	case srIovSuiteName:
+		envValue = strings.Split(c.Network.SwitchInterfaces, ",")
+		envVarName = "SWITCH_INTERFACES"
+	default:
+		return nil, fmt.Errorf("invalid suiteName, supported suites are: %s, %s", metalLbSuiteName, srIovSuiteName)
+	}
+
 	if len(envValue) == 0 {
-		return nil, fmt.Errorf("the environment variable SWITCH_INTERFACES is empty")
+		return nil, fmt.Errorf("the environment variable %s is empty", envVarName)
 	}
 
 	return envValue, nil

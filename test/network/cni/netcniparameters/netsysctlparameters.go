@@ -3,6 +3,8 @@ package netcniparameters
 import (
 	"fmt"
 
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/nethelper"
+
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -42,9 +44,9 @@ var (
 		"net.ipv4.conf.IFNAME.secure_redirects":    "0",
 	}
 	GlobalSysctlFlag           = "kernel.shm_rmid_forced"
-	NetAdminSC                 = DefineSecurityContext([]k8sv1.Capability{"NET_ADMIN"}, false)
-	NetRawSC                   = DefineSecurityContext([]k8sv1.Capability{"NET_RAW"}, false)
-	ClientNetAdmNetRawSysAdmSC = DefineSecurityContext(
+	NetAdminSC                 = nethelper.DefineSecurityContext([]k8sv1.Capability{"NET_ADMIN"}, false)
+	NetRawSC                   = nethelper.DefineSecurityContext([]k8sv1.Capability{"NET_RAW"}, false)
+	ClientNetAdmNetRawSysAdmSC = nethelper.DefineSecurityContext(
 		[]k8sv1.Capability{"NET_ADMIN", "NET_RAW", "SYS_ADMIN"}, true)
 	BondInterfaceName       = "bond0"
 	BondInterfaceNameSecond = "bond1"
@@ -60,12 +62,3 @@ var (
 	RdrDualInitCMD    = fmt.Sprintf("%s && ip route add %s/32 via 10.100.200.200", RdrInitCMD, SrvLopSecondIPAddr)
 	ClientDualInitCMD = fmt.Sprintf("%s && ip route add %s/32 via 10.100.200.1", ClientInitCMDs, SrvLopSecondIPAddr)
 )
-
-func DefineSecurityContext(capability []k8sv1.Capability, privileged bool) *k8sv1.SecurityContext {
-	return &k8sv1.SecurityContext{
-		Capabilities: &k8sv1.Capabilities{
-			Add: capability,
-		},
-		Privileged: &privileged,
-	}
-}

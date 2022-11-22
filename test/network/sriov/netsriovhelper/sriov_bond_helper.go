@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/nethelper"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -110,7 +112,7 @@ func TestActiveActiveBondScenario(
 	protocol, bondMode, ipAddrServer, ipAddrClient string) {
 	By("Validating test parameters")
 
-	switchCredentials, err := NewSwitchCredentials()
+	switchCredentials, err := nethelper.NewSwitchCredentials()
 	if err != nil {
 		Skip(fmt.Sprintf("Failed to get switch credentials: %s", err))
 	}
@@ -360,7 +362,7 @@ func createTestPods(sriovInfos *cluster.EnabledNodes, slaveNetworks []string, mt
 	return clientPod
 }
 
-func configureLAGsOnSwitch(switchCredentials *SwitchCredentials, switchInterfaces []string) {
+func configureLAGsOnSwitch(switchCredentials *nethelper.SwitchCredentials, switchInterfaces []string) {
 	err := setOrDeleteNonLACPLAGOnJunos(switchCredentials, []string{switchInterfaces[0], switchInterfaces[1]},
 		netsriovparameters.LAGInterface1, switchcmd.SetAction)
 	Expect(err).ToNot(HaveOccurred())

@@ -25,13 +25,6 @@ func CopyMap(originalMap map[string]string) map[string]string {
 	return newMap
 }
 
-// DefinePodNetworks returns mutation pod function.
-func DefinePodNetworks(annotation map[string]string) func(podManifest *k8sv1.Pod) {
-	return func(podManifest *k8sv1.Pod) {
-		podManifest.ObjectMeta.Annotations = annotation
-	}
-}
-
 // GetPodStatus returns pods status.
 func GetPodStatus(podDefinition *k8sv1.Pod) k8sv1.PodPhase {
 	tempPod, _ := helper.Apiclient.Pods(podDefinition.Namespace).Get(
@@ -48,15 +41,6 @@ func DefinePodWithInitContainers(initContainers []*k8sv1.Container) func(podMani
 		for _, initContainer := range initContainers {
 			podManifest.Spec.InitContainers = append(podManifest.Spec.InitContainers,
 				*initContainer)
-		}
-	}
-}
-
-// DefinePodWIthSecurityContext returns function that add SecurityContext to pod manifest.
-func DefinePodWIthSecurityContext(securityContext *k8sv1.SecurityContext) func(podManifest *k8sv1.Pod) {
-	return func(podManifest *k8sv1.Pod) {
-		for idx := range podManifest.Spec.Containers {
-			podManifest.Spec.Containers[idx].SecurityContext = securityContext
 		}
 	}
 }

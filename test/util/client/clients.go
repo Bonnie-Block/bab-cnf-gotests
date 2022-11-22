@@ -15,6 +15,7 @@ import (
 	whereaboutsApi "github.com/k8snetworkplumbingwg/whereabouts/pkg/client/clientset/versioned/typed/whereabouts.cni.cncf.io/v1alpha1"
 
 	metallboperatorv1beta1 "github.com/metallb/metallb-operator/api/v1beta1"
+	nmstatev1 "github.com/nmstate/kubernetes-nmstate/api/v1"
 	cguv1alpha1 "github.com/openshift-kni/cluster-group-upgrades-operator/pkg/generated/clientset/versioned/typed/clustergroupupgradesoperator/v1alpha1"
 	performancev2 "github.com/openshift-kni/performance-addon-operators/api/v2"
 	operv1 "github.com/openshift/api/operator/v1"
@@ -180,6 +181,10 @@ func New(kubeconfig string) *ClientSet {
 	}
 
 	if err := policiesv1beta1.AddToScheme(crScheme); err != nil {
+		panic(err)
+	}
+
+	if err := nmstatev1.AddToScheme(crScheme); err != nil {
 		panic(err)
 	}
 

@@ -192,7 +192,7 @@ var _ = Describe("MetalLb New CRDs", func() {
 		DescribeTable("should work together",
 			func(externalTrafficPolicy k8sv1.ServiceExternalTrafficPolicyType) {
 				By("Creating 2 MetalLB services for L2 and L3 server nginx pods")
-				err = netmetallbhelper.DefineAndCreateLBService(
+				_, err = netmetallbhelper.DefineAndCreateLBService(
 					netmlbparameters.TestNamespace,
 					netparameters.IPV4Family,
 					netmlbparameters.AddressPoolName,
@@ -203,7 +203,7 @@ var _ = Describe("MetalLb New CRDs", func() {
 					fmt.Sprintf("An unexpected error occurred during service %s creation.",
 						netmlbparameters.AddressPoolName))
 
-				err = netmetallbhelper.DefineAndCreateLBService(
+				_, err = netmetallbhelper.DefineAndCreateLBService(
 					netmlbparameters.TestNamespace,
 					netparameters.IPV4Family,
 					netmlbparameters.AddressPoolL2,
@@ -325,7 +325,7 @@ var _ = Describe("MetalLb New CRDs", func() {
 		// 50059
 		It("should work concurrently Layer 2 and Layer 3", func() {
 			By("Creating MetalLB service")
-			err = netmetallbhelper.DefineAndCreateLBService(
+			_, err = netmetallbhelper.DefineAndCreateLBService(
 				netmlbparameters.TestNamespace,
 				netparameters.IPV4Family,
 				netmlbparameters.AddressPoolName,

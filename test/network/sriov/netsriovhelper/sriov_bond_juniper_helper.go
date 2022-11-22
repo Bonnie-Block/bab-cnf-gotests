@@ -4,43 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 
-	. "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/nethelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/switchcmd"
 )
 
-type SwitchCredentials struct {
-	user     string
-	password string
-	switchIP string
-}
-
-// NewSwitchCredentials is the constructor for the SwitchCredentials object.
-func NewSwitchCredentials() (*SwitchCredentials, error) {
-	user, err := Config.GetSwitchUser()
-	if err != nil {
-		return nil, err
-	}
-
-	pass, err := Config.GetSwitchPass()
-	if err != nil {
-		return nil, err
-	}
-
-	ipAddress, err := Config.GetSwitchIP()
-	if err != nil {
-		return nil, err
-	}
-
-	return &SwitchCredentials{
-		user:     user,
-		password: pass,
-		switchIP: ipAddress,
-	}, nil
-}
-
 // RollBackToOriginalConfig returns the switch configuration that was before the test.
-func RollBackToOriginalConfig(credentials *SwitchCredentials) error {
-	jnpr, err := switchcmd.NewSession(credentials.switchIP, credentials.user, credentials.password)
+func RollBackToOriginalConfig(credentials *nethelper.SwitchCredentials) error {
+	jnpr, err := switchcmd.NewSession(credentials.SwitchIP, credentials.User, credentials.Password)
 	if err != nil {
 		return err
 	}
@@ -56,13 +26,13 @@ func RollBackToOriginalConfig(credentials *SwitchCredentials) error {
 	return nil
 }
 
-func setOrDeleteNonLACPLAGOnJunos(credentials *SwitchCredentials,
+func setOrDeleteNonLACPLAGOnJunos(credentials *nethelper.SwitchCredentials,
 	slaveInterfaceNames []string, aggregatedInterfaceName, action string) error {
 	if action != "set" && action != "delete" {
 		return fmt.Errorf("unknown action %s", action)
 	}
 
-	jnpr, err := switchcmd.NewSession(credentials.switchIP, credentials.user, credentials.password)
+	jnpr, err := switchcmd.NewSession(credentials.SwitchIP, credentials.User, credentials.Password)
 	if err != nil {
 		return err
 	}
@@ -81,8 +51,8 @@ func setOrDeleteNonLACPLAGOnJunos(credentials *SwitchCredentials,
 	return err
 }
 
-func removeAllConfigurationFromInterfaces(credentials *SwitchCredentials, switchInterfaces []string) error {
-	jnpr, err := switchcmd.NewSession(credentials.switchIP, credentials.user, credentials.password)
+func removeAllConfigurationFromInterfaces(credentials *nethelper.SwitchCredentials, switchInterfaces []string) error {
+	jnpr, err := switchcmd.NewSession(credentials.SwitchIP, credentials.User, credentials.Password)
 	if err != nil {
 		return err
 	}
@@ -100,12 +70,12 @@ func removeAllConfigurationFromInterfaces(credentials *SwitchCredentials, switch
 	return nil
 }
 
-func setSwitchInterfaceStatus(credentials *SwitchCredentials, switchInterface, action string) error {
+func setSwitchInterfaceStatus(credentials *nethelper.SwitchCredentials, switchInterface, action string) error {
 	if action != switchcmd.SetAction && action != switchcmd.DeleteAction {
 		return fmt.Errorf("unknown action %s", action)
 	}
 
-	jnpr, err := switchcmd.NewSession(credentials.switchIP, credentials.user, credentials.password)
+	jnpr, err := switchcmd.NewSession(credentials.SwitchIP, credentials.User, credentials.Password)
 	if err != nil {
 		return err
 	}
@@ -116,15 +86,16 @@ func setSwitchInterfaceStatus(credentials *SwitchCredentials, switchInterface, a
 	return err
 }
 
-func configureMTUOnSwitchInterfaces(credentials *SwitchCredentials, switchInterfaces []string, mtu string) error {
-	jnpr, err := switchcmd.NewSession(credentials.switchIP, credentials.user, credentials.password)
+func configureMTUOnSwitchInterfaces(credentials *nethelper.SwitchCredentials,
+	switchIntFace []string, mtu string) error {
+	jnpr, err := switchcmd.NewSession(credentials.SwitchIP, credentials.User, credentials.Password)
 	if err != nil {
 		return err
 	}
 	defer jnpr.Close()
 
 	var commands []string
-	for _, switchInterface := range switchInterfaces {
+	for _, switchInterface := range switchIntFace {
 		commands = append(commands, fmt.Sprintf("set interfaces %s mtu %s", switchInterface, mtu))
 	}
 
@@ -133,8 +104,8 @@ func configureMTUOnSwitchInterfaces(credentials *SwitchCredentials, switchInterf
 	return err
 }
 
-func isSwitchInterfaceUp(credentials *SwitchCredentials, switchInterface string) (bool, error) {
-	jnpr, err := switchcmd.NewSession(credentials.switchIP, credentials.user, credentials.password)
+func isSwitchInterfaceUp(credentials *nethelper.SwitchCredentials, switchInterface string) (bool, error) {
+	jnpr, err := switchcmd.NewSession(credentials.SwitchIP, credentials.User, credentials.Password)
 	if err != nil {
 		return false, err
 	}

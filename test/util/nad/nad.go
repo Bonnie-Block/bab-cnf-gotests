@@ -58,6 +58,9 @@ type (
 		Name       string    `json:"name,omitempty"`
 		Type       string    `json:"type,omitempty"`
 		Master     string    `json:"master,omitempty"`
+		Bridge     string    `json:"bridge,omitempty"`
+		Vlan       uint16    `json:"vlanid,omitempty"`
+		Mode       string    `json:"mode,omitempty"`
 		Ipam       *IPAM     `json:"ipam,omitempty"`
 		Plugins    *[]Plugin `json:"plugins,omitempty"`
 	}
@@ -205,6 +208,18 @@ func DefineMacVlanPlugin(master string, ipam *IPAM) *Plugin {
 	}
 }
 
+func DefineBridgeVlanPlugin(name, master, mode string, vlanID uint16, ipam *IPAM) *MasterPlugin {
+	return &MasterPlugin{
+		CniVersion: "0.4.0",
+		Name:       name,
+		Master:     master,
+		Mode:       mode,
+		Vlan:       vlanID,
+		Type:       "vlan",
+		Ipam:       ipam,
+	}
+}
+
 // DefineVrfPlugin returns vrf plugin config.
 func DefineVrfPlugin(vrfName string) *Plugin {
 	return &Plugin{
@@ -247,6 +262,17 @@ func DefineMasterPlugin(name string, plugin []Plugin) *MasterPlugin {
 		Name:       name,
 		CniVersion: "0.4.0",
 		Plugins:    &plugin,
+	}
+}
+
+// DefineMasterBridgePlugin returns master nad plugin with bridge config.
+func DefineMasterBridgePlugin(name, bridgeName string, ipamConfig *IPAM) *MasterPlugin {
+	return &MasterPlugin{
+		Name:       name,
+		CniVersion: "0.4.0",
+		Type:       "bridge",
+		Bridge:     bridgeName,
+		Ipam:       ipamConfig,
 	}
 }
 

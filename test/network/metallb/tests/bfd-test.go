@@ -132,6 +132,7 @@ var _ = Describe("BFD", func() {
 			err = helper.Apiclient.Delete(context.Background(), clientPodOnMasterNode)
 			Expect(err).ToNot(HaveOccurred())
 
+			By("Delete all BFD Profiles")
 			err = netmetallbhelper.DeleteAllBFDProfiles()
 			Expect(err).ToNot(HaveOccurred())
 
@@ -286,7 +287,7 @@ var _ = Describe("BFD", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating a MetalLB service")
-				err = netmetallbhelper.DefineAndCreateLBService(
+				_, err = netmetallbhelper.DefineAndCreateLBService(
 					netmlbparameters.TestNamespace,
 					ipStack,
 					netmlbparameters.AddressPoolName,

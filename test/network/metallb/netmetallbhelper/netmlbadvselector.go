@@ -192,7 +192,7 @@ func validateBGPPeerSelectorRoutes(masterNodeFRRPod k8sv1.Pod, workerNodesAdress
 func defineCreateServicesAndTestPods(ipStack, label, ipAddressPool, trafficPolicy string,
 	workerNodeList []k8sv1.Node, twoIPAddressPool bool) error {
 	for _, protocol := range []string{netmlbparameters.ProtocolTCP, netmlbparameters.ProtocolSCTP} {
-		err := DefineAndCreateLBService(
+		_, err := DefineAndCreateLBService(
 			netmlbparameters.TestNamespace,
 			ipStack,
 			ipAddressPool,

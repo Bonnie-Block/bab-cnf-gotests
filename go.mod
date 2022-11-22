@@ -15,6 +15,7 @@ require (
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/kennygrant/sanitize v1.2.4
 	github.com/metallb/metallb-operator v0.10.2
+	github.com/nmstate/kubernetes-nmstate/api v0.0.0-20221031080854-83574e434acd
 	github.com/noirbizarre/gonja v0.0.0-20200629003239-4d051fd0be61
 	github.com/onsi/ginkgo/v2 v2.1.6
 	github.com/onsi/gomega v1.21.1

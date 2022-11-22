@@ -44,8 +44,8 @@ func CreateSpeakerBGPPeer(externalAddress string, asn uint32, bgpPeerName string
 }
 
 // DefineFRRBGPConfigMap returns configmap definition for the external FRR BGP configuration.
-func DefineFRRBGPConfigMap(ipAddresses []string, configMapName string, localAS int,
-	ipStack string, routePropagate ...string) *k8sv1.ConfigMap {
+func DefineFRRBGPConfigMap(ipAddresses []string, configMapName, ipStack string, localASN, remoteASN int,
+	routePropagate ...string) *k8sv1.ConfigMap {
 	configMapData := make(map[string]string)
 
 	var router netmlbparameters.NeighborConfig
@@ -66,7 +66,10 @@ func DefineFRRBGPConfigMap(ipAddresses []string, configMapName string, localAS i
 	case netparameters.IPV4Family:
 		router = netmlbparameters.NeighborConfig{
 			Addr1: ipAddresses[0],
-			Addr2: ipAddresses[1]}
+		}
+		if len(ipAddresses) > 1 {
+			router.Addr2 = ipAddresses[1]
+		}
 
 	case netparameters.IPV6Family:
 		router = netmlbparameters.NeighborConfig{
@@ -84,7 +87,8 @@ func DefineFRRBGPConfigMap(ipAddresses []string, configMapName string, localAS i
 		Fail("Invalid or no IPStack is configured")
 	}
 
-	router.ASN = uint32(localAS)
+	router.ASN = uint32(remoteASN)
+	router.LocalASN = uint32(localASN)
 	router.Password = netmlbparameters.BGPPassword
 
 	var bfdConfig bytes.Buffer
@@ -572,14 +576,17 @@ func CreateFRRContainerOnMaster(
 		masterConfigMap = DefineFRRBGPConfigMap(
 			workerNodesAdresses,
 			frrConfigName,
+			ipStack,
+			64500,
 			bgpASN,
-			ipStack, routePropagate[0])
+			routePropagate[0])
 	} else {
 		masterConfigMap = DefineFRRBGPConfigMap(
 			workerNodesAdresses,
 			frrConfigName,
-			bgpASN,
-			ipStack)
+			ipStack,
+			64500,
+			bgpASN)
 	}
 
 	_, err = helper.Apiclient.ConfigMaps(netmlbparameters.TestNamespace).Create(

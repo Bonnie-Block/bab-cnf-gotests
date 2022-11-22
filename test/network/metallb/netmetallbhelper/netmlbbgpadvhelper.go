@@ -73,7 +73,7 @@ func TestBGPAdvertismentTable(ipStack string,
 
 	By("should create service with 1 backend pods")
 
-	err = DefineAndCreateLBService(
+	_, err = DefineAndCreateLBService(
 		netmlbparameters.TestNamespace,
 		ipStack,
 		netmlbparameters.AddressPoolS1Name,
@@ -166,7 +166,7 @@ func TestBGPAdvertismentTableUpdates(masterNodeList []k8sv1.Node, workerNodeList
 
 	By("should create service with 1 backend pods")
 
-	err = DefineAndCreateLBService(
+	_, err = DefineAndCreateLBService(
 		netmlbparameters.TestNamespace,
 		ipStack,
 		netmlbparameters.AddressPoolS1Name,
@@ -376,7 +376,7 @@ func TestBGPBlockRouteAdvertisment(ipStack string,
 
 	By("should create service")
 
-	err = DefineAndCreateLBService(
+	_, err = DefineAndCreateLBService(
 		netmlbparameters.TestNamespace,
 		ipStack,
 		netmlbparameters.AddressPoolS1Name,

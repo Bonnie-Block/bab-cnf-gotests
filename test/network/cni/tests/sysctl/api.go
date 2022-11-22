@@ -412,7 +412,7 @@ func defineCreatePodWithNetworks(podNetworks []multus.NetworkSelectionElement) *
 		helper.Apiclient,
 		netcniparameters.TestNamespace,
 		helper.Config.Network.TestContainerImage,
-		netcnihelper.DefinePodNetworks(podNetAnnotation))
+		nethelper.DefinePodNetworks(podNetAnnotation))
 	Expect(err).ToNot(HaveOccurred(), "error creating pod with options")
 
 	return runningPod

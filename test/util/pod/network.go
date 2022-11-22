@@ -2,6 +2,7 @@ package pod
 
 import (
 	"encoding/json"
+	"net"
 
 	multus "gopkg.in/k8snetworkplumbingwg/multus-cni.v3/pkg/types"
 )
@@ -67,9 +68,13 @@ func defineNetwork(name string) *multus.NetworkSelectionElement {
 		Name: name,
 	}
 }
-func DefinePodNetStaticIP(name, ipAddr string) *multus.NetworkSelectionElement {
+func DefinePodNetStaticIP(name, ipAddr string, gateway ...string) *multus.NetworkSelectionElement {
 	netConfig := defineNetwork(name)
 	netConfig.IPRequest = []string{ipAddr}
+
+	if len(gateway) > 0 {
+		netConfig.GatewayRequest = []net.IP{net.ParseIP(gateway[0])}
+	}
 
 	return netConfig
 }

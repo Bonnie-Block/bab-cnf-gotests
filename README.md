@@ -93,6 +93,8 @@ The list of available features:
 ##### MetalLB suite environment variables:
 * `METALLB_ADDR_LIST` - is used to create the metalLB L2 and BGP service address pool. These addresses are specific to the Helix TLV lab. Addresses include both IPv4 and IPv6 for Single Stack and Dual Stack deployments. If no IP environmental variable is present all MetalLB test cases are skipped. 
 * `FRR_IMAGE` - path where to download the frr image (default `quay.io/ocp-edge-qe/frr:stable_7.5`)
+* `METALLB_VLANS` - is used to set up VLANs config on a secondary Node interface and on a switch in the middle. Require 2 VLANs
+* `METALLB_SWITCH_INTERFACES` - is used to set up trunk port on the switch interfaces between nodes. Require 2 switch ports.  
 
 ##### CNF-TESTS suite environment variables:
 * `DPDK_IMAGE_VERSION` - select the name of dpdk image.

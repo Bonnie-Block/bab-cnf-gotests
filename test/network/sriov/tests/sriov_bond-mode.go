@@ -71,7 +71,7 @@ var _ = Describe("CNF SRIOV: Bond CNI.", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			if switchcmd.CountChanges > 0 {
-				switchCredentials, err := netsriovhelper.NewSwitchCredentials()
+				switchCredentials, err := nethelper.NewSwitchCredentials()
 				Expect(err).ToNot(HaveOccurred())
 				err = netsriovhelper.RollBackToOriginalConfig(switchCredentials)
 				Expect(err).ToNot(HaveOccurred())

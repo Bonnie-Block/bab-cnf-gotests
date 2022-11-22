@@ -404,9 +404,9 @@ func defineCreatePodWithNetworksSecurityContextAndInitContainers(
 		helper.Apiclient,
 		netcniparameters.TestNamespace,
 		helper.Config.Network.TestContainerImage,
-		netcnihelper.DefinePodNetworks(podNetAnnotation),
+		nethelper.DefinePodNetworks(podNetAnnotation),
 		netcnihelper.DefinePodWithInitContainers(initContainers),
-		netcnihelper.DefinePodWIthSecurityContext(securityContext),
+		nethelper.DefinePodWIthSecurityContext(securityContext),
 	)
 	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("error creating pod with options %s", err))
 

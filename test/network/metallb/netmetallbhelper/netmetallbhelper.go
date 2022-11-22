@@ -159,8 +159,8 @@ func IsEnvVarMetallbIPinNodeExtNetRange(cnfNodeLabel string, ipStack string,
 
 // DefineAndCreateLBService create an external service using the MetalLB Address Pool allowing
 // connectivity from network host interface br-ex to the nginx pod on port 30101.
-func DefineAndCreateLBService(namespace string, iPStack string, addresspool string, appLabel string, protocolL4 string,
-	trafficPolicy k8sv1.ServiceExternalTrafficPolicyType) error {
+func DefineAndCreateLBService(namespace, iPStack, addresspool, appLabel, protocolL4 string,
+	trafficPolicy k8sv1.ServiceExternalTrafficPolicyType) (*k8sv1.Service, error) {
 	portNum := int32(80)
 	protocol := k8sv1.ProtocolTCP
 	ipFamilyPolicy := k8sv1.IPFamilyPolicySingleStack
@@ -210,14 +210,14 @@ func DefineAndCreateLBService(namespace string, iPStack string, addresspool stri
 		},
 	}
 
-	_, err := helper.Apiclient.Services(namespace).Create(context.Background(),
+	runningService, err := helper.Apiclient.Services(namespace).Create(context.Background(),
 		&service, metav1.CreateOptions{})
 
 	if err != nil {
-		return fmt.Errorf("error defining LB service for %s - %w", addresspool, err)
+		return nil, fmt.Errorf("error defining LB service for %s - %w", addresspool, err)
 	}
 
-	return err
+	return runningService, err
 }
 
 // DeleteAllLBServices deletes all the service in a specific namespace.

@@ -70,7 +70,7 @@ func waitUntilPodInStatus(runningPod *k8sv1.Pod, status k8sv1.PodPhase) *k8sv1.P
 
 func defineInitContainer(name string, cmd string, securityContext *k8sv1.SecurityContext) *k8sv1.Container {
 	return pod.DefineContainer(
-		name, []string{"/bin/bash", "-c", cmd}, helper.Config.Network.TestContainerImage, securityContext)
+		name, []string{cmd}, helper.Config.Network.TestContainerImage, securityContext)
 }
 
 func defineAndCreateNadWithPlugins(nadName string, plugins []*nad.Plugin) {

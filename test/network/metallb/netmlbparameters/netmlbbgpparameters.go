@@ -122,7 +122,7 @@ const (
     route-map RMAP permit 10
     set ipv6 next-hop prefer-global
     
-    router bgp 64500
+    router bgp {{.LocalASN}}
       bgp router-id 10.10.10.10
       no bgp network import-check
       no bgp ebgp-requires-policy
@@ -202,6 +202,7 @@ const (
 
 type (
 	NeighborConfig struct {
+		LocalASN    uint32
 		Addr1       string
 		Addr2       string
 		Addr3       string
