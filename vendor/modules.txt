@@ -656,6 +656,10 @@ github.com/mtrmac/gpgme
 # github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822
 ## explicit
 github.com/munnerz/goautoneg
+# github.com/nmstate/kubernetes-nmstate/api v0.0.0-20221031080854-83574e434acd
+## explicit; go 1.17
+github.com/nmstate/kubernetes-nmstate/api/shared
+github.com/nmstate/kubernetes-nmstate/api/v1
 # github.com/noirbizarre/gonja v0.0.0-20200629003239-4d051fd0be61
 ## explicit; go 1.14
 github.com/noirbizarre/gonja
