@@ -4,8 +4,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	"github.com/onsi/ginkgo/v2/types"
 	. "github.com/onsi/gomega"
+	ptpv1 "github.com/openshift/ptp-operator/api/v1"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ptp/ranptphelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ptp/ranptpparameters"
 	_ "gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ptp/tests"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
@@ -67,6 +69,34 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = AfterSuite(func() {
+	if namespaces.Exists(parameters.PtpOperatorNamespace, helper.Apiclient) {
+		log.Println("bring up all slave and master interfaces on all ptp pods")
+		ptpDaemonPods, err := helper.Apiclient.Pods(parameters.PtpOperatorNamespace).List(context.Background(),
+			metav1.ListOptions{
+				LabelSelector: parameters.PtpDaemonsetLabelSelector})
+		Expect(err).NotTo(HaveOccurred())
+		var allIfaces []string
+		slaveIfaces, err := ranptphelper.GetInterfaces(ptpv1.Slave)
+		Expect(err).NotTo(HaveOccurred())
+		masterIfaces, err := ranptphelper.GetInterfaces(ptpv1.Master)
+		Expect(err).NotTo(HaveOccurred())
+		allIfaces = append(allIfaces, slaveIfaces...)
+		allIfaces = append(allIfaces, masterIfaces...)
+		for _, iface := range allIfaces {
+			err = ranptphelper.SetInterfaceStatus(&ptpDaemonPods.Items[0],
+				parameters.PtpContainerName,
+				iface,
+				ranptpparameters.On)
+			Expect(err).NotTo(HaveOccurred())
+		}
+		log.Println("restore all clock thresholds to original values")
+		ptpConfigs, err := ranptphelper.GetPtpConfigs()
+		Expect(err).NotTo(HaveOccurred())
+		for _, ptpConfig := range ptpConfigs {
+			err := ranptphelper.RestoreThresholdsValues(&ptpConfig)
+			Expect(err).NotTo(HaveOccurred())
+		}
+	}
 	if namespaces.Exists(parameters.PrivPodNamespace, helper.Apiclient) {
 		log.Println("Deleting test namespace", parameters.PrivPodNamespace)
 		err := namespaces.DeleteAndWait(helper.Apiclient, parameters.PrivPodNamespace, 10*time.Minute)
@@ -75,5 +105,6 @@ var _ = AfterSuite(func() {
 })
 
 var _ = ReportAfterEach(func(report types.SpecReport) {
-	testutils.ReportIfFailed(report, currentFile, ranptpparameters.ReporterNamespacesToDump, ranptpparameters.ReporterCrds)
+	testutils.ReportIfFailed(report, currentFile, ranptpparameters.ReporterNamespacesToDump,
+		ranptpparameters.ReporterCrds)
 })

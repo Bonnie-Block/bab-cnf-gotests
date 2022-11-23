@@ -1,16 +1,16 @@
 package ranptphelper
 
 import (
-	"bytes"
-	"context"
-	"fmt"
-	"strings"
-
+	ptpv1 "github.com/openshift/ptp-operator/api/v1"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"bytes"
+	"context"
+	"fmt"
+	"strings"
 	"time"
 )
 
@@ -81,4 +81,24 @@ func BytesToStrings(buff bytes.Buffer) []string {
 	strs = append(strs, strings.Split(buff.String(), "\n")...)
 
 	return strs
+}
+
+// GetConfigFiles gets all ptp configuration files and store them inside the map which the key is the name of the
+// configuration.
+// return value:	the map and an error if any occurred.
+func GetPtpConfigs() (map[string]ptpv1.PtpConfig, error) {
+	ptpConfigList, err := helper.Apiclient.PtpConfigs(parameters.PtpOperatorNamespace).List(context.Background(),
+		metav1.ListOptions{})
+
+	if nil != err {
+		return nil, err
+	}
+
+	ptpConfigMap := make(map[string]ptpv1.PtpConfig)
+
+	for _, ptpConfig := range ptpConfigList.Items {
+		ptpConfigMap[ptpConfig.Name] = ptpConfig
+	}
+
+	return ptpConfigMap, nil
 }

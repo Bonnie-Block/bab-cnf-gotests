@@ -1,12 +1,11 @@
 package ranptphelper
 
 import (
-	"fmt"
-
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 	corev1 "k8s.io/api/core/v1"
 
+	"fmt"
 	"strings"
 )
 

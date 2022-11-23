@@ -13,11 +13,11 @@ const (
 	LockedState   ClockState = 1
 	HoldOverState ClockState = 2
 
-	Passive InterfaceRole = 0
-	Slave   InterfaceRole = 1
-	Master  InterfaceRole = 2
-	Faulty  InterfaceRole = 3
-	Unknown InterfaceRole = 4
+	PassiveRole InterfaceRole = 0
+	SlaveRole   InterfaceRole = 1
+	MasterRole  InterfaceRole = 2
+	FaultyRole  InterfaceRole = 3
+	UnknownRole InterfaceRole = 4
 
 	Down ProcessStatus = 0
 	Up   ProcessStatus = 1
@@ -31,6 +31,15 @@ const (
 
 	Off InterfaceState = "down"
 	On  InterfaceState = "up"
+
+	OpenshiftPtpClockState    = "openshift_ptp_clock_state"
+	OpenshiftPtpProcessStatus = "openshift_ptp_process_status"
+	OpenshiftPtpInterfaceRole = "openshift_ptp_interface_role"
+	OpenshiftPtpThreshold     = "openshift_ptp_threshold"
+
+	HoldOverTimeout    = "HoldOverTimeout"
+	MaxOffsetThreshold = "MaxOffsetThreshold"
+	MinOffsetThreshold = "MinOffsetThreshold"
 )
 
 var (

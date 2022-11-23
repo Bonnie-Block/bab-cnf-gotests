@@ -1,21 +1,19 @@
 package ranptphelper
 
 import (
-	"bytes"
-	"fmt"
-	"log"
-	"time"
-
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ptp/ranptpparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 	corev1 "k8s.io/api/core/v1"
-
 	"k8s.io/apimachinery/pkg/util/wait"
 
+	"bytes"
+	"fmt"
+	"log"
 	"math/big"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // GetPTPMetrics gets the metrics and checks if the all the metrics got correctly if not it will try again
@@ -260,13 +258,13 @@ func getSpecificDetail(metricDetails string, detail string) string {
 // this value if for 'clock_state_value' metric key only.
 // return value:	an error if the clock state metrics are empty or the state value is undefined.
 func getClockState() error {
-	if nil == ranptpparameters.MetricMap["openshift_ptp_clock_state"] {
+	if nil == ranptpparameters.MetricMap[ranptpparameters.OpenshiftPtpClockState] {
 		return fmt.Errorf("openshift_ptp_clock_state metrics didn't get correctly")
 	}
 
-	for i := range ranptpparameters.MetricMap["openshift_ptp_clock_state"] {
-		details := &ranptpparameters.MetricMap["openshift_ptp_clock_state"][i]
-		value := ranptpparameters.MetricMap["openshift_ptp_clock_state"][i].Value
+	for i := range ranptpparameters.MetricMap[ranptpparameters.OpenshiftPtpClockState] {
+		details := &ranptpparameters.MetricMap[ranptpparameters.OpenshiftPtpClockState][i]
+		value := ranptpparameters.MetricMap[ranptpparameters.OpenshiftPtpClockState][i].Value
 
 		switch value {
 		case int64(0):
@@ -288,25 +286,25 @@ func getClockState() error {
 // this value if for 'interface_role_value' metric key only.
 // return value:	an error if the interface role metrics are empty or the state value is undefined.
 func getInterfaceRoleValue() error {
-	if nil == ranptpparameters.MetricMap["openshift_ptp_interface_role"] {
+	if nil == ranptpparameters.MetricMap[ranptpparameters.OpenshiftPtpInterfaceRole] {
 		return fmt.Errorf("openshift_ptp_interface_role metrics didn't get correctly")
 	}
 
-	for i := range ranptpparameters.MetricMap["openshift_ptp_interface_role"] {
-		details := &ranptpparameters.MetricMap["openshift_ptp_interface_role"][i]
-		value := ranptpparameters.MetricMap["openshift_ptp_interface_role"][i].Value
+	for i := range ranptpparameters.MetricMap[ranptpparameters.OpenshiftPtpInterfaceRole] {
+		details := &ranptpparameters.MetricMap[ranptpparameters.OpenshiftPtpInterfaceRole][i]
+		value := ranptpparameters.MetricMap[ranptpparameters.OpenshiftPtpInterfaceRole][i].Value
 
 		switch value {
 		case int64(0):
-			details.InterfaceRoleValue = ranptpparameters.Passive
+			details.InterfaceRoleValue = ranptpparameters.PassiveRole
 		case int64(1):
-			details.InterfaceRoleValue = ranptpparameters.Slave
+			details.InterfaceRoleValue = ranptpparameters.SlaveRole
 		case int64(2):
-			details.InterfaceRoleValue = ranptpparameters.Master
+			details.InterfaceRoleValue = ranptpparameters.MasterRole
 		case int64(3):
-			details.InterfaceRoleValue = ranptpparameters.Faulty
+			details.InterfaceRoleValue = ranptpparameters.FaultyRole
 		case int64(4):
-			details.InterfaceRoleValue = ranptpparameters.Unknown
+			details.InterfaceRoleValue = ranptpparameters.UnknownRole
 		default:
 			return fmt.Errorf("an unexpected value returned, returned value: %d", value)
 		}
@@ -320,13 +318,13 @@ func getInterfaceRoleValue() error {
 // this value if for 'process_status_value' metric key only.
 // return value:	an error if the process status metrics are empty or the state value is undefined.
 func getProcessStatusValue() error {
-	if nil == ranptpparameters.MetricMap["openshift_ptp_process_status"] {
+	if nil == ranptpparameters.MetricMap[ranptpparameters.OpenshiftPtpProcessStatus] {
 		return fmt.Errorf("openshift_ptp_process_status metrics didn't get correctly")
 	}
 
-	for i := range ranptpparameters.MetricMap["openshift_ptp_process_status"] {
-		details := &ranptpparameters.MetricMap["openshift_ptp_process_status"][i]
-		value := ranptpparameters.MetricMap["openshift_ptp_process_status"][i].Value
+	for i := range ranptpparameters.MetricMap[ranptpparameters.OpenshiftPtpProcessStatus] {
+		details := &ranptpparameters.MetricMap[ranptpparameters.OpenshiftPtpProcessStatus][i]
+		value := ranptpparameters.MetricMap[ranptpparameters.OpenshiftPtpProcessStatus][i].Value
 
 		switch value {
 		case int64(0):

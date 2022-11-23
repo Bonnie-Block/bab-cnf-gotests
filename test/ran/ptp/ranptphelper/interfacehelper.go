@@ -1,8 +1,6 @@
 package ranptphelper
 
 import (
-	"fmt"
-
 	ptpv1api "github.com/openshift/ptp-operator/api/v1"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
@@ -12,6 +10,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"context"
+	"fmt"
 	"strconv"
 	"strings"
 )
