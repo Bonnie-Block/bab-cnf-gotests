@@ -305,11 +305,11 @@ var _ = Describe("PTP Events", Ordered, func() {
 			}
 		})
 
-		It("should create a new ptp4l process after killing a ptp4l process that is not"+
+		It("should create a new ptp4l process after killing a ptp4l process that is not "+
 			"related to the phc2sy process", func() {
 			nodeToPtpDaemonPod := ranptphelper.NodesToPtpDaemonPods(workerNodesList, ptpDaemonPods)
 			for workerNode, ptpDaemonPod := range nodeToPtpDaemonPod {
-				By(fmt.Sprintf("killing a ptp4l process onode %s", workerNode.Name))
+				By(fmt.Sprintf("killing a ptp4l process on node %s", workerNode.Name))
 				// get the ptp4l PID that is not related to the phc2sys
 				oldPTP4lPID, err := ranptphelper.GetPTP4lPID(ptpDaemonPod, false)
 				Expect(err).NotTo(HaveOccurred())
@@ -328,15 +328,75 @@ var _ = Describe("PTP Events", Ordered, func() {
 				newPhc2sysPid, err := ranptphelper.GetProcessPID(ptpDaemonPod, "phc2sys")
 				Expect(err).NotTo(HaveOccurred())
 
-				By("validate the event status changed to [FREERUN] after ptp4l process was killed")
+				By("validate the event ptp status changed to [FREERUN] after ptp4l process was killed")
 				Expect(event).Should(Equal(ranptpparameters.FreeRun))
 				By("validate a new ptp4l process reset")
 				Expect(newPTP4lPID).ShouldNot(Equal(oldPTP4lPID))
-				By("validate thr event status changed to [LOCKED] after ptp4l process reset")
+				By("validate the event ptp status changed to [LOCKED] after ptp4l process reset")
 				Expect(newEvent).Should(Equal(ranptpparameters.Locked))
 				By(fmt.Sprintf("validate the phc2sys process not effected by killing the ptp4l process" +
 					"(same PID before and after reset the ptp4l process)"))
 				Expect(newPhc2sysPid).Should(Equal(oldPhc2sysPid))
+			}
+		})
+
+		It("should reset both ptp4l after killing both of them", func() {
+			nodeToPtpDaemonPod := ranptphelper.NodesToPtpDaemonPods(workerNodesList, ptpDaemonPods)
+			for workerNode, ptpDaemonPod := range nodeToPtpDaemonPod {
+				By(fmt.Sprintf("killing the two ptp4l processes on node %s", workerNode.Name))
+
+				// the ptp4l that is related to the phc2sys process
+				oldPtp4l1, err := ranptphelper.GetPTP4lPID(ptpDaemonPod, true)
+				Expect(err).NotTo(HaveOccurred())
+				// the ptp4l that is not related to the phc2sys process
+				oldPtp4l2, err := ranptphelper.GetPTP4lPID(ptpDaemonPod, false)
+				Expect(err).NotTo(HaveOccurred())
+
+				// kill the ptp4l process that is related to phc2sys process
+				err = ranptphelper.KillProcess(ptpDaemonPod, oldPtp4l1)
+				Expect(err).NotTo(HaveOccurred())
+				oldEvent1, err := ranptphelper.GetEventValueFromEndOfEventByKeyValue(ptpDaemonPod,
+					map[string]string{"type": "event.sync.sync-status.os-clock-sync-state-change"}, 1)
+				Expect(err).NotTo(HaveOccurred())
+
+				// kill the ptp4l process that is NOT related to phc2sys process
+				err = ranptphelper.KillProcess(ptpDaemonPod, oldPtp4l2)
+				Expect(err).NotTo(HaveOccurred())
+				oldEvent2, err := ranptphelper.GetEventValueFromEndOfEventByKeyValue(ptpDaemonPod,
+					map[string]string{"type": "event.sync.ptp-status.ptp-state-change"}, 0)
+				Expect(err).NotTo(HaveOccurred())
+
+				// the new ptp4l that is not related to the phc2sys process
+				newPtp4l1, err := ranptphelper.GetPTP4lPID(ptpDaemonPod, false)
+				Expect(err).NotTo(HaveOccurred())
+				// the new ptp4l that is related to the phc2sys process
+				newPtp4l2, err := ranptphelper.GetPTP4lPID(ptpDaemonPod, true)
+				Expect(err).NotTo(HaveOccurred())
+
+				newEvent1, err := ranptphelper.GetEventValueFromEndOfEventByKeyValue(ptpDaemonPod,
+					map[string]string{"type": "event.sync.sync-status.os-clock-sync-state-change"}, 0)
+				Expect(err).NotTo(HaveOccurred())
+				newEvent2, err := ranptphelper.GetEventValueFromEndOfEventByKeyValue(ptpDaemonPod,
+					map[string]string{"type": "event.sync.ptp-status.ptp-state-change"}, 0)
+				Expect(err).NotTo(HaveOccurred())
+
+				By("validate the event clock sync status changed to [FREERUN] after ptp4l process" +
+					"(related to phc2sys) was killed")
+				Expect(oldEvent1).Should(Equal(ranptpparameters.FreeRun))
+				By("validate the event ptp status changed to [FREERUN] after ptp4l process" +
+					"(NOT related to phc2sys) was killed")
+				Expect(oldEvent2).Should(Equal(ranptpparameters.FreeRun))
+				By("validate a new ptp4l processes reset")
+
+				Expect(newPtp4l1).ShouldNot(Equal(oldPtp4l1))
+				Expect(newPtp4l2).ShouldNot(Equal(oldPtp4l2))
+
+				By("validate the event clock sync status changed to [LOCKED] after ptp4l process " +
+					"(related to phc2sys) reset")
+				Expect(newEvent1).Should(Equal(ranptpparameters.Locked))
+				By("validate the event ptp status changed to [LOCKED] after ptp4l process" +
+					" (NOT related to phc2sys) reset")
+				Expect(newEvent2).Should(Equal(ranptpparameters.Locked))
 			}
 		})
 	})
