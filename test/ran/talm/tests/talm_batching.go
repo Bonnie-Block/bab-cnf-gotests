@@ -168,9 +168,158 @@ var _ = Describe("Talm Batching Tests", Label("talmbatching"), func() {
 
 	Context("using a catalog source", Label("talmcatalogsource"), func() {
 		// 47952
-		It("should abort the CGU when the first batch fails with the Abort batch timeout action", func() {
-			// https://issues.redhat.com/browse/CNF-6481
-			// This test requires TALM 4.11+
+		It("should abort the CGU when the first batch fails with the Abort batch timeout action", Label("talmdev"), func() {
+
+			By("verifying the temporary namespace does not exist on spoke1", func() {
+				result := namespaces.Exists(rantalmhelper.TemporaryNamespaceName, rantalmhelper.Spoke1APIClient)
+				Expect(result).To(BeFalse())
+			})
+
+			By("creating the temporary namespace on spoke2 only", func() {
+				err := namespaces.Create(rantalmhelper.TemporaryNamespaceName, rantalmhelper.Spoke2APIClient)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			By("verifying the temporary namespace exists on spoke2", func() {
+				result := namespaces.Exists(rantalmhelper.TemporaryNamespaceName, rantalmhelper.Spoke2APIClient)
+				Expect(result).To(BeTrue())
+			})
+
+			By("creating the cgu and associated resources", func() {
+				// This test uses a max concurrency of 1
+				// This way we can verify the CGU aborts after the first batch fails
+				cgu := rantalmhelper.GetCguDefinition(
+					rantalmhelper.CguName,
+					[]string{
+						rantalmhelper.Spoke1Name,
+						rantalmhelper.Spoke2Name,
+					},
+					[]string{},
+					[]string{
+						rantalmhelper.PolicyName,
+					},
+					rantalmhelper.Namespace,
+					1,
+					9,
+				)
+
+				cgu.Spec.Enable = rantalmhelper.BoolAddr(false)
+				cgu.Spec.BatchTimeoutAction = "Abort"
+
+				catsrc := rantalmhelper.GetCatsrcDefinition(
+					rantalmhelper.CatalogSourceName,
+					rantalmhelper.TemporaryNamespaceName,
+					operatorsv1alpha1.SourceTypeInternal,
+					1,
+					"",
+					"",
+					"",
+					rantalmhelper.CatalogSourceName,
+				)
+
+				err := rantalmhelper.CreatePolicyAndCgu(
+					rantalmhelper.HubAPIClient,
+					&catsrc,
+					configurationPolicyv1.MustHave,
+					configurationPolicyv1.Inform,
+					rantalmhelper.PolicyName,
+					rantalmhelper.PolicySetName,
+					rantalmhelper.PlacementBindingName,
+					rantalmhelper.PlacementRule,
+					rantalmhelper.Namespace,
+					metav1.LabelSelector{},
+					cgu,
+				)
+
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			By("waiting for the system to settle", func() {
+				time.Sleep(rantalmparameters.TalmSystemStablizationTime)
+			})
+
+			By("enabling the CGU", func() {
+				cgu, err := rantalmhelper.GetCgu(
+					rantalmhelper.HubAPIClient,
+					rantalmhelper.CguName,
+					rantalmhelper.Namespace,
+				)
+				Expect(err).ToNot(HaveOccurred())
+
+				err = rantalmhelper.EnableCgu(
+					rantalmhelper.HubAPIClient,
+					cgu,
+				)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			By("waiting for the cgu to timeout", func() {
+				err := rantalmhelper.WaitForCguToTimeout(
+					rantalmhelper.CguName,
+					rantalmhelper.Namespace,
+					11*time.Minute,
+				)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			By("validating that the policy failed on spoke1", func() {
+				result, err := rantalmhelper.IsCatsrcExist(
+					rantalmhelper.Spoke1APIClient,
+					rantalmhelper.CatalogSourceName,
+					rantalmhelper.TemporaryNamespaceName,
+				)
+				err = rantalmhelper.FilterMissingResourceErrors(err)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result).To(BeFalse())
+			})
+
+			By("validating that the policy failed on spoke2", func() {
+				result, err := rantalmhelper.IsCatsrcExist(
+					rantalmhelper.Spoke2APIClient,
+					rantalmhelper.CatalogSourceName,
+					rantalmhelper.TemporaryNamespaceName,
+				)
+				err = rantalmhelper.FilterMissingResourceErrors(err)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result).To(BeFalse())
+			})
+
+			By("validating that the timeout should have occurred after just the first reconcile", func() {
+				// We need to get the cgu so we can get the timestamps from it
+				cgu, err := rantalmhelper.GetCgu(rantalmhelper.HubAPIClient, rantalmhelper.CguName, rantalmhelper.Namespace)
+				Expect(err).ToNot(HaveOccurred())
+
+				// Get the start and end time from the cgu status
+				startTime := cgu.Status.Status.StartedAt
+				endTime := cgu.Status.Status.CompletedAt
+
+				// Get the runtime in minutes
+				// We only really care about the minutes here since the test is relatively short
+				runtime := endTime.Minute() - startTime.Minute()
+
+				expectedDeviation := int(10 * time.Second)
+				expectedTimeout := int(rantalmparameters.TalmDefaultReconcileTime)
+
+				// We expect that the total runtime should be about equal to the expected timeout
+				// In particular we expect it to be just about one reconcile loop for this test
+				Expect(runtime+expectedDeviation >= expectedTimeout)
+				Expect(runtime-expectedDeviation <= expectedTimeout)
+
+			})
+
+			By("validating that the timeout message matched the abort message", func() {
+				err := rantalmhelper.WaitForCguInCondition(
+					rantalmhelper.HubAPIClient,
+					rantalmhelper.CguName,
+					rantalmhelper.Namespace,
+					rantalmhelper.SucceededType,
+					"Policy remediation took too long on some clusters",
+					"",
+					"",
+					1*time.Minute,
+				)
+				Expect(err).ToNot(HaveOccurred())
+			})
 		})
 		// 47952
 		It("should report the failed spoke when one spoke in a batch times out", func() {

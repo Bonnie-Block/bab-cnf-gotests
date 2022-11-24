@@ -501,12 +501,10 @@ func WaitForCguToTimeout(cguName string, namespace string, timeout time.Duration
 
 	// TALM uses different conditions starting in 4.12
 	conditionType := SucceededType
-	conditionMessage := "Policy remediation took too long"
 	conditionReason := "TimedOut"
 
 	if !IsTalmVersionAtLeastSpecified(TalmHubVersion, "4.12", true) {
 		conditionType = ReadyType
-		conditionMessage = "The ClusterGroupUpgrade CR policies are taking too long to complete"
 		conditionReason = "UpgradeTimedOut"
 	}
 
@@ -515,7 +513,7 @@ func WaitForCguToTimeout(cguName string, namespace string, timeout time.Duration
 		cguName,
 		namespace,
 		conditionType,
-		conditionMessage,
+		"",
 		"",
 		conditionReason,
 		timeout,
