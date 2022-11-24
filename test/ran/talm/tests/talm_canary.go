@@ -106,6 +106,8 @@ var _ = Describe("Talm Canary Tests", Label("talmcanary"), func() {
 					[]string{rantalmhelper.PolicyName},
 					rantalmhelper.Namespace, 1, 9)
 
+				cgu.Spec.Enable = rantalmhelper.BoolAddr(false)
+
 				err := rantalmhelper.CreatePolicyAndCgu(
 					rantalmhelper.HubAPIClient,
 					&catsrc,
@@ -117,6 +119,25 @@ var _ = Describe("Talm Canary Tests", Label("talmcanary"), func() {
 					rantalmhelper.PlacementRule,
 					rantalmhelper.Namespace,
 					metav1.LabelSelector{},
+					cgu,
+				)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			By("waiting for the system to settle", func() {
+				time.Sleep(rantalmparameters.TalmSystemStablizationTime)
+			})
+
+			By("enabling the CGU", func() {
+				cgu, err := rantalmhelper.GetCgu(
+					rantalmhelper.HubAPIClient,
+					rantalmhelper.CguName,
+					rantalmhelper.Namespace,
+				)
+				Expect(err).ToNot(HaveOccurred())
+
+				err = rantalmhelper.EnableCgu(
+					rantalmhelper.HubAPIClient,
 					cgu,
 				)
 				Expect(err).ToNot(HaveOccurred())
@@ -145,15 +166,25 @@ var _ = Describe("Talm Canary Tests", Label("talmcanary"), func() {
 			})
 
 			By("validating that the timeout was due to canary failure", func() {
+				// Validation here depends on the TALM version
+
+				conditionType := rantalmhelper.SucceededType
+				conditionMessage := "Policy remediation took too long on canary clusters"
+
+				if !rantalmhelper.IsTalmVersionAtLeastSpecified(rantalmhelper.TalmHubVersion, "4.12", true) {
+					conditionType = rantalmhelper.ReadyType
+					conditionMessage = "The ClusterGroupUpgrade CR policies are taking too long to complete"
+				}
+
 				err := rantalmhelper.WaitForCguInCondition(
 					rantalmhelper.HubAPIClient,
 					rantalmhelper.CguName,
 					rantalmhelper.Namespace,
-					"Succeeded",
-					"Policy remediation took too long on canary clusters",
+					conditionType,
+					conditionMessage,
 					"",
 					"",
-					3*rantalmparameters.TalmDefaultReconcileTime,
+					11*time.Minute,
 				)
 				Expect(err).ToNot(HaveOccurred())
 			})

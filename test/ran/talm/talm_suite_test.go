@@ -32,6 +32,11 @@ var (
 	talmPods *corev1.PodList
 )
 
+const (
+	// If we are unable to determine the TALM version from CSV we will default to this version.
+	DefaultTalmVersion string = "4.12"
+)
+
 func TestTalm(t *testing.T) {
 	_, reporterConfig := GinkgoConfiguration()
 	reporterConfig.JUnitReport = helper.Config.GetReportPath(currentFile)
@@ -128,7 +133,19 @@ func InitializeTalmClients() error {
 			return err
 		}
 
-		log.Printf("cluster %s has OCP version %s", rantalmhelper.HubName, ocpVersion)
+		talmVersion, err := rantalmhelper.GetTalmVersionFromCSV(rantalmhelper.HubAPIClient)
+		if err != nil {
+			log.Printf("unable to determine TALM version from CSV")
+
+			rantalmhelper.TalmHubVersion = DefaultTalmVersion
+
+			log.Printf("defaulting talm version to '%s'", rantalmhelper.TalmHubVersion)
+		} else {
+			rantalmhelper.TalmHubVersion = talmVersion
+		}
+
+		log.Printf("cluster '%s' has TALM version '%s'", rantalmhelper.HubName, rantalmhelper.TalmHubVersion)
+		log.Printf("cluster '%s' has OCP version '%s'", rantalmhelper.HubName, ocpVersion)
 	}
 
 	// Spoke1 is the default kubeconfig
@@ -148,7 +165,7 @@ func InitializeTalmClients() error {
 			return err
 		}
 
-		log.Printf("cluster %s has OCP version %s", rantalmhelper.Spoke1Name, ocpVersion)
+		log.Printf("cluster '%s' has OCP version '%s'", rantalmhelper.Spoke1Name, ocpVersion)
 	}
 
 	// Spoke2 may be optional depending on what tests are running
@@ -168,7 +185,7 @@ func InitializeTalmClients() error {
 			return err
 		}
 
-		log.Printf("cluster %s has OCP version %s", rantalmhelper.Spoke2Name, ocpVersion)
+		log.Printf("cluster '%s' has OCP version '%s'", rantalmhelper.Spoke2Name, ocpVersion)
 	}
 
 	return nil

@@ -38,6 +38,7 @@ var (
 	Spoke1Name      string
 	Spoke2APIClient *testClient.ClientSet
 	Spoke2Name      string
+	TalmHubVersion  string
 )
 
 const (
@@ -49,6 +50,10 @@ const (
 	PolicySetName          string = "talm-policyset"
 	CatalogSourceName      string = "talm-catsrc"
 	TemporaryNamespaceName string = Namespace + "-temp"
+	ProgressingType        string = "Progressing"
+	ReadyType              string = "Ready"
+	SucceededType          string = "Succeeded"
+	ValidatedType          string = "Validated"
 )
 
 // GetTestContext fetches a k8s context object for the talm tests.
@@ -438,14 +443,25 @@ func WaitForCguToStartProgressing(cguName string, namespace string, timeout time
 	// Wait for the cgu to start
 	log.Println("waiting for CGU to start progressing")
 
+	// TALM uses different conditions starting in 4.12
+	conditionType := ProgressingType
+	conditionMessage := "Remediating non-compliant policies"
+	conditionReason := "InProgress"
+
+	if !IsTalmVersionAtLeastSpecified(TalmHubVersion, "4.12", true) {
+		conditionType = ReadyType
+		conditionMessage = "The ClusterGroupUpgrade CR has upgrade policies that are still non compliant"
+		conditionReason = "UpgradeNotCompleted"
+	}
+
 	return WaitForCguInCondition(
 		HubAPIClient,
 		cguName,
 		namespace,
-		"Progressing",
-		"",
+		conditionType,
+		conditionMessage,
 		metav1.ConditionTrue,
-		"InProgress",
+		conditionReason,
 		timeout,
 	)
 }
@@ -456,14 +472,23 @@ func WaitForCguToFinishSuccessfully(cguName string, namespace string, timeout ti
 	// Wait for the cgu to finish
 	log.Println("waiting for CGU to finish successfully")
 
+	// TALM uses different conditions starting in 4.12
+	conditionType := SucceededType
+	conditionReason := "Completed"
+
+	if !IsTalmVersionAtLeastSpecified(TalmHubVersion, "4.12", true) {
+		conditionType = ReadyType
+		conditionReason = "UpgradeCompleted"
+	}
+
 	return WaitForCguInCondition(
 		HubAPIClient,
 		cguName,
 		namespace,
-		"Succeeded",
+		conditionType,
 		"",
 		metav1.ConditionTrue,
-		"Completed",
+		conditionReason,
 		timeout,
 	)
 }
@@ -474,14 +499,25 @@ func WaitForCguToTimeout(cguName string, namespace string, timeout time.Duration
 	// Wait for the cgu to timeout
 	log.Println("waiting for CGU to timeout")
 
+	// TALM uses different conditions starting in 4.12
+	conditionType := SucceededType
+	conditionMessage := "Policy remediation took too long"
+	conditionReason := "TimedOut"
+
+	if !IsTalmVersionAtLeastSpecified(TalmHubVersion, "4.12", true) {
+		conditionType = ReadyType
+		conditionMessage = "The ClusterGroupUpgrade CR policies are taking too long to complete"
+		conditionReason = "UpgradeTimedOut"
+	}
+
 	return WaitForCguInCondition(
 		HubAPIClient,
 		cguName,
 		namespace,
-		"Succeeded",
+		conditionType,
+		conditionMessage,
 		"",
-		"",
-		"TimedOut",
+		conditionReason,
 		timeout,
 	)
 }
@@ -1860,4 +1896,68 @@ func PrintCr(b interface{}) error {
 	log.Printf("--- generated CR dump:\n%s\n", string(customResource))
 
 	return nil
+}
+
+/*
+	TALM Version helpers
+*/
+
+// GetTalmVersionFromCSV parses the ClusterServiceVersions resource to obtain the installed TALM version.
+// This resource will be populated only when installing TALM from the Operator Hub.
+// The returned value here is the same as you would see in the Operator Hub, e.g. "4.11.2".
+func GetTalmVersionFromCSV(client *testClient.ClientSet) (string, error) {
+	csvs, err := client.ClusterServiceVersions(rantalmparameters.OpenshiftOperatorNamespace).
+		List(context.TODO(), metav1.ListOptions{})
+
+	if err != nil {
+		return "", err
+	}
+
+	var talmCsv string
+
+	for _, csv := range csvs.Items {
+		if strings.Contains(csv.Name, rantalmparameters.OperatorHubTalmNamespace) {
+			talmCsv = csv.Name
+		}
+	}
+
+	if talmCsv == "" {
+		return "", errors.New("unable to find TALM version")
+	}
+
+	return strings.Split(talmCsv, ".v")[1], nil
+}
+
+// IsTalmVersionAtLeastSpecified can be used to check if the provided version string is at least as high
+// as the expected version string. Whether or not equality is permitted can also be specified.
+func IsTalmVersionAtLeastSpecified(actualVersion string, expectedVersion string, allowEqual bool) bool {
+	// If no actual version was provided then assume it would not match
+	if actualVersion == "" {
+		return false
+	}
+
+	// If no expected version was provided then assume it did match
+	if expectedVersion == "" {
+		return true
+	}
+
+	// Split the strings on the periods separating the version digits
+	actualSplits := strings.Split(actualVersion, ".")
+	expectedSplits := strings.Split(expectedVersion, ".")
+
+	// Compare them digit by digit
+	for splitIndex := 0; splitIndex < len(actualSplits); splitIndex++ {
+		// Check whether we allow equality as well as greater then
+		if !allowEqual {
+			if actualSplits[splitIndex] <= expectedSplits[splitIndex] {
+				return false
+			}
+		} else {
+			if actualSplits[splitIndex] < expectedSplits[splitIndex] {
+				return false
+			}
+		}
+	}
+
+	return true
 }

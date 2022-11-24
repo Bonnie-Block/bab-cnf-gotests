@@ -81,6 +81,13 @@ var _ = Describe("Talm Batching Tests", Label("talmbatching"), func() {
 	Context("with a single spoke that is missing", Label("talmmissingspoke"), func() {
 		// 47949
 		It("should report the missing spoke", func() {
+			By("validating the talm version meets the test minimum", func() {
+				// TALM 4.11 does not set any conditions for a non managed cluster error
+				// We are unable to verify the state in 4.11 therefore we cannot run this test
+				if !rantalmhelper.IsTalmVersionAtLeastSpecified(rantalmhelper.TalmHubVersion, "4.12", true) {
+					Skip("test requires talm 4.12 or higher")
+				}
+			})
 			By("creating the cgu", func() {
 				cgu := rantalmhelper.GetCguDefinition(
 					rantalmhelper.CguName,
@@ -133,13 +140,23 @@ var _ = Describe("Talm Batching Tests", Label("talmbatching"), func() {
 			})
 
 			By("waiting for the cgu status to report the missing policy", func() {
+				// Validation here depends on the TALM version
+
+				conditionType := rantalmhelper.ValidatedType
+				conditionMessage := "Missing managed policies: [non-existent-policy] "
+
+				if !rantalmhelper.IsTalmVersionAtLeastSpecified(rantalmhelper.TalmHubVersion, "4.12", true) {
+					conditionType = rantalmhelper.ReadyType
+					conditionMessage = "The ClusterGroupUpgrade CR has managed policies that are missing: [non-existent-policy]"
+				}
+
 				// This should immediately error out so we don't need a long timeout
 				err := rantalmhelper.WaitForCguInCondition(
 					rantalmhelper.HubAPIClient,
 					rantalmhelper.CguName,
 					rantalmhelper.Namespace,
-					"Validated",
-					"Missing managed policies: [non-existent-policy] ",
+					conditionType,
+					conditionMessage,
 					"",
 					"",
 					1*time.Minute,
@@ -187,6 +204,8 @@ var _ = Describe("Talm Batching Tests", Label("talmbatching"), func() {
 					9,
 				)
 
+				cgu.Spec.Enable = rantalmhelper.BoolAddr(false)
+
 				catsrc := rantalmhelper.GetCatsrcDefinition(
 					rantalmhelper.CatalogSourceName,
 					rantalmhelper.TemporaryNamespaceName,
@@ -213,6 +232,26 @@ var _ = Describe("Talm Batching Tests", Label("talmbatching"), func() {
 				)
 
 				Expect(err).ToNot(HaveOccurred())
+			})
+
+			By("waiting for the system to settle", func() {
+				time.Sleep(rantalmparameters.TalmSystemStablizationTime)
+			})
+
+			By("enabling the CGU", func() {
+				cgu, err := rantalmhelper.GetCgu(
+					rantalmhelper.HubAPIClient,
+					rantalmhelper.CguName,
+					rantalmhelper.Namespace,
+				)
+				Expect(err).ToNot(HaveOccurred())
+
+				err = rantalmhelper.EnableCgu(
+					rantalmhelper.HubAPIClient,
+					cgu,
+				)
+				Expect(err).ToNot(HaveOccurred())
+
 			})
 
 			By("waiting for the cgu to timeout", func() {
@@ -275,6 +314,8 @@ var _ = Describe("Talm Batching Tests", Label("talmbatching"), func() {
 					9,
 				)
 
+				cgu.Spec.Enable = rantalmhelper.BoolAddr(false)
+
 				catsrc := rantalmhelper.GetCatsrcDefinition(
 					rantalmhelper.CatalogSourceName,
 					rantalmhelper.TemporaryNamespaceName,
@@ -297,6 +338,25 @@ var _ = Describe("Talm Batching Tests", Label("talmbatching"), func() {
 					rantalmhelper.PlacementRule,
 					rantalmhelper.Namespace,
 					metav1.LabelSelector{},
+					cgu,
+				)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			By("waiting for the system to settle", func() {
+				time.Sleep(rantalmparameters.TalmSystemStablizationTime)
+			})
+
+			By("enabling the CGU", func() {
+				cgu, err := rantalmhelper.GetCgu(
+					rantalmhelper.HubAPIClient,
+					rantalmhelper.CguName,
+					rantalmhelper.Namespace,
+				)
+				Expect(err).ToNot(HaveOccurred())
+
+				err = rantalmhelper.EnableCgu(
+					rantalmhelper.HubAPIClient,
 					cgu,
 				)
 				Expect(err).ToNot(HaveOccurred())
@@ -358,6 +418,8 @@ var _ = Describe("Talm Batching Tests", Label("talmbatching"), func() {
 					9,
 				)
 
+				cgu.Spec.Enable = rantalmhelper.BoolAddr(false)
+
 				catsrc := rantalmhelper.GetCatsrcDefinition(
 					rantalmhelper.CatalogSourceName,
 					rantalmhelper.TemporaryNamespaceName,
@@ -380,6 +442,25 @@ var _ = Describe("Talm Batching Tests", Label("talmbatching"), func() {
 					rantalmhelper.PlacementRule,
 					rantalmhelper.Namespace,
 					metav1.LabelSelector{},
+					cgu,
+				)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			By("waiting for the system to settle", func() {
+				time.Sleep(rantalmparameters.TalmSystemStablizationTime)
+			})
+
+			By("enabling the CGU", func() {
+				cgu, err := rantalmhelper.GetCgu(
+					rantalmhelper.HubAPIClient,
+					rantalmhelper.CguName,
+					rantalmhelper.Namespace,
+				)
+				Expect(err).ToNot(HaveOccurred())
+
+				err = rantalmhelper.EnableCgu(
+					rantalmhelper.HubAPIClient,
 					cgu,
 				)
 				Expect(err).ToNot(HaveOccurred())
@@ -451,6 +532,8 @@ var _ = Describe("Talm Batching Tests", Label("talmbatching"), func() {
 					expectedTimeout,
 				)
 
+				cgu.Spec.Enable = rantalmhelper.BoolAddr(false)
+
 				err := rantalmhelper.CreatePolicyAndCgu(
 					rantalmhelper.HubAPIClient,
 					&catsrc,
@@ -462,6 +545,25 @@ var _ = Describe("Talm Batching Tests", Label("talmbatching"), func() {
 					rantalmhelper.PlacementRule,
 					rantalmhelper.Namespace,
 					metav1.LabelSelector{},
+					cgu,
+				)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			By("waiting for the system to settle", func() {
+				time.Sleep(rantalmparameters.TalmSystemStablizationTime)
+			})
+
+			By("enabling the CGU", func() {
+				cgu, err := rantalmhelper.GetCgu(
+					rantalmhelper.HubAPIClient,
+					rantalmhelper.CguName,
+					rantalmhelper.Namespace,
+				)
+				Expect(err).ToNot(HaveOccurred())
+
+				err = rantalmhelper.EnableCgu(
+					rantalmhelper.HubAPIClient,
 					cgu,
 				)
 				Expect(err).ToNot(HaveOccurred())
@@ -505,6 +607,8 @@ var _ = Describe("Talm Batching Tests", Label("talmbatching"), func() {
 					[]string{rantalmhelper.PolicyName},
 					rantalmhelper.Namespace, 1, 15)
 
+				cgu.Spec.Enable = rantalmhelper.BoolAddr(false)
+
 				err := rantalmhelper.CreatePolicyAndCgu(
 					rantalmhelper.HubAPIClient,
 					rantalmhelper.GetNamespaceDefinition(rantalmhelper.TemporaryNamespaceName),
@@ -516,6 +620,25 @@ var _ = Describe("Talm Batching Tests", Label("talmbatching"), func() {
 					rantalmhelper.PlacementRule,
 					rantalmhelper.Namespace,
 					metav1.LabelSelector{},
+					cgu,
+				)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			By("waiting for the system to settle", func() {
+				time.Sleep(rantalmparameters.TalmSystemStablizationTime)
+			})
+
+			By("enabling the CGU", func() {
+				cgu, err := rantalmhelper.GetCgu(
+					rantalmhelper.HubAPIClient,
+					rantalmhelper.CguName,
+					rantalmhelper.Namespace,
+				)
+				Expect(err).ToNot(HaveOccurred())
+
+				err = rantalmhelper.EnableCgu(
+					rantalmhelper.HubAPIClient,
 					cgu,
 				)
 				Expect(err).ToNot(HaveOccurred())

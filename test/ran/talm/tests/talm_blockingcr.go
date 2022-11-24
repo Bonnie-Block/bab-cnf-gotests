@@ -22,11 +22,9 @@ import (
 const (
 	blockingA = "blocking-a"
 	blockingB = "blocking-b"
-
-	cguFailBlockingMsgA = "The ClusterGroupUpgrade CR policies are taking too long to complete"
 )
 
-var _ = Describe("Talm Blocking CRs Tests", func() {
+var _ = Describe("Talm Blocking CRs Tests", Label("talmblockingcr"), func() {
 
 	var (
 		cguA v1alpha1.ClusterGroupUpgrade
@@ -71,6 +69,10 @@ var _ = Describe("Talm Blocking CRs Tests", func() {
 			err = applyBlockingCrs(cguB, nsForBlockingB, blockingBPass)
 			Expect(err).To(BeNil())
 
+			By("waiting for the system to settle", func() {
+				time.Sleep(rantalmparameters.TalmSystemStablizationTime)
+			})
+
 			// enable cguA first
 			err = rantalmhelper.EnableCgu(rantalmhelper.HubAPIClient, cguA)
 			Expect(err).To(BeNil())
@@ -78,18 +80,31 @@ var _ = Describe("Talm Blocking CRs Tests", func() {
 			Expect(err).To(BeNil())
 
 			By("waiting to verify if cgu B is blocked by A")
-			blockErrMsg := fmt.Sprintf("The ClusterGroupUpgrade "+
-				"CR is blocked by other CRs that have not yet completed: "+
+			blockErrMsg := fmt.Sprintf("Blocking CRs that are not completed: "+
 				"[%s]", fmt.Sprintf("%s-%s", rantalmparameters.CguCommonName, blockingAPass))
+
+			// TALM 4.11 and below had a different error message
+			if !rantalmhelper.IsTalmVersionAtLeastSpecified(rantalmhelper.TalmHubVersion, "4.12", true) {
+				blockErrMsg = fmt.Sprintf("The ClusterGroupUpgrade "+
+					"CR is blocked by other CRs that have not yet completed: "+
+					"[%s]", fmt.Sprintf("%s-%s", rantalmparameters.CguCommonName, blockingAPass))
+			}
+
 			err = verifyCguBlocked(cguB, blockErrMsg)
 			Expect(err).To(BeNil())
+
+			// Validating the conditions depends on the TALM version
+			completedType := rantalmhelper.SucceededType
+			if !rantalmhelper.IsTalmVersionAtLeastSpecified(rantalmhelper.TalmHubVersion, "4.12", true) {
+				completedType = rantalmhelper.ReadyType
+			}
 
 			By("waiting for cgu A to succeed")
 			err = rantalmhelper.WaitForCguInCondition(
 				rantalmhelper.HubAPIClient,
 				cguA.Name,
 				cguA.Namespace,
-				"Ready",
+				completedType,
 				"",
 				metav1.ConditionTrue,
 				"",
@@ -101,7 +116,7 @@ var _ = Describe("Talm Blocking CRs Tests", func() {
 				rantalmhelper.HubAPIClient,
 				cguB.Name,
 				cguB.Namespace,
-				"Ready",
+				completedType,
 				"",
 				metav1.ConditionTrue,
 				"",
@@ -145,6 +160,10 @@ var _ = Describe("Talm Blocking CRs Tests", func() {
 			err = applyBlockingCrs(cguB, nsForBlockingB, blockingBFail)
 			Expect(err).To(BeNil())
 
+			By("waiting for the system to settle", func() {
+				time.Sleep(rantalmparameters.TalmSystemStablizationTime)
+			})
+
 			// enable cguA first
 			err = rantalmhelper.EnableCgu(rantalmhelper.HubAPIClient, cguA)
 			Expect(err).To(BeNil())
@@ -152,19 +171,35 @@ var _ = Describe("Talm Blocking CRs Tests", func() {
 			Expect(err).To(BeNil())
 
 			By("waiting to verify if cgu B is blocked by A")
-			blockErrMsg := fmt.Sprintf("The ClusterGroupUpgrade "+
-				"CR is blocked by other CRs that have not yet "+
-				"completed: [%s]", fmt.Sprintf("%s-%s", rantalmparameters.CguCommonName, blockingAFail))
+			blockErrMsg := fmt.Sprintf(
+				"Blocking CRs that are not completed: [%s]",
+				fmt.Sprintf("%s-%s", rantalmparameters.CguCommonName, blockingAFail))
+
+			// TALM 4.11 and below had a different error message
+			if !rantalmhelper.IsTalmVersionAtLeastSpecified(rantalmhelper.TalmHubVersion, "4.12", true) {
+				blockErrMsg = fmt.Sprintf("The ClusterGroupUpgrade "+
+					"CR is blocked by other CRs that have not yet "+
+					"completed: [%s]", fmt.Sprintf("%s-%s", rantalmparameters.CguCommonName, blockingAFail))
+			}
+
 			err = verifyCguBlocked(cguB, blockErrMsg)
 			Expect(err).To(BeNil())
 
 			By("waiting for cgu A to fail because of timeout")
+			// Validating the conditions depends on the TALM version
+			completedType := rantalmhelper.SucceededType
+			completedMessage := "Policy remediation took too long"
+			if !rantalmhelper.IsTalmVersionAtLeastSpecified(rantalmhelper.TalmHubVersion, "4.12", true) {
+				completedType = rantalmhelper.ReadyType
+				completedMessage = "The ClusterGroupUpgrade CR policies are taking too long to complete"
+			}
+
 			err = rantalmhelper.WaitForCguInCondition(
 				rantalmhelper.HubAPIClient,
 				cguA.Name,
 				cguA.Namespace,
-				"Ready",
-				cguFailBlockingMsgA,
+				completedType,
+				completedMessage,
 				metav1.ConditionFalse,
 				"",
 				5*time.Minute,
@@ -208,13 +243,24 @@ var _ = Describe("Talm Blocking CRs Tests", func() {
 			err := applyBlockingCrs(cguB, nsForBlockingB, blockingBMissing)
 			Expect(err).To(BeNil())
 
+			By("waiting for the system to settle", func() {
+				time.Sleep(rantalmparameters.TalmSystemStablizationTime)
+			})
+
 			err = rantalmhelper.EnableCgu(rantalmhelper.HubAPIClient, cguB)
 			Expect(err).To(BeNil())
 
 			// check that B is reporting Missing
 			By("waiting to verify if cgu B is blocked by A because it's missing")
-			blockErrMsg := fmt.Sprintf("The ClusterGroupUpgrade CR has blocking CRs that are missing: [%s]",
+			blockErrMsg := fmt.Sprintf("Missing blocking CRs: [%s]",
 				fmt.Sprintf("%s-%s", rantalmparameters.CguCommonName, blockingAMissing))
+
+			// TALM 4.11 and below had a different error message
+			if !rantalmhelper.IsTalmVersionAtLeastSpecified(rantalmhelper.TalmHubVersion, "4.12", true) {
+				blockErrMsg = fmt.Sprintf("The ClusterGroupUpgrade CR has blocking CRs that are missing: [%s]",
+					fmt.Sprintf("%s-%s", rantalmparameters.CguCommonName, blockingAMissing))
+			}
+
 			err = verifyCguBlocked(cguB, blockErrMsg)
 			Expect(err).To(BeNil())
 
@@ -229,12 +275,18 @@ var _ = Describe("Talm Blocking CRs Tests", func() {
 			err = rantalmhelper.EnableCgu(rantalmhelper.HubAPIClient, cguA)
 			Expect(err).To(BeNil())
 
+			// Validating the conditions depends on the TALM version
+			completedType := rantalmhelper.SucceededType
+			if !rantalmhelper.IsTalmVersionAtLeastSpecified(rantalmhelper.TalmHubVersion, "4.12", true) {
+				completedType = rantalmhelper.ReadyType
+			}
+
 			By("waiting for cgu A to succeed")
 			err = rantalmhelper.WaitForCguInCondition(
 				rantalmhelper.HubAPIClient,
 				cguA.Name,
 				cguA.Namespace,
-				"Ready",
+				completedType,
 				"",
 				metav1.ConditionTrue,
 				"",
@@ -246,7 +298,7 @@ var _ = Describe("Talm Blocking CRs Tests", func() {
 				rantalmhelper.HubAPIClient,
 				cguB.Name,
 				cguB.Namespace,
-				"Ready",
+				completedType,
 				"",
 				metav1.ConditionTrue,
 				"",
@@ -293,10 +345,16 @@ func applyBlockingCrs(cgu v1alpha1.ClusterGroupUpgrade, object runtime.Object, c
 
 // verifyCguBlocked verify cr is blocked.
 func verifyCguBlocked(cgu v1alpha1.ClusterGroupUpgrade, blockedByMsg string) error {
+	// Validating the conditions depends on the TALM version
+	expectedType := rantalmhelper.ProgressingType
+	if !rantalmhelper.IsTalmVersionAtLeastSpecified(rantalmhelper.TalmHubVersion, "4.12", true) {
+		expectedType = rantalmhelper.ReadyType
+	}
+
 	return rantalmhelper.WaitForCguInCondition(rantalmhelper.HubAPIClient,
 		cgu.Name,
 		cgu.Namespace,
-		"Ready",
+		expectedType,
 		blockedByMsg,
 		metav1.ConditionFalse,
 		"", 5*time.Minute)
