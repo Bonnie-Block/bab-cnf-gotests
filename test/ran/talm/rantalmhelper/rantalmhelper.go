@@ -50,6 +50,8 @@ const (
 	PolicyName             string = "talm-policy"
 	PolicySetName          string = "talm-policyset"
 	CatalogSourceName      string = "talm-catsrc"
+	Talm411TimeoutMessage  string = "The ClusterGroupUpgrade CR policies are taking too long to complete"
+	Talm412TimeoutMessage  string = "Policy remediation took too long"
 	TemporaryNamespaceName string = Namespace + "-temp"
 	ProgressingType        string = "Progressing"
 	ReadyType              string = "Ready"

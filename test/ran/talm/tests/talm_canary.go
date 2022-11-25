@@ -173,7 +173,7 @@ var _ = Describe("Talm Canary Tests", Label("talmcanary"), func() {
 
 				if !rantalmhelper.IsTalmVersionAtLeastSpecified(rantalmhelper.TalmHubVersion, "4.12", true) {
 					conditionType = rantalmhelper.ReadyType
-					conditionMessage = "The ClusterGroupUpgrade CR policies are taking too long to complete"
+					conditionMessage = rantalmhelper.Talm411TimeoutMessage
 				}
 
 				err := rantalmhelper.WaitForCguInCondition(

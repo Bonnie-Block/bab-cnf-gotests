@@ -168,7 +168,7 @@ var _ = Describe("Talm Batching Tests", Label("talmbatching"), func() {
 
 	Context("using a catalog source", Label("talmcatalogsource"), func() {
 		// 47952
-		It("should abort the CGU when the first batch fails with the Abort batch timeout action", Label("talmdev"), func() {
+		It("should abort the CGU when the first batch fails with the Abort batch timeout action", func() {
 
 			By("verifying the temporary namespace does not exist on spoke1", func() {
 				result := namespaces.Exists(rantalmhelper.TemporaryNamespaceName, rantalmhelper.Spoke1APIClient)
@@ -308,12 +308,22 @@ var _ = Describe("Talm Batching Tests", Label("talmbatching"), func() {
 			})
 
 			By("validating that the timeout message matched the abort message", func() {
+
+				conditionType := rantalmhelper.SucceededType
+				conditionMessage := "Policy remediation took too long on some clusters"
+
+				// The validation depends on the TALM version in use
+				if !rantalmhelper.IsTalmVersionAtLeastSpecified(rantalmhelper.TalmHubVersion, "4.12", true) {
+					conditionType = "UpgradeTimedOut"
+					conditionMessage = rantalmhelper.Talm411TimeoutMessage
+				}
+
 				err := rantalmhelper.WaitForCguInCondition(
 					rantalmhelper.HubAPIClient,
 					rantalmhelper.CguName,
 					rantalmhelper.Namespace,
-					rantalmhelper.SucceededType,
-					"Policy remediation took too long on some clusters",
+					conditionType,
+					conditionMessage,
 					"",
 					"",
 					1*time.Minute,

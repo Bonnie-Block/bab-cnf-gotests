@@ -188,10 +188,10 @@ var _ = Describe("Talm Blocking CRs Tests", Label("talmblockingcr"), func() {
 			By("waiting for cgu A to fail because of timeout")
 			// Validating the conditions depends on the TALM version
 			completedType := rantalmhelper.SucceededType
-			completedMessage := "Policy remediation took too long"
+			completedMessage := rantalmhelper.Talm412TimeoutMessage
 			if !rantalmhelper.IsTalmVersionAtLeastSpecified(rantalmhelper.TalmHubVersion, "4.12", true) {
 				completedType = rantalmhelper.ReadyType
-				completedMessage = "The ClusterGroupUpgrade CR policies are taking too long to complete"
+				completedMessage = rantalmhelper.Talm411TimeoutMessage
 			}
 
 			err = rantalmhelper.WaitForCguInCondition(
