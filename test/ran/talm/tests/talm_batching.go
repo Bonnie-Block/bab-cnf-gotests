@@ -314,7 +314,7 @@ var _ = Describe("Talm Batching Tests", Label("talmbatching"), func() {
 
 				// The validation depends on the TALM version in use
 				if !rantalmhelper.IsTalmVersionAtLeastSpecified(rantalmhelper.TalmHubVersion, "4.12", true) {
-					conditionType = "UpgradeTimedOut"
+					conditionType = rantalmhelper.ReadyType
 					conditionMessage = rantalmhelper.Talm411TimeoutMessage
 				}
 
