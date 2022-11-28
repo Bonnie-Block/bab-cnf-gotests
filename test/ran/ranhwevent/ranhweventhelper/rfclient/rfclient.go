@@ -183,16 +183,19 @@ func GetPowerEvents(localNodeVendor string) ([]string, []string) {
 // GetSkippedEvents list of events that are periodically happen on the node,
 // and are to be skipped in verification.
 func GetSkippedEvents(localNodeVendor string) map[string]bool {
+	skippedEvents := map[string]bool{}
 	if localNodeVendor == ranhweventparameters.ZT {
-		ret := map[string]bool{
+		skippedEvents = map[string]bool{
 			"Task.1.0.Completed": true,
 			"Task.1.0.Cancelled": true,
 			"Task.1.0.New":       true,
 			"Task.1.0.Running":   true,
 		}
-
-		return ret
+	} else if localNodeVendor == ranhweventparameters.Dell {
+		skippedEvents = map[string]bool{
+			"USR0030": true,
+		}
 	}
 
-	return map[string]bool{}
+	return skippedEvents
 }
