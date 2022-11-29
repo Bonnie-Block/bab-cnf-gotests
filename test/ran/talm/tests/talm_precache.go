@@ -9,7 +9,6 @@ import (
 	testClient "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 
-	configv1 "github.com/openshift/api/config/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	configurationPolicyv1 "open-cluster-management.io/config-policy-controller/api/v1"
 	placementrulev1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
@@ -171,7 +170,7 @@ func CommonPrecacheOCPStepsAndGetNewPolicyPlacementRulePlacementBinding(
 	spokeClient *testClient.ClientSet) (policiesv1.Policy, placementrulev1.PlacementRule, policiesv1.PlacementBinding) {
 	log.Println("generating clusterversion, configurationPolicy, Policy, PlacementRule and PlacementBinding")
 
-	clusterVersion, err := GetNewConfiguredClusterVersion(config, spokeClient)
+	clusterVersion, err := rantalmhelper.GetClusterVersionDefinition(config, spokeClient)
 	Expect(err).To(BeNil())
 
 	configurationPolicy := GetNewConfigurationPolicyWithOneObj(configurationPolicyName, &clusterVersion)
@@ -442,66 +441,6 @@ func GetNewConfigurationPolicyWithOneObj(
 	PrintGeneratedCR(configurationPolicy)
 
 	return configurationPolicy
-}
-
-func GetNewConfiguredClusterVersion(config string, spokeclient *testClient.ClientSet) (configv1.ClusterVersion, error) {
-	var (
-		image   string
-		version string
-	)
-
-	switch config {
-	case "Image":
-		image = GetClusterDesiredUpdateImage(spokeclient)
-	case "Version":
-		version = GetClusterVersion(spokeclient)
-	default:
-		return configv1.ClusterVersion{}, fmt.Errorf("config value must be either Image or Version")
-	}
-
-	clusterVersion := configv1.ClusterVersion{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "ClusterVersion",
-			APIVersion: "config.openshift.io/v1",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "version",
-		},
-		Spec: configv1.ClusterVersionSpec{
-			DesiredUpdate: &configv1.Update{
-				Version: version,
-				Force:   false,
-				Image:   image,
-			},
-			Upstream: configv1.URL(helper.Config.Ran.OcpUpgradeUpstreamURL),
-			Channel:  GetClusterChannel(spokeclient),
-		},
-	}
-
-	PrintGeneratedCR(clusterVersion)
-
-	return clusterVersion, nil
-}
-
-func GetClusterDesiredUpdateImage(apiclient *testClient.ClientSet) string {
-	get, _ := apiclient.ConfigV1Interface.ClusterVersions().Get(context.Background(),
-		"version", metav1.GetOptions{})
-
-	return get.Status.Desired.Image
-}
-
-func GetClusterVersion(apiclient *testClient.ClientSet) string {
-	get, _ := apiclient.ConfigV1Interface.ClusterVersions().Get(context.Background(),
-		"version", metav1.GetOptions{})
-
-	return get.Status.Desired.Version
-}
-
-func GetClusterChannel(apiclient *testClient.ClientSet) string {
-	get, _ := apiclient.ConfigV1Interface.ClusterVersions().Get(context.Background(),
-		"version", metav1.GetOptions{})
-
-	return get.Spec.Channel
 }
 
 func ApplyAndWaitPolicyPlacementRulePlacementBinding(

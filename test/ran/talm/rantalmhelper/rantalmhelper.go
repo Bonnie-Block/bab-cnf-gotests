@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	configv1 "github.com/openshift/api/config/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/yaml"
 
@@ -1460,6 +1461,70 @@ func GetClusterName(kubeconfigEnvVar string) (string, error) {
 	return "", fmt.Errorf("can not load api client. Please check '%s' env var", kubeconfigEnvVar)
 }
 
+// GetClusterVersionDefinition returns a new ClusterVersion based on the apiClient.
+// Use "Image" to include only DesiredUpdate.Image retrieved from the provided apiClient
+// Use "Version" to include only DesiredUpdate.Version retrieved from the provided apiClient
+// Use "Both" to include both DesiredUpdate.Image and DesiredUpdate.Image retrieved from the provided apiClient.
+func GetClusterVersionDefinition(config string, apiClient *testClient.ClientSet) (configv1.ClusterVersion, error) {
+	var (
+		image   string
+		version string
+	)
+
+	switch config {
+	case "Image":
+		image = GetClusterDesiredUpdateImage(apiClient)
+	case "Version":
+		version, _ = GetClusterVersion(apiClient)
+	case "Both":
+		image = GetClusterDesiredUpdateImage(apiClient)
+		version, _ = GetClusterVersion(apiClient)
+	default:
+		return configv1.ClusterVersion{}, fmt.Errorf("config value must be either Image or Version or Both")
+	}
+
+	clusterVersion := configv1.ClusterVersion{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "ClusterVersion",
+			APIVersion: "config.openshift.io/v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "version",
+		},
+		Spec: configv1.ClusterVersionSpec{
+			DesiredUpdate: &configv1.Update{
+				Version: version,
+				Force:   false,
+				Image:   image,
+			},
+			Upstream: configv1.URL(helper.Config.Ran.OcpUpgradeUpstreamURL),
+			Channel:  GetClusterChannel(apiClient),
+		},
+	}
+
+	if err := PrintCr(clusterVersion); err != nil {
+		return configv1.ClusterVersion{}, err
+	}
+
+	return clusterVersion, nil
+}
+
+// GetClusterDesiredUpdateImage get apiClient's Desired.Image from ClusterVersions cr.
+func GetClusterDesiredUpdateImage(apiClient *testClient.ClientSet) string {
+	get, _ := apiClient.ConfigV1Interface.ClusterVersions().Get(context.Background(),
+		"version", metav1.GetOptions{})
+
+	return get.Status.Desired.Image
+}
+
+// GetClusterDesiredUpdateImage get apiClient's Channel from ClusterVersions cr.
+func GetClusterChannel(apiClient *testClient.ClientSet) string {
+	get, _ := apiClient.ConfigV1Interface.ClusterVersions().Get(context.Background(),
+		"version", metav1.GetOptions{})
+
+	return get.Spec.Channel
+}
+
 // GetClusterVersion can be used to get the Openshift version from the provided cluster.
 func GetClusterVersion(clusterClient *testClient.ClientSet) (string, error) {
 	// Check if the client was even defined first
@@ -1707,10 +1772,10 @@ func CleanupTestResourcesOnClient(
 		}
 	}
 
-	// Attempt to delete namespace
-	log.Printf("Deleting namespace '%s'", namespace)
-
 	if namespace != "" && deleteNs {
+		// Attempt to delete namespace
+		log.Printf("Deleting namespace '%s'", namespace)
+
 		if namespaces.Exists(namespace, client) {
 			err := namespaces.DeleteAndWait(client, namespace, 5*time.Minute)
 			if err != nil {

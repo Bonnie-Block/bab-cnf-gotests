@@ -193,6 +193,7 @@ func WaitForClusterRecover(node *k8sv1.Node, namespaces []string) error {
 
 // Assumes rsa key is imported.
 func ExecSSHCommand(host string, user string, subcommands []string) (string, error) {
+	// tip: for jumphost prepend args with ["-J","<jumpUser>>@<jumpIP>","-i", "<Final host's private key path>"]
 	args := []string{"-o", "ConnectTimeout=10", "-o", "ControlMaster=auto", "-o", "ControlPersist=60s", "-o",
 		"BatchMode=yes", "-o", "StrictHostKeyChecking=no", "-l", user, host}
 	args = append(args, subcommands...)
