@@ -4,7 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
+
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 
 	nmstatev1Shared "github.com/nmstate/kubernetes-nmstate/api/shared"
 	nmstatev1 "github.com/nmstate/kubernetes-nmstate/api/v1"
@@ -197,9 +200,14 @@ var _ = Describe("system metallb", Ordered, func() {
 		primaryService          *k8sv1.Service
 		secondaryService        *k8sv1.Service
 		vlanIds                 []uint16
+		runningFrrPodList       []*k8sv1.Pod
 	)
 
 	BeforeAll(func() {
+
+		By("Create privileged namespace")
+		err := namespaces.Create(parameters.PrivPodNamespace, helper.Apiclient)
+		Expect(err).ToNot(HaveOccurred())
 
 		By("Get vlan ids from environment variable")
 		vlanIds, err = helper.Config.GetMetalLbVlanIds()
@@ -339,6 +347,7 @@ var _ = Describe("system metallb", Ordered, func() {
 				return netmetallbhelper.CheckBGPRoute(runningFrrPod, bgpPeerIP, addrPoolLBList[0], "ipv4", 32)
 			}, netmlbparameters.Timeout, netmlbparameters.Interval).ShouldNot(HaveOccurred())
 
+			runningFrrPodList = append(runningFrrPodList, runningFrrPod)
 			// set vars for test case
 			if vlanID == vlanIds[0] {
 				primaryService = service
@@ -365,6 +374,11 @@ var _ = Describe("system metallb", Ordered, func() {
 
 	AfterAll(func() {
 		// Remove Config
+		By("Delete privileged namespace")
+		err = namespaces.DeleteAndWait(helper.Apiclient, parameters.PrivPodNamespace,
+			netmlbparameters.Timeout)
+		Expect(err).ToNot(HaveOccurred())
+
 		if switchcmd.CountChanges > 0 {
 			switchCredentials, err := nethelper.NewSwitchCredentials()
 			Expect(err).ToNot(HaveOccurred())
@@ -401,68 +415,120 @@ var _ = Describe("system metallb", Ordered, func() {
 		Expect(err).ToNot(HaveOccurred())
 	})
 
-	// 53894
-	It("MetalLB accessing the load balance ip from secondary host interfaces with multiple VLANs", func() {
-		for idx, vlanID := range vlanIds {
+	Context("MetalLB accessing the load balance ip from secondary host interfaces with multiple VLANs", func() {
 
-			clientIP := netmlbparameters.InternalClient1IPv4
-			clientPod := primaryClientPod
-			serverPod := primaryWebServer
-			serviceIP := primaryService.Spec.ClusterIP
-			dstSrvIP := netmlbparameters.IPv4AddressesLBList[0]
-			nodeSecondaryIP := netmlbparameters.NodeIntFacePrimaryIPAddr
+		// 53894
+		It("", func() {
+			for idx, vlanID := range vlanIds {
 
-			if idx == 1 {
-				clientIP = netmlbparameters.InternalClient2IPv4
-				clientPod = secondaryClientPod
-				dstSrvIP = netmlbparameters.IPv4AddressesLB2List[0]
-				serviceIP = secondaryService.Spec.ClusterIP
-				serverPod = secondaryWebServer
-				nodeSecondaryIP = netmlbparameters.NodeIntFaceSecondaryIPAddr
+				clientIP := netmlbparameters.InternalClient1IPv4
+				clientPod := primaryClientPod
+				serverPod := primaryWebServer
+				serviceIP := primaryService.Spec.ClusterIP
+				dstSrvIP := netmlbparameters.IPv4AddressesLBList[0]
+				nodeSecondaryIP := netmlbparameters.NodeIntFacePrimaryIPAddr
+
+				if idx == 1 {
+					clientIP = netmlbparameters.InternalClient2IPv4
+					clientPod = secondaryClientPod
+					dstSrvIP = netmlbparameters.IPv4AddressesLB2List[0]
+					serviceIP = secondaryService.Spec.ClusterIP
+					serverPod = secondaryWebServer
+					nodeSecondaryIP = netmlbparameters.NodeIntFaceSecondaryIPAddr
+				}
+
+				By("Generate connections")
+				generateConnections(clientPod, clientIP, dstSrvIP)
+
+				By("Check source ip and destination in http traffic capture file on client pod")
+				err = netmetallbhelper.SrcAndDestIPInHTTPTrafficCapture(clientPod, clientIP, dstSrvIP)
+				Expect(err).ToNot(HaveOccurred(), "required ips are not detected on client's traffic capture")
+
+				By("Check source ip and destination in http traffic capture file on node secondary vlan interface")
+				err = netmetallbhelper.SrcAndDestIPInVlanHTTPTrafficCapture(runningTCPDumpPodOnNode, clientIP, dstSrvIP, vlanID)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Check source ip and destination in http traffic capture file on node's br-ex interface")
+				err = netmetallbhelper.SrcAndDestIPInHTTPTrafficCapture(runningTCPDumpPodOnNode, clientIP, serviceIP, 1)
+				Expect(err).ToNot(HaveOccurred())
+
+				nodeRouterIP, err := netmetallbhelper.GetNodeOvnRouterIP(&workerNodeList[1])
+				Expect(err).ToNot(HaveOccurred())
+
+				webServerPodIP, err := pod.GetIPFromDefaultNetAnnotation(serverPod)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Check source ip and destination in http traffic capture file on nginx server interface")
+				err = netmetallbhelper.SrcAndDestIPInHTTPTrafficCapture(serverPod, nodeRouterIP, webServerPodIP)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Running icmp connectivity test from nginx server to client")
+				err = netmetallbhelper.IcmpConnectivityWorks(helper.Apiclient, *serverPod, clientIP)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Check source ip and destination in icmp traffic capture file on nginx server interface")
+				err = netmetallbhelper.SrcAndDestIPInVlanICMPTrafficCapture(serverPod, webServerPodIP, clientIP)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Check source ip and destination in icmp traffic capture file on node's vlan interface")
+				err = netmetallbhelper.SrcAndDestIPInVlanICMPTrafficCapture(
+					runningTCPDumpPodOnNode, nodeSecondaryIP, clientIP, vlanID)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Check source ip and destination in icmp traffic capture file on client pod")
+				err = netmetallbhelper.SrcAndDestIPInVlanICMPTrafficCapture(clientPod, nodeSecondaryIP, clientIP)
+				Expect(err).ToNot(HaveOccurred())
 			}
+		})
 
-			By("Generate connections")
-			generateConnections(clientPod, clientIP, dstSrvIP)
+		// 53947
+		It("after node reboot", func() {
+			By("Reboot worker node")
+			helper.CreatePrivilegedPods(helper.Config.Network.TestContainerImage)
+			helper.SoftRebootNodeAndWaitForDisconnect(&workerNodeList[1])
+			machineConfigPoolName := strings.Split(helper.Config.General.CnfNodeLabel, "/")[1]
 
-			By("Check source ip and destination in http traffic capture file on client pod")
-			err = netmetallbhelper.SrcAndDestIPInHTTPTrafficCapture(clientPod, clientIP, dstSrvIP)
-			Expect(err).ToNot(HaveOccurred(), "required ips are not detected on client's traffic capture")
-
-			By("Check source ip and destination in http traffic capture file on node secondary vlan interface")
-			err = netmetallbhelper.SrcAndDestIPInVlanHTTPTrafficCapture(runningTCPDumpPodOnNode, clientIP, dstSrvIP, vlanID)
+			By("Wait for cluster to be stable")
+			err := helper.WaitForClusterToBeStable(machineConfigPoolName, 1)
 			Expect(err).ToNot(HaveOccurred())
 
-			By("Check source ip and destination in http traffic capture file on node's br-ex interface")
-			err = netmetallbhelper.SrcAndDestIPInHTTPTrafficCapture(runningTCPDumpPodOnNode, clientIP, serviceIP, 1)
-			Expect(err).ToNot(HaveOccurred())
+			By("Verify is MetalLb in Running state")
+			netmetallbhelper.SetupMetalLB()
 
-			nodeRouterIP, err := netmetallbhelper.GetNodeOvnRouterIP(&workerNodeList[1])
-			Expect(err).ToNot(HaveOccurred())
+			for idx, vlanID := range vlanIds {
+				addrPoolLBList := netmlbparameters.IPv4AddressesLBList
+				bgpPeerIP := netmlbparameters.NodeIntFacePrimaryIPAddr
+				clientIP := netmlbparameters.InternalClient1IPv4
+				clientPod := primaryClientPod
+				dstSrvIP := netmlbparameters.IPv4AddressesLBList[0]
+				serverLabel := netmlbparameters.AppLabel1
 
-			webServerPodIP, err := pod.GetIPFromDefaultNetAnnotation(serverPod)
-			Expect(err).ToNot(HaveOccurred())
+				if idx == 1 {
+					addrPoolLBList = netmlbparameters.IPv4AddressesLB2List
+					bgpPeerIP = netmlbparameters.NodeIntFaceSecondaryIPAddr
+					clientIP = netmlbparameters.InternalClient2IPv4
+					clientPod = secondaryClientPod
+					dstSrvIP = netmlbparameters.IPv4AddressesLB2List[0]
+					serverLabel = netmlbparameters.AppLabel2
+				}
 
-			By("Check source ip and destination in http traffic capture file on nginx server interface")
-			err = netmetallbhelper.SrcAndDestIPInHTTPTrafficCapture(serverPod, nodeRouterIP, webServerPodIP)
-			Expect(err).ToNot(HaveOccurred())
+				By(fmt.Sprintf("Create nginx server on vlan %d", vlanID))
+				_ = netmetallbhelper.DefineAndRunNGINXServer(serverLabel, workerNodeList[1].Name)
 
-			By("Running icmp connectivity test from nginx server to client")
-			err = netmetallbhelper.IcmpConnectivityWorks(helper.Apiclient, *serverPod, clientIP)
-			Expect(err).ToNot(HaveOccurred())
+				By("Verify if frr pod has bgp session UP")
+				Eventually(func() bool {
+					return netmetallbhelper.CheckNeighborStatus(runningFrrPodList[idx], bgpPeerIP)
+				}, 2*time.Minute, netmlbparameters.Interval).Should(BeTrue())
 
-			By("Check source ip and destination in icmp traffic capture file on nginx server interface")
-			err = netmetallbhelper.SrcAndDestIPInVlanICMPTrafficCapture(serverPod, webServerPodIP, clientIP)
-			Expect(err).ToNot(HaveOccurred())
+				By(fmt.Sprintf("Validate that BGP routes are present on frr pod on vlan %d", vlanID))
+				Eventually(func() error {
+					return netmetallbhelper.CheckBGPRoute(runningFrrPodList[idx], bgpPeerIP, addrPoolLBList[0], "ipv4", 32)
+				}, netmlbparameters.Timeout, netmlbparameters.Interval).ShouldNot(HaveOccurred())
 
-			By("Check source ip and destination in icmp traffic capture file on node's vlan interface")
-			err = netmetallbhelper.SrcAndDestIPInVlanICMPTrafficCapture(
-				runningTCPDumpPodOnNode, nodeSecondaryIP, clientIP, vlanID)
-			Expect(err).ToNot(HaveOccurred())
-
-			By("Check source ip and destination in icmp traffic capture file on client pod")
-			err = netmetallbhelper.SrcAndDestIPInVlanICMPTrafficCapture(clientPod, nodeSecondaryIP, clientIP)
-			Expect(err).ToNot(HaveOccurred())
-		}
+				By("Generate connections")
+				generateConnections(clientPod, clientIP, dstSrvIP)
+			}
+		})
 	})
 })
 

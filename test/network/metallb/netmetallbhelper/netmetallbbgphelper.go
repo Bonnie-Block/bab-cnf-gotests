@@ -10,7 +10,6 @@ import (
 	"strconv"
 	"strings"
 	"text/template"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -448,10 +447,6 @@ func DeleteAllBGPPeers() error {
 			return err
 		}
 	}
-
-	Eventually(func() bool {
-		return IsProtocolConfigured(netmlbparameters.BGPConfigPrefix)
-	}, 1*time.Minute, 2*time.Second).Should(BeFalse(), "BGP configuration is not removed")
 
 	return nil
 }
