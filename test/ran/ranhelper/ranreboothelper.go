@@ -1,4 +1,4 @@
-package ranreboothelper
+package ranhelper
 
 import (
 	"context"
@@ -12,15 +12,6 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
-
-// parseBmcInfo returns bmc username, password, and hosts from environment variables if exist.
-func parseBmcInfo(conf *config.Config) (bmcUser, bmcPassword string, bmcHosts []string) {
-	hostsEnvVar := conf.Ran.BmcHosts
-	Expect(hostsEnvVar).ToNot(BeEmpty(), "Please set BMC_HOSTS environment variable.")
-	hosts := strings.Split(hostsEnvVar, ",")
-
-	return conf.Ran.BmcUser, conf.Ran.BmcPassword, hosts
-}
 
 // PowerOffAndOnSno powers off SNO node via BMC and wait for cluster to be unreachable
 // Returns host power on timestamp.
@@ -40,6 +31,35 @@ func PowerOffAndOnSno() time.Time {
 	powerOnTime := time.Now()
 
 	return powerOnTime
+}
+
+// PowerOnSnoWithImpi turn on SNO.
+func PowerOnSnoWithImpi() []error {
+	user, password, hosts := parseBmcInfo(helper.Config)
+	if len(hosts) > 1 {
+		log.Printf("multiple hosts detected, only using %s\n", hosts[0])
+	}
+
+	return powerControlHosts(true, []string{hosts[0]}, user, password)
+}
+
+// PowerOffSnoWithIpmi turn off SNO.
+func PowerOffSnoWithIpmi() []error {
+	user, password, hosts := parseBmcInfo(helper.Config)
+	if len(hosts) > 1 {
+		log.Printf("multiple hosts detected, only using %s\n", hosts[0])
+	}
+
+	return powerControlHosts(false, []string{hosts[0]}, user, password)
+}
+
+// parseBmcInfo returns bmc username, password, and hosts from environment variables if exist.
+func parseBmcInfo(conf *config.Config) (bmcUser, bmcPassword string, bmcHosts []string) {
+	hostsEnvVar := conf.Ran.BmcHosts
+	Expect(hostsEnvVar).ToNot(BeEmpty(), "Please set BMC_HOSTS environment variable.")
+	hosts := strings.Split(hostsEnvVar, ",")
+
+	return conf.Ran.BmcUser, conf.Ran.BmcPassword, hosts
 }
 
 // waitForClusterUnreachable waits for cluster unreachable by listing cluster nodes and expecting error.

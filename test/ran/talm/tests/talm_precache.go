@@ -6,58 +6,34 @@ import (
 	"log"
 	"time"
 
-	testClient "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
-
-	"k8s.io/apimachinery/pkg/runtime"
-	configurationPolicyv1 "open-cluster-management.io/config-policy-controller/api/v1"
-	placementrulev1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
+	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
+	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/openshift-kni/cluster-group-upgrades-operator/api/v1alpha1"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/talm/rantalmhelper"
-
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/talm/rantalmparameters"
+	testClient "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
-	k8sv1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
-	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/yaml"
+	configurationPolicyv1 "open-cluster-management.io/config-policy-controller/api/v1"
 )
-
-// BoolAddr TODO move this global helper.
-func BoolAddr(b bool) *bool {
-	boolVar := b
-
-	return &boolVar
-}
 
 // precache const.
 const (
 	SpokeNS               = "openshift-talo-pre-cache"
 	PreCacheContainerName = "pre-cache-container"
 	PreCachePodLabel      = "job-name=pre-cache"
-	PreCacheJobName       = "pre-cache"
-
-	// CGUNameOperator const precache operator.
-	CGUNameOperator = "generated-precache-operator"
-
-	// const precache ocp.
-	policyName              = "generated-policy-precache-ocp"
-	placementRuleName       = "generated-placementrule-precache-ocp"
-	placementBindingName    = "generated-placementbinding-precache-ocp"
-	configurationPolicyName = "generated-config-policy-precache-ocp"
-	CGUNameOCP              = "generated-precache-ocp"
 )
 
-var _ = Describe("Talm precache", func() {
+var _ = Describe("Talm precache one spoke", func() {
 
 	Context("Precache operator", func() {
-		var cgu v1alpha1.ClusterGroupUpgrade
+		curName := "precache-operator"
 		BeforeEach(func() {
 			log.Println("verifying list of policies in config are already available in hub required Precache operator")
 			var listPolicy policiesv1.PolicyList
@@ -69,406 +45,281 @@ var _ = Describe("Talm precache", func() {
 			if !rantalmhelper.AllPoliciesExist(listPolicy) {
 				Skip("could not find all the policies specified in config or in TALM_PRECACHE_POLICIES env")
 			}
+		})
 
-			log.Println("deleting existing CGU of the same name if exists")
-			err = DeleteGeneratedCGU(CGUNameOperator, ran.NamespaceTesting)
-			if err != nil {
-				Skip(fmt.Sprintf("could not delete cgu: %s", err))
-			}
+		AfterEach(func() {
+			// delete generated CRs
+			rantalmhelper.CleanupTestResourcesOnClient(
+				rantalmhelper.HubAPIClient,
+				fmt.Sprintf("%s-%s", rantalmparameters.CguCommonName, curName),
+				fmt.Sprintf("%s-%s", rantalmparameters.PolicyNameCommonName, curName),
+				rantalmparameters.TalmTestNamespace,
+				fmt.Sprintf("%s-%s", rantalmparameters.PlacementBindingCommonName, curName),
+				fmt.Sprintf("%s-%s", rantalmparameters.PlacementRuleCommonName, curName),
+				fmt.Sprintf("%s-%s", rantalmparameters.PolicySetNameCommonName, curName),
+				"",
+				false,
+			)
 		})
 
 		It("tests for precache operator with multiple sources", func() {
 			By("creating CGU with created operator upgrade policy")
-			spokeClusters := []string{rantalmhelper.Spoke1Name}
-			policyNames := helper.Config.Ran.TalmPrecachePolicies
-			cgu = GetAndApplyNewCGU(CGUNameOperator, ran.NamespaceTesting, spokeClusters, policyNames)
+			// prep cgu with one spoke
+			cgu := getNewPrecacheCGU(curName, helper.Config.Ran.TalmPrecachePolicies, []string{rantalmhelper.Spoke1Name})
 
-			err := CommonPreCacheVerificationSteps(&cgu)
+			// apply
+			err := rantalmhelper.CreateCguAndWait(
+				rantalmhelper.HubAPIClient,
+				cgu,
+			)
 			Expect(err).To(BeNil())
-		})
 
-		AfterEach(func() {
-			CommonPreCacheTeardownSteps(&cgu)
+			By("verifying spoke1 succeeded in CGU")
+			assertPrecacheStatus(cgu.Name, rantalmhelper.Spoke1Name, "Succeeded")
+
+			By("verifying image precache pod succeeded on spoke")
+			assertPrecachePodLog(rantalmhelper.Spoke1APIClient, "Image pre-cache done")
 		})
 	})
 
 	Context("Precache OCP", func() {
-		var policy policiesv1.Policy
-		var placementRule placementrulev1.PlacementRule
-		var placementBinding policiesv1.PlacementBinding
-		var cgu v1alpha1.ClusterGroupUpgrade
+		curName := "precache-ocp"
 
-		BeforeEach(func() {
-			if !namespaces.Exists(ran.NamespaceTesting, rantalmhelper.HubAPIClient) {
-				Skip(fmt.Sprintf("missing required namespace '%s'", ran.NamespaceTesting))
-			}
-
-			err := DeleteGeneratedCGU(CGUNameOCP, ran.NamespaceTesting)
-			if err != nil {
-				Skip(fmt.Sprintf("could not delete cgu: %s", err))
-			}
+		AfterEach(func() {
+			// delete generated CRs
+			rantalmhelper.CleanupTestResourcesOnClient(
+				rantalmhelper.HubAPIClient,
+				fmt.Sprintf("%s-%s", rantalmparameters.CguCommonName, curName),
+				fmt.Sprintf("%s-%s", rantalmparameters.PolicyNameCommonName, curName),
+				rantalmparameters.TalmTestNamespace,
+				fmt.Sprintf("%s-%s", rantalmparameters.PlacementBindingCommonName, curName),
+				fmt.Sprintf("%s-%s", rantalmparameters.PlacementRuleCommonName, curName),
+				fmt.Sprintf("%s-%s", rantalmparameters.PolicySetNameCommonName, curName),
+				"",
+				false,
+			)
 		})
 
 		It("tests for ocp cache with version", func() {
 			By("creating and applying policy with clusterversion CR that defines the upgrade graph, channel, and version")
-			policy, placementRule, placementBinding =
-				CommonPrecacheOCPStepsAndGetNewPolicyPlacementRulePlacementBinding("Version", helper.Apiclient)
+			// prep cgu
+			cgu := getNewPrecacheCGU(curName, []string{fmt.Sprintf("%s-%s",
+				rantalmparameters.PolicyNameCommonName, curName)},
+				[]string{rantalmhelper.Spoke1Name})
 
-			By("creating CGU with created clusterversion policy")
-			spokeClusters := []string{rantalmhelper.Spoke1Name}
-			policyNames := []string{policy.Name}
-			cgu = GetAndApplyNewCGU(CGUNameOCP, ran.NamespaceTesting, spokeClusters, policyNames)
-
-			err := CommonPreCacheVerificationSteps(&cgu)
+			// prep clusterVersion
+			clusterVersion, err := rantalmhelper.GetClusterVersionDefinition("Version",
+				rantalmhelper.Spoke1APIClient)
 			Expect(err).To(BeNil())
+
+			// apply
+			err = rantalmhelper.CreatePolicyAndCgu(
+				rantalmhelper.HubAPIClient,
+				&clusterVersion,
+				configurationPolicyv1.MustHave,
+				configurationPolicyv1.Inform,
+				fmt.Sprintf("%s-%s", rantalmparameters.PolicyNameCommonName, curName),
+				fmt.Sprintf("%s-%s", rantalmparameters.PolicySetNameCommonName, curName),
+				fmt.Sprintf("%s-%s", rantalmparameters.PlacementBindingCommonName, curName),
+				fmt.Sprintf("%s-%s", rantalmparameters.PlacementRuleCommonName, curName),
+				rantalmparameters.TalmTestNamespace,
+				metav1.LabelSelector{},
+				cgu,
+			)
+			Expect(err).To(BeNil())
+
+			By("waiting until CGU Succeeded")
+			assertPrecacheStatus(cgu.Name, rantalmhelper.Spoke1Name, "Succeeded")
+
+			By("waiting until new precache pod in spoke1 succeeded and log reports done")
+			assertPrecachePodLog(rantalmhelper.Spoke1APIClient, "Image pre-cache done")
 		})
 
 		It("tests for ocp cache with image", func() {
 			By("creating and applying policy with clusterversion " +
 				"CR that defines the upgrade graph, channel, and version")
-			policy, placementRule, placementBinding =
-				CommonPrecacheOCPStepsAndGetNewPolicyPlacementRulePlacementBinding("Image", helper.Apiclient)
+			// prep cgu
+			cgu := getNewPrecacheCGU(curName, []string{fmt.Sprintf("%s-%s",
+				rantalmparameters.PolicyNameCommonName, curName)},
+				[]string{rantalmhelper.Spoke1Name})
 
-			By("creating CGU with created clusterversion policy")
-			spokeClusters := []string{rantalmhelper.Spoke1Name}
-			policyNames := []string{policy.Name}
-			cgu = GetAndApplyNewCGU(CGUNameOCP, ran.NamespaceTesting, spokeClusters, policyNames)
-
-			err := CommonPreCacheVerificationSteps(&cgu)
+			// prep clusterVersion
+			clusterVersion, err := rantalmhelper.GetClusterVersionDefinition("Image",
+				rantalmhelper.Spoke1APIClient)
 			Expect(err).To(BeNil())
-		})
 
-		AfterEach(func() {
-			CommonPreCacheOCPTeardownSteps(&policy, &placementRule, &placementBinding, &cgu)
+			// apply
+			err = rantalmhelper.CreatePolicyAndCgu(
+				rantalmhelper.HubAPIClient,
+				&clusterVersion,
+				configurationPolicyv1.MustHave,
+				configurationPolicyv1.Inform,
+				fmt.Sprintf("%s-%s", rantalmparameters.PolicyNameCommonName, curName),
+				fmt.Sprintf("%s-%s", rantalmparameters.PolicySetNameCommonName, curName),
+				fmt.Sprintf("%s-%s", rantalmparameters.PlacementBindingCommonName, curName),
+				fmt.Sprintf("%s-%s", rantalmparameters.PlacementRuleCommonName, curName),
+				rantalmparameters.TalmTestNamespace,
+				metav1.LabelSelector{},
+				cgu,
+			)
+			Expect(err).To(BeNil())
+
+			By("waiting until CGU Succeeded")
+			assertPrecacheStatus(cgu.Name, rantalmhelper.Spoke1Name, "Succeeded")
+
+			By("waiting until new precache pod in spoke1 succeeded and log reports done")
+			assertPrecachePodLog(rantalmhelper.Spoke1APIClient, "Image pre-cache done")
 		})
 	})
 
 })
 
-// --- funcs common to precache operator and ocp  ---
+var _ = Describe("Talm precache with multiple spokes where one turns off", Ordered, func() {
 
-func CommonPreCacheOCPTeardownSteps(
-	policy *policiesv1.Policy,
-	placementRule *placementrulev1.PlacementRule,
-	placementBinding *policiesv1.PlacementBinding,
-	cgu *v1alpha1.ClusterGroupUpgrade) {
-	log.Println("deleting generated Policy")
-	DeleteGeneratedCR(policy)
+	curName := "precache-multiple-spoke"
 
-	log.Println("deleting generated PlacementRule")
-	DeleteGeneratedCR(placementRule)
+	BeforeEach(func() {
+		By("turning off spoke1")
+		ranhelper.PowerOffSnoWithIpmi()
+		log.Println("turning off")
+	})
 
-	log.Println("deleting generated PlacementBinding")
-	DeleteGeneratedCR(placementBinding)
+	AfterEach(func() {
+		// delete generated CRs
+		rantalmhelper.CleanupTestResourcesOnClient(
+			rantalmhelper.HubAPIClient,
+			fmt.Sprintf("%s-%s", rantalmparameters.CguCommonName, curName),
+			fmt.Sprintf("%s-%s", rantalmparameters.PolicyNameCommonName, curName),
+			rantalmparameters.TalmTestNamespace,
+			fmt.Sprintf("%s-%s", rantalmparameters.PlacementBindingCommonName, curName),
+			fmt.Sprintf("%s-%s", rantalmparameters.PlacementRuleCommonName, curName),
+			fmt.Sprintf("%s-%s", rantalmparameters.PolicySetNameCommonName, curName),
+			"",
+			false,
+		)
+	})
 
-	log.Println("performing common precache teardown steps")
-	CommonPreCacheTeardownSteps(cgu)
+	It("fails for one spoke and succeeds for the other", func() {
+		By("creating precache CGU with two spokes and OCP upgrade policy ")
+		cgu := getNewPrecacheCGU(curName,
+			[]string{fmt.Sprintf("%s-%s", rantalmparameters.PolicyNameCommonName, curName)},
+			[]string{rantalmhelper.Spoke1Name, rantalmhelper.Spoke2Name})
+
+		// prep clusterVersion
+		clusterVersion, _ := rantalmhelper.GetClusterVersionDefinition("Both", rantalmhelper.Spoke2APIClient)
+
+		// apply
+		err := rantalmhelper.CreatePolicyAndCgu(
+			rantalmhelper.HubAPIClient,
+			&clusterVersion,
+			configurationPolicyv1.MustHave,
+			configurationPolicyv1.Inform,
+			fmt.Sprintf("%s-%s", rantalmparameters.PolicyNameCommonName, curName),
+			fmt.Sprintf("%s-%s", rantalmparameters.PolicySetNameCommonName, curName),
+			fmt.Sprintf("%s-%s", rantalmparameters.PlacementBindingCommonName, curName),
+			fmt.Sprintf("%s-%s", rantalmparameters.PlacementRuleCommonName, curName),
+			rantalmparameters.TalmTestNamespace,
+			metav1.LabelSelector{},
+			cgu,
+		)
+		Expect(err).To(BeNil())
+
+		log.Println("waiting for precache to confirm that it is valid")
+		err = rantalmhelper.WaitForCguInCondition(rantalmhelper.HubAPIClient,
+			cgu.Name,
+			cgu.Namespace,
+			"PrecacheSpecValid",
+			"Precaching spec is valid and consistent",
+			metav1.ConditionTrue,
+			"", 5*time.Minute)
+		Expect(err).To(BeNil())
+
+		By("verifying precache succeeded for spoke2")
+		assertPrecacheStatus(cgu.Name, rantalmhelper.Spoke2Name, "Succeeded")
+
+		By("enabling CGU")
+		err = rantalmhelper.EnableCgu(rantalmhelper.HubAPIClient, cgu)
+		Expect(err).To(BeNil())
+
+		By("verifying CGU reports one spoke failed in PrecachingSucceeded condition")
+		err = rantalmhelper.WaitForCguInCondition(rantalmhelper.HubAPIClient,
+			cgu.Name,
+			cgu.Namespace,
+			"PrecachingSuceeded",
+			"Precaching failed for 1 clusters",
+			metav1.ConditionTrue,
+			"PartiallyDone", 5*time.Minute)
+		Expect(err).To(BeNil())
+
+		By("verifying CGU reports spoke1 failed with UnrecoverableError in precache status")
+		assertPrecacheStatus(cgu.Name, rantalmhelper.Spoke1Name, "UnrecoverableError")
+	})
+
+	AfterAll(func() {
+		log.Println("turning on spoke1")
+		ranhelper.PowerOnSnoWithImpi()
+
+		By("waiting until spoke1 is ready")
+		err := nodes.WaitForNodesReady(rantalmhelper.Spoke1APIClient, 40*time.Minute, 30*time.Second)
+		Expect(err).To(BeNil())
+	})
+})
+
+// getNewPrecacheCGU get new precache CGU CR.
+func getNewPrecacheCGU(curName string, policyNames []string, spokes []string) v1alpha1.ClusterGroupUpgrade {
+	cgu := rantalmhelper.GetCguDefinition(
+		fmt.Sprintf("%s-%s", rantalmparameters.CguCommonName, curName),
+		spokes,
+		[]string{},
+		policyNames,
+		rantalmparameters.TalmTestNamespace, 2, 250)
+	cgu.Spec.Enable = rantalmhelper.BoolAddr(false)
+	cgu.Spec.PreCaching = true
+
+	return cgu
 }
 
-func CommonPrecacheOCPStepsAndGetNewPolicyPlacementRulePlacementBinding(
-	config string,
-	spokeClient *testClient.ClientSet) (policiesv1.Policy, placementrulev1.PlacementRule, policiesv1.PlacementBinding) {
-	log.Println("generating clusterversion, configurationPolicy, Policy, PlacementRule and PlacementBinding")
-
-	clusterVersion, err := rantalmhelper.GetClusterVersionDefinition(config, spokeClient)
-	Expect(err).To(BeNil())
-
-	configurationPolicy := GetNewConfigurationPolicyWithOneObj(configurationPolicyName, &clusterVersion)
-
-	policy := GetNewPolicyWithOneObj(policyName, ran.NamespaceTesting, &configurationPolicy)
-
-	placementRule := GetNewPlacementRule(placementRuleName, ran.NamespaceTesting)
-
-	placementBinding := GetNewPlacementBinding(placementBindingName, ran.NamespaceTesting, placementRule.Name, policy.Name)
-
-	log.Println("applying Policy, PlacementRule and PlacementBinding")
-
-	err = ApplyAndWaitPolicyPlacementRulePlacementBinding(&policy, &placementRule, &placementBinding)
-	Expect(err).To(BeNil())
-
-	return policy, placementRule, placementBinding
-}
-
-func CommonPreCacheTeardownSteps(cgu *v1alpha1.ClusterGroupUpgrade) {
-	log.Println("deleting generated cgu")
-
-	_ = DeleteGeneratedCGU(cgu.Name, cgu.Namespace)
-
-	log.Println("deleting generated spoke job")
-	DeleteJob(PreCacheJobName, SpokeNS)
-}
-
-func CommonPreCacheVerificationSteps(cguToTest *v1alpha1.ClusterGroupUpgrade) error {
-	By("waiting until CGU Succeeded")
+// assertBackupPodLog asserts status of backup struct.
+func assertPrecacheStatus(cguName, spokeName, expectation string) {
 	Eventually(func() string {
 		cgu, err := rantalmhelper.HubAPIClient.ClustergroupupgradesoperatorV1alpha1Interface.
-			ClusterGroupUpgrades(ran.NamespaceTesting).Get(context.Background(), cguToTest.Name, metav1.GetOptions{})
+			ClusterGroupUpgrades(rantalmparameters.TalmTestNamespace).
+			Get(context.Background(), cguName, metav1.GetOptions{})
 		Expect(err).To(BeNil())
 
 		if cgu.Status.Precaching == nil {
-			log.Println("precaching struct not ready yet")
+			log.Println("precache struct not ready yet")
 
 			return ""
 		}
 
-		_, ok := cgu.Status.Precaching.Status[rantalmhelper.Spoke1Name]
+		_, ok := cgu.Status.Precaching.Status[spokeName]
 		if !ok {
 			log.Println("cluster name as key did not appear yet")
 
 			return ""
 		}
 
-		log.Printf("%s pre-cache status: %s\n", cgu.Name, cgu.Status.Precaching.Status[rantalmhelper.Spoke1Name])
+		log.Printf("[%s] %s precache status: %s\n", cgu.Name, spokeName, cgu.Status.Precaching.Status[spokeName])
 
-		return cgu.Status.Precaching.Status[rantalmhelper.Spoke1Name]
-	}, 10*time.Minute, 10*time.Second).Should(Equal("Succeeded"))
-
-	By("waiting until new precache pod in spoke1 succeeded and log reports done")
-
-	podList, err := helper.Apiclient.Pods(SpokeNS).List(context.Background(), metav1.ListOptions{
-		LabelSelector: PreCachePodLabel,
-	})
-	Expect(err).To(BeNil())
-	Expect(len(podList.Items)).To(BeNumerically("==", 1))
-	p := podList.Items[0]
-	Expect(p.Status.Phase).To(Equal(k8sv1.PodSucceeded))
-	plog, err := pod.GetLog(helper.Apiclient, &p, -time.Until(p.CreationTimestamp.Time), PreCacheContainerName)
-	Expect(err).To(BeNil())
-	log.Println("generated pod logs: \n", plog)
-	Expect(plog).To(ContainSubstring("Image pre-cache done"))
-
-	return nil
+		return cgu.Status.Precaching.Status[spokeName]
+	}, 15*time.Minute, 5*time.Second).Should(Equal(expectation))
 }
 
-// --- funcs common to TALM  ---
-
-func GetAndApplyNewCGU(name string, namespace string, spokeClusterNames []string,
-	policyNames []string) v1alpha1.ClusterGroupUpgrade {
-	cgu := v1alpha1.ClusterGroupUpgrade{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "ClusterGroupUpgrade",
-			APIVersion: v1alpha1.SchemeGroupVersion.Version,
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
-		Spec: v1alpha1.ClusterGroupUpgradeSpec{
-			PreCaching:      true,
-			Enable:          BoolAddr(false),
-			Clusters:        spokeClusterNames,
-			ManagedPolicies: policyNames,
-			RemediationStrategy: &v1alpha1.RemediationStrategySpec{
-				MaxConcurrency: 1,
-			},
-		},
-	}
-
-	PrintGeneratedCR(cgu)
-
-	_, err := rantalmhelper.HubAPIClient.ClustergroupupgradesoperatorV1alpha1Interface.
-		ClusterGroupUpgrades(namespace).Create(context.Background(), &cgu, metav1.CreateOptions{})
-
-	Expect(err).To(BeNil())
-
-	return cgu
-}
-
-func DeleteGeneratedCGU(name string, namespace string) error {
-	_, err := rantalmhelper.HubAPIClient.ClustergroupupgradesoperatorV1alpha1Interface.
-		ClusterGroupUpgrades(namespace).Get(context.Background(), name, metav1.GetOptions{})
-	if err != nil {
-		log.Printf("could not get %s in hub before performing delete: %s\n", name, err)
-	}
-
-	err = rantalmhelper.HubAPIClient.ClustergroupupgradesoperatorV1alpha1Interface.
-		ClusterGroupUpgrades(namespace).Delete(context.Background(), name, metav1.DeleteOptions{})
-	if err != nil && !errors.IsNotFound(err) {
-		return fmt.Errorf("could not delete %s in hub: %w", name, err)
-	}
-
-	return nil
-}
-
-func PrintGeneratedCR(b interface{}) {
-	y, err := yaml.Marshal(b)
-	Expect(err).To(BeNil())
-	log.Printf("--- generated CR dump:\n%s\n", string(y))
-}
-
-func DeleteGeneratedCR(obj runtimeclient.Object) {
-	err := rantalmhelper.HubAPIClient.Delete(context.Background(), obj)
-	if err != nil && !errors.IsNotFound(err) {
-		log.Printf("could not delete generated CR: %s\n", err)
-	}
-}
-
-func DeleteJob(jobName string, jobNS string) {
-	err := helper.Apiclient.BatchV1Interface.Jobs(jobNS).Delete(context.Background(), jobName, metav1.DeleteOptions{})
-	if err != nil {
-		log.Println("could delete job:", err)
-	}
-}
-
-// --- funcs to handle Policy CRs for Precache OCP but maybe useful for other TALM tests  ---
-
-func GetNewPlacementBinding(
-	placementBindingName string,
-	namespace string,
-	placementRuleName string,
-	policyName string) policiesv1.PlacementBinding {
-	placementBinding := policiesv1.PlacementBinding{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "policy.open-cluster-management.io/v1",
-			APIVersion: "PlacementBinding",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      placementBindingName,
-			Namespace: namespace,
-		},
-		PlacementRef: policiesv1.PlacementSubject{
-			APIGroup: "apps.open-cluster-management.io",
-			Kind:     "PlacementRule",
-			Name:     placementRuleName,
-		},
-		Subjects: []policiesv1.Subject{
-			{
-				APIGroup: "policy.open-cluster-management.io",
-				Kind:     "Policy",
-				Name:     policyName,
-			},
-		},
-	}
-
-	return placementBinding
-}
-
-func GetNewPlacementRule(placementRuleName string, namespace string) placementrulev1.PlacementRule {
-	placementRule := placementrulev1.PlacementRule{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "PlacementRule",
-			APIVersion: "apps.open-cluster-management.io/v1",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      placementRuleName,
-			Namespace: namespace,
-		},
-		Spec: placementrulev1.PlacementRuleSpec{
-			GenericPlacementFields: placementrulev1.GenericPlacementFields{
-				Clusters: nil,
-				ClusterSelector: &metav1.LabelSelector{
-					MatchExpressions: []metav1.LabelSelectorRequirement{
-						{
-							Key:      "group-du-sno",
-							Operator: "In",
-							Values:   []string{""},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	return placementRule
-}
-
-func GetNewPolicyWithOneObj(policyName string, namespace string, obj runtimeclient.Object) policiesv1.Policy {
-	policy := policiesv1.Policy{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Policy",
-			APIVersion: "policy.open-cluster-management.io/v1",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      policyName,
-			Namespace: namespace,
-		},
-		Spec: policiesv1.PolicySpec{
-			Disabled:          false,
-			RemediationAction: "inform",
-			PolicyTemplates: []*policiesv1.PolicyTemplate{
-				{
-					ObjectDefinition: runtime.RawExtension{
-						Object: obj,
-					},
-				},
-			},
-		},
-	}
-
-	return policy
-}
-
-func GetNewConfigurationPolicyWithOneObj(
-	configurationPolicyName string, obj runtimeclient.Object) configurationPolicyv1.ConfigurationPolicy {
-	configurationPolicy := configurationPolicyv1.ConfigurationPolicy{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "ConfigurationPolicy",
-			APIVersion: "policy.open-cluster-management.io/v1",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name: configurationPolicyName,
-		},
-		Spec: configurationPolicyv1.ConfigurationPolicySpec{
-			Severity:          "low",
-			RemediationAction: "inform",
-			NamespaceSelector: configurationPolicyv1.Target{
-				Include: []configurationPolicyv1.NonEmptyString{"kube-*"},
-				Exclude: []configurationPolicyv1.NonEmptyString{"*"},
-			},
-			ObjectTemplates: []*configurationPolicyv1.ObjectTemplate{
-				{
-					ComplianceType: "musthave",
-					ObjectDefinition: runtime.RawExtension{
-						Object: obj,
-					},
-				},
-			},
-			EvaluationInterval: configurationPolicyv1.EvaluationInterval{
-				Compliant:    "10m",
-				NonCompliant: "10s",
-			},
-		},
-	}
-
-	return configurationPolicy
-}
-
-func ApplyAndWaitPolicyPlacementRulePlacementBinding(
-	policy *policiesv1.Policy,
-	placementRule *placementrulev1.PlacementRule,
-	placementBinding *policiesv1.PlacementBinding) error {
-	PrintGeneratedCR(policy)
-
-	err := rantalmhelper.HubAPIClient.Create(context.Background(), policy)
-	if err != nil && !errors.IsAlreadyExists(err) {
-		return fmt.Errorf("could not apply generated policy: %w", err)
-	}
-
-	PrintGeneratedCR(placementRule)
-
-	err = rantalmhelper.HubAPIClient.Create(context.Background(), placementRule)
-	if err != nil && !errors.IsAlreadyExists(err) {
-		return fmt.Errorf("could not apply generated placementRule: %w", err)
-	}
-
-	PrintGeneratedCR(placementBinding)
-
-	err = rantalmhelper.HubAPIClient.Create(context.Background(), placementBinding)
-	if err != nil && !errors.IsAlreadyExists(err) {
-		return fmt.Errorf("could not apply generated placementBinding: %w", err)
-	}
-
-	Eventually(func() policiesv1.ComplianceState {
-		var curPolicy policiesv1.Policy
-		c := runtimeclient.ObjectKey{
-			Namespace: policy.Namespace,
-			Name:      policy.Name,
-		}
-		err := rantalmhelper.HubAPIClient.Get(context.Background(), c, &curPolicy)
+// assertBackupPodLog retrieves the backup pod generated by job and asserts on the log.
+func assertPrecachePodLog(client *testClient.ClientSet, expectationSubString string) {
+	// added Eventually since logs take longer to show up in console
+	Eventually(func() string {
+		podList, err := client.Pods(SpokeNS).List(context.Background(), metav1.ListOptions{
+			LabelSelector: PreCachePodLabel,
+		})
 		Expect(err).To(BeNil())
+		Expect(len(podList.Items)).To(BeNumerically("==", 1))
+		p := podList.Items[0]
+		plog, err := pod.GetLog(client, &p, -time.Until(p.CreationTimestamp.Time), PreCacheContainerName)
+		Expect(err).To(BeNil())
+		log.Println("generated pod logs: \n", plog)
 
-		return curPolicy.Status.ComplianceState
-	}, 3*time.Minute, 5*time.Second).Should(Not(BeEmpty()))
-
-	return nil
+		return plog
+	}, 1*time.Minute, 5*time.Second).Should(ContainSubstring(expectationSubString))
 }

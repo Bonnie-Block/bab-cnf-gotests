@@ -17,7 +17,6 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/cpu/rancpuhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/reboot/ranreboothelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/reboot/ranrebootparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
@@ -77,13 +76,13 @@ var _ = Describe("SNO Reboot", func() {
 
 	Context("power cycle with workloads running", func() {
 		BeforeEach(func() {
-			if !ranreboothelper.IsIpmitoolExist() {
+			if !ranhelper.IsIpmitoolExist() {
 				Skip("ipmitool is not installed on test executor. Skip power cycle test.")
 			}
 		})
 		// 40814
 		It("cluster and workload pods should be recovered after power comes back", func() {
-			powerOnTime := ranreboothelper.PowerOffAndOnSno()
+			powerOnTime := ranhelper.PowerOffAndOnSno()
 			waitForClusterRecoverAndLogTime(powerOnTime, node, ranrebootparameters.RanMetricPowerCycle)
 		})
 	})
