@@ -40,14 +40,11 @@ const (
 func TestTalm(t *testing.T) {
 	_, reporterConfig := GinkgoConfiguration()
 	reporterConfig.JUnitReport = helper.Config.GetReportPath(currentFile)
-	reporterConfig.SlowSpecThreshold = 1500.0
 
 	RegisterFailHandler(Fail)
 	// Stop ginkgo complaining about slow tests
 
 	RunSpecs(t, "RAN TALM tests", reporterConfig)
-
-	reporterConfig.SlowSpecThreshold = 5.0
 }
 
 var _ = BeforeSuite(func() {

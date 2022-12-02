@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"sort"
@@ -27,7 +26,7 @@ func GetIdracEvents(c *gofish.APIClient) ([]string, error) {
 		return []string{}, err
 	}
 	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 
 	if err != nil {
 		log.Printf("Failed to read Idrac events response due to: %v\n", err)

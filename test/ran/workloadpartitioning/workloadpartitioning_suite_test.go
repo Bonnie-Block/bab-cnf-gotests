@@ -30,12 +30,9 @@ func TestWorkloadPartitioning(t *testing.T) {
 	_, reporterConfig := GinkgoConfiguration()
 	reporterConfig.JUnitReport = helper.Config.GetReportPath(currentFile)
 	// Stop ginkgo complaining about slow tests
-	reporterConfig.SlowSpecThreshold = 1500.0
 
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "RAN Workload Partitioning tests", reporterConfig)
-
-	reporterConfig.SlowSpecThreshold = 5.0
 }
 
 var _ = BeforeSuite(func() {

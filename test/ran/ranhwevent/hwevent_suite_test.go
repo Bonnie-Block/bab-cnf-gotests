@@ -42,9 +42,7 @@ func TestHwEvent(t *testing.T) {
 
 	RegisterFailHandler(Fail)
 
-	reporterConfig.SlowSpecThreshold = 1500.0
 	RunSpecs(t, "RAN Bare Metal Event Relay Tests", reporterConfig)
-	reporterConfig.SlowSpecThreshold = 5.0
 }
 
 var _ = BeforeSuite(func() {

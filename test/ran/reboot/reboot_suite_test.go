@@ -32,10 +32,7 @@ func TestReboot(t *testing.T) {
 
 	RegisterFailHandler(Fail)
 
-	// Stop ginkgo complaining about slow tests
-	reporterConfig.SlowSpecThreshold = 1500.0
 	RunSpecs(t, "RAN reboot tests", reporterConfig)
-	reporterConfig.SlowSpecThreshold = 5.0
 }
 
 var _ = BeforeSuite(func() {

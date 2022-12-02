@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/xml"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"os/exec"
 	"path"
@@ -415,7 +415,7 @@ func reportIsValid(reportPath string, expectedTestNumbers []int) {
 	skippedTestNumber := expectedTestNumbers[1]
 	data, err := os.Open(path.Join(reportPath, parameters.JUnitCNFTestsReportName))
 	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error opening cnf-tests report file: %s", err))
-	byteValue, err := ioutil.ReadAll(data)
+	byteValue, err := io.ReadAll(data)
 	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error reading cnf-tests report file: %s", err))
 
 	var report parameters.Report

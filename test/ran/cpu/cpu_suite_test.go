@@ -30,11 +30,9 @@ var _, currentFile, _, _ = runtime.Caller(0)
 func TestCpu(t *testing.T) {
 	_, reporterConfig := GinkgoConfiguration()
 	reporterConfig.JUnitReport = helper.Config.GetReportPath(currentFile)
-	reporterConfig.SlowSpecThreshold = 1200.0
 
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "RAN CPU management tests", reporterConfig)
-	reporterConfig.SlowSpecThreshold = 5.0
 }
 
 var _ = BeforeSuite(func() {
