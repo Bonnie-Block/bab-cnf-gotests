@@ -494,8 +494,9 @@ func updateSpeakerNodeSelector(namespace string, nodeSelector map[string]string)
 		return err
 	}
 
-	updateMetalLbResourceNodeSelector(namespace, nodeSelector)
+	metallb.Spec.SpeakerNodeSelector = nodeSelector
 
+	err = helper.Apiclient.Update(context.Background(), metallb)
 	if err != nil {
 		return err
 	}
@@ -535,9 +536,12 @@ func UpdateToDefaultSpeakerNodeSelector() error {
 	}
 
 	if !reflect.DeepEqual(metallb.Spec.SpeakerNodeSelector, netmlbparameters.SpeakerNodeSelectorWorker) {
-		updateMetalLbResourceNodeSelector(
-			netmlbparameters.MetalLBOperatorNameSpace,
-			netmlbparameters.SpeakerNodeSelectorWorker)
+		metallb.Spec.SpeakerNodeSelector = netmlbparameters.SpeakerNodeSelectorWorker
+
+		err = helper.Apiclient.Update(context.Background(), metallb)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -574,20 +578,7 @@ func DeleteLabelFromWorkers(label string) error {
 	for _, node := range workerNodes {
 		delete(node.Labels, label)
 
-		nodePatchBytes, err := json.Marshal(
-			[]netmlbparameters.NodeResourcePatch{{
-				Operation: "replace",
-				Path:      "/metadata/labels",
-				Value:     node.Labels,
-			}})
-
-		if err != nil {
-			return err
-		}
-
-		_, err = helper.Apiclient.Nodes().Patch(
-			context.Background(), node.Name, types.JSONPatchType, nodePatchBytes, metav1.PatchOptions{})
-
+		_, err = helper.Apiclient.Nodes().Update(context.Background(), &node, metav1.UpdateOptions{})
 		if err != nil {
 			return fmt.Errorf("failed to remove label from %s %w", node.Name, err)
 		}
@@ -735,9 +726,6 @@ func SetupMetalLB() {
 	if err != nil {
 		metallb.Spec.SpeakerNodeSelector = netmlbparameters.SpeakerNodeSelectorWorker
 		Expect(helper.Apiclient.Create(context.Background(), metallb)).Should(Succeed())
-	} else if !reflect.DeepEqual(metallb.Spec.SpeakerNodeSelector, netmlbparameters.SpeakerNodeSelectorWorker) {
-		updateMetalLbResourceNodeSelector(
-			netmlbparameters.MetalLBOperatorNameSpace, netmlbparameters.SpeakerNodeSelectorWorker)
 	}
 
 	By("should have MetalLB controller in running state")
@@ -1137,18 +1125,4 @@ func ValidateLogLevel(logLevel string) error {
 	}
 
 	return nil
-}
-
-func updateMetalLbResourceNodeSelector(namespace string, nodeSelector map[string]string) {
-	Eventually(func() error {
-		metallb := &metallboperatorv1beta1.MetalLB{}
-		err := helper.Apiclient.Get(context.Background(),
-			types.NamespacedName{Name: netmlbparameters.MetalLBCRName, Namespace: namespace}, metallb)
-		if err != nil {
-			return err
-		}
-		metallb.Spec.SpeakerNodeSelector = nodeSelector
-
-		return helper.Apiclient.Update(context.Background(), metallb)
-	}, 1*time.Minute, 5*time.Second).ShouldNot(HaveOccurred(), "Error to update nodeSelector on metallb resource")
 }

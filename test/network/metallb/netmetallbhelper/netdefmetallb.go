@@ -378,3 +378,13 @@ func DefineFrrPodWithTestContainer(masterNodeName string, namespace string) *k8s
 
 	return frrPod
 }
+
+// DefineBGPAdvertisementWithPeer defines with peer with local preference and community.
+func DefineBGPAdvertisementWithPeer(bgpAdvertisementName, addressPoolName, bgpPeerName,
+	ipStack, community string, localPref uint32) *metallbv1beta1.BGPAdvertisement {
+	bgpAdvertisementDefinition := DefineBGPAdvertisement(bgpAdvertisementName, community, ipStack,
+		[]string{addressPoolName}, netmlbparameters.PrefixLen32, localPref)
+	bgpAdvertisementDefinition.Spec.Peers = []string{bgpPeerName}
+
+	return bgpAdvertisementDefinition
+}
