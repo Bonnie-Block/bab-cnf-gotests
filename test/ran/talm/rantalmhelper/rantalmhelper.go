@@ -93,10 +93,6 @@ func GetNamespaceDefinition(namespaceName string) *corev1.Namespace {
 		},
 	}
 
-	if err := PrintCr(customResource); err != nil {
-		log.Println("error printing cr: ", err)
-	}
-
 	return customResource
 }
 
@@ -180,10 +176,6 @@ func GetCguDefinition(
 				Canaries:       canaryList,
 			},
 		},
-	}
-
-	if err := PrintCr(customResource); err != nil {
-		log.Println("error printing cr: ", err)
 	}
 
 	return customResource
@@ -300,29 +292,25 @@ func CreateCguAndWait(
 		return errors.New("provided nil client")
 	}
 
-	if len(cgu.Spec.Clusters) == 0 {
-		return errors.New("provided empty clustersList")
-	}
-
-	for _, cluster := range cgu.Spec.Clusters {
-		if cluster == "" {
-			return errors.New("provided empty cluster in clustersList")
+	if len(cgu.Spec.Clusters) > 0 {
+		for _, cluster := range cgu.Spec.Clusters {
+			if cluster == "" {
+				return errors.New("provided empty cluster in clustersList")
+			}
 		}
 	}
 
-	if len(cgu.Spec.ManagedPolicies) == 0 {
-		return errors.New("provided empty managedPolicies")
-	}
-
-	for _, policy := range cgu.Spec.ManagedPolicies {
-		if policy == "" {
-			return errors.New("provided empty policy in managedPolicies")
-		}
-		// If the fully generated name of the talm enforce policy is > 63 characters then they will just not work.
-		// There is some wiggle room here since there is an additional identifier on the end of the policy.
-		// So intead of hard erroring just print a warning if the length is possibly an issue.
-		if len(policy)+len(cgu.Name) > 50 {
-			log.Println("Warning: Length of generated TALM policies may exceed character limit and not work")
+	if len(cgu.Spec.ManagedPolicies) > 0 {
+		for _, policy := range cgu.Spec.ManagedPolicies {
+			if policy == "" {
+				return errors.New("provided empty policy in managedPolicies")
+			}
+			// If the fully generated name of the talm enforce policy is > 63 characters then they will just not work.
+			// There is some wiggle room here since there is an additional identifier on the end of the policy.
+			// So instead of hard erroring just print a warning if the length is possibly an issue.
+			if len(policy)+len(cgu.Name) > 50 {
+				log.Println("Warning: Length of generated TALM policies may exceed character limit and not work")
+			}
 		}
 	}
 
@@ -330,7 +318,9 @@ func CreateCguAndWait(
 		return errors.New("provided empty cguName")
 	}
 
-	log.Println("creating the cgu")
+	if err := PrintCr(cgu); err != nil {
+		log.Println("error printing cr: ", err)
+	}
 
 	_, err := client.ClusterGroupUpgrades(cgu.Namespace).
 		Create(GetTestContext(), &cgu, metav1.CreateOptions{})
@@ -563,10 +553,6 @@ func GetConfigurationPolicyDefinition(
 		},
 	}
 
-	if err := PrintCr(customResource); err != nil {
-		log.Println("error printing cr: ", err)
-	}
-
 	return customResource
 }
 
@@ -596,10 +582,6 @@ func GetPolicyDefinition(
 			},
 			RemediationAction: policiesv1.RemediationAction(remediationAction),
 		},
-	}
-
-	if err := PrintCr(customResource); err != nil {
-		log.Println("error printing cr: ", err)
 	}
 
 	return customResource
@@ -702,6 +684,8 @@ func CreatePolicyAndWait(
 	client *testClient.ClientSet,
 	policy policiesv1.Policy) error {
 	// Create the policy
+	_ = PrintCr(policy)
+
 	err := client.Client.Create(GetTestContext(), &policy)
 	if err != nil {
 		return err
@@ -875,10 +859,6 @@ func GetPlacementBindingDefinition(
 		},
 	}
 
-	if err := PrintCr(customResource); err != nil {
-		log.Println("error printing cr: ", err)
-	}
-
 	return customResource
 }
 
@@ -986,6 +966,8 @@ func CreatePlacementBindingAndWait(
 	client *testClient.ClientSet,
 	placementBinding policiesv1.PlacementBinding) error {
 	// Create the policy
+	_ = PrintCr(placementBinding)
+
 	err := client.Client.Create(GetTestContext(), &placementBinding)
 	if err != nil {
 		return err
@@ -1021,10 +1003,6 @@ func GetPlacementFieldDefinition(
 		ClusterSelector: &clusterSelector,
 	}
 
-	if err := PrintCr(customResource); err != nil {
-		log.Println("error printing cr: ", err)
-	}
-
 	return customResource
 }
 
@@ -1045,10 +1023,6 @@ func GetPlacementRuleDefinition(
 		Spec: placementrulev1.PlacementRuleSpec{
 			GenericPlacementFields: placementFields,
 		},
-	}
-
-	if err := PrintCr(customResource); err != nil {
-		log.Println("error printing cr: ", err)
 	}
 
 	return customResource
@@ -1155,6 +1129,8 @@ func CreatePlacementRuleAndWait(
 	client *testClient.ClientSet,
 	placementRule placementrulev1.PlacementRule) error {
 	// Create the policy
+	_ = PrintCr(placementRule)
+
 	err := client.Client.Create(GetTestContext(), &placementRule)
 	if err != nil {
 		return err
@@ -1192,10 +1168,6 @@ func GetPolicySetDefinition(
 		Spec: policiesv1beta1.PolicySetSpec{
 			Policies: policyList,
 		},
-	}
-
-	if err := PrintCr(customResource); err != nil {
-		log.Println("error printing cr: ", err)
 	}
 
 	return customResource
@@ -1302,6 +1274,8 @@ func CreatePolicySetAndWait(
 	client *testClient.ClientSet,
 	policySet policiesv1beta1.PolicySet) error {
 	// Create the policy
+	_ = PrintCr(policySet)
+
 	err := client.Client.Create(GetTestContext(), &policySet)
 	if err != nil {
 		return err
@@ -1502,10 +1476,6 @@ func GetClusterVersionDefinition(config string, apiClient *testClient.ClientSet)
 			Upstream: configv1.URL(helper.Config.Ran.OcpUpgradeUpstreamURL),
 			Channel:  GetClusterChannel(apiClient),
 		},
-	}
-
-	if err := PrintCr(clusterVersion); err != nil {
-		return configv1.ClusterVersion{}, err
 	}
 
 	return clusterVersion, nil
@@ -1836,7 +1806,8 @@ func FilterMissingResourceErrors(err error) error {
 		return nil
 	}
 
-	log.Printf("Checking error '%s'", err.Error())
+	// Reduce logging until we can have different log levels in future project
+	// log.Printf("Checking error '%s'", err.Error())
 
 	if strings.HasPrefix(err.Error(), "server could not find the requested resource") {
 		return nil

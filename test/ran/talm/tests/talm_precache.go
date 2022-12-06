@@ -275,12 +275,10 @@ func GetAndApplyNewCGU(name string, namespace string, spokeClusterNames []string
 }
 
 func DeleteGeneratedCGU(name string, namespace string) error {
-	get, err := rantalmhelper.HubAPIClient.ClustergroupupgradesoperatorV1alpha1Interface.
+	_, err := rantalmhelper.HubAPIClient.ClustergroupupgradesoperatorV1alpha1Interface.
 		ClusterGroupUpgrades(namespace).Get(context.Background(), name, metav1.GetOptions{})
 	if err != nil {
 		log.Printf("could not get %s in hub before performing delete: %s\n", name, err)
-	} else {
-		PrintGeneratedCR(get)
 	}
 
 	err = rantalmhelper.HubAPIClient.ClustergroupupgradesoperatorV1alpha1Interface.
@@ -342,8 +340,6 @@ func GetNewPlacementBinding(
 		},
 	}
 
-	PrintGeneratedCR(placementBinding)
-
 	return placementBinding
 }
 
@@ -373,8 +369,6 @@ func GetNewPlacementRule(placementRuleName string, namespace string) placementru
 		},
 	}
 
-	PrintGeneratedCR(placementRule)
-
 	return placementRule
 }
 
@@ -400,8 +394,6 @@ func GetNewPolicyWithOneObj(policyName string, namespace string, obj runtimeclie
 			},
 		},
 	}
-
-	PrintGeneratedCR(policy)
 
 	return policy
 }
@@ -438,8 +430,6 @@ func GetNewConfigurationPolicyWithOneObj(
 		},
 	}
 
-	PrintGeneratedCR(configurationPolicy)
-
 	return configurationPolicy
 }
 
@@ -447,15 +437,21 @@ func ApplyAndWaitPolicyPlacementRulePlacementBinding(
 	policy *policiesv1.Policy,
 	placementRule *placementrulev1.PlacementRule,
 	placementBinding *policiesv1.PlacementBinding) error {
+	PrintGeneratedCR(policy)
+
 	err := rantalmhelper.HubAPIClient.Create(context.Background(), policy)
 	if err != nil && !errors.IsAlreadyExists(err) {
 		return fmt.Errorf("could not apply generated policy: %w", err)
 	}
 
+	PrintGeneratedCR(placementRule)
+
 	err = rantalmhelper.HubAPIClient.Create(context.Background(), placementRule)
 	if err != nil && !errors.IsAlreadyExists(err) {
 		return fmt.Errorf("could not apply generated placementRule: %w", err)
 	}
+
+	PrintGeneratedCR(placementBinding)
 
 	err = rantalmhelper.HubAPIClient.Create(context.Background(), placementBinding)
 	if err != nil && !errors.IsAlreadyExists(err) {
