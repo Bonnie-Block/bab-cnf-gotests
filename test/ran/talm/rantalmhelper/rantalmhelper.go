@@ -2011,7 +2011,7 @@ func IsTalmVersionAtLeastSpecified(actualVersion string, expectedVersion string,
 	expectedSplits := strings.Split(expectedVersion, ".")
 
 	// Compare them digit by digit
-	for splitIndex := 0; splitIndex < len(actualSplits); splitIndex++ {
+	for splitIndex := 0; splitIndex < len(expectedSplits); splitIndex++ {
 		// Check whether we allow equality as well as greater then
 		if !allowEqual {
 			if actualSplits[splitIndex] <= expectedSplits[splitIndex] {
