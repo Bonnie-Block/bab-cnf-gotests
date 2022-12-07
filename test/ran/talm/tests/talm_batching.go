@@ -2,6 +2,7 @@ package tests
 
 import (
 	"fmt"
+	"log"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -54,10 +55,6 @@ var _ = Describe("Talm Batching Tests", Label("talmbatching"), func() {
 			err := namespaces.Create(rantalmhelper.Namespace, client)
 			Expect(err).ToNot(HaveOccurred())
 		}
-
-		// Cleanup the temporary namespace
-		err = rantalmhelper.CleanupNamespace(clusterList, rantalmhelper.TemporaryNamespaceName)
-		Expect(err).ToNot(HaveOccurred())
 	})
 
 	AfterEach(func() {
@@ -756,7 +753,7 @@ var _ = Describe("Talm Batching Tests", Label("talmbatching"), func() {
 				Expect(runtime-int(rantalmparameters.TalmDefaultReconcileTime) <= expectedTimeout)
 			})
 		})
-		// 47947
+		// 47947, 54288, 54289, 54559
 		It("should complete the CGU when two clusters are successful in a single batch", func() {
 			By("creating the cgu and associated resources", func() {
 				cgu := rantalmhelper.GetCguDefinition(
@@ -768,6 +765,30 @@ var _ = Describe("Talm Batching Tests", Label("talmbatching"), func() {
 
 				cgu.Spec.Enable = rantalmhelper.BoolAddr(false)
 
+				policyLabelSelector := metav1.LabelSelector{}
+
+				// ocp-54288, ocp-54289, ocp-54559 - Test k8s matchLabels and matchExpressions selectors  (4.12 feature)
+				if rantalmhelper.IsTalmVersionAtLeastSpecified(rantalmhelper.TalmHubVersion, "4.12", true) {
+					log.Printf("Test using MatchLabels with name %s and MatchExpressions with name %s...",
+						rantalmhelper.Spoke1Name, rantalmhelper.Spoke2Name)
+					policyLabelSelector = metav1.LabelSelector{
+						MatchExpressions: []metav1.LabelSelectorRequirement{{
+							Key:      "common",
+							Operator: "In",
+							Values:   []string{"true"},
+						}},
+					}
+					cgu.Spec.Clusters = nil
+					cgu.Spec.ClusterLabelSelectors = []metav1.LabelSelector{
+						{MatchLabels: map[string]string{"name": rantalmhelper.Spoke1Name}},
+						{MatchExpressions: []metav1.LabelSelectorRequirement{{
+							Key:      "name",
+							Operator: "In",
+							Values:   []string{rantalmhelper.Spoke2Name},
+						}}},
+					}
+				}
+
 				err := rantalmhelper.CreatePolicyAndCgu(
 					rantalmhelper.HubAPIClient,
 					rantalmhelper.GetNamespaceDefinition(rantalmhelper.TemporaryNamespaceName),
@@ -778,7 +799,7 @@ var _ = Describe("Talm Batching Tests", Label("talmbatching"), func() {
 					rantalmhelper.PlacementBindingName,
 					rantalmhelper.PlacementRule,
 					rantalmhelper.Namespace,
-					metav1.LabelSelector{},
+					policyLabelSelector,
 					cgu,
 				)
 				Expect(err).ToNot(HaveOccurred())
