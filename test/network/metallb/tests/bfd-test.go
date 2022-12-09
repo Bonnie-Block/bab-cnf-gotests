@@ -135,8 +135,21 @@ var _ = Describe("BFD", func() {
 			By("Delete all BFD Profiles")
 			err = netmetallbhelper.DeleteAllBFDProfiles()
 			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should remove BGP and BFD configuration", func() {
+			By("Delete all BGP Peers")
+			err := netmetallbhelper.DeleteAllBGPPeers()
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(func() bool {
+				return netmetallbhelper.IsProtocolConfigured(netmlbparameters.BGPConfigPrefix)
+			}, 1*time.Minute, 2*time.Second).Should(BeFalse(), "BGP configuration is not removed")
 
 			// Failed due to BZ 2050824. The BFD configuration check should be added after the BZ fix.
+			// By("Delete all BFD Profiles")
+			// err = netmetallbhelper.DeleteAllBFDProfiles()
+			// Expect(err).ToNot(HaveOccurred())
+
 			// Eventually(func() bool {
 			//	return netmetallbhelper.IsProtocolConfigured(netmlbparameters.BFDConfigPrefix)
 			// }, 1*time.Minute, 2*time.Second).Should(BeFalse(), "BFD configuration is not removed")
