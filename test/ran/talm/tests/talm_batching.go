@@ -651,7 +651,7 @@ var _ = Describe("Talm Batching Tests", Label("talmbatching"), func() {
 	})
 
 	Context("using a temporary namespace", Label("talmtempnamespace"), func() {
-		// 47954
+		// 47954, 54292
 		It("should report the timeout value when one cluster is in a batch and it times out", func() {
 			// We will be verifying that the actual timeout is close to this value
 			expectedTimeout := 8
@@ -752,8 +752,33 @@ var _ = Describe("Talm Batching Tests", Label("talmbatching"), func() {
 				Expect(runtime+int(rantalmparameters.TalmDefaultReconcileTime) >= expectedTimeout)
 				Expect(runtime-int(rantalmparameters.TalmDefaultReconcileTime) <= expectedTimeout)
 			})
+
+			// Deletion of TALM-generated policy requires 4.12 or higher
+			if rantalmhelper.IsTalmVersionAtLeastSpecified(rantalmhelper.TalmHubVersion, "4.12", true) {
+				By("verifying the test policy was deleted upon CGU expiration", func() {
+					TalmPolicyPrefix := rantalmhelper.CguName + "-" + rantalmhelper.PolicyName
+					talmGeneratedPolicyName, err := rantalmhelper.GetPolicyNameWithPrefix(
+						rantalmhelper.HubAPIClient,
+						TalmPolicyPrefix,
+						rantalmhelper.Namespace)
+					Expect(err).ToNot(HaveOccurred())
+					log.Printf("Checking for existence of test policy %s", talmGeneratedPolicyName)
+
+					if talmGeneratedPolicyName != "" {
+						log.Printf("Test policy %s still exists. Waiting for deletion.", talmGeneratedPolicyName)
+						err = rantalmhelper.WaitUntilObjectDoesNotExist(
+							rantalmhelper.HubAPIClient,
+							talmGeneratedPolicyName,
+							rantalmhelper.Namespace,
+							rantalmhelper.IsPolicyExist,
+						)
+						Expect(err).ToNot(HaveOccurred())
+					}
+				})
+			}
 		})
-		// 47947, 54288, 54289, 54559
+
+		// 47947, 54288, 54289, 54559, 54292
 		It("should complete the CGU when two clusters are successful in a single batch", func() {
 			By("creating the cgu and associated resources", func() {
 				cgu := rantalmhelper.GetCguDefinition(
@@ -828,6 +853,30 @@ var _ = Describe("Talm Batching Tests", Label("talmbatching"), func() {
 				err := rantalmhelper.WaitForCguToFinishSuccessfully(rantalmhelper.CguName, rantalmhelper.Namespace, 21*time.Minute)
 				Expect(err).ToNot(HaveOccurred())
 			})
+
+			By("verifying the test policy was deleted upon CGU expiration", func() {
+
+				TalmPolicyPrefix := rantalmhelper.CguName + "-" + rantalmhelper.PolicyName
+
+				talmGeneratedPolicyName, err := rantalmhelper.GetPolicyNameWithPrefix(
+					rantalmhelper.HubAPIClient,
+					TalmPolicyPrefix,
+					rantalmhelper.Namespace)
+				Expect(err).ToNot(HaveOccurred())
+				log.Printf("Checking for existence of test policy %s", talmGeneratedPolicyName)
+
+				if talmGeneratedPolicyName != "" {
+					log.Printf("Test policy %s still exists. Waiting for deletion.", talmGeneratedPolicyName)
+					err = rantalmhelper.WaitUntilObjectDoesNotExist(
+						rantalmhelper.HubAPIClient,
+						talmGeneratedPolicyName,
+						rantalmhelper.Namespace,
+						rantalmhelper.IsPolicyExist,
+					)
+					Expect(err).ToNot(HaveOccurred())
+				}
+			})
+
 		})
 
 	})

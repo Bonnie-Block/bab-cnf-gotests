@@ -630,6 +630,42 @@ func GetPolicy(client *testClient.ClientSet, policyName string, namespace string
 	return policiesv1.Policy{}, errors.New("resource not found")
 }
 
+// GetPolicyNameWithPrefix finds a policy starting with policyPrefix and returns
+// the name of first policy that matches or returns a blank string if not found.
+func GetPolicyNameWithPrefix(
+	client *testClient.ClientSet,
+	policyPrefix string,
+	namespace string) (string, error) {
+	var policyList policiesv1.PolicyList
+
+	generatedPolicyName := ""
+
+	// Get a list of policies from the cluster
+	err := client.Client.List(
+		GetTestContext(),
+		&policyList,
+		&runtimeclient.ListOptions{
+			Namespace: namespace,
+		})
+
+	// Filter errors that don't matter
+	err = FilterMissingResourceErrors(err)
+	if err != nil {
+		return generatedPolicyName, err
+	}
+
+	// Check the returned policy list for the specific policy
+	for _, policy := range policyList.Items {
+		if strings.HasPrefix(policy.Name, policyPrefix) {
+			generatedPolicyName = policy.Name
+
+			return generatedPolicyName, nil
+		}
+	}
+
+	return generatedPolicyName, nil
+}
+
 // IsPolicyExist can be used to check if a specific policy exists.
 func IsPolicyExist(client *testClient.ClientSet, policyName string, namespace string) (bool, error) {
 	// We can use another helper to get the object
