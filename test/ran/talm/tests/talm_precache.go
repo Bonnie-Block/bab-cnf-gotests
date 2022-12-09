@@ -7,9 +7,11 @@ import (
 	"time"
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
+
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
+	k8sv1 "k8s.io/api/core/v1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -17,7 +19,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/talm/rantalmhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/talm/rantalmparameters"
 	testClient "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
+
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	configurationPolicyv1 "open-cluster-management.io/config-policy-controller/api/v1"
@@ -175,13 +177,16 @@ var _ = Describe("Talm precache one spoke", func() {
 })
 
 var _ = Describe("Talm precache with multiple spokes where one turns off", Ordered, func() {
-
 	curName := "precache-multiple-spoke"
+	var nodeToTurnOff *k8sv1.Node
 
 	BeforeEach(func() {
 		By("turning off spoke1")
 		ranhelper.PowerOffSnoWithIpmi()
-		log.Println("turning off")
+
+		// keep a copy of the node before turning off
+		nodeList, _ := rantalmhelper.Spoke1APIClient.Nodes().List(context.Background(), metav1.ListOptions{})
+		nodeToTurnOff = &nodeList.Items[0]
 	})
 
 	AfterEach(func() {
@@ -259,8 +264,8 @@ var _ = Describe("Talm precache with multiple spokes where one turns off", Order
 		log.Println("turning on spoke1")
 		ranhelper.PowerOnSnoWithImpi()
 
-		By("waiting until spoke1 is ready")
-		err := nodes.WaitForNodesReady(rantalmhelper.Spoke1APIClient, 40*time.Minute, 30*time.Second)
+		By("waiting until all spoke1 pods are ready")
+		err := ranhelper.WaitForClusterRecover(nodeToTurnOff, []string{})
 		Expect(err).To(BeNil())
 	})
 })
