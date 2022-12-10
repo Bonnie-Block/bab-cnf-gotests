@@ -48,9 +48,9 @@ var _ = Describe("Talm Blocking CRs Tests", Label("talmblockingcr"), func() {
 		It("verifies CGU succeeded with blocking CR", func() {
 			By("creating two sets of CRs where b will be blocked until a is done")
 			// cguA
-			cguA = getNewBlockingCGU(blockingAPass, 5)
+			cguA = getNewBlockingCGU(blockingAPass, 10)
 			// cguB
-			cguB = getNewBlockingCGU(blockingBPass, 5)
+			cguB = getNewBlockingCGU(blockingBPass, 10)
 			cguB.Spec.BlockingCRs = []v1alpha1.BlockingCR{
 				{
 					Name:      fmt.Sprintf("%s-%s", rantalmparameters.CguCommonName, blockingAPass),
@@ -108,7 +108,7 @@ var _ = Describe("Talm Blocking CRs Tests", Label("talmblockingcr"), func() {
 				"",
 				metav1.ConditionTrue,
 				"",
-				5*time.Minute)
+				15*time.Minute)
 			Expect(err).To(BeNil())
 
 			By("waiting for cgu B to succeed")
@@ -120,7 +120,7 @@ var _ = Describe("Talm Blocking CRs Tests", Label("talmblockingcr"), func() {
 				"",
 				metav1.ConditionTrue,
 				"",
-				5*time.Minute)
+				15*time.Minute)
 			Expect(err).To(BeNil())
 		})
 	})

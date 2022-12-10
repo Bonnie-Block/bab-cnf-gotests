@@ -117,7 +117,7 @@ var _ = Describe("Talm precache one spoke", func() {
 			// apply
 			err = rantalmhelper.CreatePolicyAndCgu(
 				rantalmhelper.HubAPIClient,
-				&clusterVersion,
+				clusterVersion,
 				configurationPolicyv1.MustHave,
 				configurationPolicyv1.Inform,
 				fmt.Sprintf("%s-%s", rantalmparameters.PolicyNameCommonName, curName),
@@ -153,7 +153,7 @@ var _ = Describe("Talm precache one spoke", func() {
 			// apply
 			err = rantalmhelper.CreatePolicyAndCgu(
 				rantalmhelper.HubAPIClient,
-				&clusterVersion,
+				clusterVersion,
 				configurationPolicyv1.MustHave,
 				configurationPolicyv1.Inform,
 				fmt.Sprintf("%s-%s", rantalmparameters.PolicyNameCommonName, curName),
@@ -216,7 +216,7 @@ var _ = Describe("Talm precache with multiple spokes where one turns off", Order
 		// apply
 		err := rantalmhelper.CreatePolicyAndCgu(
 			rantalmhelper.HubAPIClient,
-			&clusterVersion,
+			clusterVersion,
 			configurationPolicyv1.MustHave,
 			configurationPolicyv1.Inform,
 			fmt.Sprintf("%s-%s", rantalmparameters.PolicyNameCommonName, curName),

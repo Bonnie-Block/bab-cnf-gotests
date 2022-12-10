@@ -73,7 +73,7 @@ var _ = Describe("Talm Backup Tests", func() {
 			// apply
 			err = rantalmhelper.CreatePolicyAndCgu(
 				rantalmhelper.HubAPIClient,
-				&clusterVersion,
+				clusterVersion,
 				configurationPolicyv1.MustHave,
 				configurationPolicyv1.Inform,
 				fmt.Sprintf("%s-%s", rantalmparameters.PolicyNameCommonName, curName),
@@ -112,7 +112,7 @@ var _ = Describe("Talm Backup Tests", func() {
 			// apply
 			err = rantalmhelper.CreatePolicyAndCgu(
 				rantalmhelper.HubAPIClient,
-				&clusterVersion,
+				clusterVersion,
 				configurationPolicyv1.MustHave,
 				configurationPolicyv1.Inform,
 				fmt.Sprintf("%s-%s", rantalmparameters.PolicyNameCommonName, curName),

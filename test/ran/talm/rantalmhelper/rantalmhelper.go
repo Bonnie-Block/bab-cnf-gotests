@@ -9,11 +9,8 @@ import (
 	"strings"
 	"time"
 
-	configv1 "github.com/openshift/api/config/v1"
-	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/yaml"
-
 	"github.com/openshift-kni/cluster-group-upgrades-operator/api/v1alpha1"
+	configv1 "github.com/openshift/api/config/v1"
 	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/talm/rantalmparameters"
@@ -22,7 +19,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	meta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/clientcmd"
 	configurationPolicyv1 "open-cluster-management.io/config-policy-controller/api/v1"
@@ -30,6 +29,7 @@ import (
 	policiesv1beta1 "open-cluster-management.io/governance-policy-propagator/api/v1beta1"
 	placementrulev1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/yaml"
 )
 
 var (
@@ -43,20 +43,22 @@ var (
 )
 
 const (
-	CguName                string = "talm-cgu"
-	Namespace              string = "talm-namespace"
-	PlacementBindingName   string = "talm-placement-binding"
-	PlacementRule          string = "talm-placement-rule"
-	PolicyName             string = "talm-policy"
-	PolicySetName          string = "talm-policyset"
-	CatalogSourceName      string = "talm-catsrc"
-	Talm411TimeoutMessage  string = "The ClusterGroupUpgrade CR policies are taking too long to complete"
-	Talm412TimeoutMessage  string = "Policy remediation took too long"
-	TemporaryNamespaceName string = Namespace + "-temp"
-	ProgressingType        string = "Progressing"
-	ReadyType              string = "Ready"
-	SucceededType          string = "Succeeded"
-	ValidatedType          string = "Validated"
+	CguName                         string = "talm-cgu"
+	Namespace                       string = "talm-namespace"
+	PlacementBindingName            string = "talm-placement-binding"
+	PlacementRule                   string = "talm-placement-rule"
+	PolicyName                      string = "talm-policy"
+	PolicySetName                   string = "talm-policyset"
+	CatalogSourceName               string = "talm-catsrc"
+	Talm411TimeoutMessage           string = "The ClusterGroupUpgrade CR policies are taking too long to complete"
+	Talm412TimeoutMessage           string = "Policy remediation took too long"
+	TemporaryNamespaceName          string = Namespace + "-temp"
+	ProgressingType                 string = "Progressing"
+	ReadyType                       string = "Ready"
+	SucceededType                   string = "Succeeded"
+	ValidatedType                   string = "Validated"
+	ConditionReasonCompleted        string = "Completed"
+	ConditionReasonUpgradeCompleted string = "UpgradeCompleted"
 )
 
 // GetTestContext fetches a k8s context object for the talm tests.
@@ -355,6 +357,13 @@ func WaitForCguInCondition(
 	// and then return it after timeout occurs.
 	var lastStatus error
 
+	msg := fmt.Sprintf("Waiting for cgu %s in namespace %s to be in condition: %s=%s",
+		cguName, namespace, conditionType, expectedStatus)
+	if expectedReason != "" {
+		msg = msg + ", with reason: " + expectedReason
+	}
+
+	log.Println(msg)
 	// Use a poll to check the cgu condition
 	_ = wait.PollImmediate(
 		rantalmparameters.TalmTestPollInterval,
@@ -369,9 +378,6 @@ func WaitForCguInCondition(
 
 				return false, err
 			}
-
-			log.Printf("%s in %s current conditions: Message[%v]",
-				cguName, namespace, clusterGroupUpgrade.Status.Conditions)
 
 			// Get the condition
 			condition := meta.FindStatusCondition(clusterGroupUpgrade.Status.Conditions, conditionType)
@@ -467,11 +473,11 @@ func WaitForCguToFinishSuccessfully(cguName string, namespace string, timeout ti
 
 	// TALM uses different conditions starting in 4.12
 	conditionType := SucceededType
-	conditionReason := "Completed"
+	conditionReason := ConditionReasonCompleted
 
 	if !IsTalmVersionAtLeastSpecified(TalmHubVersion, "4.12", true) {
 		conditionType = ReadyType
-		conditionReason = "UpgradeCompleted"
+		conditionReason = ConditionReasonUpgradeCompleted
 	}
 
 	return WaitForCguInCondition(
@@ -1437,46 +1443,44 @@ func GetClusterName(kubeconfigEnvVar string) (string, error) {
 	return "", fmt.Errorf("can not load api client. Please check '%s' env var", kubeconfigEnvVar)
 }
 
-// GetClusterVersionDefinition returns a new ClusterVersion based on the apiClient.
+// GetClusterVersionDefinition returns a unstructured ClusterVersion definition based on the apiClient.
 // Use "Image" to include only DesiredUpdate.Image retrieved from the provided apiClient
 // Use "Version" to include only DesiredUpdate.Version retrieved from the provided apiClient
 // Use "Both" to include both DesiredUpdate.Image and DesiredUpdate.Image retrieved from the provided apiClient.
-func GetClusterVersionDefinition(config string, apiClient *testClient.ClientSet) (configv1.ClusterVersion, error) {
-	var (
-		image   string
-		version string
-	)
+func GetClusterVersionDefinition(config string, apiClient *testClient.ClientSet) (*unstructured.Unstructured, error) {
+	clusterVersionSpec := make(map[string]interface{})
+	desiredUpdate := make(map[string]interface{})
 
-	switch config {
-	case "Image":
-		image = GetClusterDesiredUpdateImage(apiClient)
-	case "Version":
-		version, _ = GetClusterVersion(apiClient)
-	case "Both":
-		image = GetClusterDesiredUpdateImage(apiClient)
-		version, _ = GetClusterVersion(apiClient)
-	default:
-		return configv1.ClusterVersion{}, fmt.Errorf("config value must be either Image or Version or Both")
+	// channel and upstream specs are required when desiredUpdate.version is used
+	if config != "Image" {
+		version, err := GetClusterVersion(apiClient)
+		if err != nil {
+			return nil, err
+		}
+
+		desiredUpdate["version"] = version
+		clusterVersionSpec["upstream"] = configv1.URL(helper.Config.Ran.OcpUpgradeUpstreamURL)
+		clusterVersionSpec["channel"] = GetClusterChannel(apiClient)
 	}
 
-	clusterVersion := configv1.ClusterVersion{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "ClusterVersion",
-			APIVersion: "config.openshift.io/v1",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "version",
-		},
-		Spec: configv1.ClusterVersionSpec{
-			DesiredUpdate: &configv1.Update{
-				Version: version,
-				Force:   false,
-				Image:   image,
-			},
-			Upstream: configv1.URL(helper.Config.Ran.OcpUpgradeUpstreamURL),
-			Channel:  GetClusterChannel(apiClient),
-		},
+	// no other specs are needed when desiredUpdate.image is used, but usually force upgrade is used in combination
+	// when upgrade path is unavailable in upgrade graph.
+	if config != "Version" {
+		desiredUpdate["image"] = GetClusterDesiredUpdateImage(apiClient)
+		clusterVersionSpec["force"] = true
 	}
+
+	// Add composed desiredUpdate to cluster version spec.
+	clusterVersionSpec["desiredUpdate"] = desiredUpdate
+
+	// compose clusterversion definition using unstructured type due to clusterversion api always generates
+	// unspecified spec and status, which will not work with ACM policy in general.
+	clusterVersion := &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "config.openshift.io/v1",
+		"kind":       "ClusterVersion",
+		"metadata":   map[string]interface{}{"name": "version"},
+		"spec":       clusterVersionSpec,
+	}}
 
 	return clusterVersion, nil
 }
@@ -1509,6 +1513,16 @@ func GetClusterVersion(clusterClient *testClient.ClientSet) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
+	histories := result.Status.History
+	for i := len(histories) - 1; i >= 0; i-- {
+		history := histories[i]
+		if history.State == "Completed" {
+			return history.Version, nil
+		}
+	}
+
+	log.Println("Warning: No completed version found in clusterversion. Returning desired version")
 
 	return result.Status.Desired.Version, nil
 }
@@ -1831,22 +1845,12 @@ func WaitUntilObjectExists(
 	objectName string,
 	namespace string,
 	getStatus func(client *testClient.ClientSet, objectName string, namespace string) (bool, error)) error {
-	// Print the current check
-	log.Printf("Waiting until object '%s' exists in namespace '%s' on client '%s'",
-		objectName,
-		namespace,
-		client.Config.Host,
-	)
-
 	// Wait for it to exist
 	err := wait.PollImmediate(
 		15*time.Second,
 		5*time.Minute,
 		func() (bool, error) {
 			status, err := getStatus(client, objectName, namespace)
-
-			// Print the check results
-			log.Printf("Current status '%t'", status)
 
 			// Wait until it definitely exists
 			if err == nil && status {
@@ -1868,22 +1872,12 @@ func WaitUntilObjectDoesNotExist(
 	objectName string,
 	namespace string,
 	getStatus func(client *testClient.ClientSet, objectName string, namespace string) (bool, error)) error {
-	// Print the current check
-	log.Printf("Waiting until object '%s' does not exist in namespace '%s' on client '%s'",
-		objectName,
-		namespace,
-		client.Config.Host,
-	)
-
 	// Wait for it to exist
 	err := wait.PollImmediate(
 		15*time.Second,
 		5*time.Minute,
 		func() (bool, error) {
 			status, err := getStatus(client, objectName, namespace)
-
-			// Print the check results
-			log.Printf("Current status '%t'", status)
 
 			// May or may not exist
 			err = FilterMissingResourceErrors(err)
