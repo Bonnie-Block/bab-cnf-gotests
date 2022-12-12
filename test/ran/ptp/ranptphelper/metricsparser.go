@@ -22,7 +22,7 @@ import (
 // arguments:		"ptpPod"-	a given ptp pod for getting the metrics from.
 // return value:	an error if any occurred.
 func GetPTPMetrics(ptpPod corev1.Pod) error {
-	buff, err := pod.ExecCommand(helper.Apiclient, ptpPod, []string{"curl", "localhost:9091/metrics"})
+	buff, err := pod.ExecCommand(helper.Apiclient, ptpPod, []string{"curl", "-s", "localhost:9091/metrics"})
 	if nil != err {
 		return err
 	}
