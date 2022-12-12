@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"os"
 	"strings"
 	"time"
 
@@ -13,6 +12,7 @@ import (
 	configv1 "github.com/openshift/api/config/v1"
 	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/talm/rantalmparameters"
 	testClient "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
@@ -23,7 +23,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/tools/clientcmd"
 	configurationPolicyv1 "open-cluster-management.io/config-policy-controller/api/v1"
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	policiesv1beta1 "open-cluster-management.io/governance-policy-propagator/api/v1beta1"
@@ -1457,28 +1456,6 @@ func CreateCatsrcAndWait(client *testClient.ClientSet, catsrc operatorsv1alpha1.
 	Cluster helpers
 */
 
-// GetClusterName extracts the cluster name from provided kubeconfig. It assumes the there's exactly 1 cluster.
-func GetClusterName(kubeconfigEnvVar string) (string, error) {
-	kubeFilePath, present := os.LookupEnv(kubeconfigEnvVar)
-	if !present {
-		return "", fmt.Errorf("can not load api client. Please check '%s' env var", kubeconfigEnvVar)
-	}
-
-	rawConfig, _ := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
-		&clientcmd.ClientConfigLoadingRules{ExplicitPath: kubeFilePath},
-		&clientcmd.ConfigOverrides{
-			CurrentContext: "",
-		}).RawConfig()
-
-	for clusterName := range rawConfig.Clusters {
-		log.Println("cluster name: ", clusterName)
-
-		return clusterName, nil
-	}
-
-	return "", fmt.Errorf("can not load api client. Please check '%s' env var", kubeconfigEnvVar)
-}
-
 // GetClusterVersionDefinition returns a unstructured ClusterVersion definition based on the apiClient.
 // Use "Image" to include only DesiredUpdate.Image retrieved from the provided apiClient
 // Use "Version" to include only DesiredUpdate.Version retrieved from the provided apiClient
@@ -1489,7 +1466,7 @@ func GetClusterVersionDefinition(config string, apiClient *testClient.ClientSet)
 
 	// channel and upstream specs are required when desiredUpdate.version is used
 	if config != "Image" {
-		version, err := GetClusterVersion(apiClient)
+		version, err := ranhelper.GetClusterVersion(apiClient)
 		if err != nil {
 			return nil, err
 		}
@@ -1535,46 +1512,6 @@ func GetClusterChannel(apiClient *testClient.ClientSet) string {
 		"version", metav1.GetOptions{})
 
 	return get.Spec.Channel
-}
-
-// GetClusterVersion can be used to get the Openshift version from the provided cluster.
-func GetClusterVersion(clusterClient *testClient.ClientSet) (string, error) {
-	// Check if the client was even defined first
-	if clusterClient == nil {
-		return "", fmt.Errorf("provided client was not defined")
-	}
-
-	result, err := clusterClient.ConfigV1Interface.ClusterVersions().
-		Get(context.Background(), "version", metav1.GetOptions{})
-	if err != nil {
-		return "", err
-	}
-
-	histories := result.Status.History
-	for i := len(histories) - 1; i >= 0; i-- {
-		history := histories[i]
-		if history.State == "Completed" {
-			return history.Version, nil
-		}
-	}
-
-	log.Println("Warning: No completed version found in clusterversion. Returning desired version")
-
-	return result.Status.Desired.Version, nil
-}
-
-// IsClustersPresent can be used to check for the presence of specific clusters.
-func IsClustersPresent(clients []*testClient.ClientSet) error {
-	// Log the cluster list
-	log.Println(clients)
-
-	for _, client := range clients {
-		if client == nil {
-			return errors.New("provided nil client in cluster list")
-		}
-	}
-
-	return nil
 }
 
 // IsClusterStartedInCgu can be used to check if a particular cluster has started

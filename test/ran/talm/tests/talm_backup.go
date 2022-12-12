@@ -97,7 +97,8 @@ var _ = Describe("Talm Backup Tests with two spokes", Ordered, func() {
 	BeforeAll(func() {
 		// tests below requires all clusters to be present. hub + spoke1 + spoke2
 		clusterList := rantalmhelper.GetAllTestClients()
-		err := rantalmhelper.IsClustersPresent(clusterList)
+		// Check that the required clusters are present
+		err := ranhelper.IsClustersPresent(clusterList)
 		if err != nil {
 			Skip(fmt.Sprintf("error occurred validating required clusters are present: %s", err.Error()))
 		}

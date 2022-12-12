@@ -120,12 +120,12 @@ func InitializeTalmClients() error {
 			return err
 		}
 
-		rantalmhelper.HubName, err = rantalmhelper.GetClusterName(rantalmparameters.HubKubeEnvKey)
+		rantalmhelper.HubName, err = ranhelper.GetClusterName(rantalmparameters.HubKubeEnvKey)
 		if err != nil {
 			return err
 		}
 
-		ocpVersion, err := rantalmhelper.GetClusterVersion(rantalmhelper.HubAPIClient)
+		ocpVersion, err := ranhelper.GetClusterVersion(rantalmhelper.HubAPIClient)
 		if err != nil {
 			return err
 		}
@@ -152,12 +152,12 @@ func InitializeTalmClients() error {
 			return err
 		}
 
-		rantalmhelper.Spoke1Name, err = rantalmhelper.GetClusterName(rantalmparameters.Spoke1KubeEnvKey)
+		rantalmhelper.Spoke1Name, err = ranhelper.GetClusterName(rantalmparameters.Spoke1KubeEnvKey)
 		if err != nil {
 			return err
 		}
 
-		ocpVersion, err := rantalmhelper.GetClusterVersion(rantalmhelper.Spoke1APIClient)
+		ocpVersion, err := ranhelper.GetClusterVersion(rantalmhelper.Spoke1APIClient)
 		if err != nil {
 			return err
 		}
@@ -172,12 +172,12 @@ func InitializeTalmClients() error {
 			return err
 		}
 
-		rantalmhelper.Spoke2Name, err = rantalmhelper.GetClusterName(rantalmparameters.Spoke2KubeEnvKey)
+		rantalmhelper.Spoke2Name, err = ranhelper.GetClusterName(rantalmparameters.Spoke2KubeEnvKey)
 		if err != nil {
 			return err
 		}
 
-		ocpVersion, err := rantalmhelper.GetClusterVersion(rantalmhelper.Spoke2APIClient)
+		ocpVersion, err := ranhelper.GetClusterVersion(rantalmhelper.Spoke2APIClient)
 		if err != nil {
 			return err
 		}

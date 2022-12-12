@@ -184,7 +184,7 @@ var _ = Describe("Talm precache with multiple spokes where one turns off", Order
 	BeforeEach(func() {
 		// tests below requires all clusters to be present. hub + spoke1 + spoke2
 		clusterList := rantalmhelper.GetAllTestClients()
-		err := rantalmhelper.IsClustersPresent(clusterList)
+		err := ranhelper.IsClustersPresent(clusterList)
 		if err != nil {
 			Skip(fmt.Sprintf("error occurred validating required clusters are present: %s", err.Error()))
 		}

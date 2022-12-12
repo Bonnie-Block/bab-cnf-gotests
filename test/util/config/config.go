@@ -60,6 +60,9 @@ type Config struct {
 		OcpUpgradeUpstreamURL     string   `yaml:"ocp_upgrade_upstream_url" envconfig:"OCP_UPGRADE_UPSTREAM_URL"`
 		TalmPrecachePolicies      []string `envconfig:"TALM_PRECACHE_POLICIES" yaml:"talm_precache_policies"`
 		KubeconfigSpoke2          string   `envconfig:"KUBECONFIG_SPOKE2"`
+		ZtpGitRepo				  string `envconfig:"ZTP_GIT_REPO"`
+		ZtpGitBranch			  string `envconfig:"ZTP_GIT_BRANCH"`
+		ZtpGitDir				  string `envconfig:"ZTP_GIT_DIR"`
 	} `yaml:"ran"`
 }
 

@@ -8,6 +8,7 @@ import (
 	testclient "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/clientcmd"
 
 	"k8s.io/apimachinery/pkg/util/wait"
 
@@ -51,6 +52,58 @@ func DefineAPIClient(kubeconfigEnvVar string) (*testclient.ClientSet, error) {
 	}
 
 	return clients, nil
+}
+
+// GetClusterName extracts the cluster name from provided kubeconfig. It assumes the there's exactly 1 cluster.
+func GetClusterName(kubeconfigEnvVar string) (string, error) {
+	kubeFilePath, present := os.LookupEnv(kubeconfigEnvVar)
+	if !present {
+		return "", fmt.Errorf("can not load api client. Please check '%s' env var", kubeconfigEnvVar)
+	}
+
+	rawConfig, _ := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+		&clientcmd.ClientConfigLoadingRules{ExplicitPath: kubeFilePath},
+		&clientcmd.ConfigOverrides{
+			CurrentContext: "",
+		}).RawConfig()
+
+	for clusterName := range rawConfig.Clusters {
+		log.Println("cluster name: ", clusterName)
+
+		return clusterName, nil
+	}
+
+	return "", fmt.Errorf("can not load api client. Please check '%s' env var", kubeconfigEnvVar)
+}
+
+// GetClusterVersion can be used to get the Openshift version from the provided cluster.
+func GetClusterVersion(clusterClient *testclient.ClientSet) (string, error) {
+	// Check if the client was even defined first
+	if clusterClient == nil {
+		return "", fmt.Errorf("provided client was not defined")
+	}
+
+	result, err := clusterClient.ConfigV1Interface.ClusterVersions().
+		Get(context.Background(), "version", metav1.GetOptions{})
+	if err != nil {
+		return "", err
+	}
+
+	return result.Status.Desired.Version, nil
+}
+
+// IsClustersPresent can be used to check for the presence of specific clusters.
+func IsClustersPresent(clients []*testclient.ClientSet) error {
+	// Log the cluster list
+	log.Println(clients)
+
+	for _, client := range clients {
+		if client == nil {
+			return errors.New("provided nil client in cluster list")
+		}
+	}
+
+	return nil
 }
 
 // UpdateObjects updates existing resources based on manifests from given directory.
