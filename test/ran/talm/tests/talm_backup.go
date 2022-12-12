@@ -38,11 +38,11 @@ var (
 	loopBackDevicePath string
 )
 
-var _ = Describe("Talm Backup Tests", func() {
+var _ = Describe("Talm Backup Tests with single spoke", func() {
 
 	// ocp-50835
 	Context("with full disk for spoke1", func() {
-		curName := "disk-full"
+		curName := "disk-full-single-spoke"
 		BeforeEach(func() {
 			By("setting up filesystem to simulate low space")
 			nodeName = getNodeName(rantalmhelper.Spoke1APIClient)
@@ -93,51 +93,78 @@ var _ = Describe("Talm Backup Tests", func() {
 			assertBackupPodLog(rantalmhelper.Spoke1APIClient, "Insufficient disk space", corev1.PodFailed)
 		})
 
-		It("should not affect backup on second spoke in same batch", func() {
-			By("applying all the required CRs for backup")
-			// prep cgu
-			cgu := rantalmhelper.GetCguDefinition(
-				fmt.Sprintf("%s-%s", rantalmparameters.CguCommonName, curName),
-				[]string{rantalmhelper.Spoke1Name, rantalmhelper.Spoke2Name},
-				[]string{},
-				[]string{fmt.Sprintf("%s-%s", rantalmparameters.PolicyNameCommonName, curName)},
-				rantalmparameters.TalmTestNamespace, 100, 250)
-			cgu.Spec.Backup = true
-
-			// prep clusterVersion
-			clusterVersion, err := rantalmhelper.GetClusterVersionDefinition("Both",
-				rantalmhelper.Spoke1APIClient)
-			Expect(err).To(BeNil())
-
-			// apply
-			err = rantalmhelper.CreatePolicyAndCgu(
-				rantalmhelper.HubAPIClient,
-				clusterVersion,
-				configurationPolicyv1.MustHave,
-				configurationPolicyv1.Inform,
-				fmt.Sprintf("%s-%s", rantalmparameters.PolicyNameCommonName, curName),
-				fmt.Sprintf("%s-%s", rantalmparameters.PolicySetNameCommonName, curName),
-				fmt.Sprintf("%s-%s", rantalmparameters.PlacementBindingCommonName, curName),
-				fmt.Sprintf("%s-%s", rantalmparameters.PlacementRuleCommonName, curName),
-				rantalmparameters.TalmTestNamespace,
-				metav1.LabelSelector{},
-				cgu,
-			)
-			Expect(err).To(BeNil())
-
-			By("waiting for cgu to indicate it failed for spoke1")
-			assertBackupStatus(cgu.Name, rantalmhelper.Spoke1Name, "UnrecoverableError")
-
-			By("waiting for cgu to indicate it succeeded for spoke2")
-			assertBackupStatus(cgu.Name, rantalmhelper.Spoke2Name, "Succeeded")
-
-			By("verifying insufficient disk error in talm backup pod log in spoke1")
-			assertBackupPodLog(rantalmhelper.Spoke1APIClient, "Insufficient disk space", corev1.PodFailed)
-
-			By("verifying no error talm backup pod log in spoke2")
-			assertBackupPodLog(rantalmhelper.Spoke2APIClient, "successfully finished", corev1.PodSucceeded)
-		})
 	})
+})
+
+var _ = Describe("Talm Backup Tests with two spokes", Ordered, func() {
+	curName := "disk-full-multiple-spokes"
+
+	BeforeAll(func() {
+		// tests below requires all clusters to be present. hub + spoke1 + spoke2
+		clusterList := rantalmhelper.GetAllTestClients()
+		// Check that the required clusters are present
+		err := rantalmhelper.IsClustersPresent(clusterList)
+		if err != nil {
+			Skip(fmt.Sprintf("error occurred validating required clusters are present: %s", err.Error()))
+		}
+	})
+
+	BeforeEach(func() {
+		By("setting up filesystem to simulate low space")
+		nodeName = getNodeName(rantalmhelper.Spoke1APIClient)
+		loopBackDevicePath = prepareEnvWithSmallMountPoint(nodeName, nodeUser)
+	})
+
+	AfterEach(func() {
+		log.Println("starting disk-full env clean up")
+		diskFullEnvCleanup(nodeName, nodeUser, curName, loopBackDevicePath)
+	})
+
+	It("should not affect backup on second spoke in same batch", func() {
+		By("applying all the required CRs for backup")
+		// prep cgu
+		cgu := rantalmhelper.GetCguDefinition(
+			fmt.Sprintf("%s-%s", rantalmparameters.CguCommonName, curName),
+			[]string{rantalmhelper.Spoke1Name, rantalmhelper.Spoke2Name},
+			[]string{},
+			[]string{fmt.Sprintf("%s-%s", rantalmparameters.PolicyNameCommonName, curName)},
+			rantalmparameters.TalmTestNamespace, 100, 250)
+		cgu.Spec.Backup = true
+
+		// prep clusterVersion
+		clusterVersion, err := rantalmhelper.GetClusterVersionDefinition("Both",
+			rantalmhelper.Spoke1APIClient)
+		Expect(err).To(BeNil())
+
+		// apply
+		err = rantalmhelper.CreatePolicyAndCgu(
+			rantalmhelper.HubAPIClient,
+			clusterVersion,
+			configurationPolicyv1.MustHave,
+			configurationPolicyv1.Inform,
+			fmt.Sprintf("%s-%s", rantalmparameters.PolicyNameCommonName, curName),
+			fmt.Sprintf("%s-%s", rantalmparameters.PolicySetNameCommonName, curName),
+			fmt.Sprintf("%s-%s", rantalmparameters.PlacementBindingCommonName, curName),
+			fmt.Sprintf("%s-%s", rantalmparameters.PlacementRuleCommonName, curName),
+			rantalmparameters.TalmTestNamespace,
+			metav1.LabelSelector{},
+			cgu,
+		)
+		Expect(err).To(BeNil())
+
+		By("waiting for cgu to indicate it failed for spoke1")
+		assertBackupStatus(cgu.Name, rantalmhelper.Spoke1Name, "UnrecoverableError")
+
+		By("waiting for cgu to indicate it succeeded for spoke2")
+		assertBackupStatus(cgu.Name, rantalmhelper.Spoke2Name, "Succeeded")
+
+		By("verifying insufficient disk error in talm backup pod log in spoke1")
+		assertBackupPodLog(rantalmhelper.Spoke1APIClient, "Insufficient disk space", corev1.PodFailed)
+
+		By("verifying no error talm backup pod log in spoke2")
+		assertBackupPodLog(rantalmhelper.Spoke2APIClient, "successfully finished", corev1.PodSucceeded)
+	})
+
 })
 
 // assertBackupPodLog retrieves the backup pod generated by job and asserts on the log.

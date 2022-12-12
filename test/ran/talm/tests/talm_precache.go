@@ -181,12 +181,19 @@ var _ = Describe("Talm precache with multiple spokes where one turns off", Order
 	var nodeToTurnOff *k8sv1.Node
 
 	BeforeEach(func() {
-		By("turning off spoke1")
-		ranhelper.PowerOffSnoWithIpmi()
+		// tests below requires all clusters to be present. hub + spoke1 + spoke2
+		clusterList := rantalmhelper.GetAllTestClients()
+		err := rantalmhelper.IsClustersPresent(clusterList)
+		if err != nil {
+			Skip(fmt.Sprintf("error occurred validating required clusters are present: %s", err.Error()))
+		}
 
 		// keep a copy of the node before turning off
 		nodeList, _ := rantalmhelper.Spoke1APIClient.Nodes().List(context.Background(), metav1.ListOptions{})
 		nodeToTurnOff = &nodeList.Items[0]
+
+		By("turning off spoke1")
+		ranhelper.PowerOffSnoWithIpmi()
 	})
 
 	AfterEach(func() {
