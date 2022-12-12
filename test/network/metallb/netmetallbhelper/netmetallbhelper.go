@@ -1126,3 +1126,27 @@ func ValidateLogLevel(logLevel string) error {
 
 	return nil
 }
+
+// UpdateBGPAdvertisementNodeSelector changes the node selector label for the speaker node.
+func UpdateBGPAdvertisementNodeSelector(nodeName string) error {
+	bgpAdvertisement := metallbv1beta1.BGPAdvertisement{}
+
+	err := helper.Apiclient.Get(context.Background(),
+		types.NamespacedName{Name: netmlbparameters.BGPAdvertisementName,
+			Namespace: netmlbparameters.MetalLBOperatorNameSpace}, &bgpAdvertisement)
+	if err != nil {
+		return err
+	}
+
+	bgpAdvertisement.Spec.NodeSelectors =
+		[]metav1.LabelSelector{
+			{MatchLabels: map[string]string{parameters.LabelHostname: nodeName}},
+		}
+
+	err = helper.Apiclient.Update(context.Background(), &bgpAdvertisement)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
