@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	v2 "github.com/openshift-kni/performance-addon-operators/api/v2"
+	v2 "github.com/openshift/cluster-node-tuning-operator/pkg/apis/performanceprofile/v2"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )

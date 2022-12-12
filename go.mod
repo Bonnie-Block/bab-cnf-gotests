@@ -21,9 +21,9 @@ require (
 	github.com/onsi/ginkgo/v2 v2.5.1
 	github.com/onsi/gomega v1.24.0
 	github.com/openshift-kni/cluster-group-upgrades-operator v0.0.0-20221017224444-e88a0080ec62
-	github.com/openshift-kni/performance-addon-operators v0.0.0-20210114132708-bcf9e53ff354
 	github.com/openshift/api v3.9.1-0.20191111211345-a27ff30ebf09+incompatible
-	github.com/openshift/client-go v0.0.0-20210916133943-9acee1a0fb83
+	github.com/openshift/client-go v0.0.0-20220603133046-984ee5ebedcf
+	github.com/openshift/cluster-node-tuning-operator v0.0.0-20221212105308-07894f42e7dc
 	github.com/openshift/machine-config-operator v4.2.0-alpha.0.0.20190917115525-033375cbe820+incompatible
 	github.com/openshift/ptp-operator v0.0.0-20220616154021-73c849ad6b4b
 	github.com/opentracing/opentracing-go v1.2.0
@@ -123,8 +123,8 @@ require (
 	github.com/go-logfmt/logfmt v0.5.1 // indirect
 	github.com/go-logr/logr v1.2.3 // indirect
 	github.com/go-openapi/jsonpointer v0.19.5 // indirect
-	github.com/go-openapi/jsonreference v0.19.5 // indirect
-	github.com/go-openapi/swag v0.19.14 // indirect
+	github.com/go-openapi/jsonreference v0.19.6 // indirect
+	github.com/go-openapi/swag v0.21.1 // indirect
 	github.com/go-redis/cache/v8 v8.4.2 // indirect
 	github.com/go-redis/redis/v8 v8.11.3 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
@@ -259,7 +259,7 @@ require (
 	k8s.io/kube-aggregator v0.24.2 // indirect
 	k8s.io/kube-openapi v0.0.0-20220803162953-67bda5d908f1 // indirect
 	k8s.io/kubectl v0.24.2 // indirect
-	k8s.io/kubelet v0.23.3 // indirect
+	k8s.io/kubelet v0.24.1 // indirect
 	sigs.k8s.io/json v0.0.0-20220713155537-f223a00ba0e2 // indirect
 	sigs.k8s.io/kustomize/api v0.12.1 // indirect
 	sigs.k8s.io/kustomize/kyaml v0.13.9 // indirect

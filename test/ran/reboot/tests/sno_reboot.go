@@ -10,7 +10,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	performancev2 "github.com/openshift-kni/performance-addon-operators/api/v2"
+	performancev2 "github.com/openshift/cluster-node-tuning-operator/pkg/apis/performanceprofile/v2"
 	corev1 "k8s.io/api/core/v1"
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"

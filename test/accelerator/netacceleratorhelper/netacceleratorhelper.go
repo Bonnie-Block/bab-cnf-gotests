@@ -16,7 +16,7 @@ import (
 	"k8s.io/utils/pointer"
 	k8s "sigs.k8s.io/controller-runtime/pkg/client"
 
-	performancev2 "github.com/openshift-kni/performance-addon-operators/api/v2"
+	performancev2 "github.com/openshift/cluster-node-tuning-operator/pkg/apis/performanceprofile/v2"
 	fecv2 "github.com/smart-edge-open/sriov-fec-operator/sriov-fec/api/v2"
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
