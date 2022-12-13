@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 	"time"
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
@@ -32,7 +33,7 @@ const (
 	PreCachePodLabel      = "job-name=pre-cache"
 )
 
-var _ = Describe("Talm precache one spoke", func() {
+var _ = Describe("Talm precache one spoke", Label("talmprecache"), func() {
 
 	Context("Precache operator", func() {
 		curName := "precache-operator"
@@ -176,7 +177,7 @@ var _ = Describe("Talm precache one spoke", func() {
 
 })
 
-var _ = Describe("Talm precache with multiple spokes where one turns off", Ordered, func() {
+var _ = Describe("Talm precache with multiple spokes where one turns off", Ordered, Label("talmprecache"), func() {
 	curName := "precache-multiple-spoke"
 	var nodeToTurnOff *k8sv1.Node
 
@@ -191,6 +192,11 @@ var _ = Describe("Talm precache with multiple spokes where one turns off", Order
 		// keep a copy of the node before turning off
 		nodeList, _ := rantalmhelper.Spoke1APIClient.Nodes().List(context.Background(), metav1.ListOptions{})
 		nodeToTurnOff = &nodeList.Items[0]
+
+		// If BMC_HOST is not defined then skip the test
+		if os.Getenv("BMC_HOSTS") == "" {
+			Skip("BMC_HOSTS not defined, unable to reboot spoke")
+		}
 
 		By("turning off spoke1")
 		ranhelper.PowerOffSnoWithIpmi()
