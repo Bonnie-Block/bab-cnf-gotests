@@ -65,15 +65,10 @@ var _ = Describe("Talm Backup Tests with single spoke", func() {
 				rantalmparameters.TalmTestNamespace, 1, 250)
 			cgu.Spec.Backup = true
 
-			// prep clusterVersion
-			clusterVersion, err := rantalmhelper.GetClusterVersionDefinition("Both",
-				rantalmhelper.Spoke1APIClient)
-			Expect(err).To(BeNil())
-
 			// apply
-			err = rantalmhelper.CreatePolicyAndCgu(
+			err := rantalmhelper.CreatePolicyAndCgu(
 				rantalmhelper.HubAPIClient,
-				clusterVersion,
+				rantalmhelper.GetNamespaceDefinition(fmt.Sprintf("%s-%s", rantalmparameters.NsCommonName, curName)),
 				configurationPolicyv1.MustHave,
 				configurationPolicyv1.Inform,
 				fmt.Sprintf("%s-%s", rantalmparameters.PolicyNameCommonName, curName),
@@ -102,7 +97,6 @@ var _ = Describe("Talm Backup Tests with two spokes", Ordered, func() {
 	BeforeAll(func() {
 		// tests below requires all clusters to be present. hub + spoke1 + spoke2
 		clusterList := rantalmhelper.GetAllTestClients()
-		// Check that the required clusters are present
 		err := rantalmhelper.IsClustersPresent(clusterList)
 		if err != nil {
 			Skip(fmt.Sprintf("error occurred validating required clusters are present: %s", err.Error()))
@@ -131,15 +125,10 @@ var _ = Describe("Talm Backup Tests with two spokes", Ordered, func() {
 			rantalmparameters.TalmTestNamespace, 100, 250)
 		cgu.Spec.Backup = true
 
-		// prep clusterVersion
-		clusterVersion, err := rantalmhelper.GetClusterVersionDefinition("Both",
-			rantalmhelper.Spoke1APIClient)
-		Expect(err).To(BeNil())
-
 		// apply
-		err = rantalmhelper.CreatePolicyAndCgu(
+		err := rantalmhelper.CreatePolicyAndCgu(
 			rantalmhelper.HubAPIClient,
-			clusterVersion,
+			rantalmhelper.GetNamespaceDefinition(fmt.Sprintf("%s-%s", rantalmparameters.NsCommonName, curName)),
 			configurationPolicyv1.MustHave,
 			configurationPolicyv1.Inform,
 			fmt.Sprintf("%s-%s", rantalmparameters.PolicyNameCommonName, curName),
@@ -256,15 +245,42 @@ func diskFullEnvCleanup(nodeName, nodeUser, curName, currentlyUsingLoopDevicePat
 			deviceType = strings.TrimSuffix(deviceType, "\n")
 
 			if deviceType == "part" {
+				safeToDeleteBackupDir = false
+
 				log.Printf("partition detected for %s, "+
 					"will not attempt to delete the folder (only the content if any)", backupPath)
+			} else if deviceType == "loop" {
 
-				safeToDeleteBackupDir = false
-			} else if deviceType == "loop" && currentlyUsingLoopDevicePath == devicePath {
-				// unmount and detach the loop device
-				_, err = ranhelper.ExecSSHCommand(nodeName, nodeUser,
-					[]string{fmt.Sprintf("sudo umount --detach-loop %s", backupPath)})
-				Expect(err).To(BeNil())
+				if currentlyUsingLoopDevicePath == devicePath {
+					// unmount and detach the loop device
+					_, err = ranhelper.ExecSSHCommand(nodeName, nodeUser,
+						[]string{fmt.Sprintf("sudo umount --detach-loop %s", backupPath)})
+					Expect(err).To(BeNil())
+
+				} else {
+					safeToDeleteBackupDir = false
+					log.Print("WARNING: most likely cleanup didnt complete during the previous run. ")
+					/*
+						Assuming loop0 is the unwanted one...
+						look for clues with lsblk
+						$ lsblk
+						NAME   MAJ:MIN RM   SIZE RO TYPE MOUNTPOINT
+						loop0    7:0    0   100M  0 loop /var/recovery -----> this line should not be there
+
+						unmount it with: `sudo umount --detach-loop /var/recovery`
+						check lsblk to verify there's nothing mounted to loop0 and line is gone completely
+
+						if line is still there (but unmounted) make use `losetup` to see the status of loopdevice (loop0)
+						$ losetup
+						NAME       SIZELIMIT OFFSET AUTOCLEAR RO BACK-FILE                                      DIO LOG-SEC
+						/dev/loop0         0      0         1  0 /var/ran-test-talm-recovery/100M.img (deleted)   0     512
+
+						if you see (deleted) -- reboot the node. i.e sudo reboot.
+						Once back loop0 should not appear anywhere (lsblk + losetup)
+
+					*/
+					log.Printf("See comments for manual cleanup of %s\n", devicePath)
+				}
 			}
 		}
 	}
