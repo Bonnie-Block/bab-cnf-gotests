@@ -89,6 +89,16 @@ func GetClusterVersion(clusterClient *testclient.ClientSet) (string, error) {
 		return "", err
 	}
 
+	histories := result.Status.History
+	for i := len(histories) - 1; i >= 0; i-- {
+		history := histories[i]
+		if history.State == "Completed" {
+			return history.Version, nil
+		}
+	}
+
+	log.Println("Warning: No completed version found in clusterversion. Returning desired version")
+
 	return result.Status.Desired.Version, nil
 }
 
