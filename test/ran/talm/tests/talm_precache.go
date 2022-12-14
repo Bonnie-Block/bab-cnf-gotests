@@ -190,7 +190,8 @@ var _ = Describe("Talm precache with multiple spokes where one turns off", Order
 		}
 
 		// keep a copy of the node before turning off
-		nodeList, _ := rantalmhelper.Spoke1APIClient.Nodes().List(context.Background(), metav1.ListOptions{})
+		nodeList, err := rantalmhelper.Spoke1APIClient.Nodes().List(context.Background(), metav1.ListOptions{})
+		Expect(err).To(BeNil())
 		nodeToTurnOff = &nodeList.Items[0]
 
 		// If BMC_HOST is not defined then skip the test
@@ -198,8 +199,9 @@ var _ = Describe("Talm precache with multiple spokes where one turns off", Order
 			Skip("BMC_HOSTS not defined, unable to reboot spoke")
 		}
 
-		By("turning off spoke1")
-		ranhelper.PowerOffSnoWithIpmi()
+		By("turning off spoke1 and waiting")
+		errArr := ranhelper.PowerOffSnoWithIpmi()
+		Expect(len(errArr)).To(BeNumerically("==", "0"))
 	})
 
 	AfterEach(func() {
@@ -274,8 +276,9 @@ var _ = Describe("Talm precache with multiple spokes where one turns off", Order
 	})
 
 	AfterAll(func() {
-		log.Println("turning on spoke1")
-		ranhelper.PowerOnSnoWithImpi()
+		log.Println("turning on spoke1 and waiting")
+		errArr := ranhelper.PowerOnSnoWithImpi()
+		Expect(len(errArr)).To(BeNumerically("==", "0"))
 
 		By("waiting until all spoke1 pods are ready")
 		err := ranhelper.WaitForClusterRecover(nodeToTurnOff, []string{})

@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/apimachinery/pkg/util/wait"
+
 	. "github.com/onsi/gomega"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
@@ -40,7 +42,14 @@ func PowerOnSnoWithImpi() []error {
 		log.Printf("multiple hosts detected, only using %s\n", hosts[0])
 	}
 
-	return powerControlHosts(true, []string{hosts[0]}, user, password)
+	err := powerControlHosts(true, []string{hosts[0]}, user, password)
+	if len(err) == 0 {
+		log.Println("waiting until bmc reports power is on")
+
+		err = waitUntilPowerStatusReached(true, []string{hosts[0]}, user, password)
+	}
+
+	return err
 }
 
 // PowerOffSnoWithIpmi turn off SNO.
@@ -50,7 +59,14 @@ func PowerOffSnoWithIpmi() []error {
 		log.Printf("multiple hosts detected, only using %s\n", hosts[0])
 	}
 
-	return powerControlHosts(false, []string{hosts[0]}, user, password)
+	err := powerControlHosts(false, []string{hosts[0]}, user, password)
+	if len(err) == 0 {
+		log.Println("waiting until bmc reports power is off")
+
+		err = waitUntilPowerStatusReached(false, []string{hosts[0]}, user, password)
+	}
+
+	return err
 }
 
 // parseBmcInfo returns bmc username, password, and hosts from environment variables if exist.
@@ -104,6 +120,32 @@ func powerControlHosts(powerOn bool, hosts []string, user, password string) []er
 	}
 
 	return errs
+}
+
+// waitUntilPowerStatusReached wait until desired power status reached.
+func waitUntilPowerStatusReached(powerOn bool, hosts []string, user, password string) []error {
+	var (
+		action  = "off"
+		errArr  []error
+		timeout = 3 * time.Minute
+	)
+
+	if powerOn {
+		action = "on"
+	}
+
+	for _, host := range hosts {
+		err := wait.PollImmediate(5*time.Second, timeout, func() (done bool, err error) {
+			powerStatus, err := getHostPowerStatus(host, user, password)
+
+			return strings.Contains(powerStatus, fmt.Sprintf("Power is %s", action)), err
+		})
+		if err != nil {
+			errArr = append(errArr, err)
+		}
+	}
+
+	return errArr
 }
 
 // getHostPowerStatus returns host power status queried via ipmitool command.
