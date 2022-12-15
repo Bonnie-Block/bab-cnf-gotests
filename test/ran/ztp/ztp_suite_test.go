@@ -32,7 +32,8 @@ func TestZtp(t *testing.T) {
 
 var _ = BeforeSuite(func() {
 	InitializeZtpGitEnvironment()
-	InitializeClients()
+	err := InitializeClients()
+	Expect(err).ToNot(HaveOccurred())
 })
 
 var _ = AfterSuite(func() {
@@ -45,7 +46,6 @@ var _ = ReportAfterEach(func(report types.SpecReport) {
 // InitializeZtpGitEnvironment is used to check the environment variables for any ztp test configuration.
 // If any are undefined then the default values are used instead.
 func InitializeZtpGitEnvironment() {
-
 	ranztphelper.ZtpGitRepo = os.Getenv(ranztpparameters.ZtpGitRepoEnvKey)
 	if ranztphelper.ZtpGitRepo == "" {
 		repo, _, _, err := ranztphelper.GetGitDetailsFromArgocd()
@@ -69,7 +69,6 @@ func InitializeZtpGitEnvironment() {
 			ranztphelper.ZtpGitDir = dir
 		}
 	}
-
 }
 
 // InitializeClients is used to create the API clients for the spoke and hub.
