@@ -544,7 +544,10 @@ var _ = Describe("Talm Batching Tests", Label("talmbatching"), func() {
 				Expect(result).To(BeFalse())
 			})
 		})
+		// 54926
 		It("should continue the CGU when the second batch fails with the Continue batch timeout action", func() {
+			expectedTimeout := 16
+
 			By("creating the temporary namespace on spoke1 only", func() {
 				err := namespaces.Create(rantalmhelper.TemporaryNamespaceName, rantalmhelper.Spoke1APIClient)
 				Expect(err).ToNot(HaveOccurred())
@@ -571,7 +574,7 @@ var _ = Describe("Talm Batching Tests", Label("talmbatching"), func() {
 					},
 					rantalmhelper.Namespace,
 					1,
-					9,
+					expectedTimeout,
 				)
 
 				cgu.Spec.Enable = rantalmhelper.BoolAddr(false)
@@ -623,7 +626,7 @@ var _ = Describe("Talm Batching Tests", Label("talmbatching"), func() {
 			})
 
 			By("waiting for the cgu to timeout", func() {
-				err := rantalmhelper.WaitForCguToTimeout(rantalmhelper.CguName, rantalmhelper.Namespace, 16*time.Minute)
+				err := rantalmhelper.WaitForCguToTimeout(rantalmhelper.CguName, rantalmhelper.Namespace, 21*time.Minute)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
@@ -646,6 +649,24 @@ var _ = Describe("Talm Batching Tests", Label("talmbatching"), func() {
 				err = rantalmhelper.FilterMissingResourceErrors(err)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(result).To(BeFalse())
+			})
+
+			By("validating that cgu timeout is recalculated for later batches after earlier batches complete", func() {
+
+				// We need to get the cgu so we can get the timestamps from it
+				cgu, err := rantalmhelper.GetCgu(rantalmhelper.HubAPIClient, rantalmhelper.CguName, rantalmhelper.Namespace)
+				Expect(err).ToNot(HaveOccurred())
+
+				// Get runtime in minutes from the cgu status
+				startTime := cgu.Status.Status.StartedAt
+				endTime := cgu.Status.Status.CompletedAt
+				runtime := endTime.Minute() - startTime.Minute()
+
+				// We expect that the total runtime should be about equal to the expected timeout
+				// In particular we expect it to be +/- one reconcile loop time (5 minutes)
+				// The first batch will complete successfully, so the second should use the entire remaining expected timout.
+				Expect(runtime >= expectedTimeout)
+				Expect(runtime <= expectedTimeout+int(rantalmparameters.TalmDefaultReconcileTime))
 			})
 		})
 	})
