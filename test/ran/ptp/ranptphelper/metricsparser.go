@@ -106,9 +106,12 @@ func removeHashSigns(ptpMetricsBuff bytes.Buffer) []string {
 
 // getDetails inserts the details of a single metric to ranptpparameters.MetricDetails map.
 // arguments:		"singleMetric"-	a single metric string.
-//					"metric"- the ranptpparameters.MetricDetails map.
+//
+//	"metric"- the ranptpparameters.MetricDetails map.
+//
 // return values:	the ranptpparameters.MetricDetails after adding the details of a single metric.
-//					an error if any occurred.
+//
+//	an error if any occurred.
 func getDetails(singleMetric string, metric ranptpparameters.MetricDetails) (ranptpparameters.MetricDetails, error) {
 	var err error
 
@@ -140,7 +143,8 @@ func getDetails(singleMetric string, metric ranptpparameters.MetricDetails) (ran
 // getMetricName gets the metric name of a single metric.
 // arguments:		"metricDetails"-	a single metrics string.
 // return values:	the metric name as a string.
-// 					an error if any occurred.
+//
+//	an error if any occurred.
 func getMetricName(metricDetails string) (string, error) {
 	if strings.Contains(metricDetails, "promhttp_metric_handler_requests_in_flight") {
 		return strings.Split(metricDetails, " ")[1], nil
@@ -177,7 +181,8 @@ func getStatus(metricDetails string) ranptpparameters.Status {
 // getValue gets the value of a single metric.
 // arguments:		"metricDetails"-	a single metrics string.
 // return values:	the value of the single metric if exists as an int64.
-//					an error if any occurred.
+//
+//	an error if any occurred.
 func getValue(metricDetails string) (int64, error) {
 	if metricDetails == "" {
 		return 0, nil
@@ -217,7 +222,8 @@ func getProcess(metricDetails string) ranptpparameters.Process {
 // getCode gets the metric code of a single metric.
 // arguments:		"metricDetails"-	a single metrics string.
 // return values:	the code of the single metric if exists as an int.
-// 					an error if any occurred.
+//
+//	an error if any occurred.
 func getCode(metricDetails string) (int, error) {
 	const codeStr = "code="
 	if strings.Contains(metricDetails, codeStr) {
@@ -234,8 +240,10 @@ func getCode(metricDetails string) (int, error) {
 
 // getSpecificDetail gets a metric detail of a single metric.
 // arguments:		"metricDetails"-	a single metrics string.
-//					"detail"-			the specific detail that the metric has (e.g. "address", "type", "node",
-//					"iface", "from", "config", etc.).
+//
+//	"detail"-			the specific detail that the metric has (e.g. "address", "type", "node",
+//	"iface", "from", "config", etc.).
+//
 // return value:	the specific detail of the single metric if exists as a string.
 func getSpecificDetail(metricDetails string, detail string) string {
 	var retDetail string

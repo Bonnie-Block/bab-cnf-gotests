@@ -37,7 +37,9 @@ func RestoreThresholdsValues(ptpConfig *ptpv1.PtpConfig) error {
 
 // SetThresholdsValAllConfigs updates ALL ptp configuration clock threshold values.
 // arguments:		"ptpConfigs"-		a list with all ptp configurations.
-//					"newClockThresholds"-	the new clock threshold values.
+//
+//	"newClockThresholds"-	the new clock threshold values.
+//
 // return value:	an error if any occurred.
 func SetThresholdsValAllConfigs(ptpConfigs *ptpv1.PtpConfigList, newClockThresholds *ptpv1.PtpClockThreshold) error {
 	for _, ptpConfig := range ptpConfigs.Items {
@@ -52,7 +54,9 @@ func SetThresholdsValAllConfigs(ptpConfigs *ptpv1.PtpConfigList, newClockThresho
 
 // setThresholdValues updates the clock threshold values for a ptp configuration, all other parameters are saved.
 // arguments:		"ptpConfig"-			the given ptp configuration.
-//					"newClockThresholds"-	the new clock threshold values.
+//
+//	"newClockThresholds"-	the new clock threshold values.
+//
 // return value:	an error if any occurred.
 func setThresholdValues(ptpConfig *ptpv1.PtpConfig, newClockThresholds *ptpv1.PtpClockThreshold) error {
 	var ptpProfile []ptpv1.PtpProfile
