@@ -53,9 +53,9 @@ type Config struct {
 		BmcPassword               string   `yaml:"bmc_password" envconfig:"BMC_PASSWORD"`
 		PduAddr                   string   `envconfig:"PDU_ADDR"`
 		PduSocket                 string   `envconfig:"PDU_SOCKET"`
-		RanEventTestDebug         string   `envconfig:"RAN_EVENT_TEST_DEBUG"`
-		HwEventConsumerImage      string   `yaml:"hw_event_consumer_image" envconfig:"RAN_HW_EVENT_CONSUMER_IMAGE"`
-		HwEventConfigsDir         string   `yaml:"hw_event_consumer_manifests"`
+		BmerTestDebug             string   `envconfig:"BMER_TEST_DEBUG"`
+		BmerConsumerImage         string   `yaml:"bmer_consumer_image" envconfig:"BMER_CONSUMER_IMAGE"`
+		BmerConfigsDir            string   `yaml:"bmer_consumer_manifests"`
 		KubeconfigHub             string   `envconfig:"KUBECONFIG_HUB"`
 		OcpUpgradeUpstreamURL     string   `yaml:"ocp_upgrade_upstream_url" envconfig:"OCP_UPGRADE_UPSTREAM_URL"`
 		TalmPrecachePolicies      []string `envconfig:"TALM_PRECACHE_POLICIES" yaml:"talm_precache_policies"`

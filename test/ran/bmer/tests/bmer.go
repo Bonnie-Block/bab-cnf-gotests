@@ -9,17 +9,17 @@ import (
 	"strings"
 	"time"
 
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhwevent/ranhweventhelper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/bmer/ranbmerhelper"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/stmcginnis/gofish/redfish"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/bmer/ranbmerhelper/nodevendor"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/bmer/ranbmerhelper/rfclient"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/bmer/ranbmerparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhwevent/ranhweventhelper/nodevendor"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhwevent/ranhweventhelper/rfclient"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhwevent/ranhweventparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
 	corev1 "k8s.io/api/core/v1"
 )
@@ -38,18 +38,14 @@ var _ = Describe("BMER", func() {
 		err             error
 	)
 	execute.BeforeAll(func() {
-		ranhweventparameters.Redfish.Session, _ = rfclient.GetClient(ranhweventparameters.Redfish)
+		ranbmerparameters.Redfish.Session, _ = rfclient.GetClient(ranbmerparameters.Redfish)
 		By("Query the node under test redfish vendor")
-		LocalNodeVendor, err = nodevendor.GetRedfishVendor(ranhweventparameters.Redfish.Session)
+		LocalNodeVendor, err = nodevendor.GetRedfishVendor(ranbmerparameters.Redfish.Session)
 		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("On redfish vendor query, got this error: %v\n", err))
-		ConsumersList, _ = ranhweventhelper.GetConsumers()
-		eventService, _ = ranhweventparameters.Redfish.Session.Service.EventService()
-		if helper.Config.Ran.RanEventTestDebug != "" {
-			ranhweventparameters.DebugTest = true
-			log.Println("Test debug flag is on")
-		}
+		ConsumersList, _ = ranbmerhelper.GetConsumers()
+		eventService, _ = ranbmerparameters.Redfish.Session.Service.EventService()
 		By("Get predefined Vendor events for: " + LocalNodeVendor)
-		testEvents, err = rfclient.GetVendorTestEvents(LocalNodeVendor, ranhweventparameters.Redfish)
+		testEvents, err = rfclient.GetVendorTestEvents(LocalNodeVendor, ranbmerparameters.Redfish)
 		Expect(err).ShouldNot(HaveOccurred())
 
 	})
@@ -62,25 +58,25 @@ var _ = Describe("BMER", func() {
 	})
 	// OCP-47125
 	It("recovers from hw-event-proxy app restart", func() {
-		if ranhweventparameters.TransportType == ranhweventparameters.TransportHTTP {
+		if ranbmerparameters.TransportType == ranbmerparameters.TransportHTTP {
 			Skip("Skipping recovery tests for HTTP transport due to https://issues.redhat.com/browse/OCPBUGS-2832")
 		}
 		By("Validate consumer receive events")
 		err := TestEvents(ConsumersList, testEvents, eventService, LocalNodeVendor)
 		Expect(err).ShouldNot(HaveOccurred(), fmt.Sprintf("failed to verify expected events due to: %v", err))
 
-		oldPod, err := ranhweventhelper.GetPodByLabel(ranhweventparameters.AppPodLabel)
+		oldPod, err := ranbmerhelper.GetPodByLabel(ranbmerparameters.AppPodLabel)
 		Expect(err).NotTo(HaveOccurred(), fmt.Sprintf(
-			"failed to get pod by label: %v due to: %v", ranhweventparameters.AppPodLabel, err))
+			"failed to get pod by label: %v due to: %v", ranbmerparameters.AppPodLabel, err))
 
 		By(fmt.Sprintf("Delete app pod %v and wait for it to restart\n", oldPod.Name))
-		err = ranhweventhelper.RestartPod(ranhweventparameters.AppPodLabel, 5*time.Minute)
+		err = ranbmerhelper.RestartPod(ranbmerparameters.AppPodLabel, 5*time.Minute)
 		Expect(err).NotTo(HaveOccurred(), fmt.Sprintf(
-			"failed to restart pod by label %v due to: %v", ranhweventparameters.AppPodLabel, err))
+			"failed to restart pod by label %v due to: %v", ranbmerparameters.AppPodLabel, err))
 
-		newPod, err := ranhweventhelper.GetPodByLabel(ranhweventparameters.AppPodLabel)
+		newPod, err := ranbmerhelper.GetPodByLabel(ranbmerparameters.AppPodLabel)
 		Expect(err).NotTo(HaveOccurred(), fmt.Sprintf(
-			"failed to get pod by label: %v due to: %v", ranhweventparameters.AppPodLabel, err))
+			"failed to get pod by label: %v due to: %v", ranbmerparameters.AppPodLabel, err))
 
 		By(fmt.Sprintf("New app pod %v is running\n", newPod.Name))
 		Expect(newPod.Name).NotTo(Equal(oldPod.Name), fmt.Sprintf(
@@ -92,7 +88,7 @@ var _ = Describe("BMER", func() {
 	})
 	// OCP-47129
 	It("recovers from cloud-event-sidecar crash", func() {
-		if ranhweventparameters.TransportType == ranhweventparameters.TransportHTTP {
+		if ranbmerparameters.TransportType == ranbmerparameters.TransportHTTP {
 			Skip("Skipping recovery tests for HTTP transport due to https://issues.redhat.com/browse/OCPBUGS-2832")
 		}
 		By("Validate consumer receive events")
@@ -100,9 +96,9 @@ var _ = Describe("BMER", func() {
 		Expect(err).ShouldNot(HaveOccurred(), fmt.Sprintf("failed to verify expected events due to: %v", err))
 
 		By("Crash cloud-event-sidecar and wait for it to restart")
-		err = ranhweventhelper.RestartSidecar(ranhweventparameters.AppPodLabel, 5*time.Minute)
+		err = ranbmerhelper.RestartSidecar(ranbmerparameters.AppPodLabel, 5*time.Minute)
 		Expect(err).NotTo(HaveOccurred(), fmt.Sprintf(
-			"failed to restart sidecar on pod %v due to: %v", ranhweventparameters.AppPodLabel, err))
+			"failed to restart sidecar on pod %v due to: %v", ranbmerparameters.AppPodLabel, err))
 
 		By("Validate again consumer receives events")
 		err = TestEvents(ConsumersList, testEvents, eventService, LocalNodeVendor)
@@ -110,25 +106,25 @@ var _ = Describe("BMER", func() {
 	})
 	// OCP-47130
 	It("recovers from consumer app restart", func() {
-		if ranhweventparameters.TransportType == ranhweventparameters.TransportHTTP {
+		if ranbmerparameters.TransportType == ranbmerparameters.TransportHTTP {
 			Skip("Skipping recovery tests for HTTP transport due to https://issues.redhat.com/browse/OCPBUGS-2832")
 		}
 		By("Validate consumer receive events")
 		err := TestEvents(ConsumersList, testEvents, eventService, LocalNodeVendor)
 		Expect(err).ShouldNot(HaveOccurred(), fmt.Sprintf("failed to verify expected events due to: %v", err))
 
-		oldPod, err := ranhweventhelper.GetPodByLabel(ranhweventparameters.ConsumerPodLabel)
+		oldPod, err := ranbmerhelper.GetPodByLabel(ranbmerparameters.ConsumerPodLabel)
 		Expect(err).NotTo(HaveOccurred(), fmt.Sprintf(
-			"failed to get pod by label: %v due to: %v", ranhweventparameters.ConsumerPodLabel, err))
+			"failed to get pod by label: %v due to: %v", ranbmerparameters.ConsumerPodLabel, err))
 
 		By(fmt.Sprintf("Delete consumer pod %v and wait for it to restart\n", oldPod.Name))
-		err = ranhweventhelper.RestartPod(ranhweventparameters.ConsumerPodLabel, 5*time.Minute)
+		err = ranbmerhelper.RestartPod(ranbmerparameters.ConsumerPodLabel, 5*time.Minute)
 		Expect(err).NotTo(HaveOccurred(), fmt.Sprintf(
-			"failed to restart pod by label %v due to: %v", ranhweventparameters.ConsumerPodLabel, err))
+			"failed to restart pod by label %v due to: %v", ranbmerparameters.ConsumerPodLabel, err))
 
-		newPod, err := ranhweventhelper.GetPodByLabel(ranhweventparameters.ConsumerPodLabel)
+		newPod, err := ranbmerhelper.GetPodByLabel(ranbmerparameters.ConsumerPodLabel)
 		Expect(err).NotTo(HaveOccurred(), fmt.Sprintf(
-			"failed to get pod by label: %v due to: %v", ranhweventparameters.ConsumerPodLabel, err))
+			"failed to get pod by label: %v due to: %v", ranbmerparameters.ConsumerPodLabel, err))
 
 		By(fmt.Sprintf("New app pod %v is running\n", newPod.Name))
 		Expect(newPod.Name).NotTo(Equal(oldPod.Name), fmt.Sprintf(
@@ -136,7 +132,7 @@ var _ = Describe("BMER", func() {
 
 		By("Wait 5 seconds for consumer to be ready")
 		time.Sleep(5 * time.Second)
-		ConsumersList, _ = ranhweventhelper.GetConsumers()
+		ConsumersList, _ = ranbmerhelper.GetConsumers()
 
 		By("Validate again consumer receives events")
 		err = TestEvents(ConsumersList, testEvents, eventService, LocalNodeVendor)
@@ -144,14 +140,14 @@ var _ = Describe("BMER", func() {
 	})
 	// OCP-47128
 	It("recovers from node restart", func() {
-		if ranhweventparameters.TransportType == ranhweventparameters.TransportHTTP {
+		if ranbmerparameters.TransportType == ranbmerparameters.TransportHTTP {
 			Skip("Skipping recovery tests for HTTP transport due to https://issues.redhat.com/browse/OCPBUGS-2832")
 		}
 		By("Validate consumer receive events")
 		err := TestEvents(ConsumersList, testEvents, eventService, LocalNodeVendor)
 		Expect(err).ShouldNot(HaveOccurred(), fmt.Sprintf("failed to verify expected events due to: %v", err))
 
-		workerNode, err := ranhweventhelper.GetWorkerNode()
+		workerNode, err := ranbmerhelper.GetWorkerNode()
 		Expect(err).NotTo(HaveOccurred(), fmt.Sprintf(
 			"failed to get worker nodedue to: %v", err))
 
@@ -163,15 +159,15 @@ var _ = Describe("BMER", func() {
 		// Apply workaround for OCPBUGS-3454 by restarting sidecars
 		// Remove this step to verify the fix for OCPBUGS-3454
 		By("Restart cloud-event-sidecar on app pod")
-		err = ranhweventhelper.RestartSidecar(ranhweventparameters.AppPodLabel, 5*time.Minute)
+		err = ranbmerhelper.RestartSidecar(ranbmerparameters.AppPodLabel, 5*time.Minute)
 		Expect(err).NotTo(HaveOccurred(), fmt.Sprintf(
-			"failed to restart sidecar on pod %v due to: %v", ranhweventparameters.AppPodLabel, err))
+			"failed to restart sidecar on pod %v due to: %v", ranbmerparameters.AppPodLabel, err))
 
 		// Remove this step to verify the fix for OCPBUGS-3454
 		By("Restart cloud-event-sidecar on consumer pod")
-		err = ranhweventhelper.RestartSidecar(ranhweventparameters.ConsumerPodLabel, 5*time.Minute)
+		err = ranbmerhelper.RestartSidecar(ranbmerparameters.ConsumerPodLabel, 5*time.Minute)
 		Expect(err).NotTo(HaveOccurred(), fmt.Sprintf(
-			"failed to restart sidecar on pod %v due to: %v", ranhweventparameters.ConsumerPodLabel, err))
+			"failed to restart sidecar on pod %v due to: %v", ranbmerparameters.ConsumerPodLabel, err))
 
 		By("Validate again consumer receives events")
 		err = TestEvents(ConsumersList, testEvents, eventService, LocalNodeVendor)
@@ -244,7 +240,7 @@ func sumResults(
 	var missingConsumers []string
 
 	for _, consumer := range testedConsumers {
-		if !ranhweventhelper.Contains(consumersResults, consumer) {
+		if !ranbmerhelper.Contains(consumersResults, consumer) {
 			missingConsumers = append(missingConsumers, consumer)
 		}
 	}
@@ -256,7 +252,7 @@ func sumResults(
 			var missingEvents []string
 
 			for _, resultEvent := range testEvents {
-				if !ranhweventhelper.Contains(r, resultEvent) {
+				if !ranbmerhelper.Contains(r, resultEvent) {
 					missingEvents = append(missingEvents, resultEvent)
 				}
 			}
@@ -277,14 +273,14 @@ func ConsumerVerifyEvents(cancelCtx context.Context, consumerPod corev1.Pod, exp
 
 	req := helper.Apiclient.Pods(parameters.BmerOperatorNamespace).GetLogs(consumerPod.Name,
 		&corev1.PodLogOptions{
-			Container: ranhweventparameters.ConsumerContainerName,
+			Container: ranbmerparameters.ConsumerContainerName,
 			Follow:    true,
 		})
 
 	LogStream, err := req.Stream(cancelCtx)
 	if err != nil {
 		log.Printf("failed to open log stream to %v container: %v due to: %v\n",
-			consumerPod.Name, ranhweventparameters.ConsumerContainerName, err)
+			consumerPod.Name, ranbmerparameters.ConsumerContainerName, err)
 
 		return
 	}
@@ -303,7 +299,7 @@ func ConsumerVerifyEvents(cancelCtx context.Context, consumerPod corev1.Pod, exp
 		case expectedEvent = <-expectedEventIn:
 			for scanner.Scan() {
 				line = scanner.Text()
-				eventJSON := ranhweventhelper.IsEventJSON(line)
+				eventJSON := ranbmerhelper.IsEventJSON(line)
 
 				if eventJSON != "" {
 					if processEvents(eventJSON, localNodeVendor, expectedEvent, consumerPod, verificationReportChannel) {
@@ -332,7 +328,7 @@ func processEvents(
 	expectedEvent string,
 	consumerPod corev1.Pod,
 	verificationReportChannel chan string) bool {
-	events, err := ranhweventhelper.GetMsgID(eventJSON)
+	events, err := ranbmerhelper.GetMsgID(eventJSON)
 	if err != nil {
 		verificationReportChannel <- fmt.Sprintf("%v/%v/%v",
 			consumerPod.Name, expectedEvent, statusFail)
@@ -342,7 +338,7 @@ func processEvents(
 
 	for _, event := range events {
 		if rfclient.GetSkippedEvents(localNodeVendor)[event.MessageID] {
-			if ranhweventparameters.DebugTest {
+			if ranbmerparameters.DebugTest {
 				log.Printf("Skipping event: %v for consumer: %v\n", event.MessageID, consumerPod.Name)
 			}
 
@@ -359,7 +355,7 @@ func processEvents(
 			return false
 		}
 
-		if ranhweventparameters.DebugTest {
+		if ranbmerparameters.DebugTest {
 			log.Printf("Consumer: %v received event: %v\n",
 				consumerPod.Name,
 				event.MessageID)
@@ -404,7 +400,7 @@ func TestEvents(consumersList *corev1.PodList, testEvents []string, eventService
 			return fmt.Errorf(fmt.Sprintf("failed to send event: %v due to: %v", sentMsgID, err))
 		}
 
-		if ranhweventparameters.DebugTest {
+		if ranbmerparameters.DebugTest {
 			log.Printf("Sent: %v\n", sentMsgID)
 		}
 
@@ -413,7 +409,7 @@ func TestEvents(consumersList *corev1.PodList, testEvents []string, eventService
 		}
 	}
 
-	if VerifyEvents(consumersList, testEvents, consumerOutChannel, ranhweventparameters.EventRxTimeout) != nil {
+	if VerifyEvents(consumersList, testEvents, consumerOutChannel, ranbmerparameters.EventRxTimeout) != nil {
 		endConsumerCheckers()
 
 		return fmt.Errorf("failed in verifying consumer events")
@@ -426,7 +422,7 @@ func TestEvents(consumersList *corev1.PodList, testEvents []string, eventService
 
 // PowerSupplyTest uses a PDU to cause a power fault and verify it.
 func PowerSupplyTest(consumersList *corev1.PodList, localNodeVendor string) error {
-	if !ranhweventparameters.GetPDU() {
+	if !ranbmerparameters.GetPDU() {
 		return fmt.Errorf("powerSupplyTest skipped due to missing PDU config")
 	}
 
@@ -446,49 +442,49 @@ func PowerSupplyTest(consumersList *corev1.PodList, localNodeVendor string) erro
 			localNodeVendor)
 	}
 
-	if err := ranhweventhelper.Init(); err != nil {
+	if err := ranbmerhelper.Init(); err != nil {
 		endConsumerCheckers()
 
 		return err
 	}
 
-	socket, err := ranhweventhelper.GetSocket()
+	socket, err := ranbmerhelper.GetSocket()
 	if err != nil {
 		endConsumerCheckers()
-		ranhweventhelper.Close()
+		ranbmerhelper.Close()
 
 		return fmt.Errorf("failed to get PDU Socket due to: %w", err)
 	}
 
 	if !socket {
-		log.Printf("Power socket %v is off. Powering it on before testing.", ranhweventhelper.Name)
+		log.Printf("Power socket %v is off. Powering it on before testing.", ranbmerhelper.Name)
 		err = ChangeSocketState(
 			consumersList,
 			PowerOnEvents,
 			consumerInChannels,
 			consumerOutChannel,
 			endConsumerCheckers,
-			ranhweventhelper.ModeOn)
+			ranbmerhelper.ModeOn)
 
 		if err != nil {
 			endConsumerCheckers()
-			ranhweventhelper.Close()
+			ranbmerhelper.Close()
 
 			return err
 		}
 	}
 
-	log.Printf("Power off %v\n", ranhweventhelper.Name)
+	log.Printf("Power off %v\n", ranbmerhelper.Name)
 	// takes 10 s for all events
 	err = ChangeSocketState(consumersList,
 		PowerOnEvents,
 		consumerInChannels,
 		consumerOutChannel,
 		endConsumerCheckers,
-		ranhweventhelper.ModeOff)
+		ranbmerhelper.ModeOff)
 	if err != nil {
 		endConsumerCheckers()
-		ranhweventhelper.Close()
+		ranbmerhelper.Close()
 
 		return err
 	}
@@ -498,17 +494,17 @@ func PowerSupplyTest(consumersList *corev1.PodList, localNodeVendor string) erro
 		consumerInChannels,
 		consumerOutChannel,
 		endConsumerCheckers,
-		ranhweventhelper.ModeOn)
+		ranbmerhelper.ModeOn)
 
 	if err != nil {
 		endConsumerCheckers()
-		ranhweventhelper.Close()
+		ranbmerhelper.Close()
 
 		return err
 	}
 
 	endConsumerCheckers()
-	ranhweventhelper.Close()
+	ranbmerhelper.Close()
 
 	return nil
 }
@@ -519,7 +515,7 @@ func ChangeSocketState(consumersList *corev1.PodList,
 	consumerOutChannel chan string,
 	endConsumerCheckers context.CancelFunc,
 	state int) error {
-	if _, err := ranhweventhelper.SetSocket(state); err != nil {
+	if _, err := ranbmerhelper.SetSocket(state); err != nil {
 		return err
 	}
 
@@ -529,7 +525,7 @@ func ChangeSocketState(consumersList *corev1.PodList,
 		}
 	}
 
-	if VerifyEvents(consumersList, powerEvents, consumerOutChannel, ranhweventparameters.EventRxTimeout) != nil {
+	if VerifyEvents(consumersList, powerEvents, consumerOutChannel, ranbmerparameters.EventRxTimeout) != nil {
 		endConsumerCheckers()
 
 		return fmt.Errorf("failed to verify power %v events", state)

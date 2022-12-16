@@ -11,14 +11,14 @@ import (
 
 	"github.com/stmcginnis/gofish"
 	"github.com/stmcginnis/gofish/redfish"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhwevent/ranhweventparameters"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/bmer/ranbmerparameters"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 // SubscribeZt subscription procedure for zt systems redfish.
 func SubscribeZt(client *gofish.APIClient) (SubscriptionURI, error) {
 	payload := zTsubscriptionPayload{
-		Destination: ranhweventparameters.Redfish.EventReceiver,
+		Destination: ranbmerparameters.Redfish.EventReceiver,
 		Context:     eventContext,
 		Protocol:    redfish.RedfishEventDestinationProtocol,
 	}
@@ -83,7 +83,7 @@ func SendEventZt(eventService *redfish.EventService, msgID string) error {
 		MessageID: msgID,
 	}
 
-	err = wait.PollImmediate(ranhweventparameters.ZTSendEventInterval, ranhweventparameters.ZTSendEventTimeout,
+	err = wait.PollImmediate(ranbmerparameters.ZTSendEventInterval, ranbmerparameters.ZTSendEventTimeout,
 		func() (bool, error) {
 
 			// Add a random delay between 1-2 seconds.
@@ -92,7 +92,7 @@ func SendEventZt(eventService *redfish.EventService, msgID string) error {
 			resp, err = eventService.Client.Post(submitTestEventTarget, payload)
 			if err == nil {
 				return true, nil
-			} else if ranhweventparameters.DebugTest {
+			} else if ranbmerparameters.DebugTest {
 				log.Printf("During SendEventZt() got this error: %v will retry\n", err)
 			}
 

@@ -1,4 +1,4 @@
-package ranhweventparameters
+package ranbmerparameters
 
 import (
 	"time"
@@ -92,18 +92,18 @@ var (
 		"TMP0110", "TMP0113", "TMP0115", "TMP0116", "TMP0119",
 	}
 
-	HwEventCsv = "bare-metal-event-relay."
+	BmerCsv = "bare-metal-event-relay."
 	// RequiredImages in 4_11 "kube_rbac_proxy_image", "cloud_event_proxy_image" .
 	// RequiredImages in 4_10 "ose-kube-rbac-proxy", "ose-cloud-event-proxy" .
 	RequiredImages = map[string][]string{
 		"kube_rbac_proxy_image":   {"ose-kube-rbac-proxy", "kube_rbac_proxy_image"},
 		"cloud_event_proxy_image": {"ose-cloud-event-proxy", "cloud_event_proxy_image"},
 	}
-	ConsumerManifestHTTP     = "resources/ranhwevent-consumer/consumer_http_manifest.j2"
-	ConsumerManifestAMQP     = "resources/ranhwevent-consumer/consumer_amqp_manifest.j2"
+	ConsumerManifestHTTP     = "resources/bmer-consumer/consumer_http_manifest.j2"
+	ConsumerManifestAMQP     = "resources/bmer-consumer/consumer_amqp_manifest.j2"
 	CustomResourceDefinition = "openshift-bare-metal-events"
 	ConsumerImageName        = "cloud_event_consumer"
-	// transport type retrieved from hw-event-proxy and to be used in consumer deployment.
+	// TransportType retrieved from hw-event-proxy and to be used in consumer deployment.
 	TransportType = TransportHTTP
 )
 

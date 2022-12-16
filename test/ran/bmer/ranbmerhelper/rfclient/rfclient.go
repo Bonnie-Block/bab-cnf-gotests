@@ -7,7 +7,7 @@ import (
 	"github.com/stmcginnis/gofish"
 	"github.com/stmcginnis/gofish/redfish"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/nethelper"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhwevent/ranhweventparameters"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/bmer/ranbmerparameters"
 )
 
 var (
@@ -17,7 +17,7 @@ var (
 )
 
 // GetClient returns a redfish session.
-func GetClient(config ranhweventparameters.RedfishConfig) (c *gofish.APIClient, err error) {
+func GetClient(config ranbmerparameters.RedfishConfig) (c *gofish.APIClient, err error) {
 	if nethelper.IPFamilyForAddress(config.Hostname) == "ipv6" {
 		config.RedfishURL = "https://[" + config.Hostname + "]"
 	}
@@ -36,7 +36,7 @@ func GetClient(config ranhweventparameters.RedfishConfig) (c *gofish.APIClient, 
 // Subscribe the hardware event proxy to receive redfish events.
 func Subscribe(
 	localNodeVendor string,
-	config ranhweventparameters.RedfishConfig) (
+	config ranbmerparameters.RedfishConfig) (
 	SubscriptionURI,
 	*redfish.EventService, error) {
 	var (
@@ -49,11 +49,11 @@ func Subscribe(
 		return "", nil, fmt.Errorf("failed to Subscribe redfish events due to: %w", err)
 	}
 
-	if localNodeVendor == ranhweventparameters.ZT {
+	if localNodeVendor == ranbmerparameters.ZT {
 		uri, err = SubscribeZt(config.Session)
 	} else {
 		createdSubscription, err = eventService.CreateEventSubscription(
-			ranhweventparameters.Redfish.EventReceiver,
+			ranbmerparameters.Redfish.EventReceiver,
 			[]redfish.EventType{redfish.SupportedEventTypes["Alert"]},
 			nil,
 			redfish.RedfishEventDestinationProtocol,
@@ -94,11 +94,11 @@ func SendEvent(eventservice *redfish.EventService, msgID string, localNodeVendor
 	var err error
 
 	switch localNodeVendor {
-	case ranhweventparameters.Dell:
+	case ranbmerparameters.Dell:
 		err = SendEventDell(eventservice, msgID)
-	case ranhweventparameters.Hpe:
+	case ranbmerparameters.Hpe:
 		err = SendEventHP(eventservice, msgID)
-	case ranhweventparameters.ZT:
+	case ranbmerparameters.ZT:
 		err = SendEventZt(eventservice, msgID)
 	default:
 		err = fmt.Errorf("missing Vendor in SendEvent() for %v", localNodeVendor)
@@ -109,7 +109,7 @@ func SendEvent(eventservice *redfish.EventService, msgID string, localNodeVendor
 
 // GetVendorTestEvents get the list of redfish events to be used in the test.
 func GetVendorTestEvents(localNodeVendor string,
-	config ranhweventparameters.RedfishConfig,
+	config ranbmerparameters.RedfishConfig,
 	discoverEvents ...bool) (
 	[]string, error) {
 	var (
@@ -118,16 +118,16 @@ func GetVendorTestEvents(localNodeVendor string,
 	)
 
 	switch localNodeVendor {
-	case ranhweventparameters.Dell:
+	case ranbmerparameters.Dell:
 		if len(discoverEvents) > 0 {
 			testEvents, err = GetIdracEvents(config.Session)
 		} else {
-			testEvents = ranhweventparameters.IDRACEvents
+			testEvents = ranbmerparameters.IDRACEvents
 		}
-	case ranhweventparameters.Hpe:
-		testEvents = ranhweventparameters.HpEvents
-	case ranhweventparameters.ZT:
-		testEvents = ranhweventparameters.ZtEvents
+	case ranbmerparameters.Hpe:
+		testEvents = ranbmerparameters.HpEvents
+	case ranbmerparameters.ZT:
+		testEvents = ranbmerparameters.ZtEvents
 	default:
 		err = fmt.Errorf("failed to match %v in GetVendorTestEvents()", localNodeVendor)
 	}
@@ -136,7 +136,7 @@ func GetVendorTestEvents(localNodeVendor string,
 }
 
 // ClearSubscriptions unsbscribe all existing subscription from a given redfish node.
-func ClearSubscriptions(config ranhweventparameters.RedfishConfig) error {
+func ClearSubscriptions(config ranbmerparameters.RedfishConfig) error {
 	eventservice, _ := config.Session.Service.EventService()
 	subs, err := eventservice.GetEventSubscriptions()
 
@@ -163,15 +163,15 @@ func GetPowerEvents(localNodeVendor string) ([]string, []string) {
 	var PowerOnEvents, PowerOffEvents []string
 
 	switch localNodeVendor {
-	case ranhweventparameters.Dell:
+	case ranbmerparameters.Dell:
 		{
-			PowerOnEvents = ranhweventparameters.DellPowerOnEvents
-			PowerOffEvents = ranhweventparameters.DellPowerOffEvents
+			PowerOnEvents = ranbmerparameters.DellPowerOnEvents
+			PowerOffEvents = ranbmerparameters.DellPowerOffEvents
 		}
-	case ranhweventparameters.Hpe:
+	case ranbmerparameters.Hpe:
 		{
-			PowerOnEvents = ranhweventparameters.HPEPowerOnEvents
-			PowerOffEvents = ranhweventparameters.HPEPowerOffEvents
+			PowerOnEvents = ranbmerparameters.HPEPowerOnEvents
+			PowerOffEvents = ranbmerparameters.HPEPowerOffEvents
 		}
 	default:
 		log.Printf("Failed to GetPowerEvents for Vendor %v\n", localNodeVendor)
@@ -184,14 +184,14 @@ func GetPowerEvents(localNodeVendor string) ([]string, []string) {
 // and are to be skipped in verification.
 func GetSkippedEvents(localNodeVendor string) map[string]bool {
 	skippedEvents := map[string]bool{}
-	if localNodeVendor == ranhweventparameters.ZT {
+	if localNodeVendor == ranbmerparameters.ZT {
 		skippedEvents = map[string]bool{
 			"Task.1.0.Completed": true,
 			"Task.1.0.Cancelled": true,
 			"Task.1.0.New":       true,
 			"Task.1.0.Running":   true,
 		}
-	} else if localNodeVendor == ranhweventparameters.Dell {
+	} else if localNodeVendor == ranbmerparameters.Dell {
 		skippedEvents = map[string]bool{
 			"USR0030": true,
 		}

@@ -1,4 +1,4 @@
-package ranhweventhelper
+package ranbmerhelper
 
 import (
 	"bytes"
@@ -26,9 +26,9 @@ import (
 	bmerv1alpha1 "github.com/redhat-cne/hw-event-proxy-operator/api/v1alpha1"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/bmer/ranbmerhelper/rfclient"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/bmer/ranbmerparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhwevent/ranhweventhelper/rfclient"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhwevent/ranhweventparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
@@ -160,7 +160,7 @@ func GetHTTPS(url string) error {
 	return nil
 }
 
-// GetAppRoute uses ranhweventparameters to query the application exposed path.
+// GetAppRoute uses ranbmerparameters to query the application exposed path.
 func GetAppRoute() (string, error) {
 	routeList, err := helper.Apiclient.Routes(parameters.BmerOperatorNamespace).List(context.Background(),
 		metav1.ListOptions{})
@@ -169,7 +169,7 @@ func GetAppRoute() (string, error) {
 	}
 
 	for _, route := range routeList.Items {
-		if route.Name == ranhweventparameters.AppRouteName {
+		if route.Name == ranbmerparameters.AppRouteName {
 			routePath := "https://" + route.Spec.Host + "/webhook"
 
 			return routePath, nil
@@ -179,21 +179,21 @@ func GetAppRoute() (string, error) {
 	}
 
 	return "", fmt.Errorf("failed to find route for app: %v in namespace: %v",
-		ranhweventparameters.AppRouteName, parameters.BmerOperatorNamespace)
+		ranbmerparameters.AppRouteName, parameters.BmerOperatorNamespace)
 }
 
 // GetConsumers get all consumer pods that are deployed.
 func GetConsumers() (*corev1.PodList, error) {
 	consumerPods, err := helper.Apiclient.Pods(parameters.BmerOperatorNamespace).List(context.Background(),
 		metav1.ListOptions{
-			LabelSelector: ranhweventparameters.ConsumerPodLabel})
+			LabelSelector: ranbmerparameters.ConsumerPodLabel})
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to get consumer pods from namespace: %v due to: %w",
 			parameters.BmerOperatorNamespace, err)
 	}
 
-	if ranhweventparameters.DebugTest {
+	if ranbmerparameters.DebugTest {
 		for _, pod := range consumerPods.Items {
 			log.Print("found consumer pod: " + pod.Name)
 		}
@@ -210,24 +210,24 @@ func GetDeployImages() (map[string]string, error) {
 		context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return images, fmt.Errorf("failed to query ClusterServiceVersions at namespace: %v named: %v due to: %w",
-			parameters.BmerOperatorNamespace, ranhweventparameters.HwEventCsv, err)
+			parameters.BmerOperatorNamespace, ranbmerparameters.BmerCsv, err)
 	}
 
 	var csv v1alpha1.ClusterServiceVersion
 	for _, csv = range csvs.Items {
-		if strings.HasPrefix(csv.Name, ranhweventparameters.HwEventCsv) {
+		if strings.HasPrefix(csv.Name, ranbmerparameters.BmerCsv) {
 			break
 		}
 	}
 	// the CSV starts with "bare-metal-event-relay" but ends with specific version .4.10.0-202208150436
-	if !strings.HasPrefix(csv.Name, ranhweventparameters.HwEventCsv) {
+	if !strings.HasPrefix(csv.Name, ranbmerparameters.BmerCsv) {
 		return images, fmt.Errorf(
-			"failed to find a ClusterServiceVersions starting with %v", ranhweventparameters.HwEventCsv)
+			"failed to find a ClusterServiceVersions starting with %v", ranbmerparameters.BmerCsv)
 	}
 
 	for _, relatedImage := range csv.Spec.RelatedImages {
 		// open shift 4.10 and 4.11 images differ, so I am checking for both
-		for imageRole, imageOptions := range ranhweventparameters.RequiredImages {
+		for imageRole, imageOptions := range ranbmerparameters.RequiredImages {
 			for _, imageOption := range imageOptions {
 				if strings.HasPrefix(relatedImage.Name, imageOption) {
 					log.Printf("Found %v image: %v\n", imageRole, relatedImage.Image)
@@ -238,8 +238,8 @@ func GetDeployImages() (map[string]string, error) {
 		}
 	}
 
-	if len(getMapKeys(ranhweventparameters.RequiredImages)) > len(images) {
-		for imageRole := range ranhweventparameters.RequiredImages {
+	if len(getMapKeys(ranbmerparameters.RequiredImages)) > len(images) {
+		for imageRole := range ranbmerparameters.RequiredImages {
 			_, exist := images[imageRole]
 			if !exist {
 				return images, fmt.Errorf("image for %v was not found in CSV: %v", imageRole, csv.Name)
@@ -247,7 +247,7 @@ func GetDeployImages() (map[string]string, error) {
 		}
 	}
 
-	images[ranhweventparameters.ConsumerImageName] = helper.Config.Ran.HwEventConsumerImage
+	images[ranbmerparameters.ConsumerImageName] = helper.Config.Ran.BmerConsumerImage
 
 	return images, nil
 }
@@ -257,7 +257,7 @@ func getTemplatePath() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	// this should be ranhwevent and parent is ran dir
+	// this should be bmer and parent is ran dir
 	parentDir := filepath.Dir(currentDir)
 
 	return parentDir + string(os.PathSeparator), nil
@@ -276,10 +276,10 @@ func GetConsumerManifest(images map[string]string, transportType string) (string
 
 	var manifestPath string
 
-	if transportType == ranhweventparameters.TransportHTTP {
-		manifestPath = ranhweventparameters.ConsumerManifestHTTP
-	} else if transportType == ranhweventparameters.TransportAMQP {
-		manifestPath = ranhweventparameters.ConsumerManifestAMQP
+	if transportType == ranbmerparameters.TransportHTTP {
+		manifestPath = ranbmerparameters.ConsumerManifestHTTP
+	} else if transportType == ranbmerparameters.TransportAMQP {
+		manifestPath = ranbmerparameters.ConsumerManifestAMQP
 	}
 
 	template, err := gonja.FromFile(templatePath + manifestPath)
@@ -288,9 +288,9 @@ func GetConsumerManifest(images map[string]string, transportType string) (string
 	}
 
 	return template.Execute(gonja.Context{
-		"kube_rbac_proxy_image":                images["kube_rbac_proxy_image"],
-		"cloud_event_proxy_image":              images["cloud_event_proxy_image"],
-		ranhweventparameters.ConsumerImageName: images[ranhweventparameters.ConsumerImageName],
+		"kube_rbac_proxy_image":             images["kube_rbac_proxy_image"],
+		"cloud_event_proxy_image":           images["cloud_event_proxy_image"],
+		ranbmerparameters.ConsumerImageName: images[ranbmerparameters.ConsumerImageName],
 	})
 }
 
@@ -364,20 +364,20 @@ func DeployConsumers(mirroredImages map[string]string, transportType string) err
 	err = wait.PollImmediate(5*time.Second, 5*time.Minute, func() (bool, error) {
 		deployment, err := helper.Apiclient.Deployments(parameters.BmerOperatorNamespace).Get(
 			context.Background(),
-			ranhweventparameters.ConsumerDeploymentName,
+			ranbmerparameters.ConsumerDeploymentName,
 			metav1.GetOptions{},
 		)
 		if err != nil {
 			log.Printf("failed to update container 0 image from %v,"+
-				" will retry\n", helper.Config.Ran.HwEventConsumerImage)
+				" will retry\n", helper.Config.Ran.BmerConsumerImage)
 
 			return false, nil
 		}
 
 		// update consumer image source to point to disconnected repository.
-		if deployment.Spec.Template.Spec.Containers[0].Image != helper.Config.Ran.HwEventConsumerImage {
+		if deployment.Spec.Template.Spec.Containers[0].Image != helper.Config.Ran.BmerConsumerImage {
 			// Update dummy image to configured value
-			deployment.Spec.Template.Spec.Containers[0].Image = helper.Config.Ran.HwEventConsumerImage
+			deployment.Spec.Template.Spec.Containers[0].Image = helper.Config.Ran.BmerConsumerImage
 			_, err = helper.Apiclient.Deployments(parameters.BmerOperatorNamespace).Update(
 				context.Background(),
 				deployment,
@@ -389,7 +389,7 @@ func DeployConsumers(mirroredImages map[string]string, transportType string) err
 			log.Printf("image updated,"+
 				" from %v -> %v retrieve updated deployment in next round\n",
 				deployment.Spec.Template.Spec.Containers[0].Image,
-				helper.Config.Ran.HwEventConsumerImage)
+				helper.Config.Ran.BmerConsumerImage)
 		}
 
 		if deployment.Status.ReadyReplicas > 0 &&
@@ -413,25 +413,25 @@ func DeployConsumers(mirroredImages map[string]string, transportType string) err
 
 // ConfigHwEventProxyObjects create various hw event proxy cluster objects to allow application to start working.
 func ConfigHwEventProxyObjects() error {
-	_, err := os.Stat(helper.Config.Ran.HwEventConfigsDir)
+	_, err := os.Stat(helper.Config.Ran.BmerConfigsDir)
 
 	if os.IsNotExist(err) {
 		pwd, _ := os.Getwd()
 
 		return fmt.Errorf("failed to find directory: %v in current path: %v",
-			helper.Config.Ran.HwEventConfigsDir, pwd)
+			helper.Config.Ran.BmerConfigsDir, pwd)
 	}
 
 	_, err = helper.Apiclient.Deployments(parameters.BmerOperatorNamespace).Get(
 		context.Background(),
-		ranhweventparameters.ConsumerDeploymentName,
+		ranbmerparameters.ConsumerDeploymentName,
 		metav1.GetOptions{},
 	)
 
 	if err != nil {
-		err = ranhelper.ApplyObjects(helper.Config.Ran.HwEventConfigsDir)
+		err = ranhelper.ApplyObjects(helper.Config.Ran.BmerConfigsDir)
 	} else {
-		err = ranhelper.UpdateObjects(helper.Config.Ran.HwEventConfigsDir)
+		err = ranhelper.UpdateObjects(helper.Config.Ran.BmerConfigsDir)
 	}
 
 	if err != nil {
@@ -488,11 +488,11 @@ func deployConsumerPod(mirroredImages map[string]string, transportType string) e
 	return nil
 }
 
-// DestroyConsumers uses parameters from ranhweventparameters to destroy the consumer setup.
+// DestroyConsumers uses parameters from bmerparameters to destroy the consumer setup.
 // it returns a map of errors encountered during deletion of the setup.
 func DestroyConsumers() (destroyErrors []error) {
 	deployment, err := helper.Apiclient.Deployments(parameters.BmerOperatorNamespace).Get(
-		context.Background(), ranhweventparameters.ConsumerDeploymentName, metav1.GetOptions{})
+		context.Background(), ranbmerparameters.ConsumerDeploymentName, metav1.GetOptions{})
 
 	if err == nil {
 		err = helper.Apiclient.Client.Delete(context.TODO(), deployment)
@@ -504,18 +504,18 @@ func DestroyConsumers() (destroyErrors []error) {
 		destroyErrors = append(destroyErrors, fmt.Errorf("failed to query consumer deployment due to: %w", err))
 	}
 
-	err = ranhelper.DeleteObjects(helper.Config.Ran.HwEventConfigsDir)
+	err = ranhelper.DeleteObjects(helper.Config.Ran.BmerConfigsDir)
 
 	if err != nil {
 		destroyErrors = append(destroyErrors,
 			fmt.Errorf("failed to destroy using manifest files read from: %v due to %w",
-				helper.Config.Ran.HwEventConfigsDir, err))
+				helper.Config.Ran.BmerConfigsDir, err))
 	}
 
 	err = wait.PollImmediate(5*time.Second, 5*time.Minute, func() (bool, error) {
 		_, err := helper.Apiclient.Deployments(parameters.BmerOperatorNamespace).Get(
 			context.Background(),
-			ranhweventparameters.ConsumerDeploymentName,
+			ranbmerparameters.ConsumerDeploymentName,
 			metav1.GetOptions{},
 		)
 		if err != nil {
@@ -527,7 +527,7 @@ func DestroyConsumers() (destroyErrors []error) {
 
 	if err != nil {
 		destroyErrors = append(destroyErrors, fmt.Errorf("failed to destroy consumer deployemnt: %v due to: %w",
-			ranhweventparameters.ConsumerDeploymentName, err))
+			ranbmerparameters.ConsumerDeploymentName, err))
 	}
 
 	return destroyErrors
@@ -757,13 +757,13 @@ func CheckCustomResourceDefinition() error {
 	}
 
 	for _, result := range hwEventList.Items {
-		if result.Name == ranhweventparameters.CustomResourceDefinition {
+		if result.Name == ranbmerparameters.CustomResourceDefinition {
 			return nil
 		}
 	}
 
 	return fmt.Errorf("failed to find custum resource definition: %v in cluster",
-		ranhweventparameters.CustomResourceDefinition)
+		ranbmerparameters.CustomResourceDefinition)
 }
 
 // WaitForDeploymentReady wait for a deployment to reach ready state or timeout at 5 Min.
@@ -792,9 +792,9 @@ func GetTransportType(client *client.ClientSet, namespace, deployment string) (t
 		if isCloudEventSidecar(c.Name) {
 			for _, a := range c.Args {
 				if strings.Contains(a, "transport-host=http") {
-					return ranhweventparameters.TransportHTTP, nil
+					return ranbmerparameters.TransportHTTP, nil
 				} else if strings.Contains(a, "transport-host=amqp") {
-					return ranhweventparameters.TransportAMQP, nil
+					return ranbmerparameters.TransportAMQP, nil
 				}
 			}
 		}

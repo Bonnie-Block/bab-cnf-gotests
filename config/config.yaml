@@ -14,8 +14,8 @@ ran:
   process_exporter_resources: test/ran/resources/process-exporter/
   bmc_user: root
   bmc_password: calvin
-  hw_event_consumer_image: quay.io/redhat-cne/cloud-event-consumer:latest
-  hw_event_consumer_manifests: ../resources/ranhwevent-preconsumer/
+  bmer_consumer_image: quay.io/redhat-cne/cloud-event-consumer:latest
+  bmer_consumer_manifests: ../resources/bmer-preconsumer/
   talm_precache_policies:
     - common-config-policy
     - common-subscriptions-policy
