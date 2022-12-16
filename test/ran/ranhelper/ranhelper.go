@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	testclient "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
 
@@ -67,7 +68,25 @@ func GetClusterName(kubeconfigEnvVar string) (string, error) {
 			CurrentContext: "",
 		}).RawConfig()
 
-	for clusterName := range rawConfig.Clusters {
+	for _, cluster := range rawConfig.Clusters {
+		// The cluster data looks like this:
+		/*
+			    "clusters": [
+					{
+						"name": "local-cluster",
+						"cluster": {
+							"server": "https://api.local-cluster.karmalabs.local:6443",
+							"certificate-authority-data": "DATA+OMITTED"
+						}
+					}
+				],
+		*/
+		// However the "name" field is not always correct so it is more consistent to instead
+		// parse the name out from the server url
+		splits := strings.Split(cluster.Server, ".")
+
+		clusterName := splits[1]
+
 		log.Println("cluster name: ", clusterName)
 
 		return clusterName, nil
