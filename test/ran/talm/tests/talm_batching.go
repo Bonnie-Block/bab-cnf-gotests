@@ -835,7 +835,6 @@ var _ = Describe("Talm Batching Tests", Label("talmbatching"), func() {
 						}}},
 					}
 				}
-
 				err := rantalmhelper.CreatePolicyAndCgu(
 					rantalmhelper.HubAPIClient,
 					rantalmhelper.GetNamespaceDefinition(rantalmhelper.TemporaryNamespaceName),

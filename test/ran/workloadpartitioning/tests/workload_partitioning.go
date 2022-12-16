@@ -28,7 +28,8 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 )
 
-var TestNamespaces = sets.NewString(ran.NamespaceTesting, parameters.PrivPodNamespace, ran.NamespaceFec)
+var NonMgmtNamespaces = sets.NewString(ran.NamespaceTesting, parameters.PrivPodNamespace, ran.NamespaceFec,
+	ran.NamespaceAmq, ran.NamespaceBmer)
 
 var _ = Describe("SNO management workload partitioning", func() {
 	var (
@@ -370,7 +371,7 @@ func checkCPUShares(containersInfo []ranwphelper.ContainerInfo) {
 	containerShares := make(map[string]int)
 
 	for _, ns := range allNamespaces.Items {
-		if TestNamespaces.Has(ns.Name) {
+		if NonMgmtNamespaces.Has(ns.Name) {
 			continue
 		}
 
@@ -381,7 +382,7 @@ func checkCPUShares(containersInfo []ranwphelper.ContainerInfo) {
 	}
 	// Check cpu shares for all running containers by comparing the value with pod annotation
 	for _, containerInfo := range containersInfo {
-		if isTestPod(containerInfo.PodName, containerInfo.Namespace) {
+		if isNonMgmtPod(containerInfo.PodName, containerInfo.Namespace) {
 			continue
 		}
 
@@ -409,9 +410,9 @@ func checkCPUShares(containersInfo []ranwphelper.ContainerInfo) {
 	}
 }
 
-// isTestPod checks if a pod is created by automated test. i.e., not a default management pod.
-func isTestPod(podName, namespace string) bool {
-	if TestNamespaces.Has(namespace) || strings.HasPrefix(podName, parameters.PrivPodNamespace) ||
+// isNonMgmtPod checks if a pod is a non-management pod. e.g., test pods created in automation, amq and bmer pods.
+func isNonMgmtPod(podName, namespace string) bool {
+	if NonMgmtNamespaces.Has(namespace) || strings.HasPrefix(podName, parameters.PrivPodNamespace) ||
 		strings.HasPrefix(podName, "process-exporter") {
 		return true
 	}
@@ -501,7 +502,7 @@ func getMgmtContainersInfo(containersInfo []ranwphelper.ContainerInfo) []ranwphe
 
 	for _, podinfo := range containersInfo {
 		// Exclude test pods
-		if !isTestPod(podinfo.PodName, podinfo.Namespace) {
+		if !isNonMgmtPod(podinfo.PodName, podinfo.Namespace) {
 			mgmtContainerInfo = append(mgmtContainerInfo, podinfo)
 		}
 	}
