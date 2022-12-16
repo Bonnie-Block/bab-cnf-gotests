@@ -7,18 +7,16 @@ import (
 	"strings"
 	"time"
 
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
-	corev1 "k8s.io/api/core/v1"
-
-	testClient "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
-
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/talm/rantalmhelper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/talm/rantalmparameters"
+	testClient "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/talm/rantalmhelper"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/talm/rantalmparameters"
-
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	configurationPolicyv1 "open-cluster-management.io/config-policy-controller/api/v1"
 )
@@ -87,7 +85,96 @@ var _ = Describe("Talm Backup Tests with single spoke", func() {
 			By("verifying insufficient disk error in talm backup pod log")
 			assertBackupPodLog(rantalmhelper.Spoke1APIClient, "Insufficient disk space", corev1.PodFailed)
 		})
+	})
 
+	Context("backup is enabled in CGU. ", func() {
+		curName := "backupsequence"
+		// created cguEnabled boolean
+		cguEnabled := false
+		AfterEach(func() {
+			// Delete generated CRs on Hub Cluster.
+			hubErrList := rantalmhelper.CleanupTestResourcesOnClient(
+				rantalmhelper.HubAPIClient,
+				fmt.Sprintf("%s-%s", rantalmparameters.CguCommonName, curName),
+				fmt.Sprintf("%s-%s", rantalmhelper.PolicyName, curName),
+				rantalmhelper.Namespace,
+				fmt.Sprintf("%s-%s", rantalmparameters.PlacementBindingCommonName, curName),
+				fmt.Sprintf("%s-%s", rantalmparameters.PlacementRuleCommonName, curName),
+				fmt.Sprintf("%s-%s", rantalmhelper.PolicySetName, curName),
+				"",
+				false,
+			)
+			Expect(len(hubErrList)).To(Equal(0))
+
+			// Delete temporary namespace on spoke cluster.
+			spokeClusterList := []*testClient.ClientSet{rantalmhelper.Spoke1APIClient}
+			err := rantalmhelper.CleanupNamespace(spokeClusterList, rantalmhelper.TemporaryNamespaceName)
+			Expect(err).ToNot(HaveOccurred())
+
+		})
+		// ocp-54294, ocp-54295
+		It("verifies backup begins and succeeds after CGU is enabled", func() {
+			// Create namespace
+			err := namespaces.Create(rantalmhelper.Namespace, rantalmhelper.HubAPIClient)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("creating a disabled cgu with backup enabled")
+			// prep cgu
+			cgu := rantalmhelper.GetCguDefinition(
+				fmt.Sprintf("%s-%s", rantalmparameters.CguCommonName, curName),
+				[]string{rantalmhelper.Spoke1Name},
+				[]string{},
+				[]string{fmt.Sprintf("%s-%s", rantalmparameters.PolicyNameCommonName, curName)},
+				rantalmparameters.TalmTestNamespace, 1, 30)
+
+			cgu.Spec.Backup = true
+			// passing reference to cguEnabled because cgu.Spec.Enable is of type BoolAddr
+			cgu.Spec.Enable = &cguEnabled
+
+			// apply cgu
+			err = rantalmhelper.CreatePolicyAndCgu(
+				rantalmhelper.HubAPIClient,
+				rantalmhelper.GetNamespaceDefinition(rantalmhelper.TemporaryNamespaceName),
+				configurationPolicyv1.MustHave,
+				configurationPolicyv1.Inform,
+				fmt.Sprintf("%s-%s", rantalmparameters.PolicyNameCommonName, curName),
+				fmt.Sprintf("%s-%s", rantalmparameters.PolicySetNameCommonName, curName),
+				fmt.Sprintf("%s-%s", rantalmparameters.PlacementBindingCommonName, curName),
+				fmt.Sprintf("%s-%s", rantalmparameters.PlacementRuleCommonName, curName),
+				rantalmparameters.TalmTestNamespace,
+				metav1.LabelSelector{},
+				cgu,
+			)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("checking backup does not begin when CGU is disabled")
+
+			err = rantalmhelper.WaitForBackupStart(
+				rantalmhelper.HubAPIClient,
+				cgu.Name,
+				cgu.Namespace,
+				2*time.Minute,
+			)
+			Expect(err).To(HaveOccurred())
+
+			By("enalble CGU")
+			err = rantalmhelper.EnableCgu(rantalmhelper.HubAPIClient, cgu)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("waiting for backup to begin")
+			err = rantalmhelper.WaitForBackupStart(
+				rantalmhelper.HubAPIClient,
+				cgu.Name,
+				cgu.Namespace,
+				1*time.Minute,
+			)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Wait for spoke cluster backup to finish and report Succeeded.
+			By("waiting for cgu to indicate backup succeeded for spoke")
+			assertBackupStatus(cgu.Name, rantalmhelper.Spoke1Name, "Succeeded")
+
+		})
 	})
 })
 

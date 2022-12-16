@@ -1589,6 +1589,24 @@ func WaitForClusterInProgressInCgu(
 	return err
 }
 
+// WaitForBackupStart Waits for CGU to report backup started.
+func WaitForBackupStart(client *testClient.ClientSet, cguName string, namespace string, timeout time.Duration) error {
+	// Print the current check
+	log.Println("Waiting for backup to begin")
+
+	// get cgu status
+	err := wait.PollImmediate(10*time.Second, timeout, func() (bool, error) {
+		cgu, err := GetCgu(client, cguName, namespace)
+		if err != nil {
+			return false, err
+		}
+
+		return cgu.Status.Backup != nil, nil
+	})
+
+	return err
+}
+
 // IsClusterCompletedSuccessfullyInCgu can be used to check if a particular cluster
 // has been successfully remediated in the provided cgu and namespace.
 func IsClusterCompletedSuccessfullyInCgu(
