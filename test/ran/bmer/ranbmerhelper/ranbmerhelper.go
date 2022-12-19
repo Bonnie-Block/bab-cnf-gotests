@@ -593,7 +593,7 @@ func RestartPod(label string, timeout time.Duration) error {
 	err = wait.PollImmediate(5*time.Second, timeout, func() (bool, error) {
 		pod, err := GetPodByLabel(label)
 		if err != nil {
-			return false, err
+			return false, nil
 		}
 		if pod.UID == podUID {
 			return false, nil
