@@ -320,11 +320,11 @@ func waitUntilPolicyIsNonCompliant(p policiesv1.Policy) {
 	}, 5*time.Minute, 5*time.Second).Should(BeTrue())
 }
 
-var _ = Describe("Talm precache with multiple spokes where one turns off", Ordered, Label("talmprecache"), func() {
-	curName := "precache-multiple-spoke"
+var _ = Describe("TALM tests with multiple spokes where one turns off", Ordered, Label("talmprecache"), func() {
+	curName := "multi-spokes-one-unavailable"
 	var nodeToTurnOff *k8sv1.Node
 
-	BeforeEach(func() {
+	BeforeAll(func() {
 		// tests below requires all clusters to be present. hub + spoke1 + spoke2
 		clusterList := rantalmhelper.GetAllTestClients()
 		err := ranhelper.IsClustersPresent(clusterList)
@@ -344,7 +344,7 @@ var _ = Describe("Talm precache with multiple spokes where one turns off", Order
 
 		By("turning off spoke1 and waiting")
 		errArr := ranhelper.PowerOffSnoWithIpmi()
-		Expect(len(errArr)).To(BeNumerically("==", "0"))
+		Expect(len(errArr)).To(BeNumerically("==", 0))
 	})
 
 	AfterEach(func() {
@@ -362,7 +362,7 @@ var _ = Describe("Talm precache with multiple spokes where one turns off", Order
 		)
 	})
 
-	It("fails for one spoke and succeeds for the other", func() {
+	It("verifies precaching fails for one spoke and succeeds for the other", func() {
 		By("creating precache CGU with two spokes and OCP upgrade policy ")
 		cgu := getNewPrecacheCGU(curName,
 			[]string{fmt.Sprintf("%s-%s", rantalmparameters.PolicyNameCommonName, curName)},
@@ -418,10 +418,64 @@ var _ = Describe("Talm precache with multiple spokes where one turns off", Order
 		assertPrecacheStatus(cgu.Name, rantalmhelper.Spoke1Name, "UnrecoverableError")
 	})
 
+	Context("with one managed cluster powered off and unavailable", func() {
+		AfterEach(func() {
+
+			// Delete temporary namespace on spoke cluster.
+			spoke2ClusterList := []*testClient.ClientSet{rantalmhelper.Spoke2APIClient}
+			cleanupErr := rantalmhelper.CleanupNamespace(spoke2ClusterList, rantalmhelper.TemporaryNamespaceName)
+			Expect(cleanupErr).ToNot(HaveOccurred())
+		})
+
+		// ocp-54854
+		It("Verifies CGU fails on 'down' spoke in first batch and succeeds for the 'up' spoke in second batch", func() {
+			By("creating CGU with two spokes, one of which is unavailable")
+
+			cgu := rantalmhelper.GetCguDefinition(
+				fmt.Sprintf("%s-%s", rantalmparameters.CguCommonName, curName),
+				[]string{rantalmhelper.Spoke1Name, rantalmhelper.Spoke2Name},
+				[]string{},
+				[]string{fmt.Sprintf("%s-%s", rantalmparameters.PolicyNameCommonName, curName)},
+				rantalmparameters.TalmTestNamespace, 1, 9)
+
+			// Apply CGU.
+			err := rantalmhelper.CreatePolicyAndCgu(
+				rantalmhelper.HubAPIClient,
+				rantalmhelper.GetNamespaceDefinition(rantalmhelper.TemporaryNamespaceName),
+				configurationPolicyv1.MustHave,
+				configurationPolicyv1.Inform,
+				fmt.Sprintf("%s-%s", rantalmparameters.PolicyNameCommonName, curName),
+				fmt.Sprintf("%s-%s", rantalmparameters.PolicySetNameCommonName, curName),
+				fmt.Sprintf("%s-%s", rantalmparameters.PlacementBindingCommonName, curName),
+				fmt.Sprintf("%s-%s", rantalmparameters.PlacementRuleCommonName, curName),
+				rantalmparameters.TalmTestNamespace,
+				metav1.LabelSelector{},
+				cgu,
+			)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Waiting for running spoke cluster to report success")
+			err = rantalmhelper.WaitForClusterSuccessInCgu(
+				rantalmhelper.HubAPIClient,
+				cgu.Name,
+				rantalmhelper.Spoke2Name,
+				rantalmparameters.TalmTestNamespace,
+				7*time.Minute,
+			)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("waiting for the cgu to timeout")
+			err = rantalmhelper.WaitForCguToTimeout(cgu.Name, rantalmparameters.TalmTestNamespace, 5*time.Minute)
+			Expect(err).ToNot(HaveOccurred())
+
+		})
+
+	})
+
 	AfterAll(func() {
 		log.Println("turning on spoke1 and waiting")
 		errArr := ranhelper.PowerOnSnoWithImpi()
-		Expect(len(errArr)).To(BeNumerically("==", "0"))
+		Expect(len(errArr)).To(BeNumerically("==", 0))
 
 		By("waiting until all spoke1 pods are ready")
 		err := ranhelper.WaitForClusterRecover(nodeToTurnOff, []string{})
