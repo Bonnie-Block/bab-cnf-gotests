@@ -301,9 +301,10 @@ func findAllPoliciesWithSubAndCopyAndApply(listPolicy policiesv1.PolicyList) []p
 
 				// wait until newly generated is non-compliant
 				waitUntilPolicyIsNonCompliant(genP)
+
+				// no need to check further since one subscription is found. Move to next policy
+				break
 			}
-			// no need to check further since one subscription is found. Move to next policy
-			break
 		}
 	}
 
