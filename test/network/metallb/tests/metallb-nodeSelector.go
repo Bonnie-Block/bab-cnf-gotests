@@ -25,12 +25,13 @@ import (
 
 var _ = Describe("MetalLB NodeSelector", func() {
 	var (
-		ipv4metalLBIPList []string
-		ipv6metalLBIPList []string
-		workerNodeList    []k8sv1.Node
-		masterNodeList    []k8sv1.Node
-		clusterIPStack    string
-		testSetupFail     = true
+		ipv4metalLBIPList   []string
+		ipv6metalLBIPList   []string
+		workerNodeList      []k8sv1.Node
+		masterNodeList      []k8sv1.Node
+		workerNodesAdresses []string
+		clusterIPStack      string
+		testSetupFail       = true
 	)
 
 	execute.BeforeAll(func() {
@@ -47,6 +48,7 @@ var _ = Describe("MetalLB NodeSelector", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(len(masterNodeList)).To(BeNumerically(">", 0))
 
+		workerNodesAdresses = nethelper.NodeIPsForFamily(workerNodeList, netparameters.IPV4Family)
 		clusterIPStack := netmetallbhelper.ValidateClusterIPStack()
 
 		By(fmt.Sprintf("Running test on %s cluster", clusterIPStack))
@@ -187,7 +189,6 @@ var _ = Describe("MetalLB NodeSelector", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("should validate routes to external FRR1 container")
-			workerNodesAdresses := nethelper.NodeIPsForFamily(workerNodeList, netparameters.IPV4Family)
 
 			Eventually(func() error {
 				return netmetallbhelper.CheckBGPRoutesSingleNode(masterNodeFRRPodOne, []string{workerNodesAdresses[0]},
@@ -237,7 +238,6 @@ var _ = Describe("MetalLB NodeSelector", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("should validate routes to external FRR1 container")
-			workerNodesAdresses := nethelper.NodeIPsForFamily(workerNodeList, netparameters.IPV4Family)
 
 			Eventually(func() error {
 				return netmetallbhelper.CheckBGPRoutesSingleNode(masterNodeFRRPodOne, []string{workerNodesAdresses[0]},
@@ -382,7 +382,6 @@ var _ = Describe("MetalLB NodeSelector", func() {
 			Expect(err).ToNot(HaveOccurred(), "Error creating BGPAdvertisement for FRR2")
 
 			By("should validate route to the external FRR1 container with nodeSelector option")
-			workerNodesAdresses := nethelper.NodeIPsForFamily(workerNodeList, netparameters.IPV4Family)
 			workerNodesAdressesList1 := []string{workerNodesAdresses[0]}
 
 			Eventually(func() error {
@@ -444,7 +443,6 @@ var _ = Describe("MetalLB NodeSelector", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("should validate route to the external FRR1 container with nodeSelector and peer option")
-			workerNodesAdresses := nethelper.NodeIPsForFamily(workerNodeList, netparameters.IPV4Family)
 			workerNodesAdressesList1 := []string{workerNodesAdresses[0]}
 
 			Eventually(func() error {
@@ -522,7 +520,6 @@ var _ = Describe("MetalLB NodeSelector", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("should validate routes to external FRR1 container")
-			workerNodesAdresses := nethelper.NodeIPsForFamily(workerNodeList, netparameters.IPV4Family)
 
 			Eventually(func() error {
 				return netmetallbhelper.CheckBGPRoutesSingleNode(masterNodeFRRPod1, []string{workerNodesAdresses[0]},
@@ -548,6 +545,44 @@ var _ = Describe("MetalLB NodeSelector", func() {
 					netmlbparameters.PrefixLen32)
 			}, 30*time.Second, netmlbparameters.Interval).ShouldNot(HaveOccurred(),
 				"Failed to validate route for FRR2 container")
+		})
+
+		// OCP-53991
+		It("Remove from node label used in the node selector option", func() {
+			By("should create BGPAdvertisement for external FRR1 container")
+
+			err = createBGPAdvertisementWithNodeSelector(netmlbparameters.BGPAdvertisementName,
+				workerNodeList[0].Name, netmlbparameters.CommunityNoAdv, clusterIPStack,
+				[]string{netmlbparameters.AddressPoolS1Name}, []string{netmlbparameters.BGPPeerName1v4},
+				netmlbparameters.LocalPref100)
+
+			Expect(err).ToNot(HaveOccurred())
+
+			By("should validate routes to external FRR1 container")
+
+			Eventually(func() error {
+				return netmetallbhelper.CheckBGPRoutesSingleNode(masterNodeFRRPod1, []string{workerNodesAdresses[0]},
+					[]string{netmlbparameters.AddressPoolS1[0]}, netparameters.IPV4Family,
+					netmlbparameters.PrefixLen32)
+			}, 30*time.Second, netmlbparameters.Interval).ShouldNot(HaveOccurred())
+
+			By("should update Node Label for FRR1 Container")
+
+			_, err = nodes.LabelNode(helper.Apiclient, workerNodeList[0].Name, parameters.LabelHostname,
+				netmlbparameters.SpeakerNodeTestLabel)
+			Expect(err).ToNot(HaveOccurred())
+
+			Eventually(netmetallbhelper.AreSpeakersReady, netmlbparameters.Timeout, netmlbparameters.Interval).
+				Should(BeTrue(), "Speaker pods are not ready")
+
+			By("should validate routes to external FRR1 container")
+
+			Eventually(func() error {
+				return netmetallbhelper.CheckBGPRoutesSingleNode(masterNodeFRRPod1, []string{workerNodesAdresses[0]},
+					[]string{netmlbparameters.AddressPoolS1[0]}, netparameters.IPV4Family,
+					netmlbparameters.PrefixLen32)
+			}, 30*time.Second, netmlbparameters.Interval).Should(HaveOccurred(),
+				"Route to FRR2 container is still validate - expected to fail")
 		})
 	})
 })
