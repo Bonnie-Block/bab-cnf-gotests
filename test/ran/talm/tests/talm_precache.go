@@ -5,14 +5,20 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
+	"strings"
 	"time"
+
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
+	k8sv1 "k8s.io/api/core/v1"
+
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	configurationPolicyv1 "open-cluster-management.io/config-policy-controller/api/v1"
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
-
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
-	k8sv1 "k8s.io/api/core/v1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -23,7 +29,6 @@ import (
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	configurationPolicyv1 "open-cluster-management.io/config-policy-controller/api/v1"
 )
 
 // precache const.
@@ -33,13 +38,28 @@ const (
 	PreCachePodLabel      = "job-name=pre-cache"
 )
 
+// use this struct to delete the deleted policies and its components.
+type policyandco struct {
+	policyName           string
+	policySetName        string
+	placementBindingName string
+	placementRuleName    string
+}
+
 var _ = Describe("Talm precache one spoke", Label("talmprecache"), func() {
 
 	Context("Precache operator", func() {
+		var (
+			listPolicy policiesv1.PolicyList
+			// policies with at least one subscription cr. They are all non-compliant
+			policyAndCoWithSub []policyandco
+		)
+
 		curName := "precache-operator"
+
 		BeforeEach(func() {
 			log.Println("verifying list of policies in config are already available in hub required Precache operator")
-			var listPolicy policiesv1.PolicyList
+
 			err := rantalmhelper.HubAPIClient.List(context.Background(), &listPolicy, runtimeclient.InNamespace(""))
 			if err != nil {
 				log.Println(err)
@@ -48,26 +68,41 @@ var _ = Describe("Talm precache one spoke", Label("talmprecache"), func() {
 			if !rantalmhelper.AllPoliciesExist(listPolicy) {
 				Skip("could not find all the policies specified in config or in TALM_PRECACHE_POLICIES env")
 			}
+
+			policyAndCoWithSub = findAllPoliciesWithSubAndCopyAndApply(listPolicy)
+
 		})
 
 		AfterEach(func() {
-			// delete generated CRs
-			rantalmhelper.CleanupTestResourcesOnClient(
+			// all generated policy and components
+			for _, curPolAndCo := range policyAndCoWithSub {
+				rantalmhelper.DeletePolicyAndItsComponents(
+					rantalmhelper.HubAPIClient,
+					curPolAndCo.policyName,
+					rantalmparameters.TalmTestNamespace,
+					curPolAndCo.placementBindingName,
+					curPolAndCo.placementRuleName,
+					curPolAndCo.policySetName,
+				)
+			}
+
+			err := rantalmhelper.DeleteCguAndWait(
 				rantalmhelper.HubAPIClient,
 				fmt.Sprintf("%s-%s", rantalmparameters.CguCommonName, curName),
-				fmt.Sprintf("%s-%s", rantalmparameters.PolicyNameCommonName, curName),
 				rantalmparameters.TalmTestNamespace,
-				fmt.Sprintf("%s-%s", rantalmparameters.PlacementBindingCommonName, curName),
-				fmt.Sprintf("%s-%s", rantalmparameters.PlacementRuleCommonName, curName),
-				fmt.Sprintf("%s-%s", rantalmparameters.PolicySetNameCommonName, curName),
-				"",
-				false,
 			)
+			Expect(err).To(BeNil())
+
 		})
 
 		It("tests for precache operator with multiple sources", func() {
 			By("creating CGU with created operator upgrade policy")
 			// prep cgu with one spoke
+			for _, policyNameWithSub := range policyAndCoWithSub {
+				helper.Config.Ran.TalmPrecachePolicies = append(helper.Config.Ran.TalmPrecachePolicies,
+					policyNameWithSub.policyName)
+			}
+
 			cgu := getNewPrecacheCGU(curName, helper.Config.Ran.TalmPrecachePolicies, []string{rantalmhelper.Spoke1Name})
 
 			// apply
@@ -176,6 +211,113 @@ var _ = Describe("Talm precache one spoke", Label("talmprecache"), func() {
 	})
 
 })
+
+func findAllPoliciesWithSubAndCopyAndApply(listPolicy policiesv1.PolicyList) []policyandco {
+	var (
+		// policies with at least one subscription cr. They are all non-compliant
+		policyAndCoWithSub []policyandco
+	)
+
+	for idx, curPolicy := range listPolicy.Items {
+		// ignore policies that has root-policy in label
+		var skipPolicy bool
+
+		for key := range curPolicy.Labels {
+			if strings.Contains(key, "root-policy") {
+				skipPolicy = true
+
+				break
+			}
+		}
+
+		if skipPolicy {
+			continue
+		}
+
+		// find that it cur policy contains an instance of subscritption
+		curPTempl := curPolicy.Spec.PolicyTemplates[0]
+		uConfigPolicy := &unstructured.Unstructured{}
+		err := uConfigPolicy.UnmarshalJSON(curPTempl.ObjectDefinition.Raw)
+		Expect(err).To(BeNil())
+
+		tConfigPolicy := configurationPolicyv1.ConfigurationPolicy{}
+		err = runtime.DefaultUnstructuredConverter.FromUnstructured(uConfigPolicy.UnstructuredContent(), &tConfigPolicy)
+		Expect(err).To(BeNil())
+
+		// loop over the list of obj and look for Subscription
+		for _, objs := range tConfigPolicy.Spec.ObjectTemplates {
+			uCurObjTemp := &unstructured.Unstructured{}
+			err = uCurObjTemp.UnmarshalJSON(objs.ObjectDefinition.Raw)
+			Expect(err).To(BeNil())
+
+			// only process if that the policy contains a Subscription
+			if uCurObjTemp.GetObjectKind().GroupVersionKind().Kind == "Subscription" {
+				curPolicyAndCo := policyandco{
+					policyName:           rantalmparameters.PolicyNameCommonName + "-with-subscription-" + strconv.Itoa(idx),
+					policySetName:        rantalmparameters.PolicySetNameCommonName + "-with-subscription-" + strconv.Itoa(idx),
+					placementBindingName: rantalmparameters.PlacementBindingCommonName + "-with-subscription-" + strconv.Itoa(idx),
+					placementRuleName:    rantalmparameters.PlacementRuleCommonName + "-with-subscription-" + strconv.Itoa(idx),
+				}
+				policyAndCoWithSub = append(policyAndCoWithSub, curPolicyAndCo)
+
+				log.Printf("copying policy [%s] and generating a new one called [%s]\n", curPolicy.Name, curPolicyAndCo.policyName)
+				// make copy of the policy and extract
+				cpPolicy := curPolicy.DeepCopy()
+
+				pTempRef := cpPolicy.Spec.PolicyTemplates[0]
+
+				// get the config policy and add a namespace to maybe it non-compliant
+				uConfigPolicy := &unstructured.Unstructured{}
+				err = uConfigPolicy.UnmarshalJSON(pTempRef.ObjectDefinition.Raw)
+				Expect(err).To(BeNil())
+
+				tConfigPolicy := configurationPolicyv1.ConfigurationPolicy{}
+				err = runtime.DefaultUnstructuredConverter.FromUnstructured(uConfigPolicy.UnstructuredContent(), &tConfigPolicy)
+				Expect(err).To(BeNil())
+
+				o := configurationPolicyv1.ObjectTemplate{
+					ObjectDefinition: runtime.RawExtension{Object: rantalmhelper.GetNamespaceDefinition("make-it-non-compliant")},
+					ComplianceType:   configurationPolicyv1.MustHave,
+				}
+				tConfigPolicy.Spec.ObjectTemplates = append(tConfigPolicy.Spec.ObjectTemplates, &o)
+
+				// create a new policy
+				genP := rantalmhelper.GetPolicyDefinition(
+					curPolicyAndCo.policyName,
+					rantalmparameters.TalmTestNamespace,
+					&tConfigPolicy, configurationPolicyv1.Inform)
+
+				// apply new policy
+				err := rantalmhelper.ApplyPolicyAndCreateAllComponents(rantalmhelper.HubAPIClient,
+					genP,
+					curPolicyAndCo.policySetName,
+					curPolicyAndCo.placementBindingName,
+					curPolicyAndCo.placementRuleName,
+					rantalmparameters.TalmTestNamespace,
+					[]string{rantalmhelper.Spoke1Name},
+					metav1.LabelSelector{},
+				)
+				Expect(err).To(BeNil())
+
+				// wait until newly generated is non-compliant
+				waitUntilPolicyIsNonCompliant(genP)
+			}
+			// no need to check further since one subscription is found. Move to next policy
+			break
+		}
+	}
+
+	return policyAndCoWithSub
+}
+
+func waitUntilPolicyIsNonCompliant(p policiesv1.Policy) {
+	Eventually(func() bool {
+		curP, err := rantalmhelper.GetPolicy(rantalmhelper.HubAPIClient, p.Name, p.Namespace)
+		Expect(err).To(BeNil())
+
+		return curP.Status.ComplianceState == policiesv1.NonCompliant
+	}, 5*time.Minute, 5*time.Second).Should(BeTrue())
+}
 
 var _ = Describe("Talm precache with multiple spokes where one turns off", Ordered, Label("talmprecache"), func() {
 	curName := "precache-multiple-spoke"

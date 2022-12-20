@@ -745,7 +745,7 @@ func CreatePolicyAndWait(
 
 // AllPoliciesExist checks if polices, named in config, is already deployed.
 func AllPoliciesExist(listPolicy policiesv1.PolicyList) bool {
-	count := 0
+	var count int
 
 	for _, curPolicy := range helper.Config.Ran.TalmPrecachePolicies {
 		for _, deployedPolicy := range listPolicy.Items {
@@ -812,7 +812,29 @@ func CreatePolicyWithAllComponents(
 
 	cguPolicy := GetPolicyDefinition(policyName, namespace, &configurationPolicy, remediationAction)
 
-	err := CreatePolicyAndWait(client, cguPolicy)
+	return ApplyPolicyAndCreateAllComponents(client,
+		cguPolicy,
+		policySetName,
+		placementBindingName,
+		placementRule,
+		namespace,
+		clusters,
+		clusterSelector)
+}
+
+// ApplyPolicyAndCreateAllComponents is used only apply already created policy and all the required components for
+// applying that policy such as policyset, placementrule, placement binding, etc.
+func ApplyPolicyAndCreateAllComponents(
+	client *testClient.ClientSet,
+	policy policiesv1.Policy,
+	policySetName string,
+	placementBindingName string,
+	placementRule string,
+	namespace string,
+	clusters []string,
+	clusterSelector metav1.LabelSelector,
+) error {
+	err := CreatePolicyAndWait(client, policy)
 
 	if err != nil {
 		return err
@@ -821,8 +843,8 @@ func CreatePolicyWithAllComponents(
 	// Step 2 - Create the policy set
 	log.Println("creating the policyset")
 
-	nonEmptyStringList := []policiesv1beta1.NonEmptyString{}
-	nonEmptyStringList = append(nonEmptyStringList, policiesv1beta1.NonEmptyString(policyName))
+	var nonEmptyStringList []policiesv1beta1.NonEmptyString
+	nonEmptyStringList = append(nonEmptyStringList, policiesv1beta1.NonEmptyString(policy.Name))
 
 	policySet := GetPolicySetDefinition(policySetName, nonEmptyStringList, namespace)
 
@@ -1707,10 +1729,47 @@ func CleanupTestResourcesOnClient(
 		errorList = append(errorList, err)
 	}
 
+	curErrors := DeletePolicyAndItsComponents(client, policyName, namespace, placementBinding, placementRule, policySet)
+
+	errorList = append(errorList, curErrors...)
+
+	// Attempt to delete catsrc
+	if catsrcName != "" {
+		log.Printf("Deleting catsrc '%s'", catsrcName)
+
+		err = DeleteCatsrcAndWait(client, catsrcName, namespace)
+		if err != nil {
+			errorList = append(errorList, err)
+		}
+	}
+
+	if namespace != "" && deleteNs {
+		// Attempt to delete namespace
+		log.Printf("Deleting namespace '%s'", namespace)
+
+		if namespaces.Exists(namespace, client) {
+			err := namespaces.DeleteAndWait(client, namespace, 5*time.Minute)
+			if err != nil {
+				errorList = append(errorList, err)
+			}
+		}
+	}
+
+	return errorList
+}
+
+func DeletePolicyAndItsComponents(
+	client *testClient.ClientSet,
+	policyName string,
+	namespace string,
+	placementBinding string,
+	placementRule string,
+	policySet string) []error {
+	var errorList []error
 	// Attempt to delete policy
 	log.Printf("Deleting policy '%s'", policyName)
 
-	err = DeletePolicyAndWait(client, policyName, namespace)
+	err := DeletePolicyAndWait(client, policyName, namespace)
 	if err != nil {
 		errorList = append(errorList, err)
 	}
@@ -1737,28 +1796,6 @@ func CleanupTestResourcesOnClient(
 	err = DeletePolicySetAndWait(client, policySet, namespace)
 	if err != nil {
 		errorList = append(errorList, err)
-	}
-
-	// Attempt to delete catsrc
-	if catsrcName != "" {
-		log.Printf("Deleting catsrc '%s'", catsrcName)
-
-		err = DeleteCatsrcAndWait(client, catsrcName, namespace)
-		if err != nil {
-			errorList = append(errorList, err)
-		}
-	}
-
-	if namespace != "" && deleteNs {
-		// Attempt to delete namespace
-		log.Printf("Deleting namespace '%s'", namespace)
-
-		if namespaces.Exists(namespace, client) {
-			err := namespaces.DeleteAndWait(client, namespace, 5*time.Minute)
-			if err != nil {
-				errorList = append(errorList, err)
-			}
-		}
 	}
 
 	return errorList
