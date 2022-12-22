@@ -312,6 +312,26 @@ func DeleteNADs(namespace string, nadNames ...string) error {
 	return nil
 }
 
+// DeleteAllNADs removes all Network Attachment Definition in given namespace.
+func DeleteAllNADs(namespace string) error {
+	nadlist := &v1.NetworkAttachmentDefinitionList{}
+
+	err := helper.Apiclient.List(context.Background(), nadlist,
+		goclient.InNamespace(namespace))
+	if err != nil {
+		return err
+	}
+
+	for _, nad := range nadlist.Items {
+		err = helper.Apiclient.Delete(context.Background(), &nad)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func DefineIPFamily(ipAddress string) (ipFamily string, subnet string, err error) {
 	if net.ParseIP(ipAddress) == nil {
 		return "", "", fmt.Errorf("not valid IP %s", ipAddress)

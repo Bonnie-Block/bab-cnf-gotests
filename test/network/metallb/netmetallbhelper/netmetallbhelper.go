@@ -881,7 +881,7 @@ func ValidateIPs(ipAddressList []string, ipFamily string) error {
 	return nil
 }
 
-// DeleteConfigMaps deletes all configmaps from list in namespace.
+// DeleteConfigMaps deletes given configmaps from list in namespace.
 func DeleteConfigMaps(configMapNameList []string, namespace string) error {
 	configMap := &k8sv1.ConfigMap{}
 
@@ -893,6 +893,26 @@ func DeleteConfigMaps(configMapNameList []string, namespace string) error {
 		}
 
 		err = helper.Apiclient.Delete(context.Background(), configMap)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// DeleteAllConfigMaps deletes all configmaps from list in given namespace.
+func DeleteAllConfigMaps(namespace string) error {
+	configMapList := &k8sv1.ConfigMapList{}
+
+	err := helper.Apiclient.List(context.Background(), configMapList,
+		runtimeclient.InNamespace(namespace))
+	if err != nil {
+		return err
+	}
+
+	for _, configMap := range configMapList.Items {
+		err = helper.Apiclient.Delete(context.Background(), &configMap)
 		if err != nil {
 			return err
 		}

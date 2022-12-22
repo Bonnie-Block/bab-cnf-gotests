@@ -608,9 +608,9 @@ func RemoveMetallbBGPTestSetup(nadNameList []string, configMapName []string) {
 	Expect(err).ToNot(HaveOccurred())
 	err = namespaces.CleanPods(netmlbparameters.TestNamespace, helper.Apiclient)
 	Expect(err).ToNot(HaveOccurred())
-	err = nethelper.DeleteNADs(netmlbparameters.TestNamespace, nadNameList...)
+	err = nethelper.DeleteAllNADs(netmlbparameters.TestNamespace)
 	Expect(err).ToNot(HaveOccurred())
-	err = DeleteConfigMaps(configMapName, netmlbparameters.TestNamespace)
+	err = DeleteAllConfigMaps(netmlbparameters.TestNamespace)
 	Expect(err).ToNot(HaveOccurred())
 
 	By("Should remove Metallb Configuration")

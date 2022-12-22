@@ -38,7 +38,7 @@ function run_tests {
                     } fi
                     done
                 done
-            ginkgo -timeout=24h -v --trace --keep-going -require-suite $command
+            ginkgo -timeout=24h -vv --trace --keep-going -require-suite $command
             ;;
         *)
         echo "Unknown case"
