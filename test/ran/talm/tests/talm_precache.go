@@ -6,7 +6,6 @@ import (
 	"log"
 	"os"
 	"strconv"
-	"strings"
 	"time"
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
@@ -65,7 +64,8 @@ var _ = Describe("Talm precache one spoke", Label("talmprecache"), func() {
 				log.Println(err)
 				Skip("could not list all policies from all namespaces")
 			}
-			if !rantalmhelper.AllPoliciesExist(listPolicy) {
+			listPolicy, exists := rantalmhelper.AllPoliciesExist(listPolicy)
+			if !exists {
 				Skip("could not find all the policies specified in config or in TALM_PRECACHE_POLICIES env")
 			}
 
@@ -98,11 +98,6 @@ var _ = Describe("Talm precache one spoke", Label("talmprecache"), func() {
 		It("tests for precache operator with multiple sources", func() {
 			By("creating CGU with created operator upgrade policy")
 			// prep cgu with one spoke
-			for _, policyNameWithSub := range policyAndCoWithSub {
-				helper.Config.Ran.TalmPrecachePolicies = append(helper.Config.Ran.TalmPrecachePolicies,
-					policyNameWithSub.policyName)
-			}
-
 			cgu := getNewPrecacheCGU(curName, helper.Config.Ran.TalmPrecachePolicies, []string{rantalmhelper.Spoke1Name})
 
 			// apply
@@ -209,31 +204,25 @@ var _ = Describe("Talm precache one spoke", Label("talmprecache"), func() {
 			assertPrecachePodLog(rantalmhelper.Spoke1APIClient, "Image pre-cache done")
 		})
 	})
-
 })
 
+// findAllPoliciesWithSubAndCopyAndApply it finds policies with subscription,
+// makes a copy and updates TalmPrecachePolicies variable if needed
+// this func is made for precache operator test.
 func findAllPoliciesWithSubAndCopyAndApply(listPolicy policiesv1.PolicyList) []policyandco {
+	// set to easily modify TalmPrecachePolicies if needed
+	policyMap := make(map[string]string)
+
+	for _, s := range helper.Config.Ran.TalmPrecachePolicies {
+		policyMap[s] = s
+	}
+
 	var (
 		// policies with at least one subscription cr. They are all non-compliant
 		policyAndCoWithSub []policyandco
 	)
 
 	for idx, curPolicy := range listPolicy.Items {
-		// ignore policies that has root-policy in label
-		var skipPolicy bool
-
-		for key := range curPolicy.Labels {
-			if strings.Contains(key, "root-policy") {
-				skipPolicy = true
-
-				break
-			}
-		}
-
-		if skipPolicy {
-			continue
-		}
-
 		// find that it cur policy contains an instance of subscritption
 		curPTempl := curPolicy.Spec.PolicyTemplates[0]
 		uConfigPolicy := &unstructured.Unstructured{}
@@ -245,9 +234,9 @@ func findAllPoliciesWithSubAndCopyAndApply(listPolicy policiesv1.PolicyList) []p
 		Expect(err).To(BeNil())
 
 		// loop over the list of obj and look for Subscription
-		for _, objs := range tConfigPolicy.Spec.ObjectTemplates {
+		for _, obj := range tConfigPolicy.Spec.ObjectTemplates {
 			uCurObjTemp := &unstructured.Unstructured{}
-			err = uCurObjTemp.UnmarshalJSON(objs.ObjectDefinition.Raw)
+			err = uCurObjTemp.UnmarshalJSON(obj.ObjectDefinition.Raw)
 			Expect(err).To(BeNil())
 
 			// only process if that the policy contains a Subscription
@@ -261,6 +250,13 @@ func findAllPoliciesWithSubAndCopyAndApply(listPolicy policiesv1.PolicyList) []p
 				policyAndCoWithSub = append(policyAndCoWithSub, curPolicyAndCo)
 
 				log.Printf("copying policy [%s] and generating a new one called [%s]\n", curPolicy.Name, curPolicyAndCo.policyName)
+
+				// copying so ignore the original one
+				_, exists := policyMap[curPolicy.Name]
+				if exists {
+					delete(policyMap, curPolicy.Name)
+				}
+
 				// make copy of the policy and extract
 				cpPolicy := curPolicy.DeepCopy()
 
@@ -306,6 +302,18 @@ func findAllPoliciesWithSubAndCopyAndApply(listPolicy policiesv1.PolicyList) []p
 				break
 			}
 		}
+	}
+
+	// repopulate helper.Config.Ran.TalmPrecachePolicies
+	helper.Config.Ran.TalmPrecachePolicies = []string{}
+	for pol := range policyMap {
+		helper.Config.Ran.TalmPrecachePolicies = append(helper.Config.Ran.TalmPrecachePolicies, pol)
+	}
+
+	// append the copied CR name to TalmPrecachePolicies
+	for _, policyNameWithSub := range policyAndCoWithSub {
+		helper.Config.Ran.TalmPrecachePolicies = append(helper.Config.Ran.TalmPrecachePolicies,
+			policyNameWithSub.policyName)
 	}
 
 	return policyAndCoWithSub

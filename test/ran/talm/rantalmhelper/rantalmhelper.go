@@ -744,12 +744,16 @@ func CreatePolicyAndWait(
 }
 
 // AllPoliciesExist checks if polices, named in config, is already deployed.
-func AllPoliciesExist(listPolicy policiesv1.PolicyList) bool {
-	var count int
+func AllPoliciesExist(listPolicy policiesv1.PolicyList) (policiesv1.PolicyList, bool) {
+	var (
+		count     int
+		tempPlist policiesv1.PolicyList
+	)
 
 	for _, curPolicy := range helper.Config.Ran.TalmPrecachePolicies {
 		for _, deployedPolicy := range listPolicy.Items {
 			if curPolicy == deployedPolicy.Name {
+				tempPlist.Items = append(tempPlist.Items, deployedPolicy)
 				count++
 
 				log.Printf("policy found:'%s' in ns:'%s' createTS:'%s'",
@@ -758,7 +762,7 @@ func AllPoliciesExist(listPolicy policiesv1.PolicyList) bool {
 		}
 	}
 
-	return count == len(helper.Config.Ran.TalmPrecachePolicies)
+	return tempPlist, count == len(helper.Config.Ran.TalmPrecachePolicies)
 }
 
 // CreatePolicyWithAllComponents is used to create a policy and all the requireed components for
