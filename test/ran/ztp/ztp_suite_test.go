@@ -20,6 +20,12 @@ import (
 
 var _, currentFile, _, _ = runtime.Caller(0)
 
+var (
+	ArgoGitRepo   string
+	ArgoGitBranch string
+	ArgoGitDir    string
+)
+
 func TestZtp(t *testing.T) {
 	_, reporterConfig := GinkgoConfiguration()
 	reporterConfig.JUnitReport = helper.Config.GetReportPath(currentFile)
@@ -31,12 +37,19 @@ func TestZtp(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	InitializeZtpGitEnvironment()
+	// API clients must be initialized first since they will be used later
 	err := InitializeClients()
+	Expect(err).ToNot(HaveOccurred())
+
+	// This will get the current data from Argocd and save it for later
+	err = InitializeZtpGitEnvironment()
 	Expect(err).ToNot(HaveOccurred())
 })
 
 var _ = AfterSuite(func() {
+	// Restore the original Argocd configuration after the tests are completed
+	err := ResetArgocdGitDetails()
+	Expect(err).ToNot(HaveOccurred())
 })
 
 var _ = ReportAfterEach(func(report types.SpecReport) {
@@ -45,30 +58,54 @@ var _ = ReportAfterEach(func(report types.SpecReport) {
 
 // InitializeZtpGitEnvironment is used to check the environment variables for any ztp test configuration.
 // If any are undefined then the default values are used instead.
-func InitializeZtpGitEnvironment() {
+func InitializeZtpGitEnvironment() error {
+	// Get all the details from Argocd
+	repo, branch, dir, err := ranztphelper.GetGitDetailsFromArgocd()
+
+	// Save them all to restore them later
+	ArgoGitRepo = repo
+	ArgoGitBranch = branch
+	ArgoGitDir = dir
+
+	log.Printf("Existing Argocd test repo '%s'\n", repo)
+	log.Printf("Existing Argocd test branch '%s'\n", branch)
+	log.Printf("Existing Argocd test dir '%s'\n", dir)
+
 	ranztphelper.ZtpGitRepo = os.Getenv(ranztpparameters.ZtpGitRepoEnvKey)
 	if ranztphelper.ZtpGitRepo == "" {
-		repo, _, _, err := ranztphelper.GetGitDetailsFromArgocd()
 		if err == nil {
 			ranztphelper.ZtpGitRepo = repo
 		}
 	}
 
+	log.Printf("Configured test repo '%s'\n", ranztphelper.ZtpGitRepo)
+
 	ranztphelper.ZtpGitBranch = os.Getenv(ranztpparameters.ZtpGitBranchEnvKey)
 	if ranztphelper.ZtpGitBranch == "" {
-		_, branch, _, err := ranztphelper.GetGitDetailsFromArgocd()
 		if err == nil {
 			ranztphelper.ZtpGitBranch = branch
 		}
 	}
 
+	log.Printf("Configured test branch '%s'\n", ranztphelper.ZtpGitBranch)
+
 	ranztphelper.ZtpGitDir = os.Getenv(ranztpparameters.ZtpGitDirEnvKey)
 	if ranztphelper.ZtpGitDir == "" {
-		_, _, dir, err := ranztphelper.GetGitDetailsFromArgocd()
 		if err == nil {
 			ranztphelper.ZtpGitDir = dir
 		}
 	}
+
+	log.Printf("Configured test dir '%s'\n", ranztphelper.ZtpGitDir)
+
+	log.Println("Updating Argocd app with test configuration")
+
+	err = ranztphelper.SetGitDetailsInArcgocd(ranztphelper.ZtpGitRepo, ranztphelper.ZtpGitBranch, ranztphelper.ZtpGitDir)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // InitializeClients is used to create the API clients for the spoke and hub.
@@ -95,7 +132,7 @@ func InitializeClients() error {
 		return err
 	}
 
-	log.Printf("cluster '%s' has OCP version '%s'", ranztphelper.HubName, ocpVersion)
+	log.Printf("cluster '%s' has OCP version '%s'\n", ranztphelper.HubName, ocpVersion)
 
 	// Spoke is the default kubeconfig
 	if os.Getenv(ranztpparameters.SpokeKubeEnvKey) == "" {
@@ -117,7 +154,19 @@ func InitializeClients() error {
 		return err
 	}
 
-	log.Printf("cluster '%s' has OCP version '%s'", ranztphelper.SpokeName, ocpVersion)
+	log.Printf("cluster '%s' has OCP version '%s'\n", ranztphelper.SpokeName, ocpVersion)
+
+	return nil
+}
+
+// ResetArgocdGitDetails is used to configure Argocd back to the values it had before the tests started.
+func ResetArgocdGitDetails() error {
+	log.Println("Resetting Argocd app back to initial values")
+
+	err := ranztphelper.SetGitDetailsInArcgocd(ArgoGitRepo, ArgoGitBranch, ArgoGitDir)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
