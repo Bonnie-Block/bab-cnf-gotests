@@ -44,6 +44,11 @@ var _ = Describe("Talm Backup Tests with single spoke", func() {
 		AfterEach(func() {
 			log.Println("starting disk-full env clean up")
 			diskFullEnvCleanup(nodeName, nodeUser, curName, loopBackDevicePath)
+
+			// Delete temporary namespace on spoke cluster.
+			spokeClusterList := []*testClient.ClientSet{rantalmhelper.Spoke1APIClient}
+			err := rantalmhelper.CleanupNamespace(spokeClusterList, rantalmhelper.TemporaryNamespaceName)
+			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("should have a failed cgu for single spoke", func() {
@@ -60,7 +65,7 @@ var _ = Describe("Talm Backup Tests with single spoke", func() {
 			// apply
 			err := rantalmhelper.CreatePolicyAndCgu(
 				rantalmhelper.HubAPIClient,
-				rantalmhelper.GetNamespaceDefinition(fmt.Sprintf("%s-%s", rantalmparameters.NsCommonName, curName)),
+				rantalmhelper.GetNamespaceDefinition(rantalmhelper.TemporaryNamespaceName),
 				configurationPolicyv1.MustHave,
 				configurationPolicyv1.Inform,
 				fmt.Sprintf("%s-%s", rantalmparameters.PolicyNameCommonName, curName),
@@ -191,6 +196,10 @@ var _ = Describe("Talm Backup Tests with two spokes", Ordered, func() {
 	AfterEach(func() {
 		log.Println("starting disk-full env clean up")
 		diskFullEnvCleanup(nodeName, nodeUser, curName, loopBackDevicePath)
+		// Delete temporary namespace on spoke cluster.
+		spokeClusterList := []*testClient.ClientSet{rantalmhelper.Spoke1APIClient, rantalmhelper.Spoke2APIClient}
+		err := rantalmhelper.CleanupNamespace(spokeClusterList, rantalmhelper.TemporaryNamespaceName)
+		Expect(err).ToNot(HaveOccurred())
 	})
 
 	It("should not affect backup on second spoke in same batch", func() {
@@ -207,7 +216,7 @@ var _ = Describe("Talm Backup Tests with two spokes", Ordered, func() {
 		// apply
 		err := rantalmhelper.CreatePolicyAndCgu(
 			rantalmhelper.HubAPIClient,
-			rantalmhelper.GetNamespaceDefinition(fmt.Sprintf("%s-%s", rantalmparameters.NsCommonName, curName)),
+			rantalmhelper.GetNamespaceDefinition(rantalmhelper.TemporaryNamespaceName),
 			configurationPolicyv1.MustHave,
 			configurationPolicyv1.Inform,
 			fmt.Sprintf("%s-%s", rantalmparameters.PolicyNameCommonName, curName),
