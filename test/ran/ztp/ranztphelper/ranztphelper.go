@@ -1,15 +1,20 @@
 package ranztphelper
 
 import (
+	"bytes"
 	"context"
 	"log"
+	"strings"
 	"time"
 
 	argocdv1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
+	"github.com/tidwall/gjson"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ztp/ranztpparameters"
 	testClient "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	types "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 )
 
 var (
@@ -41,13 +46,13 @@ func GetArgocdApp() (*argocdv1alpha1.Application, error) {
 	app, err := HubAPIClient.
 		ArgoprojV1alpha1Interface.
 		Applications(ranztpparameters.OpenshiftGitops).
-		Get(GetZtpContext(), ranztpparameters.Policies, v1.GetOptions{})
+		Get(GetZtpContext(), ranztpparameters.Policies, metav1.GetOptions{})
 
 	return app, err
 }
 
 // SetGitDetailsInArgocd is used to update the git repo, branch, and path in the Argocd app.
-func SetGitDetailsInArcgocd(gitRepo string, gitBranch string, gitPath string) error {
+func SetGitDetailsInArcgocd(gitRepo string, gitBranch string, gitPath string, waitForSync bool) error {
 	app, err := GetArgocdApp()
 	if err != nil {
 		return err
@@ -73,14 +78,16 @@ func SetGitDetailsInArcgocd(gitRepo string, gitBranch string, gitPath string) er
 	_, err = HubAPIClient.
 		ArgoprojV1alpha1Interface.
 		Applications(ranztpparameters.OpenshiftGitops).
-		Update(GetZtpContext(), app, v1.UpdateOptions{})
+		Update(GetZtpContext(), app, metav1.UpdateOptions{})
 	if err != nil {
 		return err
 	}
 
-	err = WaitForArgocdChangeToComplete(ranztpparameters.ArgocdChangeTimeout)
-	if err != nil {
-		return err
+	if waitForSync {
+		err = WaitForArgocdChangeToComplete(ranztpparameters.ArgocdChangeTimeout)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -123,6 +130,99 @@ func WaitForArgocdChangeToComplete(timeout time.Duration) error {
 
 		return false, nil
 	})
+
+	return err
+}
+
+func GetEvaluationIntervals(policyName string, namespace string) (string, string, error) {
+	log.Printf("Checking policy '%s' in namespace '%s' to fetch evaluation intervals\n", policyName, namespace)
+
+	// Create a typed namespace object
+	typedNamespace := types.NamespacedName{}
+	typedNamespace.Name = policyName
+	typedNamespace.Namespace = namespace
+
+	// Create a policy object
+	policy := policiesv1.Policy{}
+
+	// Get the policy from the hub
+	err := HubAPIClient.Client.Get(GetZtpContext(), typedNamespace, &policy)
+	if err != nil {
+		return "", "", err
+	}
+
+	// The configured policy evaluation intervals are a bit buried down in the spec
+	// e.g.
+	// spec:
+	// 	  disabled: false
+	// 	  policy-templates:
+	// 	  - objectDefinition:
+	// 		  apiVersion: policy.open-cluster-management.io/v1
+	// 		  kind: ConfigurationPolicy
+	// 		  metadata:
+	// 			  name: example-policy
+	// 		  spec:
+	// 			  evaluationInterval:
+	// 				  compliant: 2m
+	// 				  noncompliant: 2m
+
+	// First convert the runtime object to json
+	jsonBytes, err := policy.Spec.PolicyTemplates[0].ObjectDefinition.Marshal()
+	if err != nil {
+		return "", "", err
+	}
+
+	// Next convert the byte array to an actual string
+	jsonString := bytes.NewBuffer(jsonBytes).String()
+
+	// Then use gjson to get the nested values out from the json
+	complianceInterval := gjson.Get(jsonString, "spec.evaluationInterval.compliant").String()
+	nonComplianceInterval :=  gjson.Get(jsonString, "spec.evaluationInterval.noncompliant").String()
+
+	// Get the intervals from the policy
+	return complianceInterval, nonComplianceInterval, nil
+}
+
+// WaitForCguConditionToMatchExpectedMessage waits until a specified condition type
+// matches the provided message and/or status.
+func WaitForConditionInArgocdApp(
+	client *testClient.ClientSet,
+	application string,
+	namespace string,
+	expectedMessage string,
+	timeout time.Duration) error {
+	log.Printf("Checking application '%s' in namespace' %s' for condition with message '%s'\n", application, namespace, expectedMessage)
+	// Use a poll to check the argocd app condition
+	err := wait.PollImmediate(
+		ranztpparameters.ArgocdChangeInterval,
+		timeout,
+		func() (done bool, err error) {
+			// Get the application
+			app, err := client.
+				ArgoprojV1alpha1Interface.
+				Applications(namespace).
+				Get(GetZtpContext(), application, metav1.GetOptions{})
+			if err != nil {
+				return false, err
+			}
+
+			// Loop over all the conditions
+			for _, condition := range app.Status.Conditions{
+
+				// If we found a matching condition then return immediately
+				if strings.Contains(condition.Message, expectedMessage) {
+					println("Found matching condition")
+					return true, nil
+				}
+
+				log.Printf("Condition message '%s' did not match\n", condition.Message)
+			}
+
+			// If we didn't find a matching condition then we'll try again on the next loop
+			return false, nil
+
+		},
+	)
 
 	return err
 }
