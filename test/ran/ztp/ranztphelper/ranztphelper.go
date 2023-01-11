@@ -177,7 +177,7 @@ func GetEvaluationIntervals(policyName string, namespace string) (string, string
 
 	// Then use gjson to get the nested values out from the json
 	complianceInterval := gjson.Get(jsonString, "spec.evaluationInterval.compliant").String()
-	nonComplianceInterval :=  gjson.Get(jsonString, "spec.evaluationInterval.noncompliant").String()
+	nonComplianceInterval := gjson.Get(jsonString, "spec.evaluationInterval.noncompliant").String()
 
 	// Get the intervals from the policy
 	return complianceInterval, nonComplianceInterval, nil
@@ -191,7 +191,13 @@ func WaitForConditionInArgocdApp(
 	namespace string,
 	expectedMessage string,
 	timeout time.Duration) error {
-	log.Printf("Checking application '%s' in namespace' %s' for condition with message '%s'\n", application, namespace, expectedMessage)
+	log.Printf(
+		"Checking application '%s' in namespace' %s' for condition with message '%s'\n",
+		application,
+		namespace,
+		expectedMessage,
+	)
+
 	// Use a poll to check the argocd app condition
 	err := wait.PollImmediate(
 		ranztpparameters.ArgocdChangeInterval,
@@ -207,11 +213,12 @@ func WaitForConditionInArgocdApp(
 			}
 
 			// Loop over all the conditions
-			for _, condition := range app.Status.Conditions{
+			for _, condition := range app.Status.Conditions {
 
 				// If we found a matching condition then return immediately
 				if strings.Contains(condition.Message, expectedMessage) {
 					println("Found matching condition")
+
 					return true, nil
 				}
 

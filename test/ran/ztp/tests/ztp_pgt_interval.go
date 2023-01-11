@@ -40,14 +40,23 @@ var _ = Describe("Talm ZTP PGT Interval Tests", func() {
 			testGitPath := ranztphelper.ZtpGitDir + "/ztp-test/custom-interval"
 
 			// Update the Argo app to point to the new test kustomization
-			err := ranztphelper.SetGitDetailsInArcgocd(ranztphelper.ZtpGitRepo, ranztphelper.ZtpGitBranch, testGitPath, true)
+			err := ranztphelper.SetGitDetailsInArcgocd(
+				ranztphelper.ZtpGitRepo,
+				ranztphelper.ZtpGitBranch,
+				testGitPath,
+				true,
+			)
 			Expect(err).ToNot(HaveOccurred())
 
 			log.Println("Sleeping to wait for policies to be created")
 			time.Sleep(1 * time.Minute)
 
 			// Get the default policy from ACM
-			defaultComplianceInterval, defaultNonComplianceInterval, err := ranztphelper.GetEvaluationIntervals("custom-interval-policy-default", ranztpparameters.ZtpTestNamespace)
+			defaultComplianceInterval, defaultNonComplianceInterval, err := ranztphelper.
+				GetEvaluationIntervals(
+					"custom-interval-policy-default",
+					ranztpparameters.ZtpTestNamespace,
+				)
 			Expect(err).ToNot(HaveOccurred())
 
 			// Assert that the policy intervals are 1m
@@ -55,7 +64,11 @@ var _ = Describe("Talm ZTP PGT Interval Tests", func() {
 			Expect(defaultNonComplianceInterval == "1m")
 
 			// Get the override policy from ACM
-			overrideComplianceInterval, overrideNonComplianceInterval, err := ranztphelper.GetEvaluationIntervals("custom-interval-policy-override", ranztpparameters.ZtpTestNamespace)
+			overrideComplianceInterval, overrideNonComplianceInterval, err := ranztphelper.
+				GetEvaluationIntervals(
+					"custom-interval-policy-override",
+					ranztpparameters.ZtpTestNamespace,
+				)
 			Expect(err).ToNot(HaveOccurred())
 
 			// Assert that the policy intervals are 2m
@@ -78,7 +91,12 @@ var _ = Describe("Talm ZTP PGT Interval Tests", func() {
 
 			// Get the conditions from the Argocd app
 			expectedMessage := "evaluationInterval.compliant 'time: invalid duration"
-			err = ranztphelper.WaitForConditionInArgocdApp(ranztphelper.HubAPIClient, ranztpparameters.Policies, ranztpparameters.OpenshiftGitops, expectedMessage, 5 * time.Minute)
+			err = ranztphelper.WaitForConditionInArgocdApp(
+				ranztphelper.HubAPIClient,
+				ranztpparameters.Policies,
+				ranztpparameters.OpenshiftGitops,
+				expectedMessage, 5*time.Minute,
+			)
 			Expect(err).ToNot(HaveOccurred())
 		})
 	})

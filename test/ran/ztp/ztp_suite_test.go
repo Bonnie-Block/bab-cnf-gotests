@@ -168,7 +168,6 @@ func InitializeClients() error {
 func CreateNamespace(allowExists bool) error {
 	// Hub may be optional depending on what tests are running
 	if os.Getenv(ranztpparameters.HubKubeEnvKey) != "" {
-
 		// If the namespace already exists but we weren't expecting it to then return an error
 		if namespaces.Exists(ranztpparameters.ZtpTestNamespace, ranztphelper.HubAPIClient) {
 			if !allowExists {
@@ -178,6 +177,7 @@ func CreateNamespace(allowExists bool) error {
 					ranztphelper.HubName,
 				)
 			}
+
 			log.Printf("Namespace '%s' already exists on node '%s'\n", ranztpparameters.ZtpTestNamespace, ranztphelper.HubName)
 
 			return nil
@@ -189,9 +189,9 @@ func CreateNamespace(allowExists bool) error {
 		err := namespaces.Create(ranztpparameters.ZtpTestNamespace, ranztphelper.HubAPIClient)
 		if err != nil {
 			return fmt.Errorf(
-				"Failed to create namespace '%s' on node '%s' due to error '%s'", 
-				ranztpparameters.ZtpTestNamespace, 
-				ranztphelper.HubName, 
+				"Failed to create namespace '%s' on node '%s' due to error '%w'",
+				ranztpparameters.ZtpTestNamespace,
+				ranztphelper.HubName,
 				err,
 			)
 		}
@@ -199,7 +199,6 @@ func CreateNamespace(allowExists bool) error {
 
 	// Spoke is the default kubeconfig
 	if os.Getenv(ranztpparameters.SpokeKubeEnvKey) != "" {
-
 		// If the namespace already exists but we weren't expecting it to then return an error
 		if namespaces.Exists(ranztpparameters.ZtpTestNamespace, ranztphelper.SpokeAPIClient) {
 			if !allowExists {
@@ -209,6 +208,7 @@ func CreateNamespace(allowExists bool) error {
 					ranztphelper.SpokeName,
 				)
 			}
+
 			log.Printf("Namespace '%s' already exists on node '%s'\n", ranztpparameters.ZtpTestNamespace, ranztphelper.SpokeName)
 
 			return nil
@@ -220,9 +220,9 @@ func CreateNamespace(allowExists bool) error {
 		err := namespaces.Create(ranztpparameters.ZtpTestNamespace, ranztphelper.SpokeAPIClient)
 		if err != nil {
 			return fmt.Errorf(
-				"Failed to create namespace '%s' on node '%s' due to error '%s'", 
-				ranztpparameters.ZtpTestNamespace, 
-				ranztphelper.SpokeName, 
+				"Failed to create namespace '%s' on node '%s' due to error '%w'",
+				ranztpparameters.ZtpTestNamespace,
+				ranztphelper.SpokeName,
 				err,
 			)
 		}
@@ -242,9 +242,9 @@ func DeleteNamespace(allowNotExists bool) error {
 			err := namespaces.DeleteAndWait(ranztphelper.HubAPIClient, ranztpparameters.ZtpTestNamespace, 5*time.Minute)
 			if err != nil {
 				return fmt.Errorf(
-					"Failed to delete namespace '%s' on node '%s' due to error '%s'", 
-					ranztpparameters.ZtpTestNamespace, 
-					ranztphelper.HubName, 
+					"Failed to delete namespace '%s' on node '%s' due to error '%w'",
+					ranztpparameters.ZtpTestNamespace,
+					ranztphelper.HubName,
 					err,
 				)
 			}
@@ -268,9 +268,9 @@ func DeleteNamespace(allowNotExists bool) error {
 			err := namespaces.DeleteAndWait(ranztphelper.SpokeAPIClient, ranztpparameters.ZtpTestNamespace, 5*time.Minute)
 			if err != nil {
 				return fmt.Errorf(
-					"Failed to delete namespace '%s' on node '%s' due to error '%s'", 
-					ranztpparameters.ZtpTestNamespace, 
-					ranztphelper.SpokeName, 
+					"Failed to delete namespace '%s' on node '%s' due to error '%w",
+					ranztpparameters.ZtpTestNamespace,
+					ranztphelper.SpokeName,
 					err,
 				)
 			}
