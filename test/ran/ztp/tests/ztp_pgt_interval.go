@@ -14,7 +14,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
 )
 
-var _ = Describe("Talm ZTP PGT Interval Tests", func() {
+var _ = Describe("Talm ZTP PGT Interval Tests", Label("ztp-pgt-interval"), func() {
 
 	// These tests use the hub and spoke
 	var clusterList []*testClient.ClientSet
