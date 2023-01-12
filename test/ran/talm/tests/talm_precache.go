@@ -542,7 +542,7 @@ func assertPrecachePodLog(client *testClient.ClientSet, expectationSubString str
 		Expect(err).To(BeNil())
 		Expect(len(podList.Items)).To(BeNumerically("==", 1))
 		p := podList.Items[0]
-		plog, err := pod.GetLog(client, &p, -time.Until(p.CreationTimestamp.Time), PreCacheContainerName)
+		plog, err := pod.GetLog(client, &p, 1*time.Hour, PreCacheContainerName)
 		Expect(err).To(BeNil())
 		log.Println("generated pod logs: \n", plog)
 
