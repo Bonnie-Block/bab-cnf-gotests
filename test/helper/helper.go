@@ -555,10 +555,10 @@ func getUnhealthyPods(namespace string) (map[string]string, error) {
 			// Ignore failed pod with restart policy never. This could happen in image pruner or installer pods that
 			// will never restart. For those pods, instead of restarting the same pod, a new pod will be created
 			// to complete the task.
-			// Temp: Also excludes collector pods under logging namespace. As we don't have a valid logging server
+			// Temp: Also excludes pods under logging namespace. As we don't have a valid logging server
 			// configured, the pod gets stuck in Crashloopback. Remove this after RAN team figures out a workaround.
 			if !((pod.Status.Phase == k8sv1.PodFailed && pod.Spec.RestartPolicy == k8sv1.RestartPolicyNever) ||
-				pod.Namespace == "openshift-logging" && strings.HasPrefix(pod.Name, "collector")) {
+				pod.Namespace == "openshift-logging") {
 				unhealthyPods[pod.Name] = err.Error()
 			}
 		}
