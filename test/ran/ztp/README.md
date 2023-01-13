@@ -2,12 +2,12 @@
 
 ## Test Preconfiguration
 
-Running the ZTP tests requires some additional environment variables to be configured, namely;
-    1. $ZTP_GIT_REPO: The url of the git repo that should be used for the test. By default this is `http://registry.kni-qe-0.lab.eng.rdu2.redhat.com:3000/kni-qe/ztp-site-configs.git`.
-    2. $ZTP_GIT_BRANCH: The name of the git branch that should be used for the test. By default this is `worker-1-4.12`.
-    3. $ZTP_GIT_DIR: The path to the folder that contains the test files for ztp. By default this is `ztp-site-configs/policygentemplates/ztp-test`.
-    4. $KUBECONFIG: The kubeconfig path for the spoke. If this is not defined then the tests will be skipped.
-    5. $KUBECONFIG_HUB: The kubeconfig path for the hub. If this is not defined then the tests will be skipped.
+Running the ZTP tests requires some configuration to be completed ahead of time.
+    1. The following environment variables must be defined:additional environment variables to be configured, namely;
+        A. $KUBECONFIG: The kubeconfig path for the spoke. If this is not defined then the tests will be skipped.
+        B. $KUBECONFIG_HUB: The kubeconfig path for the hub. If this is not defined then the tests will be skipped.
+    2. The ArgoCD policies application must be pre-configured to have the correct git repository, branch, and base folder. The tests will use the base folder and then add the paths to the specific test files
+    for each test under ztp-test/ subfolder.
 
 ## Running the tests
 

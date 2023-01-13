@@ -25,7 +25,6 @@ var (
 	ZtpGitRepo     string
 	ZtpGitBranch   string
 	ZtpGitDir      string
-	ZtpFullGitPath string
 )
 
 // GetZtpContext is used to get the context for the Ztp test client interactions.

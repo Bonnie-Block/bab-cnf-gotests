@@ -22,12 +22,6 @@ import (
 
 var _, currentFile, _, _ = runtime.Caller(0)
 
-var (
-	ArgoGitRepo   string
-	ArgoGitBranch string
-	ArgoGitDir    string
-)
-
 func TestZtp(t *testing.T) {
 	_, reporterConfig := GinkgoConfiguration()
 	reporterConfig.JUnitReport = helper.Config.GetReportPath(currentFile)
@@ -74,41 +68,18 @@ func InitializeZtpGitEnvironment() error {
 	// Get all the details from Argocd
 	repo, branch, dir, err := ranztphelper.GetGitDetailsFromArgocd()
 
+	if err != nil {
+		return err
+	}
+
 	// Save them all to restore them later
-	ArgoGitRepo = repo
-	ArgoGitBranch = branch
-	ArgoGitDir = dir
+	ranztphelper.ZtpGitRepo = repo
+	ranztphelper.ZtpGitBranch = branch
+	ranztphelper.ZtpGitDir = dir
 
 	log.Printf("Existing Argocd test repo '%s'\n", repo)
 	log.Printf("Existing Argocd test branch '%s'\n", branch)
 	log.Printf("Existing Argocd test dir '%s'\n", dir)
-
-	ranztphelper.ZtpGitRepo = os.Getenv(ranztpparameters.ZtpGitRepoEnvKey)
-	if ranztphelper.ZtpGitRepo == "" {
-		if err == nil {
-			ranztphelper.ZtpGitRepo = repo
-		}
-	}
-
-	log.Printf("Configured test repo '%s'\n", ranztphelper.ZtpGitRepo)
-
-	ranztphelper.ZtpGitBranch = os.Getenv(ranztpparameters.ZtpGitBranchEnvKey)
-	if ranztphelper.ZtpGitBranch == "" {
-		if err == nil {
-			ranztphelper.ZtpGitBranch = branch
-		}
-	}
-
-	log.Printf("Configured test branch '%s'\n", ranztphelper.ZtpGitBranch)
-
-	ranztphelper.ZtpGitDir = os.Getenv(ranztpparameters.ZtpGitDirEnvKey)
-	if ranztphelper.ZtpGitDir == "" {
-		if err == nil {
-			ranztphelper.ZtpGitDir = dir
-		}
-	}
-
-	log.Printf("Configured test dir '%s'\n", ranztphelper.ZtpGitDir)
 
 	return nil
 }
@@ -164,9 +135,8 @@ func InitializeClients() error {
 	return nil
 }
 
-// CreateNamespace is used to create the test namespace `ztp-test` on all specified nodes.
+// CreateNamespace is used to create the test namespace `ztp-test` on the hub node.
 func CreateNamespace(allowExists bool) error {
-	// Hub may be optional depending on what tests are running
 	if os.Getenv(ranztpparameters.HubKubeEnvKey) != "" {
 		// If the namespace already exists but we weren't expecting it to then return an error
 		if namespaces.Exists(ranztpparameters.ZtpTestNamespace, ranztphelper.HubAPIClient) {
@@ -197,43 +167,11 @@ func CreateNamespace(allowExists bool) error {
 		}
 	}
 
-	// Spoke is the default kubeconfig
-	if os.Getenv(ranztpparameters.SpokeKubeEnvKey) != "" {
-		// If the namespace already exists but we weren't expecting it to then return an error
-		if namespaces.Exists(ranztpparameters.ZtpTestNamespace, ranztphelper.SpokeAPIClient) {
-			if !allowExists {
-				return fmt.Errorf(
-					"Namespace '%s' exists when it should not on node '%s'",
-					ranztpparameters.ZtpTestNamespace,
-					ranztphelper.SpokeName,
-				)
-			}
-
-			log.Printf("Namespace '%s' already exists on node '%s'\n", ranztpparameters.ZtpTestNamespace, ranztphelper.SpokeName)
-
-			return nil
-		}
-
-		log.Printf("Creating namespace '%s' on node '%s'\n", ranztpparameters.ZtpTestNamespace, ranztphelper.SpokeName)
-
-		// Otherwise create the namespace
-		err := namespaces.Create(ranztpparameters.ZtpTestNamespace, ranztphelper.SpokeAPIClient)
-		if err != nil {
-			return fmt.Errorf(
-				"Failed to create namespace '%s' on node '%s' due to error '%w'",
-				ranztpparameters.ZtpTestNamespace,
-				ranztphelper.SpokeName,
-				err,
-			)
-		}
-	}
-
 	return nil
 }
 
-// DeleteNamespace is used to delete the test namespace `ztp-test` if it exists on all specified nodes.
+// DeleteNamespace is used to delete the test namespace `ztp-test` if it exists on the hub node.
 func DeleteNamespace(allowNotExists bool) error {
-	// Hub may be optional depending on what tests are running
 	if os.Getenv(ranztpparameters.HubKubeEnvKey) != "" {
 		// If the namespace already exists then delete it
 		if namespaces.Exists(ranztpparameters.ZtpTestNamespace, ranztphelper.HubAPIClient) {
@@ -259,31 +197,6 @@ func DeleteNamespace(allowNotExists bool) error {
 		}
 	}
 
-	// Spoke is the default kubeconfig
-	if os.Getenv(ranztpparameters.SpokeKubeEnvKey) != "" {
-		// If the namespace already exists then delete it
-		if namespaces.Exists(ranztpparameters.ZtpTestNamespace, ranztphelper.SpokeAPIClient) {
-			log.Printf("Deleting namespace '%s' on node '%s'\n", ranztpparameters.ZtpTestNamespace, ranztphelper.SpokeName)
-
-			err := namespaces.DeleteAndWait(ranztphelper.SpokeAPIClient, ranztpparameters.ZtpTestNamespace, 5*time.Minute)
-			if err != nil {
-				return fmt.Errorf(
-					"Failed to delete namespace '%s' on node '%s' due to error '%w",
-					ranztpparameters.ZtpTestNamespace,
-					ranztphelper.SpokeName,
-					err,
-				)
-			}
-		} else if !allowNotExists {
-			// If we expected the namespace to exist but it wasn't then return an error
-			return fmt.Errorf(
-				"Namespace '%s' does not exist when it should on node '%s'",
-				ranztpparameters.ZtpTestNamespace,
-				ranztphelper.SpokeName,
-			)
-		}
-	}
-
 	return nil
 }
 
@@ -291,7 +204,7 @@ func DeleteNamespace(allowNotExists bool) error {
 func ResetArgocdGitDetails() error {
 	log.Println("Resetting Argocd app back to initial values")
 
-	err := ranztphelper.SetGitDetailsInArcgocd(ArgoGitRepo, ArgoGitBranch, ArgoGitDir, true)
+	err := ranztphelper.SetGitDetailsInArcgocd(ranztphelper.ZtpGitRepo, ranztphelper.ZtpGitBranch, ranztphelper.ZtpGitDir, false)
 	if err != nil {
 		return err
 	}
