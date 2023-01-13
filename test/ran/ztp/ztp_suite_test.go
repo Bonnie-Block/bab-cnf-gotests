@@ -204,7 +204,12 @@ func DeleteNamespace(allowNotExists bool) error {
 func ResetArgocdGitDetails() error {
 	log.Println("Resetting Argocd app back to initial values")
 
-	err := ranztphelper.SetGitDetailsInArcgocd(ranztphelper.ZtpGitRepo, ranztphelper.ZtpGitBranch, ranztphelper.ZtpGitDir, false)
+	err := ranztphelper.SetGitDetailsInArcgocd(
+		ranztphelper.ZtpGitRepo,
+		ranztphelper.ZtpGitBranch,
+		ranztphelper.ZtpGitDir,
+		false,
+	)
 	if err != nil {
 		return err
 	}
