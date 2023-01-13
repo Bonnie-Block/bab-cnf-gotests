@@ -5,6 +5,8 @@ import (
 	"strings"
 	"time"
 
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
+
 	sriovv1 "github.com/k8snetworkplumbingwg/sriov-network-operator/api/v1"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/cluster"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
@@ -24,7 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var _ = Describe("CNF SRIOV", func() {
+var _ = Describe("CNF SRIOV", Ordered, func() {
 
 	// Don't run these test cases if CNF_GOTESTS_SRIOV_SMOKE is true
 	if !sriovSmokeTestMode {
@@ -128,6 +130,18 @@ var _ = Describe("CNF SRIOV", func() {
 				helper.Apiclient, false)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(netsriovhelper.IsSriovPreConfigured()).To(BeFalse())
+
+			By("Check if cluster is SNO")
+			isSingleNode, err := nodes.IsSingleNodeCluster(helper.Apiclient)
+			Expect(err).ToNot(HaveOccurred())
+
+			var snoTimeoutMultiplier time.Duration = 1
+			if isSingleNode {
+				snoTimeoutMultiplier = 2
+			}
+
+			By("Wait until SR-IOV cluster is stable ")
+			helper.WaitForSRIOVStable(parameters.SriovOperatorNamespace, netsriovparameters.WaitingTime, snoTimeoutMultiplier)
 
 			By("Remove sriov subscription")
 			err = helper.Apiclient.Subscriptions(
