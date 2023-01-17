@@ -111,7 +111,9 @@ func setThresholdValues(ptpConfig *ptpv1.PtpConfig, newClockThresholds *ptpv1.Pt
 
 // ThresholdsMetricsValsValidation validates the correct clock threshold values inside the metrics.
 // arguments:		"thresholdMetrics"-	a single clock threshold metrics string.
-//                  "thresholdVals"-	the expected values.
+//
+//	"thresholdVals"-	the expected values.
+//
 // return value:	an error if the threshold value is not one of the clock threshold parameters.
 func ThresholdsMetricsValsValidation(thresholdMetrics ranptpparameters.MetricDetails,
 	thresholdVals ptpv1.PtpClockThreshold) error {
