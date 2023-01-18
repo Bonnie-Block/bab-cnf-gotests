@@ -28,7 +28,6 @@ import (
 	policiesv1beta1 "open-cluster-management.io/governance-policy-propagator/api/v1beta1"
 	placementrulev1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/yaml"
 )
 
 var (
@@ -319,7 +318,7 @@ func CreateCguAndWait(
 		return errors.New("provided empty cguName")
 	}
 
-	if err := PrintCr(cgu); err != nil {
+	if err := ranhelper.PrintCr(cgu); err != nil {
 		log.Println("error printing cr: ", err)
 	}
 
@@ -446,7 +445,7 @@ func WaitForCguToStartProgressing(cguName string, namespace string, timeout time
 	conditionMessage := "Remediating non-compliant policies"
 	conditionReason := "InProgress"
 
-	if !IsTalmVersionAtLeastSpecified(TalmHubVersion, "4.12", true) {
+	if !ranhelper.IsVersionStringAtLeastVersionSpecified(TalmHubVersion, "4.12", true) {
 		conditionType = ReadyType
 		conditionMessage = "The ClusterGroupUpgrade CR has upgrade policies that are still non compliant"
 		conditionReason = "UpgradeNotCompleted"
@@ -474,7 +473,7 @@ func WaitForCguToFinishSuccessfully(cguName string, namespace string, timeout ti
 	conditionType := SucceededType
 	conditionReason := ConditionReasonCompleted
 
-	if !IsTalmVersionAtLeastSpecified(TalmHubVersion, "4.12", true) {
+	if !ranhelper.IsVersionStringAtLeastVersionSpecified(TalmHubVersion, "4.12", true) {
 		conditionType = ReadyType
 		conditionReason = ConditionReasonUpgradeCompleted
 	}
@@ -501,7 +500,7 @@ func WaitForCguToTimeout(cguName string, namespace string, timeout time.Duration
 	conditionType := SucceededType
 	conditionReason := "TimedOut"
 
-	if !IsTalmVersionAtLeastSpecified(TalmHubVersion, "4.12", true) {
+	if !ranhelper.IsVersionStringAtLeastVersionSpecified(TalmHubVersion, "4.12", true) {
 		conditionType = ReadyType
 		conditionReason = "UpgradeTimedOut"
 	}
@@ -725,7 +724,7 @@ func CreatePolicyAndWait(
 	client *testClient.ClientSet,
 	policy policiesv1.Policy) error {
 	// Create the policy
-	_ = PrintCr(policy)
+	_ = ranhelper.PrintCr(policy)
 
 	err := client.Client.Create(GetTestContext(), &policy)
 	if err != nil {
@@ -1033,7 +1032,7 @@ func CreatePlacementBindingAndWait(
 	client *testClient.ClientSet,
 	placementBinding policiesv1.PlacementBinding) error {
 	// Create the policy
-	_ = PrintCr(placementBinding)
+	_ = ranhelper.PrintCr(placementBinding)
 
 	err := client.Client.Create(GetTestContext(), &placementBinding)
 	if err != nil {
@@ -1196,7 +1195,7 @@ func CreatePlacementRuleAndWait(
 	client *testClient.ClientSet,
 	placementRule placementrulev1.PlacementRule) error {
 	// Create the policy
-	_ = PrintCr(placementRule)
+	_ = ranhelper.PrintCr(placementRule)
 
 	err := client.Client.Create(GetTestContext(), &placementRule)
 	if err != nil {
@@ -1341,7 +1340,7 @@ func CreatePolicySetAndWait(
 	client *testClient.ClientSet,
 	policySet policiesv1beta1.PolicySet) error {
 	// Create the policy
-	_ = PrintCr(policySet)
+	_ = ranhelper.PrintCr(policySet)
 
 	err := client.Client.Create(GetTestContext(), &policySet)
 	if err != nil {
@@ -1947,19 +1946,6 @@ func PatchCgu(client *testClient.ClientSet,
 		Patch(context.Background(), cgu.Name, types.MergePatchType, []byte(payload), options)
 }
 
-// PrintCr print any CR.
-func PrintCr(b interface{}) error {
-	customResource, err := yaml.Marshal(b)
-
-	if err != nil {
-		return err
-	}
-
-	log.Printf("--- generated CR dump:\n%s\n", string(customResource))
-
-	return nil
-}
-
 /*
 	TALM Version helpers
 */
@@ -1988,38 +1974,4 @@ func GetTalmVersionFromCSV(client *testClient.ClientSet) (string, error) {
 	}
 
 	return strings.Split(talmCsv, ".v")[1], nil
-}
-
-// IsTalmVersionAtLeastSpecified can be used to check if the provided version string is at least as high
-// as the expected version string. Whether or not equality is permitted can also be specified.
-func IsTalmVersionAtLeastSpecified(actualVersion string, expectedVersion string, allowEqual bool) bool {
-	// If no actual version was provided then assume it would not match
-	if actualVersion == "" {
-		return false
-	}
-
-	// If no expected version was provided then assume it did match
-	if expectedVersion == "" {
-		return true
-	}
-
-	// Split the strings on the periods separating the version digits
-	actualSplits := strings.Split(actualVersion, ".")
-	expectedSplits := strings.Split(expectedVersion, ".")
-
-	// Compare them digit by digit
-	for splitIndex := 0; splitIndex < len(expectedSplits); splitIndex++ {
-		// Check whether we allow equality as well as greater then
-		if !allowEqual {
-			if actualSplits[splitIndex] <= expectedSplits[splitIndex] {
-				return false
-			}
-		} else {
-			if actualSplits[splitIndex] < expectedSplits[splitIndex] {
-				return false
-			}
-		}
-	}
-
-	return true
 }

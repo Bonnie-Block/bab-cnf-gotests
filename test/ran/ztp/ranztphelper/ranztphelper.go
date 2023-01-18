@@ -3,14 +3,16 @@ package ranztphelper
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"log"
 	"strings"
 	"time"
 
-	argocdv1alpha1 "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
+	argocdappv1alpha "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	"github.com/tidwall/gjson"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ztp/ranztpparameters"
 	testClient "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -25,6 +27,7 @@ var (
 	ZtpGitRepo     string
 	ZtpGitBranch   string
 	ZtpGitDir      string
+	ZtpVersion     string
 )
 
 // GetZtpContext is used to get the context for the Ztp test client interactions.
@@ -40,19 +43,29 @@ func GetAllTestClients() []*testClient.ClientSet {
 	}
 }
 
-// GetArgocdApp is used to fetch the Argocd application that is being used by Ztp.
-func GetArgocdApp() (*argocdv1alpha1.Application, error) {
-	app, err := HubAPIClient.
-		ArgoprojV1alpha1Interface.
-		Applications(ranztpparameters.OpenshiftGitops).
-		Get(GetZtpContext(), ranztpparameters.Policies, metav1.GetOptions{})
+// GetNode is used to get a node object from a test client.
+func GetNode(client *testClient.ClientSet) (corev1.Node, error) {
+	nodeList, err := client.CoreV1Interface.Nodes().List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return corev1.Node{}, nil
+	}
 
-	return app, err
+	return nodeList.Items[0], nil
+}
+
+// GetArgocdApp is used to fetch the Argocd application that is being used by Ztp.
+func GetArgocdApp(appName string, namespace string) (*argocdappv1alpha.Application, error) {
+	argoApp, err := HubAPIClient.
+		ArgoprojV1alpha1Interface.
+		Applications(namespace).
+		Get(GetZtpContext(), appName, metav1.GetOptions{})
+
+	return argoApp, err
 }
 
 // SetGitDetailsInArgocd is used to update the git repo, branch, and path in the Argocd app.
 func SetGitDetailsInArcgocd(gitRepo string, gitBranch string, gitPath string, waitForSync bool) error {
-	app, err := GetArgocdApp()
+	app, err := GetArgocdApp(ranztpparameters.Policies, ranztpparameters.ZtpDeployedNamespace)
 	if err != nil {
 		return err
 	}
@@ -76,7 +89,7 @@ func SetGitDetailsInArcgocd(gitRepo string, gitBranch string, gitPath string, wa
 
 	_, err = HubAPIClient.
 		ArgoprojV1alpha1Interface.
-		Applications(ranztpparameters.OpenshiftGitops).
+		Applications(ranztpparameters.ZtpDeployedNamespace).
 		Update(GetZtpContext(), app, metav1.UpdateOptions{})
 	if err != nil {
 		return err
@@ -94,7 +107,7 @@ func SetGitDetailsInArcgocd(gitRepo string, gitBranch string, gitPath string, wa
 
 // SetGitDetailsInArgocd is used to get the current git repo, branch, and path in the Argocd app.
 func GetGitDetailsFromArgocd() (string, string, string, error) {
-	app, err := GetArgocdApp()
+	app, err := GetArgocdApp(ranztpparameters.Policies, ranztpparameters.ZtpDeployedNamespace)
 	if err != nil {
 		return "", "", "", err
 	}
@@ -102,12 +115,36 @@ func GetGitDetailsFromArgocd() (string, string, string, error) {
 	return app.Spec.Source.RepoURL, app.Spec.Source.TargetRevision, app.Spec.Source.Path, nil
 }
 
+// GetZtpVersionFromArgocd is used to fetch the version of the ztp-site-generator init container.
+func GetZtpVersionFromArgocd(name string, namespace string) (string, error) {
+	deployment, err := HubAPIClient.Deployments(namespace).Get(GetZtpContext(), name, metav1.GetOptions{})
+	if err != nil {
+		return "", err
+	}
+
+	for _, container := range deployment.Spec.Template.Spec.InitContainers {
+		if strings.Contains(container.Image, "ztp-site-generator") {
+			ztpVersion := strings.Split(container.Image, ":")[1]
+
+			if ztpVersion == "latest" {
+				log.Println("Site generator version tag was 'latest' so assuming version as '4.12'")
+
+				return "4.12", nil
+			}
+
+			return ztpVersion, nil
+		}
+	}
+
+	return "", fmt.Errorf("unable to identify ztp version")
+}
+
 // WaitForArgocdChangeToComplete is used to wait until Argocd has updated its configuration.
 func WaitForArgocdChangeToComplete(timeout time.Duration) error {
 	log.Println("Waiting for Argocd change to finish syncing")
 
 	err := wait.PollImmediate(ranztpparameters.ArgocdChangeInterval, timeout, func() (bool, error) {
-		app, err := GetArgocdApp()
+		app, err := GetArgocdApp(ranztpparameters.Policies, ranztpparameters.ZtpDeployedNamespace)
 
 		if err != nil {
 			return false, err

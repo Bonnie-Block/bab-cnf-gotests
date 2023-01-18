@@ -110,6 +110,17 @@ func InitializeClients() error {
 
 	log.Printf("cluster '%s' has OCP version '%s'\n", ranztphelper.HubName, ocpVersion)
 
+	ranztphelper.ZtpVersion, err = ranztphelper.GetZtpVersionFromArgocd(
+		ranztpparameters.ZtpDeploymentName,
+		ranztpparameters.ZtpDeployedNamespace,
+	)
+
+	if err != nil {
+		return err
+	}
+
+	log.Printf("cluster '%s' has ZTP version '%s'\n", ranztphelper.HubName, ranztphelper.ZtpVersion)
+
 	// Spoke is the default kubeconfig
 	if os.Getenv(ranztpparameters.SpokeKubeEnvKey) == "" {
 		return fmt.Errorf("required environment key %s was not defined", ranztpparameters.SpokeKubeEnvKey)

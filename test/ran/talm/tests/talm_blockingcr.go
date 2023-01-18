@@ -9,6 +9,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime"
 
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/talm/rantalmparameters"
 	configurationPolicyv1 "open-cluster-management.io/config-policy-controller/api/v1"
 
@@ -84,7 +85,7 @@ var _ = Describe("Talm Blocking CRs Tests", Label("talmblockingcr"), func() {
 				"[%s]", fmt.Sprintf("%s-%s", rantalmparameters.CguCommonName, blockingAPass))
 
 			// TALM 4.11 and below had a different error message
-			if !rantalmhelper.IsTalmVersionAtLeastSpecified(rantalmhelper.TalmHubVersion, "4.12", true) {
+			if !ranhelper.IsVersionStringAtLeastVersionSpecified(rantalmhelper.TalmHubVersion, "4.12", true) {
 				blockErrMsg = fmt.Sprintf("The ClusterGroupUpgrade "+
 					"CR is blocked by other CRs that have not yet completed: "+
 					"[%s]", fmt.Sprintf("%s-%s", rantalmparameters.CguCommonName, blockingAPass))
@@ -95,7 +96,7 @@ var _ = Describe("Talm Blocking CRs Tests", Label("talmblockingcr"), func() {
 
 			// Validating the conditions depends on the TALM version
 			completedType := rantalmhelper.SucceededType
-			if !rantalmhelper.IsTalmVersionAtLeastSpecified(rantalmhelper.TalmHubVersion, "4.12", true) {
+			if !ranhelper.IsVersionStringAtLeastVersionSpecified(rantalmhelper.TalmHubVersion, "4.12", true) {
 				completedType = rantalmhelper.ReadyType
 			}
 
@@ -176,7 +177,7 @@ var _ = Describe("Talm Blocking CRs Tests", Label("talmblockingcr"), func() {
 				fmt.Sprintf("%s-%s", rantalmparameters.CguCommonName, blockingAFail))
 
 			// TALM 4.11 and below had a different error message
-			if !rantalmhelper.IsTalmVersionAtLeastSpecified(rantalmhelper.TalmHubVersion, "4.12", true) {
+			if !ranhelper.IsVersionStringAtLeastVersionSpecified(rantalmhelper.TalmHubVersion, "4.12", true) {
 				blockErrMsg = fmt.Sprintf("The ClusterGroupUpgrade "+
 					"CR is blocked by other CRs that have not yet "+
 					"completed: [%s]", fmt.Sprintf("%s-%s", rantalmparameters.CguCommonName, blockingAFail))
@@ -189,7 +190,7 @@ var _ = Describe("Talm Blocking CRs Tests", Label("talmblockingcr"), func() {
 			// Validating the conditions depends on the TALM version
 			completedType := rantalmhelper.SucceededType
 			completedMessage := rantalmhelper.Talm412TimeoutMessage
-			if !rantalmhelper.IsTalmVersionAtLeastSpecified(rantalmhelper.TalmHubVersion, "4.12", true) {
+			if !ranhelper.IsVersionStringAtLeastVersionSpecified(rantalmhelper.TalmHubVersion, "4.12", true) {
 				completedType = rantalmhelper.ReadyType
 				completedMessage = rantalmhelper.Talm411TimeoutMessage
 			}
@@ -256,7 +257,7 @@ var _ = Describe("Talm Blocking CRs Tests", Label("talmblockingcr"), func() {
 				fmt.Sprintf("%s-%s", rantalmparameters.CguCommonName, blockingAMissing))
 
 			// TALM 4.11 and below had a different error message
-			if !rantalmhelper.IsTalmVersionAtLeastSpecified(rantalmhelper.TalmHubVersion, "4.12", true) {
+			if !ranhelper.IsVersionStringAtLeastVersionSpecified(rantalmhelper.TalmHubVersion, "4.12", true) {
 				blockErrMsg = fmt.Sprintf("The ClusterGroupUpgrade CR has blocking CRs that are missing: [%s]",
 					fmt.Sprintf("%s-%s", rantalmparameters.CguCommonName, blockingAMissing))
 			}
@@ -277,7 +278,7 @@ var _ = Describe("Talm Blocking CRs Tests", Label("talmblockingcr"), func() {
 
 			// Validating the conditions depends on the TALM version
 			completedType := rantalmhelper.SucceededType
-			if !rantalmhelper.IsTalmVersionAtLeastSpecified(rantalmhelper.TalmHubVersion, "4.12", true) {
+			if !ranhelper.IsVersionStringAtLeastVersionSpecified(rantalmhelper.TalmHubVersion, "4.12", true) {
 				completedType = rantalmhelper.ReadyType
 			}
 
@@ -347,7 +348,7 @@ func applyBlockingCrs(cgu v1alpha1.ClusterGroupUpgrade, object runtime.Object, c
 func verifyCguBlocked(cgu v1alpha1.ClusterGroupUpgrade, blockedByMsg string) error {
 	// Validating the conditions depends on the TALM version
 	expectedType := rantalmhelper.ProgressingType
-	if !rantalmhelper.IsTalmVersionAtLeastSpecified(rantalmhelper.TalmHubVersion, "4.12", true) {
+	if !ranhelper.IsVersionStringAtLeastVersionSpecified(rantalmhelper.TalmHubVersion, "4.12", true) {
 		expectedType = rantalmhelper.ReadyType
 	}
 

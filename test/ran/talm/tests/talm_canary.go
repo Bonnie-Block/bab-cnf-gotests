@@ -172,7 +172,7 @@ var _ = Describe("Talm Canary Tests", Label("talmcanary"), func() {
 				conditionType := rantalmhelper.SucceededType
 				conditionMessage := "Policy remediation took too long on canary clusters"
 
-				if !rantalmhelper.IsTalmVersionAtLeastSpecified(rantalmhelper.TalmHubVersion, "4.12", true) {
+				if !ranhelper.IsVersionStringAtLeastVersionSpecified(rantalmhelper.TalmHubVersion, "4.12", true) {
 					conditionType = rantalmhelper.ReadyType
 					conditionMessage = rantalmhelper.Talm411TimeoutMessage
 				}

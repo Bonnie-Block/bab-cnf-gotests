@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	testclient "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
+	"gopkg.in/yaml.v2"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/clientcmd"
@@ -131,6 +132,54 @@ func IsClustersPresent(clients []*testclient.ClientSet) error {
 			return errors.New("provided nil client in cluster list")
 		}
 	}
+
+	return nil
+}
+
+// IsVersionStringAtLeastVersionSpecified can be used to check if the provided version string is at least as high
+// as the expected version string. Whether or not equality is permitted can also be specified.
+// The input versions should be of the form of dot separated integers, e.g. "1.0.0".
+func IsVersionStringAtLeastVersionSpecified(actualVersion string, expectedVersion string, allowEqual bool) bool {
+	// If no actual version was provided then assume it would not match
+	if actualVersion == "" {
+		return false
+	}
+
+	// If no expected version was provided then assume it did match
+	if expectedVersion == "" {
+		return true
+	}
+
+	// Split the strings on the periods separating the version digits
+	actualSplits := strings.Split(actualVersion, ".")
+	expectedSplits := strings.Split(expectedVersion, ".")
+
+	// Compare them digit by digit
+	for splitIndex := 0; splitIndex < len(expectedSplits); splitIndex++ {
+		// Check whether we allow equality as well as greater then
+		if !allowEqual {
+			if actualSplits[splitIndex] <= expectedSplits[splitIndex] {
+				return false
+			}
+		} else {
+			if actualSplits[splitIndex] < expectedSplits[splitIndex] {
+				return false
+			}
+		}
+	}
+
+	return true
+}
+
+// PrintCr print any CR.
+func PrintCr(b interface{}) error {
+	customResource, err := yaml.Marshal(b)
+
+	if err != nil {
+		return err
+	}
+
+	log.Printf("--- generated CR dump:\n%s\n", string(customResource))
 
 	return nil
 }

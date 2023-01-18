@@ -11,15 +11,14 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ztp/ranztphelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ztp/ranztpparameters"
 	testClient "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
 )
 
-var _ = Describe("ZTP PGT Tests", Label("ztp-pgt"), func() {
+var _ = Describe("ZTP PGT Tests", Ordered, Label("ztp-pgt"), func() {
 
 	// These tests use the hub and spoke
 	var clusterList []*testClient.ClientSet
 
-	execute.BeforeAll(func() {
+	BeforeAll(func() {
 		// Initialize cluster list
 		clusterList = ranztphelper.GetAllTestClients()
 	})
@@ -30,6 +29,20 @@ var _ = Describe("ZTP PGT Tests", Label("ztp-pgt"), func() {
 		if err != nil {
 			Skip(fmt.Sprintf("error occurred validating required clusters are present: %s", err.Error()))
 		}
+		// Check for minimum ztp version
+		By("Checking the ZTP version", func() {
+			if !ranhelper.IsVersionStringAtLeastVersionSpecified(
+				ranztphelper.ZtpVersion,
+				ranztpparameters.MinimumZtpVersion,
+				true,
+			) {
+				Skip(fmt.Sprintf(
+					"unable to run test on ocp version '%s' as it is less than minimum '%s",
+					ranztphelper.ZtpVersion,
+					ranztpparameters.MinimumZtpVersion,
+				))
+			}
+		})
 	})
 
 	Context("override the PGT policy's compliance and non-compliance intervals", Label("ztp-pgt-interval"), func() {
@@ -106,7 +119,7 @@ var _ = Describe("ZTP PGT Tests", Label("ztp-pgt"), func() {
 				err := ranztphelper.WaitForConditionInArgocdApp(
 					ranztphelper.HubAPIClient,
 					ranztpparameters.Policies,
-					ranztpparameters.OpenshiftGitops,
+					ranztpparameters.ZtpDeployedNamespace,
 					expectedMessage, 5*time.Minute,
 				)
 				Expect(err).ToNot(HaveOccurred())

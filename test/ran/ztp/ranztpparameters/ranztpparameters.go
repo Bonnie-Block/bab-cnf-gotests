@@ -21,8 +21,10 @@ const (
 	ZtpTestNamespace     string        = "ztp-test"
 	HubKubeEnvKey        string        = "KUBECONFIG_HUB"
 	SpokeKubeEnvKey      string        = "KUBECONFIG"
-	OpenshiftGitops      string        = "openshift-gitops"
+	ZtpDeployedNamespace string        = "openshift-gitops"
+	ZtpDeploymentName    string        = "openshift-gitops-repo-server"
 	Policies             string        = "policies"
+	MinimumZtpVersion    string        = "4.12"
 	ArgocdChangeTimeout  time.Duration = 10 * time.Minute
 	ArgocdChangeInterval time.Duration = 10 * time.Second
 )
