@@ -14,49 +14,44 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/cpu/rancpuhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/reboot/ranrebootparameters"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 )
 
-var _ = Describe("SNO Reboot", func() {
+var _ = Describe("SNO Reboot", Ordered, func() {
 	var (
 		node         *corev1.Node
-		isSNO        bool
 		perfProfile  *performancev2.PerformanceProfile
 		workloadPods []*corev1.Pod
 	)
 
-	execute.BeforeAll(func() {
-		isSNO, _ = nodes.IsSingleNodeCluster(helper.Apiclient)
-		perfProfile, _ = rancpuhelper.GetPerformanceProfileWithCPUSet()
-		// Get node for testing
-		workers, err := nodes.GetByRole(helper.Apiclient, parameters.RoleWorker)
+	BeforeAll(func() {
+		snoNodes, err := ranhelper.GetSnoNodes()
 		Expect(err).ToNot(HaveOccurred())
-		node = &workers[0]
-		workloadPods = ranhelper.DeployWorkloadPods(perfProfile, node)
+		if len(snoNodes) == 0 {
+			Skip("Test is only applicable to SNO")
+		}
 
+		perfProfile, _ = rancpuhelper.GetPerformanceProfileWithCPUSet()
+		if perfProfile == nil {
+			Skip("No performance profile with reserved and isolated cpu set configuration found on cluster")
+		}
+
+		node = snoNodes[0]
 		// Print out kernel version with best effort
 		output, err := helper.ExecCommandOnNode(node, []string{"uname", "-r"})
 		if err == nil {
 			log.Println("Kernel version: " + output)
 		}
+
+		workloadPods = ranhelper.DeployWorkloadPods(perfProfile, node)
+		Expect(workloadPods).NotTo(Equal(nil))
 	})
 
 	BeforeEach(func() {
-		if !isSNO {
-			Skip("Test is only applicable to Single Node cluster")
-		}
-		if perfProfile == nil {
-			Skip("No performance profile with reserved and isolated cpu set configuration found on cluster")
-		}
-		Expect(node).ToNot(Equal(nil))
-		Expect(workloadPods).NotTo(Equal(nil))
-
-		// Skip test suite if not all pods are healthy before reboot.
+		// Skip test if not all pods are healthy before reboot.
 		unhealthyPods := helper.WaitForAllPodsHealthy(nil, 3*time.Minute, 5*time.Second, 0)
 		if len(unhealthyPods) > 0 {
 			Skip(fmt.Sprintln("Some pods are unhealthy before reboot: ", unhealthyPods))

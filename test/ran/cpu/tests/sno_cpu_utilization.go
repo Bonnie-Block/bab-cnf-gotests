@@ -18,7 +18,6 @@ import (
 	"k8s.io/kubernetes/pkg/kubelet/cm/cpuset"
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/cpu/rancpuhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/cpu/rancpuparameters"
@@ -49,9 +48,8 @@ var _ = Describe("SNO core reduction", func() {
 		isSNO, _ = nodes.IsSingleNodeCluster(helper.Apiclient)
 		perfProfile, _ = rancpuhelper.GetPerformanceProfileWithCPUSet()
 		// Get node for testing
-		workers, err := nodes.GetByRole(helper.Apiclient, parameters.RoleWorker)
+		node, err := ranhelper.GetWorker(true)
 		Expect(err).ToNot(HaveOccurred())
-		node = &workers[0]
 
 		// Print out kernel version with best effort
 		output, err := helper.ExecCommandOnNode(node, []string{"uname", "-r"})

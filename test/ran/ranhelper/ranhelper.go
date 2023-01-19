@@ -3,26 +3,25 @@ package ranhelper
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"strings"
-
-	testclient "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
-	"gopkg.in/yaml.v2"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/clientcmd"
-
-	"k8s.io/apimachinery/pkg/util/wait"
-
-	"log"
 	"time"
 
 	"github.com/k8snetworkplumbingwg/sriov-network-operator/pkg/render"
 	"github.com/pkg/errors"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
+	"gopkg.in/yaml.v2"
 	k8sv1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/tools/clientcmd"
+
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
+	testclient "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 )
 
 const (
@@ -331,4 +330,68 @@ func ExecSSHCommand(host string, user string, subcommands []string) (string, err
 	output, err := helper.ExecAndLogCommand(true, 1*time.Minute, "ssh", args...)
 
 	return string(output), err
+}
+
+// GetWorker returns worker node.
+// If preferMaster=true, it will try to find a node with both worker and master roles with best effort.
+// If preferMaster=false, it will try to find a node without master role with best effort.
+func GetWorker(preferSno bool) (*k8sv1.Node, error) {
+	workers, err := nodes.GetByRole(helper.Apiclient, parameters.RoleWorker)
+	if err != nil {
+		return nil, err
+	}
+
+	node := &workers[0]
+
+	if len(workers) > 1 {
+		masters, err := nodes.GetByRole(helper.Apiclient, parameters.RoleMaster)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, worker := range workers {
+			isSno := false
+
+			for _, master := range masters {
+				if worker.Name == master.Name {
+					isSno = true
+
+					break
+				}
+			}
+
+			if isSno == preferSno {
+				node = &worker
+
+				break
+			}
+		}
+	}
+
+	return node, nil
+}
+
+// GetSnoNodes returns sno nodes with both master and worker roles in cluster.
+func GetSnoNodes() ([]*k8sv1.Node, error) {
+	masters, err := nodes.GetByRole(helper.Apiclient, parameters.RoleMaster)
+	if err != nil {
+		return nil, err
+	}
+
+	workers, err := nodes.GetByRole(helper.Apiclient, parameters.RoleMaster)
+	if err != nil {
+		return nil, err
+	}
+
+	var snoNodes []*k8sv1.Node
+
+	for _, master := range masters {
+		for _, worker := range workers {
+			if worker.Name == master.Name {
+				snoNodes = append(snoNodes, &worker)
+			}
+		}
+	}
+
+	return snoNodes, nil
 }
