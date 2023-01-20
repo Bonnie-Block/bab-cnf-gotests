@@ -123,16 +123,20 @@ func GetZtpVersionFromArgocd(name string, namespace string) (string, error) {
 	}
 
 	for _, container := range deployment.Spec.Template.Spec.InitContainers {
-		if strings.Contains(container.Image, "ztp-site-generator") {
+		// Legacy 4.11 uses the image name as `ztp-site-generator`
+		// While 4.12+ uses the image name as `ztp-site-generate`
+		// So just check for `ztp-site-gen` to cover both
+		if strings.Contains(container.Image, "ztp-site-gen") {
 			ztpVersion := strings.Split(container.Image, ":")[1]
 
 			if ztpVersion == "latest" {
-				log.Println("Site generator version tag was 'latest' so assuming version as '4.12'")
+				log.Printf("Site generator version tag was 'latest' so assuming version as '%s'\n", ranztpparameters.MinimumZtpVersion)
 
-				return "4.12", nil
+				return ranztpparameters.MinimumZtpVersion, nil
 			}
 
-			return ztpVersion, nil
+			// The format here will be like vX.Y.Z so we need to remove the v at the start
+			return ztpVersion[1:], nil
 		}
 	}
 
