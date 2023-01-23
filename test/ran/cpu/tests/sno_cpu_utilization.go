@@ -48,7 +48,8 @@ var _ = Describe("SNO core reduction", func() {
 		isSNO, _ = nodes.IsSingleNodeCluster(helper.Apiclient)
 		perfProfile, _ = rancpuhelper.GetPerformanceProfileWithCPUSet()
 		// Get node for testing
-		node, err := ranhelper.GetWorker(true)
+		var err error
+		node, err = ranhelper.GetWorker(true)
 		Expect(err).ToNot(HaveOccurred())
 
 		// Print out kernel version with best effort
@@ -65,7 +66,7 @@ var _ = Describe("SNO core reduction", func() {
 		if perfProfile == nil {
 			Skip("No performance profile with reserved and isolated cpu set configuration found on cluster")
 		}
-		Expect(node).ToNot(Equal(nil))
+		Expect(node).ToNot(BeNil())
 		mgmtCPUSet = cpuset.MustParse(string(*perfProfile.Spec.CPU.Reserved))
 		mgmtCPULimit = mgmtCPUSet.Size()
 	})
