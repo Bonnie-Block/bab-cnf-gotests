@@ -572,8 +572,9 @@ func GetPolicyDefinition(
 			APIVersion: policiesv1.SchemeGroupVersion.Version,
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      policyName,
-			Namespace: namespace,
+			Name:        policyName,
+			Namespace:   namespace,
+			Annotations: map[string]string{"talm-test": "true"},
 		},
 		Spec: policiesv1.PolicySpec{
 			Disabled: false,
@@ -1961,17 +1962,11 @@ func GetTalmVersionFromCSV(client *testClient.ClientSet) (string, error) {
 		return "", err
 	}
 
-	var talmCsv string
-
 	for _, csv := range csvs.Items {
 		if strings.Contains(csv.Name, rantalmparameters.OperatorHubTalmNamespace) {
-			talmCsv = csv.Name
+			return csv.Spec.Version.String(), nil
 		}
 	}
 
-	if talmCsv == "" {
-		return "", errors.New("unable to find TALM version")
-	}
-
-	return strings.Split(talmCsv, ".v")[1], nil
+	return "", errors.New("unable to find TALM version")
 }

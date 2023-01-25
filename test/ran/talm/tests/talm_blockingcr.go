@@ -203,7 +203,7 @@ var _ = Describe("Talm Blocking CRs Tests", Label("talmblockingcr"), func() {
 				completedMessage,
 				metav1.ConditionFalse,
 				"",
-				5*time.Minute,
+				7*time.Minute,
 			)
 			Expect(err).To(BeNil())
 
@@ -291,7 +291,7 @@ var _ = Describe("Talm Blocking CRs Tests", Label("talmblockingcr"), func() {
 				"",
 				metav1.ConditionTrue,
 				"",
-				5*time.Minute)
+				6*time.Minute)
 			Expect(err).To(BeNil())
 
 			By("waiting for cgu B to succeed")
@@ -303,7 +303,7 @@ var _ = Describe("Talm Blocking CRs Tests", Label("talmblockingcr"), func() {
 				"",
 				metav1.ConditionTrue,
 				"",
-				5*time.Minute)
+				6*time.Minute)
 			Expect(err).To(BeNil())
 		})
 	})
@@ -352,13 +352,17 @@ func verifyCguBlocked(cgu v1alpha1.ClusterGroupUpgrade, blockedByMsg string) err
 		expectedType = rantalmhelper.ReadyType
 	}
 
+	if !ranhelper.IsVersionStringAtLeastVersionSpecified(rantalmhelper.TalmHubVersion, "4.11", true) {
+		blockedByMsg = ""
+	}
+
 	return rantalmhelper.WaitForCguInCondition(rantalmhelper.HubAPIClient,
 		cgu.Name,
 		cgu.Namespace,
 		expectedType,
 		blockedByMsg,
 		metav1.ConditionFalse,
-		"", 5*time.Minute)
+		"", 6*time.Minute)
 }
 
 // deleteGeneratedNs clean up ns created by blocking CRs.

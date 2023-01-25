@@ -13,7 +13,6 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/talm/rantalmhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/talm/rantalmparameters"
 	testClient "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	configurationPolicyv1 "open-cluster-management.io/config-policy-controller/api/v1"
 )
@@ -32,9 +31,18 @@ var (
 
 var _ = Describe("Talm Backup Tests with single spoke", func() {
 
+	BeforeEach(func() {
+		if !ranhelper.IsVersionStringAtLeastVersionSpecified(rantalmhelper.TalmHubVersion, "4.11", true) {
+			Skip("backup tests require talm 4.11 or higher")
+		}
+	})
+
 	// ocp-50835
 	Context("with full disk for spoke1", func() {
 		curName := "disk-full-single-spoke"
+		cguName := fmt.Sprintf("%s-%s", rantalmparameters.CguCommonName, curName)
+		policyName := fmt.Sprintf("%s-%s", rantalmparameters.PolicyNameCommonName, curName)
+
 		BeforeEach(func() {
 			By("setting up filesystem to simulate low space")
 			nodeName = getNodeName(rantalmhelper.Spoke1APIClient)
@@ -55,11 +63,11 @@ var _ = Describe("Talm Backup Tests with single spoke", func() {
 			By("applying all the required CRs for backup")
 			// prep cgu
 			cgu := rantalmhelper.GetCguDefinition(
-				fmt.Sprintf("%s-%s", rantalmparameters.CguCommonName, curName),
+				cguName,
 				[]string{rantalmhelper.Spoke1Name},
 				[]string{},
-				[]string{fmt.Sprintf("%s-%s", rantalmparameters.PolicyNameCommonName, curName)},
-				rantalmparameters.TalmTestNamespace, 1, 250)
+				[]string{policyName},
+				rantalmparameters.TalmTestNamespace, 1, 240)
 			cgu.Spec.Backup = true
 
 			// apply
@@ -68,7 +76,7 @@ var _ = Describe("Talm Backup Tests with single spoke", func() {
 				rantalmhelper.GetNamespaceDefinition(rantalmhelper.TemporaryNamespaceName),
 				configurationPolicyv1.MustHave,
 				configurationPolicyv1.Inform,
-				fmt.Sprintf("%s-%s", rantalmparameters.PolicyNameCommonName, curName),
+				policyName,
 				fmt.Sprintf("%s-%s", rantalmparameters.PolicySetNameCommonName, curName),
 				fmt.Sprintf("%s-%s", rantalmparameters.PlacementBindingCommonName, curName),
 				fmt.Sprintf("%s-%s", rantalmparameters.PlacementRuleCommonName, curName),
@@ -85,15 +93,17 @@ var _ = Describe("Talm Backup Tests with single spoke", func() {
 
 	Context("backup is enabled in CGU. ", func() {
 		curName := "backupsequence"
-		// created cguEnabled boolean
+		cguName := fmt.Sprintf("%s-%s", rantalmparameters.CguCommonName, curName)
+		policyName := fmt.Sprintf("%s-%s", rantalmhelper.PolicyName, curName)
 		cguEnabled := false
+
 		AfterEach(func() {
 			// Delete generated CRs on Hub Cluster.
 			hubErrList := rantalmhelper.CleanupTestResourcesOnClient(
 				rantalmhelper.HubAPIClient,
-				fmt.Sprintf("%s-%s", rantalmparameters.CguCommonName, curName),
-				fmt.Sprintf("%s-%s", rantalmhelper.PolicyName, curName),
-				rantalmhelper.Namespace,
+				cguName,
+				policyName,
+				rantalmparameters.TalmTestNamespace,
 				fmt.Sprintf("%s-%s", rantalmparameters.PlacementBindingCommonName, curName),
 				fmt.Sprintf("%s-%s", rantalmparameters.PlacementRuleCommonName, curName),
 				fmt.Sprintf("%s-%s", rantalmhelper.PolicySetName, curName),
@@ -110,17 +120,13 @@ var _ = Describe("Talm Backup Tests with single spoke", func() {
 		})
 		// ocp-54294, ocp-54295
 		It("verifies backup begins and succeeds after CGU is enabled", func() {
-			// Create namespace
-			err := namespaces.Create(rantalmhelper.Namespace, rantalmhelper.HubAPIClient)
-			Expect(err).ToNot(HaveOccurred())
-
 			By("creating a disabled cgu with backup enabled")
 			// prep cgu
 			cgu := rantalmhelper.GetCguDefinition(
-				fmt.Sprintf("%s-%s", rantalmparameters.CguCommonName, curName),
+				cguName,
 				[]string{rantalmhelper.Spoke1Name},
 				[]string{},
-				[]string{fmt.Sprintf("%s-%s", rantalmparameters.PolicyNameCommonName, curName)},
+				[]string{policyName},
 				rantalmparameters.TalmTestNamespace, 1, 30)
 
 			cgu.Spec.Backup = true
@@ -128,12 +134,12 @@ var _ = Describe("Talm Backup Tests with single spoke", func() {
 			cgu.Spec.Enable = &cguEnabled
 
 			// apply cgu
-			err = rantalmhelper.CreatePolicyAndCgu(
+			err := rantalmhelper.CreatePolicyAndCgu(
 				rantalmhelper.HubAPIClient,
 				rantalmhelper.GetNamespaceDefinition(rantalmhelper.TemporaryNamespaceName),
 				configurationPolicyv1.MustHave,
 				configurationPolicyv1.Inform,
-				fmt.Sprintf("%s-%s", rantalmparameters.PolicyNameCommonName, curName),
+				policyName,
 				fmt.Sprintf("%s-%s", rantalmparameters.PolicySetNameCommonName, curName),
 				fmt.Sprintf("%s-%s", rantalmparameters.PlacementBindingCommonName, curName),
 				fmt.Sprintf("%s-%s", rantalmparameters.PlacementRuleCommonName, curName),
@@ -176,8 +182,13 @@ var _ = Describe("Talm Backup Tests with single spoke", func() {
 
 var _ = Describe("Talm Backup Tests with two spokes", Ordered, func() {
 	curName := "disk-full-multiple-spokes"
+	cguName := fmt.Sprintf("%s-%s", rantalmparameters.CguCommonName, curName)
+	policyName := fmt.Sprintf("%s-%s", rantalmparameters.PolicyNameCommonName, curName)
 
 	BeforeAll(func() {
+		if !ranhelper.IsVersionStringAtLeastVersionSpecified(rantalmhelper.TalmHubVersion, "4.11", true) {
+			Skip("backup tests require talm 4.11 or higher")
+		}
 		// tests below requires all clusters to be present. hub + spoke1 + spoke2
 		clusterList := rantalmhelper.GetAllTestClients()
 		// Check that the required clusters are present
@@ -206,11 +217,11 @@ var _ = Describe("Talm Backup Tests with two spokes", Ordered, func() {
 		By("applying all the required CRs for backup")
 		// prep cgu
 		cgu := rantalmhelper.GetCguDefinition(
-			fmt.Sprintf("%s-%s", rantalmparameters.CguCommonName, curName),
+			cguName,
 			[]string{rantalmhelper.Spoke1Name, rantalmhelper.Spoke2Name},
 			[]string{},
-			[]string{fmt.Sprintf("%s-%s", rantalmparameters.PolicyNameCommonName, curName)},
-			rantalmparameters.TalmTestNamespace, 100, 250)
+			[]string{policyName},
+			rantalmparameters.TalmTestNamespace, 100, 240)
 		cgu.Spec.Backup = true
 
 		// apply
@@ -219,7 +230,7 @@ var _ = Describe("Talm Backup Tests with two spokes", Ordered, func() {
 			rantalmhelper.GetNamespaceDefinition(rantalmhelper.TemporaryNamespaceName),
 			configurationPolicyv1.MustHave,
 			configurationPolicyv1.Inform,
-			fmt.Sprintf("%s-%s", rantalmparameters.PolicyNameCommonName, curName),
+			policyName,
 			fmt.Sprintf("%s-%s", rantalmparameters.PolicySetNameCommonName, curName),
 			fmt.Sprintf("%s-%s", rantalmparameters.PlacementBindingCommonName, curName),
 			fmt.Sprintf("%s-%s", rantalmparameters.PlacementRuleCommonName, curName),

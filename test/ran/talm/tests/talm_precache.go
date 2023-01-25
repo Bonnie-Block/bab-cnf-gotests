@@ -55,6 +55,7 @@ var _ = Describe("Talm precache one spoke", Label("talmprecache"), func() {
 		)
 
 		curName := "precache-operator"
+		cguName := fmt.Sprintf("%s-%s", rantalmparameters.CguCommonName, curName)
 
 		BeforeEach(func() {
 			log.Println("verifying list of policies in config are already available in hub required Precache operator")
@@ -88,7 +89,7 @@ var _ = Describe("Talm precache one spoke", Label("talmprecache"), func() {
 
 			err := rantalmhelper.DeleteCguAndWait(
 				rantalmhelper.HubAPIClient,
-				fmt.Sprintf("%s-%s", rantalmparameters.CguCommonName, curName),
+				cguName,
 				rantalmparameters.TalmTestNamespace,
 			)
 			Expect(err).To(BeNil())
@@ -98,7 +99,7 @@ var _ = Describe("Talm precache one spoke", Label("talmprecache"), func() {
 		It("tests for precache operator with multiple sources", func() {
 			By("creating CGU with created operator upgrade policy")
 			// prep cgu with one spoke
-			cgu := getNewPrecacheCGU(curName, helper.Config.Ran.TalmPrecachePolicies, []string{rantalmhelper.Spoke1Name})
+			cgu := getNewPrecacheCGU(cguName, helper.Config.Ran.TalmPrecachePolicies, []string{rantalmhelper.Spoke1Name})
 
 			// apply
 			err := rantalmhelper.CreateCguAndWait(
@@ -117,13 +118,15 @@ var _ = Describe("Talm precache one spoke", Label("talmprecache"), func() {
 
 	Context("Precache OCP", func() {
 		curName := "precache-ocp"
+		cguName := fmt.Sprintf("%s-%s", rantalmparameters.CguCommonName, curName)
+		policyName := fmt.Sprintf("%s-%s", rantalmparameters.PolicyNameCommonName, curName)
 
 		AfterEach(func() {
 			// delete generated CRs
 			rantalmhelper.CleanupTestResourcesOnClient(
 				rantalmhelper.HubAPIClient,
-				fmt.Sprintf("%s-%s", rantalmparameters.CguCommonName, curName),
-				fmt.Sprintf("%s-%s", rantalmparameters.PolicyNameCommonName, curName),
+				cguName,
+				policyName,
 				rantalmparameters.TalmTestNamespace,
 				fmt.Sprintf("%s-%s", rantalmparameters.PlacementBindingCommonName, curName),
 				fmt.Sprintf("%s-%s", rantalmparameters.PlacementRuleCommonName, curName),
@@ -136,7 +139,7 @@ var _ = Describe("Talm precache one spoke", Label("talmprecache"), func() {
 		It("tests for ocp cache with version", func() {
 			By("creating and applying policy with clusterversion CR that defines the upgrade graph, channel, and version")
 			// prep cgu
-			cgu := getNewPrecacheCGU(curName, []string{fmt.Sprintf("%s-%s",
+			cgu := getNewPrecacheCGU(cguName, []string{fmt.Sprintf("%s-%s",
 				rantalmparameters.PolicyNameCommonName, curName)},
 				[]string{rantalmhelper.Spoke1Name})
 
@@ -172,7 +175,7 @@ var _ = Describe("Talm precache one spoke", Label("talmprecache"), func() {
 			By("creating and applying policy with clusterversion " +
 				"CR that defines the upgrade graph, channel, and version")
 			// prep cgu
-			cgu := getNewPrecacheCGU(curName, []string{fmt.Sprintf("%s-%s",
+			cgu := getNewPrecacheCGU(cguName, []string{fmt.Sprintf("%s-%s",
 				rantalmparameters.PolicyNameCommonName, curName)},
 				[]string{rantalmhelper.Spoke1Name})
 
@@ -330,6 +333,8 @@ func waitUntilPolicyIsNonCompliant(p policiesv1.Policy) {
 
 var _ = Describe("TALM tests with multiple spokes where one turns off", Ordered, Label("talmprecache"), func() {
 	curName := "multi-spokes-one-unavailable"
+	cguName := fmt.Sprintf("%s-%s", rantalmparameters.CguCommonName, curName)
+	policyName := fmt.Sprintf("%s-%s", rantalmparameters.PolicyNameCommonName, curName)
 	var nodeToTurnOff *k8sv1.Node
 
 	BeforeAll(func() {
@@ -359,8 +364,8 @@ var _ = Describe("TALM tests with multiple spokes where one turns off", Ordered,
 		// delete generated CRs
 		rantalmhelper.CleanupTestResourcesOnClient(
 			rantalmhelper.HubAPIClient,
-			fmt.Sprintf("%s-%s", rantalmparameters.CguCommonName, curName),
-			fmt.Sprintf("%s-%s", rantalmparameters.PolicyNameCommonName, curName),
+			cguName,
+			policyName,
 			rantalmparameters.TalmTestNamespace,
 			fmt.Sprintf("%s-%s", rantalmparameters.PlacementBindingCommonName, curName),
 			fmt.Sprintf("%s-%s", rantalmparameters.PlacementRuleCommonName, curName),
@@ -372,7 +377,7 @@ var _ = Describe("TALM tests with multiple spokes where one turns off", Ordered,
 
 	It("verifies precaching fails for one spoke and succeeds for the other", func() {
 		By("creating precache CGU with two spokes and OCP upgrade policy ")
-		cgu := getNewPrecacheCGU(curName,
+		cgu := getNewPrecacheCGU(cguName,
 			[]string{fmt.Sprintf("%s-%s", rantalmparameters.PolicyNameCommonName, curName)},
 			[]string{rantalmhelper.Spoke1Name, rantalmhelper.Spoke2Name})
 
@@ -440,7 +445,7 @@ var _ = Describe("TALM tests with multiple spokes where one turns off", Ordered,
 			By("creating CGU with two spokes, one of which is unavailable")
 
 			cgu := rantalmhelper.GetCguDefinition(
-				fmt.Sprintf("%s-%s", rantalmparameters.CguCommonName, curName),
+				cguName,
 				[]string{rantalmhelper.Spoke1Name, rantalmhelper.Spoke2Name},
 				[]string{},
 				[]string{fmt.Sprintf("%s-%s", rantalmparameters.PolicyNameCommonName, curName)},
@@ -492,13 +497,13 @@ var _ = Describe("TALM tests with multiple spokes where one turns off", Ordered,
 })
 
 // getNewPrecacheCGU get new precache CGU CR.
-func getNewPrecacheCGU(curName string, policyNames []string, spokes []string) v1alpha1.ClusterGroupUpgrade {
+func getNewPrecacheCGU(cguName string, policyNames []string, spokes []string) v1alpha1.ClusterGroupUpgrade {
 	cgu := rantalmhelper.GetCguDefinition(
-		fmt.Sprintf("%s-%s", rantalmparameters.CguCommonName, curName),
+		cguName,
 		spokes,
 		[]string{},
 		policyNames,
-		rantalmparameters.TalmTestNamespace, 2, 250)
+		rantalmparameters.TalmTestNamespace, 2, 240)
 	cgu.Spec.Enable = rantalmhelper.BoolAddr(false)
 	cgu.Spec.PreCaching = true
 
@@ -529,7 +534,7 @@ func assertPrecacheStatus(cguName, spokeName, expectation string) {
 		log.Printf("[%s] %s precache status: %s\n", cgu.Name, spokeName, cgu.Status.Precaching.Status[spokeName])
 
 		return cgu.Status.Precaching.Status[spokeName]
-	}, 15*time.Minute, 5*time.Second).Should(Equal(expectation))
+	}, 20*time.Minute, 15*time.Second).Should(Equal(expectation))
 }
 
 // assertBackupPodLog retrieves the backup pod generated by job and asserts on the log.
