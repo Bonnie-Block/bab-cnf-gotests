@@ -25,7 +25,7 @@ const (
 	blockingB = "blocking-b"
 )
 
-var _ = Describe("Talm Blocking CRs Tests", Label("talmblockingcr"), func() {
+var _ = Describe("Talm Blocking CRs Tests", Ordered, Label("talmblockingcr"), func() {
 
 	var (
 		cguA v1alpha1.ClusterGroupUpgrade
@@ -85,7 +85,11 @@ var _ = Describe("Talm Blocking CRs Tests", Label("talmblockingcr"), func() {
 				"[%s]", fmt.Sprintf("%s-%s", rantalmparameters.CguCommonName, blockingAPass))
 
 			// TALM 4.11 and below had a different error message
-			if !ranhelper.IsVersionStringAtLeastVersionSpecified(rantalmhelper.TalmHubVersion, "4.12", true) {
+			if !ranhelper.IsVersionStringInRange(
+				rantalmhelper.TalmHubVersion,
+				rantalmparameters.TalmUpdatedConditionsVersion,
+				"",
+			) {
 				blockErrMsg = fmt.Sprintf("The ClusterGroupUpgrade "+
 					"CR is blocked by other CRs that have not yet completed: "+
 					"[%s]", fmt.Sprintf("%s-%s", rantalmparameters.CguCommonName, blockingAPass))
@@ -96,7 +100,11 @@ var _ = Describe("Talm Blocking CRs Tests", Label("talmblockingcr"), func() {
 
 			// Validating the conditions depends on the TALM version
 			completedType := rantalmhelper.SucceededType
-			if !ranhelper.IsVersionStringAtLeastVersionSpecified(rantalmhelper.TalmHubVersion, "4.12", true) {
+			if !ranhelper.IsVersionStringInRange(
+				rantalmhelper.TalmHubVersion,
+				rantalmparameters.TalmUpdatedConditionsVersion,
+				"",
+			) {
 				completedType = rantalmhelper.ReadyType
 			}
 
@@ -177,7 +185,11 @@ var _ = Describe("Talm Blocking CRs Tests", Label("talmblockingcr"), func() {
 				fmt.Sprintf("%s-%s", rantalmparameters.CguCommonName, blockingAFail))
 
 			// TALM 4.11 and below had a different error message
-			if !ranhelper.IsVersionStringAtLeastVersionSpecified(rantalmhelper.TalmHubVersion, "4.12", true) {
+			if !ranhelper.IsVersionStringInRange(
+				rantalmhelper.TalmHubVersion,
+				rantalmparameters.TalmUpdatedConditionsVersion,
+				"",
+			) {
 				blockErrMsg = fmt.Sprintf("The ClusterGroupUpgrade "+
 					"CR is blocked by other CRs that have not yet "+
 					"completed: [%s]", fmt.Sprintf("%s-%s", rantalmparameters.CguCommonName, blockingAFail))
@@ -190,7 +202,11 @@ var _ = Describe("Talm Blocking CRs Tests", Label("talmblockingcr"), func() {
 			// Validating the conditions depends on the TALM version
 			completedType := rantalmhelper.SucceededType
 			completedMessage := rantalmhelper.Talm412TimeoutMessage
-			if !ranhelper.IsVersionStringAtLeastVersionSpecified(rantalmhelper.TalmHubVersion, "4.12", true) {
+			if !ranhelper.IsVersionStringInRange(
+				rantalmhelper.TalmHubVersion,
+				rantalmparameters.TalmUpdatedConditionsVersion,
+				"",
+			) {
 				completedType = rantalmhelper.ReadyType
 				completedMessage = rantalmhelper.Talm411TimeoutMessage
 			}
@@ -257,7 +273,11 @@ var _ = Describe("Talm Blocking CRs Tests", Label("talmblockingcr"), func() {
 				fmt.Sprintf("%s-%s", rantalmparameters.CguCommonName, blockingAMissing))
 
 			// TALM 4.11 and below had a different error message
-			if !ranhelper.IsVersionStringAtLeastVersionSpecified(rantalmhelper.TalmHubVersion, "4.12", true) {
+			if !ranhelper.IsVersionStringInRange(
+				rantalmhelper.TalmHubVersion,
+				rantalmparameters.TalmUpdatedConditionsVersion,
+				"",
+			) {
 				blockErrMsg = fmt.Sprintf("The ClusterGroupUpgrade CR has blocking CRs that are missing: [%s]",
 					fmt.Sprintf("%s-%s", rantalmparameters.CguCommonName, blockingAMissing))
 			}
@@ -278,7 +298,11 @@ var _ = Describe("Talm Blocking CRs Tests", Label("talmblockingcr"), func() {
 
 			// Validating the conditions depends on the TALM version
 			completedType := rantalmhelper.SucceededType
-			if !ranhelper.IsVersionStringAtLeastVersionSpecified(rantalmhelper.TalmHubVersion, "4.12", true) {
+			if !ranhelper.IsVersionStringInRange(
+				rantalmhelper.TalmHubVersion,
+				rantalmparameters.TalmUpdatedConditionsVersion,
+				"",
+			) {
 				completedType = rantalmhelper.ReadyType
 			}
 
@@ -348,11 +372,20 @@ func applyBlockingCrs(cgu v1alpha1.ClusterGroupUpgrade, object runtime.Object, c
 func verifyCguBlocked(cgu v1alpha1.ClusterGroupUpgrade, blockedByMsg string) error {
 	// Validating the conditions depends on the TALM version
 	expectedType := rantalmhelper.ProgressingType
-	if !ranhelper.IsVersionStringAtLeastVersionSpecified(rantalmhelper.TalmHubVersion, "4.12", true) {
+
+	if !ranhelper.IsVersionStringInRange(
+		rantalmhelper.TalmHubVersion,
+		rantalmparameters.TalmUpdatedConditionsVersion,
+		"",
+	) {
 		expectedType = rantalmhelper.ReadyType
 	}
 
-	if !ranhelper.IsVersionStringAtLeastVersionSpecified(rantalmhelper.TalmHubVersion, "4.11", true) {
+	if !ranhelper.IsVersionStringInRange(
+		rantalmhelper.TalmHubVersion,
+		"4.11",
+		"",
+	) {
 		blockedByMsg = ""
 	}
 

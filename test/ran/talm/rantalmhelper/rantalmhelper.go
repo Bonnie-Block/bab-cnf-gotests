@@ -445,7 +445,11 @@ func WaitForCguToStartProgressing(cguName string, namespace string, timeout time
 	conditionMessage := "Remediating non-compliant policies"
 	conditionReason := "InProgress"
 
-	if !ranhelper.IsVersionStringAtLeastVersionSpecified(TalmHubVersion, "4.12", true) {
+	if !ranhelper.IsVersionStringInRange(
+		TalmHubVersion,
+		rantalmparameters.TalmUpdatedConditionsVersion,
+		"",
+	) {
 		conditionType = ReadyType
 		conditionMessage = "The ClusterGroupUpgrade CR has upgrade policies that are still non compliant"
 		conditionReason = "UpgradeNotCompleted"
@@ -473,7 +477,11 @@ func WaitForCguToFinishSuccessfully(cguName string, namespace string, timeout ti
 	conditionType := SucceededType
 	conditionReason := ConditionReasonCompleted
 
-	if !ranhelper.IsVersionStringAtLeastVersionSpecified(TalmHubVersion, "4.12", true) {
+	if !ranhelper.IsVersionStringInRange(
+		TalmHubVersion,
+		rantalmparameters.TalmUpdatedConditionsVersion,
+		"",
+	) {
 		conditionType = ReadyType
 		conditionReason = ConditionReasonUpgradeCompleted
 	}
@@ -500,7 +508,11 @@ func WaitForCguToTimeout(cguName string, namespace string, timeout time.Duration
 	conditionType := SucceededType
 	conditionReason := "TimedOut"
 
-	if !ranhelper.IsVersionStringAtLeastVersionSpecified(TalmHubVersion, "4.12", true) {
+	if !ranhelper.IsVersionStringInRange(
+		TalmHubVersion,
+		rantalmparameters.TalmUpdatedConditionsVersion,
+		"",
+	) {
 		conditionType = ReadyType
 		conditionReason = "UpgradeTimedOut"
 	}
@@ -1968,5 +1980,5 @@ func GetTalmVersionFromCSV(client *testClient.ClientSet) (string, error) {
 		}
 	}
 
-	return "", errors.New("unable to find TALM version")
+	return "", nil
 }

@@ -130,15 +130,9 @@ func InitializeTalmClients() error {
 			return err
 		}
 
-		talmVersion, err := rantalmhelper.GetTalmVersionFromCSV(rantalmhelper.HubAPIClient)
+		rantalmhelper.TalmHubVersion, err = rantalmhelper.GetTalmVersionFromCSV(rantalmhelper.HubAPIClient)
 		if err != nil {
-			log.Printf("unable to determine TALM version from CSV")
-
-			rantalmhelper.TalmHubVersion = DefaultTalmVersion
-
-			log.Printf("defaulting talm version to '%s'", rantalmhelper.TalmHubVersion)
-		} else {
-			rantalmhelper.TalmHubVersion = talmVersion
+			return err
 		}
 
 		log.Printf("cluster '%s' has TALM version '%s'", rantalmhelper.HubName, rantalmhelper.TalmHubVersion)
@@ -190,8 +184,12 @@ func InitializeTalmClients() error {
 
 // CreateTalmTestNamespace creates the TALM test namespace on each of the nodes.
 func CreateTalmTestNamespace() error {
+	log.Println("Creating talm namespaces")
+
 	// Hub may be optional depending on what tests are running
 	if os.Getenv(rantalmparameters.HubKubeEnvKey) != "" {
+		log.Println("Creating talm namespace on hub")
+
 		err = namespaces.Create(rantalmparameters.TalmTestNamespace, rantalmhelper.HubAPIClient)
 		if err != nil {
 			return err
@@ -200,6 +198,8 @@ func CreateTalmTestNamespace() error {
 
 	// Spoke1 is the default kubeconfig
 	if os.Getenv(rantalmparameters.Spoke1KubeEnvKey) != "" {
+		log.Println("Creating talm namespace on spoke1")
+
 		err = namespaces.Create(rantalmparameters.TalmTestNamespace, rantalmhelper.Spoke1APIClient)
 		if err != nil {
 			return err
@@ -208,6 +208,8 @@ func CreateTalmTestNamespace() error {
 
 	// Spoke2 may be optional depending on what tests are running
 	if os.Getenv(rantalmparameters.Spoke2KubeEnvKey) != "" {
+		log.Println("Creating talm namespace on spoke2")
+
 		err = namespaces.Create(rantalmparameters.TalmTestNamespace, rantalmhelper.Spoke2APIClient)
 		if err != nil {
 			return err
@@ -219,8 +221,12 @@ func CreateTalmTestNamespace() error {
 
 // DeleteTalmTestNamespace deletes the TALM test namespace on each of the nodes.
 func DeleteTalmTestNamespace(allowNotFound bool) error {
+	log.Println("Deleting talm namespaces")
+
 	// Hub may be optional depending on what tests are running
 	if os.Getenv(rantalmparameters.HubKubeEnvKey) != "" {
+		log.Println("Deleting talm namespace on hub")
+
 		err = namespaces.DeleteAndWait(
 			rantalmhelper.HubAPIClient,
 			rantalmparameters.TalmTestNamespace,
@@ -234,6 +240,8 @@ func DeleteTalmTestNamespace(allowNotFound bool) error {
 
 	// Spoke1 is the default kubeconfig
 	if os.Getenv(rantalmparameters.Spoke1KubeEnvKey) != "" {
+		log.Println("Deleting talm namespace on spoke1")
+
 		err = namespaces.DeleteAndWait(
 			rantalmhelper.Spoke1APIClient,
 			rantalmparameters.TalmTestNamespace,
@@ -247,6 +255,8 @@ func DeleteTalmTestNamespace(allowNotFound bool) error {
 
 	// Spoke2 may be optional depending on what tests are running
 	if os.Getenv(rantalmparameters.Spoke2KubeEnvKey) != "" {
+		log.Println("Deleting talm namespace on spoke2")
+
 		err = namespaces.DeleteAndWait(
 			rantalmhelper.Spoke2APIClient,
 			rantalmparameters.TalmTestNamespace,

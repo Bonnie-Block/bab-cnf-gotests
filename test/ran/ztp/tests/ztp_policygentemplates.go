@@ -31,13 +31,13 @@ var _ = Describe("ZTP PGT Tests", Ordered, Label("ztp-pgt"), func() {
 		}
 		// Check for minimum ztp version
 		By("Checking the ZTP version", func() {
-			if !ranhelper.IsVersionStringAtLeastVersionSpecified(
+			if !ranhelper.IsVersionStringInRange(
 				ranztphelper.ZtpVersion,
 				ranztpparameters.MinimumZtpVersion,
-				true,
+				"",
 			) {
 				Skip(fmt.Sprintf(
-					"unable to run test on ocp version '%s' as it is less than minimum '%s",
+					"unable to run test on ztp version '%s' as it is less than minimum '%s",
 					ranztphelper.ZtpVersion,
 					ranztpparameters.MinimumZtpVersion,
 				))

@@ -11,18 +11,17 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/talm/rantalmhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/talm/rantalmparameters"
 	testClient "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	configurationPolicyv1 "open-cluster-management.io/config-policy-controller/api/v1"
 )
 
-var _ = Describe("Talm Canary Tests", Label("talmcanary"), func() {
+var _ = Describe("Talm Canary Tests", Ordered, Label("talmcanary"), func() {
 
 	// These tests only use the hub and spoke1
 	var clusterList []*testClient.ClientSet
 
-	execute.BeforeAll(func() {
+	BeforeAll(func() {
 		// Initialize cluster list
 		clusterList = rantalmhelper.GetAllTestClients()
 	})
@@ -172,7 +171,11 @@ var _ = Describe("Talm Canary Tests", Label("talmcanary"), func() {
 				conditionType := rantalmhelper.SucceededType
 				conditionMessage := "Policy remediation took too long on canary clusters"
 
-				if !ranhelper.IsVersionStringAtLeastVersionSpecified(rantalmhelper.TalmHubVersion, "4.12", true) {
+				if !ranhelper.IsVersionStringInRange(
+					rantalmhelper.TalmHubVersion,
+					rantalmparameters.TalmUpdatedConditionsVersion,
+					"",
+				) {
 					conditionType = rantalmhelper.ReadyType
 					conditionMessage = rantalmhelper.Talm411TimeoutMessage
 				}

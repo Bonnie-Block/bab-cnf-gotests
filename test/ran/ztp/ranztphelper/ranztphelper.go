@@ -130,11 +130,9 @@ func GetZtpVersionFromArgocd(name string, namespace string) (string, error) {
 			ztpVersion := strings.Split(container.Image, ":")[1]
 
 			if ztpVersion == "latest" {
-				log.Printf("Site generator version tag was 'latest' so assuming version as '%s'\n",
-					ranztpparameters.MinimumZtpVersion,
-				)
+				log.Println("Site generator version tag was 'latest', so returning empty version")
 
-				return ranztpparameters.MinimumZtpVersion, nil
+				return "", nil
 			}
 
 			// The format here will be like vX.Y.Z so we need to remove the v at the start

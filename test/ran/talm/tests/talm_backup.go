@@ -32,7 +32,11 @@ var (
 var _ = Describe("Talm Backup Tests with single spoke", func() {
 
 	BeforeEach(func() {
-		if !ranhelper.IsVersionStringAtLeastVersionSpecified(rantalmhelper.TalmHubVersion, "4.11", true) {
+		if !ranhelper.IsVersionStringInRange(
+			rantalmhelper.TalmHubVersion,
+			"4.11",
+			"",
+		) {
 			Skip("backup tests require talm 4.11 or higher")
 		}
 	})
@@ -186,7 +190,11 @@ var _ = Describe("Talm Backup Tests with two spokes", Ordered, func() {
 	policyName := fmt.Sprintf("%s-%s", rantalmparameters.PolicyNameCommonName, curName)
 
 	BeforeAll(func() {
-		if !ranhelper.IsVersionStringAtLeastVersionSpecified(rantalmhelper.TalmHubVersion, "4.11", true) {
+		if !ranhelper.IsVersionStringInRange(
+			rantalmhelper.TalmHubVersion,
+			"4.11",
+			"",
+		) {
 			Skip("backup tests require talm 4.11 or higher")
 		}
 		// tests below requires all clusters to be present. hub + spoke1 + spoke2

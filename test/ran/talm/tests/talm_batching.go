@@ -12,18 +12,17 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/talm/rantalmhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/talm/rantalmparameters"
 	testClient "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	configurationPolicyv1 "open-cluster-management.io/config-policy-controller/api/v1"
 )
 
-var _ = Describe("Talm Batching Tests", Label("talmbatching"), func() {
+var _ = Describe("Talm Batching Tests", Ordered, Label("talmbatching"), func() {
 
 	// These tests only use the hub and spoke1
 	var clusterList []*testClient.ClientSet
 
-	execute.BeforeAll(func() {
+	BeforeAll(func() {
 		// Initialize cluster list
 		clusterList = rantalmhelper.GetAllTestClients()
 	})
@@ -58,31 +57,17 @@ var _ = Describe("Talm Batching Tests", Label("talmbatching"), func() {
 		}
 	})
 
-	AfterEach(func() {
-		// Cleanup everything
-		errList := rantalmhelper.CleanupTestResourcesOnClients(
-			clusterList,
-			rantalmhelper.CguName,
-			rantalmhelper.PolicyName,
-			rantalmhelper.Namespace,
-			rantalmhelper.PlacementBindingName,
-			rantalmhelper.PlacementRule,
-			rantalmhelper.PolicySetName,
-			rantalmhelper.CatalogSourceName)
-		Expect(len(errList)).To(Equal(0))
-
-		// Cleanup the temporary namespace
-		err := rantalmhelper.CleanupNamespace(clusterList, rantalmhelper.TemporaryNamespaceName)
-		Expect(err).ToNot(HaveOccurred())
-	})
-
 	Context("with a single spoke that is missing", Label("talmmissingspoke"), func() {
 		// 47949
 		It("should report the missing spoke", func() {
 			By("validating the talm version meets the test minimum", func() {
 				// TALM 4.11 does not set any conditions for a non managed cluster error
 				// We are unable to verify the state in 4.11 therefore we cannot run this test
-				if !ranhelper.IsVersionStringAtLeastVersionSpecified(rantalmhelper.TalmHubVersion, "4.12", true) {
+				if !ranhelper.IsVersionStringInRange(
+					rantalmhelper.TalmHubVersion,
+					rantalmparameters.TalmUpdatedConditionsVersion,
+					"",
+				) {
 					Skip("test requires talm 4.12 or higher")
 				}
 			})
@@ -143,7 +128,11 @@ var _ = Describe("Talm Batching Tests", Label("talmbatching"), func() {
 				conditionType := rantalmhelper.ValidatedType
 				conditionMessage := "Missing managed policies: [non-existent-policy] "
 
-				if !ranhelper.IsVersionStringAtLeastVersionSpecified(rantalmhelper.TalmHubVersion, "4.12", true) {
+				if !ranhelper.IsVersionStringInRange(
+					rantalmhelper.TalmHubVersion,
+					rantalmparameters.TalmUpdatedConditionsVersion,
+					"",
+				) {
 					conditionType = rantalmhelper.ReadyType
 					conditionMessage = "The ClusterGroupUpgrade CR has managed policies that are missing: [non-existent-policy]"
 				}
@@ -310,8 +299,11 @@ var _ = Describe("Talm Batching Tests", Label("talmbatching"), func() {
 				conditionType := rantalmhelper.SucceededType
 				conditionMessage := "Policy remediation took too long on some clusters"
 
-				// The validation depends on the TALM version in use
-				if !ranhelper.IsVersionStringAtLeastVersionSpecified(rantalmhelper.TalmHubVersion, "4.12", true) {
+				if !ranhelper.IsVersionStringInRange(
+					rantalmhelper.TalmHubVersion,
+					rantalmparameters.TalmUpdatedConditionsVersion,
+					"",
+				) {
 					conditionType = rantalmhelper.ReadyType
 					conditionMessage = rantalmhelper.Talm411TimeoutMessage
 				}
@@ -776,7 +768,11 @@ var _ = Describe("Talm Batching Tests", Label("talmbatching"), func() {
 			})
 
 			// Deletion of TALM-generated policy requires 4.12 or higher
-			if ranhelper.IsVersionStringAtLeastVersionSpecified(rantalmhelper.TalmHubVersion, "4.12", true) {
+			if ranhelper.IsVersionStringInRange(
+				rantalmhelper.TalmHubVersion,
+				rantalmparameters.TalmUpdatedConditionsVersion,
+				"",
+			) {
 				By("verifying the test policy was deleted upon CGU expiration", func() {
 					TalmPolicyPrefix := rantalmhelper.CguName + "-" + rantalmhelper.PolicyName
 					talmGeneratedPolicyName, err := rantalmhelper.GetPolicyNameWithPrefix(
@@ -815,7 +811,11 @@ var _ = Describe("Talm Batching Tests", Label("talmbatching"), func() {
 				policyLabelSelector := metav1.LabelSelector{}
 
 				// ocp-54288, ocp-54289, ocp-54559 - Test k8s matchLabels and matchExpressions selectors  (4.12 feature)
-				if ranhelper.IsVersionStringAtLeastVersionSpecified(rantalmhelper.TalmHubVersion, "4.12", true) {
+				if ranhelper.IsVersionStringInRange(
+					rantalmhelper.TalmHubVersion,
+					rantalmparameters.TalmUpdatedConditionsVersion,
+					"",
+				) {
 					log.Printf("Test using MatchLabels with name %s and MatchExpressions with name %s...",
 						rantalmhelper.Spoke1Name, rantalmhelper.Spoke2Name)
 					policyLabelSelector = metav1.LabelSelector{
@@ -897,8 +897,24 @@ var _ = Describe("Talm Batching Tests", Label("talmbatching"), func() {
 					Expect(err).ToNot(HaveOccurred())
 				}
 			})
-
 		})
+	})
 
+	AfterEach(func() {
+		// Cleanup everything
+		errList := rantalmhelper.CleanupTestResourcesOnClients(
+			clusterList,
+			rantalmhelper.CguName,
+			rantalmhelper.PolicyName,
+			rantalmhelper.Namespace,
+			rantalmhelper.PlacementBindingName,
+			rantalmhelper.PlacementRule,
+			rantalmhelper.PolicySetName,
+			rantalmhelper.CatalogSourceName)
+		Expect(len(errList)).To(Equal(0))
+
+		// Cleanup the temporary namespace
+		err := rantalmhelper.CleanupNamespace(clusterList, rantalmhelper.TemporaryNamespaceName)
+		Expect(err).ToNot(HaveOccurred())
 	})
 })
