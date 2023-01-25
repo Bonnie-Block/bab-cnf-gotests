@@ -338,6 +338,15 @@ var _ = Describe("TALM tests with multiple spokes where one turns off", Ordered,
 	var nodeToTurnOff *k8sv1.Node
 
 	BeforeAll(func() {
+		// For 4.11- releases, if one spoke fails, then precache will fail for all spokes
+		if !ranhelper.IsVersionStringInRange(
+			rantalmhelper.TalmHubVersion,
+			"4.12",
+			"",
+		) {
+			Skip("Proceeding with precache if one spoke fails requires 4.12 or higher")
+		}
+
 		// tests below requires all clusters to be present. hub + spoke1 + spoke2
 		clusterList := rantalmhelper.GetAllTestClients()
 		err := ranhelper.IsClustersPresent(clusterList)
@@ -400,12 +409,21 @@ var _ = Describe("TALM tests with multiple spokes where one turns off", Ordered,
 		)
 		Expect(err).To(BeNil())
 
+		message := "Precaching spec is valid and consistent"
+		if !ranhelper.IsVersionStringInRange(
+			rantalmhelper.TalmHubVersion,
+			"4.11",
+			"",
+		) {
+			message = "Pre-caching spec is valid and consistent"
+		}
+
 		log.Println("waiting for precache to confirm that it is valid")
 		err = rantalmhelper.WaitForCguInCondition(rantalmhelper.HubAPIClient,
 			cgu.Name,
 			cgu.Namespace,
 			"PrecacheSpecValid",
-			"Precaching spec is valid and consistent",
+			message,
 			metav1.ConditionTrue,
 			"", 5*time.Minute)
 		Expect(err).To(BeNil())

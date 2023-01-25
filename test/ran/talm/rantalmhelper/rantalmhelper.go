@@ -421,6 +421,8 @@ func WaitForCguInCondition(
 						condition.Reason,
 						expectedReason,
 					)
+
+					return false, nil
 				}
 			}
 
@@ -584,9 +586,8 @@ func GetPolicyDefinition(
 			APIVersion: policiesv1.SchemeGroupVersion.Version,
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        policyName,
-			Namespace:   namespace,
-			Annotations: map[string]string{"talm-test": "true"},
+			Name:      policyName,
+			Namespace: namespace,
 		},
 		Spec: policiesv1.PolicySpec{
 			Disabled: false,

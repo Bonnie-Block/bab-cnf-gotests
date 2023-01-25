@@ -25,7 +25,7 @@ const (
 	blockingB = "blocking-b"
 )
 
-var _ = Describe("Talm Blocking CRs Tests", Ordered, Label("talmblockingcr"), func() {
+var _ = Describe("Talm Blocking CRs Tests", Label("talmblockingcr"), func() {
 
 	var (
 		cguA v1alpha1.ClusterGroupUpgrade

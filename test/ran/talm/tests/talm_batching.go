@@ -12,17 +12,18 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/talm/rantalmhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/talm/rantalmparameters"
 	testClient "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	configurationPolicyv1 "open-cluster-management.io/config-policy-controller/api/v1"
 )
 
-var _ = Describe("Talm Batching Tests", Ordered, Label("talmbatching"), func() {
+var _ = Describe("Talm Batching Tests", Label("talmbatching"), func() {
 
 	// These tests only use the hub and spoke1
 	var clusterList []*testClient.ClientSet
 
-	BeforeAll(func() {
+	execute.BeforeAll(func() {
 		// Initialize cluster list
 		clusterList = rantalmhelper.GetAllTestClients()
 	})
@@ -126,7 +127,7 @@ var _ = Describe("Talm Batching Tests", Ordered, Label("talmbatching"), func() {
 				// Validation here depends on the TALM version
 
 				conditionType := rantalmhelper.ValidatedType
-				conditionMessage := "Missing managed policies: [non-existent-policy] "
+				conditionMessage := "Missing managed policies: [non-existent-policy]"
 
 				if !ranhelper.IsVersionStringInRange(
 					rantalmhelper.TalmHubVersion,
@@ -135,6 +136,14 @@ var _ = Describe("Talm Batching Tests", Ordered, Label("talmbatching"), func() {
 				) {
 					conditionType = rantalmhelper.ReadyType
 					conditionMessage = "The ClusterGroupUpgrade CR has managed policies that are missing: [non-existent-policy]"
+				}
+
+				if ranhelper.IsVersionStringInRange(
+					rantalmhelper.TalmHubVersion,
+					"4.10",
+					"4.10",
+				) {
+					conditionMessage = "The ClusterGroupUpgrade CR has: missing managed policies: [non-existent-policy] "
 				}
 
 				// This should immediately error out so we don't need a long timeout
@@ -156,6 +165,14 @@ var _ = Describe("Talm Batching Tests", Ordered, Label("talmbatching"), func() {
 	Context("using a catalog source", Label("talmcatalogsource"), func() {
 		// 47952
 		It("should abort the CGU when the first batch fails with the Abort batch timeout action", func() {
+
+			if !ranhelper.IsVersionStringInRange(
+				rantalmhelper.TalmHubVersion,
+				"4.12",
+				"",
+			) {
+				Skip("configurable batchtimeoutaction requires talm 4.12 or higher")
+			}
 
 			By("verifying the temporary namespace does not exist on spoke1", func() {
 				result := namespaces.Exists(rantalmhelper.TemporaryNamespaceName, rantalmhelper.Spoke1APIClient)
@@ -433,6 +450,7 @@ var _ = Describe("Talm Batching Tests", Ordered, Label("talmbatching"), func() {
 				Expect(result).To(BeFalse())
 			})
 		})
+
 		It("should continue the CGU when the first batch fails with the Continue batch timeout action", func() {
 			By("creating the temporary namespace on spoke2 only", func() {
 				err := namespaces.Create(rantalmhelper.TemporaryNamespaceName, rantalmhelper.Spoke2APIClient)
