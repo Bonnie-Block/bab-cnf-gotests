@@ -135,14 +135,6 @@ var _ = Describe("Talm Batching Tests", Label("talmbatching"), func() {
 					"",
 				) {
 					conditionType = rantalmhelper.ReadyType
-					conditionMessage = "The ClusterGroupUpgrade CR has managed policies that are missing: [non-existent-policy]"
-				}
-
-				if ranhelper.IsVersionStringInRange(
-					rantalmhelper.TalmHubVersion,
-					"4.10",
-					"4.10",
-				) {
 					conditionMessage = "The ClusterGroupUpgrade CR has: missing managed policies: [non-existent-policy] "
 				}
 

@@ -95,7 +95,7 @@ var _ = Describe("Talm Backup Tests with single spoke", func() {
 		})
 	})
 
-	Context("backup is enabled in CGU. ", func() {
+	Context("with CGU disabled", func() {
 		curName := "backupsequence"
 		cguName := fmt.Sprintf("%s-%s", rantalmparameters.CguCommonName, curName)
 		policyName := fmt.Sprintf("%s-%s", rantalmhelper.PolicyName, curName)
@@ -124,6 +124,15 @@ var _ = Describe("Talm Backup Tests with single spoke", func() {
 		})
 		// ocp-54294, ocp-54295
 		It("verifies backup begins and succeeds after CGU is enabled", func() {
+
+			if !ranhelper.IsVersionStringInRange(
+				rantalmhelper.TalmHubVersion,
+				"4.12",
+				"",
+			) {
+				Skip("backup begins after CGU enable requires talm 4.12 or higher")
+			}
+
 			By("creating a disabled cgu with backup enabled")
 			// prep cgu
 			cgu := rantalmhelper.GetCguDefinition(
