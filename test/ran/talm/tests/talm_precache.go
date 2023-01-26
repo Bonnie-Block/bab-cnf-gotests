@@ -11,6 +11,8 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
 	k8sv1 "k8s.io/api/core/v1"
 
+	v1alpha12 "github.com/operator-framework/api/pkg/operators/v1alpha1"
+
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	configurationPolicyv1 "open-cluster-management.io/config-policy-controller/api/v1"
@@ -273,6 +275,22 @@ func findAllPoliciesWithSubAndCopyAndApply(listPolicy policiesv1.PolicyList) []p
 				tConfigPolicy := configurationPolicyv1.ConfigurationPolicy{}
 				err = runtime.DefaultUnstructuredConverter.FromUnstructured(uConfigPolicy.UnstructuredContent(), &tConfigPolicy)
 				Expect(err).To(BeNil())
+
+				for _, curConfig := range tConfigPolicy.Spec.ObjectTemplates {
+					// covert raw to unstructured
+					tempUnstructured := &unstructured.Unstructured{}
+					err = tempUnstructured.UnmarshalJSON(curConfig.ObjectDefinition.Raw)
+					Expect(err).To(BeNil())
+
+					// covert unstructured to structured
+					tempStructured := v1alpha12.Subscription{}
+					err = runtime.DefaultUnstructuredConverter.
+						FromUnstructured(tempUnstructured.UnstructuredContent(), &tempStructured)
+					Expect(err).To(BeNil())
+
+					curConfig.ObjectDefinition.Raw = nil
+					curConfig.ObjectDefinition.Object = &tempStructured
+				}
 
 				o := configurationPolicyv1.ObjectTemplate{
 					ObjectDefinition: runtime.RawExtension{Object: rantalmhelper.GetNamespaceDefinition("make-it-non-compliant")},
