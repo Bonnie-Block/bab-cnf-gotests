@@ -38,7 +38,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 
 	// This will get the current data from Argocd and save it for later
-	err = InitializeZtpGitEnvironment()
+	err = GetArgocdAppGitDetails()
 	Expect(err).ToNot(HaveOccurred())
 
 	// Delete and re-create the namespace to start with a clean state
@@ -62,24 +62,23 @@ var _ = ReportAfterEach(func(report types.SpecReport) {
 	testutils.ReportIfFailed(report, currentFile, ranztpparameters.ZtpNamespaces, ranztpparameters.ZtpCrds)
 })
 
-// InitializeZtpGitEnvironment is used to check the environment variables for any ztp test configuration.
+// GetArgocdAppGitDetails is used to check the environment variables for any ztp test configuration.
 // If any are undefined then the default values are used instead.
-func InitializeZtpGitEnvironment() error {
-	// Get all the details from Argocd
-	repo, branch, dir, err := ranztphelper.GetGitDetailsFromArgocd()
+func GetArgocdAppGitDetails() error {
+	// Loop over the apps and save the git details
+	for _, app := range ranztpparameters.ArgocdApps {
+		repo, branch, dir, err := ranztphelper.GetGitDetailsFromArgocd(app, ranztpparameters.ZtpDeployedNamespace)
+		if err != nil {
+			return err
+		}
 
-	if err != nil {
-		return err
+		// Save the git details to the map
+		ranztphelper.ArgocdApps[app] = ranztpparameters.ArgocdGitDetails{
+			Repo:   repo,
+			Branch: branch,
+			Path:   dir,
+		}
 	}
-
-	// Save them all to restore them later
-	ranztphelper.ZtpGitRepo = repo
-	ranztphelper.ZtpGitBranch = branch
-	ranztphelper.ZtpGitDir = dir
-
-	log.Printf("Existing Argocd test repo '%s'\n", repo)
-	log.Printf("Existing Argocd test branch '%s'\n", branch)
-	log.Printf("Existing Argocd test dir '%s'\n", dir)
 
 	return nil
 }
@@ -213,16 +212,20 @@ func DeleteNamespace(allowNotExists bool) error {
 
 // ResetArgocdGitDetails is used to configure Argocd back to the values it had before the tests started.
 func ResetArgocdGitDetails() error {
-	log.Println("Resetting Argocd app back to initial values")
+	// Loop over the apps and restore the git details
+	for _, app := range ranztpparameters.ArgocdApps {
+		// Restore the app's git details
+		err := ranztphelper.SetGitDetailsInArcgocd(
+			ranztphelper.ArgocdApps[app].Repo,
+			ranztphelper.ArgocdApps[app].Branch,
+			ranztphelper.ArgocdApps[app].Path,
+			app,
+			false,
+		)
 
-	err := ranztphelper.SetGitDetailsInArcgocd(
-		ranztphelper.ZtpGitRepo,
-		ranztphelper.ZtpGitBranch,
-		ranztphelper.ZtpGitDir,
-		false,
-	)
-	if err != nil {
-		return err
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil

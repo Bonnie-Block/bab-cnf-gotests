@@ -50,14 +50,15 @@ var _ = Describe("ZTP PGT Tests", Ordered, Label("ztp-pgt"), func() {
 			// https://issues.redhat.com/browse/CNF-6305
 
 			// The ztp test data is stored in a nested directory within the ztp repo
-			testGitPath := ranztphelper.ZtpGitDir + "/ztp-test/custom-interval"
+			testGitPath := ranztphelper.ArgocdApps[ranztpparameters.ArgocdPoliciesAppName].Path + "/ztp-test/custom-interval"
 
 			By("Updating the Argocd app", func() {
 				// Update the Argo app to point to the new test kustomization
 				err := ranztphelper.SetGitDetailsInArcgocd(
-					ranztphelper.ZtpGitRepo,
-					ranztphelper.ZtpGitBranch,
+					ranztphelper.ArgocdApps[ranztpparameters.ArgocdPoliciesAppName].Repo,
+					ranztphelper.ArgocdApps[ranztpparameters.ArgocdPoliciesAppName].Branch,
 					testGitPath,
+					ranztpparameters.ArgocdPoliciesAppName,
 					true,
 				)
 				Expect(err).ToNot(HaveOccurred())
@@ -99,11 +100,17 @@ var _ = Describe("ZTP PGT Tests", Ordered, Label("ztp-pgt"), func() {
 		It("should specify an invalid interval format and verify the app error", func() {
 			// https://issues.redhat.com/browse/CNF-6306
 			// The ztp test data is stored in a nested directory within the ztp repo
-			testGitPath := ranztphelper.ZtpGitDir + "/ztp-test/invalid-interval"
+			testGitPath := ranztphelper.ArgocdApps[ranztpparameters.ArgocdPoliciesAppName].Path + "/ztp-test/invalid-interval"
 
 			By("Updating the Argocd app", func() {
 				// Update the Argo app to point to the new test kustomization
-				err := ranztphelper.SetGitDetailsInArcgocd(ranztphelper.ZtpGitRepo, ranztphelper.ZtpGitBranch, testGitPath, false)
+				err := ranztphelper.SetGitDetailsInArcgocd(
+					ranztphelper.ArgocdApps[ranztpparameters.ArgocdPoliciesAppName].Repo,
+					ranztphelper.ArgocdApps[ranztpparameters.ArgocdPoliciesAppName].Branch,
+					testGitPath,
+					ranztpparameters.ArgocdPoliciesAppName,
+					false,
+				)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
@@ -118,12 +125,31 @@ var _ = Describe("ZTP PGT Tests", Ordered, Label("ztp-pgt"), func() {
 				expectedMessage := "evaluationInterval.compliant 'time: invalid duration"
 				err := ranztphelper.WaitForConditionInArgocdApp(
 					ranztphelper.HubAPIClient,
-					ranztpparameters.Policies,
+					ranztpparameters.ArgocdPoliciesAppName,
 					ranztpparameters.ZtpDeployedNamespace,
 					expectedMessage, 5*time.Minute,
 				)
 				Expect(err).ToNot(HaveOccurred())
 			})
+		})
+	})
+
+	AfterEach(func() {
+		// Reset the policies app back to default after each test
+		By("Resetting the policies app back to the original settings", func() {
+			err := ranztphelper.SetGitDetailsInArcgocd(
+				ranztphelper.ArgocdApps[ranztpparameters.ArgocdPoliciesAppName].Repo,
+				ranztphelper.ArgocdApps[ranztpparameters.ArgocdPoliciesAppName].Branch,
+				ranztphelper.ArgocdApps[ranztpparameters.ArgocdPoliciesAppName].Path,
+				ranztpparameters.ArgocdPoliciesAppName,
+				false,
+			)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		By("waiting for the change to take effect", func() {
+			log.Println("Sleeping to wait for changes to take effect")
+			time.Sleep(1 * time.Minute)
 		})
 	})
 })

@@ -1122,6 +1122,14 @@ github.com/stmcginnis/gofish
 github.com/stmcginnis/gofish/common
 github.com/stmcginnis/gofish/redfish
 github.com/stmcginnis/gofish/swordfish
+# github.com/stolostron/cluster-lifecycle-api v0.0.0-20220621134646-8b67f2e6afed
+## explicit; go 1.18
+github.com/stolostron/cluster-lifecycle-api/helpers/imageregistry
+github.com/stolostron/cluster-lifecycle-api/imageregistry/v1alpha1
+# github.com/stolostron/klusterlet-addon-controller v0.0.0-20230125024035-c724f5abe19c
+## explicit; go 1.19
+github.com/stolostron/klusterlet-addon-controller/pkg/apis/agent/v1
+github.com/stolostron/klusterlet-addon-controller/version
 # github.com/syndtr/gocapability v0.0.0-20200815063812-42c35b437635
 ## explicit
 github.com/syndtr/gocapability/capability
@@ -2013,6 +2021,9 @@ k8s.io/utils/net
 k8s.io/utils/pointer
 k8s.io/utils/strings/slices
 k8s.io/utils/trace
+# open-cluster-management.io/api v0.8.0
+## explicit; go 1.18
+open-cluster-management.io/api/cluster/v1
 # open-cluster-management.io/config-policy-controller v0.9.0
 ## explicit; go 1.19
 open-cluster-management.io/config-policy-controller/api/v1

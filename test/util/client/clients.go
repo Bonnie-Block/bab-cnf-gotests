@@ -28,6 +28,7 @@ import (
 	olm "github.com/operator-framework/operator-lifecycle-manager/pkg/api/client/clientset/versioned/typed/operators/v1alpha1"
 	bmerv1alpha1 "github.com/redhat-cne/hw-event-proxy-operator/api/v1alpha1"
 	fecv2 "github.com/smart-edge-open/sriov-fec-operator/sriov-fec/api/v2"
+	kacagentv1 "github.com/stolostron/klusterlet-addon-controller/pkg/apis/agent/v1"
 	metallbv1beta1 "go.universe.tf/metallb/api/v1beta1"
 	apiext "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -187,6 +188,10 @@ func New(kubeconfig string) *ClientSet {
 	}
 
 	if err := nmstatev1.AddToScheme(crScheme); err != nil {
+		panic(err)
+	}
+
+	if err := kacagentv1.SchemeBuilder.AddToScheme(crScheme); err != nil {
 		panic(err)
 	}
 

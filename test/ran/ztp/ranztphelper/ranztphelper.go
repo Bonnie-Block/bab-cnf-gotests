@@ -9,6 +9,7 @@ import (
 	"time"
 
 	argocdappv1alpha "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
+	kacv1 "github.com/stolostron/klusterlet-addon-controller/pkg/apis/agent/v1"
 	"github.com/tidwall/gjson"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ztp/ranztpparameters"
 	testClient "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
@@ -24,9 +25,7 @@ var (
 	HubName        string
 	SpokeAPIClient *testClient.ClientSet
 	SpokeName      string
-	ZtpGitRepo     string
-	ZtpGitBranch   string
-	ZtpGitDir      string
+	ArgocdApps     = map[string]ranztpparameters.ArgocdGitDetails{}
 	ZtpVersion     string
 )
 
@@ -64,8 +63,8 @@ func GetArgocdApp(appName string, namespace string) (*argocdappv1alpha.Applicati
 }
 
 // SetGitDetailsInArgocd is used to update the git repo, branch, and path in the Argocd app.
-func SetGitDetailsInArcgocd(gitRepo string, gitBranch string, gitPath string, waitForSync bool) error {
-	app, err := GetArgocdApp(ranztpparameters.Policies, ranztpparameters.ZtpDeployedNamespace)
+func SetGitDetailsInArcgocd(gitRepo, gitBranch, gitPath, argocdApp string, waitForSync bool) error {
+	app, err := GetArgocdApp(argocdApp, ranztpparameters.ZtpDeployedNamespace)
 	if err != nil {
 		return err
 	}
@@ -82,7 +81,7 @@ func SetGitDetailsInArcgocd(gitRepo string, gitBranch string, gitPath string, wa
 	app.Spec.Source.TargetRevision = gitBranch
 	app.Spec.Source.Path = gitPath
 
-	log.Println("Updating existing argocd app")
+	log.Printf("Updating existing argocd app '%s'\n", argocdApp)
 	log.Printf("Configuring RepoURL '%s'\n", gitRepo)
 	log.Printf("Configuring TargetRevision '%s'\n", gitBranch)
 	log.Printf("Configuring Path '%s'\n", gitPath)
@@ -106,8 +105,8 @@ func SetGitDetailsInArcgocd(gitRepo string, gitBranch string, gitPath string, wa
 }
 
 // SetGitDetailsInArgocd is used to get the current git repo, branch, and path in the Argocd app.
-func GetGitDetailsFromArgocd() (string, string, string, error) {
-	app, err := GetArgocdApp(ranztpparameters.Policies, ranztpparameters.ZtpDeployedNamespace)
+func GetGitDetailsFromArgocd(appName, namespace string) (string, string, string, error) {
+	app, err := GetArgocdApp(appName, namespace)
 	if err != nil {
 		return "", "", "", err
 	}
@@ -148,7 +147,7 @@ func WaitForArgocdChangeToComplete(timeout time.Duration) error {
 	log.Println("Waiting for Argocd change to finish syncing")
 
 	err := wait.PollImmediate(ranztpparameters.ArgocdChangeInterval, timeout, func() (bool, error) {
-		app, err := GetArgocdApp(ranztpparameters.Policies, ranztpparameters.ZtpDeployedNamespace)
+		app, err := GetArgocdApp(ranztpparameters.ArgocdPoliciesAppName, ranztpparameters.ZtpDeployedNamespace)
 
 		if err != nil {
 			return false, err
@@ -174,6 +173,26 @@ func WaitForArgocdChangeToComplete(timeout time.Duration) error {
 	return err
 }
 
+// GetKlusterletConfiguration is used to get the klusterlet addon configuration for a specified cluster.
+func GetKlusterletConfiguration(clusterName string, namespace string) (kacv1.KlusterletAddonConfig, error) {
+	// Create a typed namespace object
+	typedNamespace := types.NamespacedName{}
+	typedNamespace.Name = clusterName
+	typedNamespace.Namespace = namespace
+
+	// Create a kac object
+	kac := kacv1.KlusterletAddonConfig{}
+
+	// Get the kac from the hub
+	err := HubAPIClient.Client.Get(GetZtpContext(), typedNamespace, &kac)
+	if err != nil {
+		return kacv1.KlusterletAddonConfig{}, err
+	}
+
+	return kac, nil
+}
+
+// GetEvaluationIntervals is used to get the configured evaluation intervals for a specified policy.
 func GetEvaluationIntervals(policyName string, namespace string) (string, string, error) {
 	log.Printf("Checking policy '%s' in namespace '%s' to fetch evaluation intervals\n", policyName, namespace)
 
