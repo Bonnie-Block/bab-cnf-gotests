@@ -65,18 +65,21 @@ var _ = ReportAfterEach(func(report types.SpecReport) {
 // GetArgocdAppGitDetails is used to check the environment variables for any ztp test configuration.
 // If any are undefined then the default values are used instead.
 func GetArgocdAppGitDetails() error {
-	// Loop over the apps and save the git details
-	for _, app := range ranztpparameters.ArgocdApps {
-		repo, branch, dir, err := ranztphelper.GetGitDetailsFromArgocd(app, ranztpparameters.ZtpDeployedNamespace)
-		if err != nil {
-			return err
-		}
+	// Check if the hub is defined
+	if os.Getenv(ranztpparameters.HubKubeEnvKey) != "" {
+		// Loop over the apps and save the git details
+		for _, app := range ranztpparameters.ArgocdApps {
+			repo, branch, dir, err := ranztphelper.GetGitDetailsFromArgocd(app, ranztpparameters.ZtpDeployedNamespace)
+			if err != nil {
+				return err
+			}
 
-		// Save the git details to the map
-		ranztphelper.ArgocdApps[app] = ranztpparameters.ArgocdGitDetails{
-			Repo:   repo,
-			Branch: branch,
-			Path:   dir,
+			// Save the git details to the map
+			ranztphelper.ArgocdApps[app] = ranztpparameters.ArgocdGitDetails{
+				Repo:   repo,
+				Branch: branch,
+				Path:   dir,
+			}
 		}
 	}
 
@@ -85,62 +88,58 @@ func GetArgocdAppGitDetails() error {
 
 // InitializeClients is used to create the API clients for the spoke and hub.
 func InitializeClients() error {
-	// Hub is required as that's where argocd is running
-	if os.Getenv(ranztpparameters.HubKubeEnvKey) == "" {
-		return fmt.Errorf("required environment key %s was not defined", ranztpparameters.HubKubeEnvKey)
-	}
-
 	var err error
 
-	ranztphelper.HubAPIClient, err = ranhelper.DefineAPIClient(ranztpparameters.HubKubeEnvKey)
-	if err != nil {
-		return err
+	if os.Getenv(ranztpparameters.HubKubeEnvKey) != "" {
+		// Define all the hub information
+		ranztphelper.HubAPIClient, err = ranhelper.DefineAPIClient(ranztpparameters.HubKubeEnvKey)
+		if err != nil {
+			return err
+		}
+
+		ranztphelper.HubName, err = ranhelper.GetClusterName(ranztpparameters.HubKubeEnvKey)
+		if err != nil {
+			return err
+		}
+
+		ocpVersion, err := ranhelper.GetClusterVersion(ranztphelper.HubAPIClient)
+		if err != nil {
+			return err
+		}
+
+		log.Printf("cluster '%s' has OCP version '%s'\n", ranztphelper.HubName, ocpVersion)
+
+		ranztphelper.ZtpVersion, err = ranztphelper.GetZtpVersionFromArgocd(
+			ranztpparameters.ZtpDeploymentName,
+			ranztpparameters.ZtpDeployedNamespace,
+		)
+
+		if err != nil {
+			return err
+		}
+
+		log.Printf("cluster '%s' has ZTP version '%s'\n", ranztphelper.HubName, ranztphelper.ZtpVersion)
 	}
-
-	ranztphelper.HubName, err = ranhelper.GetClusterName(ranztpparameters.HubKubeEnvKey)
-	if err != nil {
-		return err
-	}
-
-	ocpVersion, err := ranhelper.GetClusterVersion(ranztphelper.HubAPIClient)
-	if err != nil {
-		return err
-	}
-
-	log.Printf("cluster '%s' has OCP version '%s'\n", ranztphelper.HubName, ocpVersion)
-
-	ranztphelper.ZtpVersion, err = ranztphelper.GetZtpVersionFromArgocd(
-		ranztpparameters.ZtpDeploymentName,
-		ranztpparameters.ZtpDeployedNamespace,
-	)
-
-	if err != nil {
-		return err
-	}
-
-	log.Printf("cluster '%s' has ZTP version '%s'\n", ranztphelper.HubName, ranztphelper.ZtpVersion)
 
 	// Spoke is the default kubeconfig
-	if os.Getenv(ranztpparameters.SpokeKubeEnvKey) == "" {
-		return fmt.Errorf("required environment key %s was not defined", ranztpparameters.SpokeKubeEnvKey)
-	}
+	if os.Getenv(ranztpparameters.SpokeKubeEnvKey) != "" {
+		ranztphelper.SpokeAPIClient, err = ranhelper.DefineAPIClient(ranztpparameters.SpokeKubeEnvKey)
+		if err != nil {
+			return err
+		}
 
-	ranztphelper.SpokeAPIClient, err = ranhelper.DefineAPIClient(ranztpparameters.SpokeKubeEnvKey)
-	if err != nil {
-		return err
-	}
+		ranztphelper.SpokeName, err = ranhelper.GetClusterName(ranztpparameters.SpokeKubeEnvKey)
+		if err != nil {
+			return err
+		}
 
-	ranztphelper.SpokeName, err = ranhelper.GetClusterName(ranztpparameters.SpokeKubeEnvKey)
-	if err != nil {
-		return err
-	}
+		ocpVersion, err := ranhelper.GetClusterVersion(ranztphelper.SpokeAPIClient)
+		if err != nil {
+			return err
+		}
 
-	ocpVersion, err = ranhelper.GetClusterVersion(ranztphelper.SpokeAPIClient)
-	if err != nil {
-		return err
+		log.Printf("cluster '%s' has OCP version '%s'\n", ranztphelper.SpokeName, ocpVersion)
 	}
-
-	log.Printf("cluster '%s' has OCP version '%s'\n", ranztphelper.SpokeName, ocpVersion)
 
 	return nil
 }
@@ -212,19 +211,21 @@ func DeleteNamespace(allowNotExists bool) error {
 
 // ResetArgocdGitDetails is used to configure Argocd back to the values it had before the tests started.
 func ResetArgocdGitDetails() error {
-	// Loop over the apps and restore the git details
-	for _, app := range ranztpparameters.ArgocdApps {
-		// Restore the app's git details
-		err := ranztphelper.SetGitDetailsInArcgocd(
-			ranztphelper.ArgocdApps[app].Repo,
-			ranztphelper.ArgocdApps[app].Branch,
-			ranztphelper.ArgocdApps[app].Path,
-			app,
-			false,
-		)
+	if os.Getenv(ranztpparameters.HubKubeEnvKey) != "" {
+		// Loop over the apps and restore the git details
+		for _, app := range ranztpparameters.ArgocdApps {
+			// Restore the app's git details
+			err := ranztphelper.SetGitDetailsInArcgocd(
+				ranztphelper.ArgocdApps[app].Repo,
+				ranztphelper.ArgocdApps[app].Branch,
+				ranztphelper.ArgocdApps[app].Path,
+				app,
+				false,
+			)
 
-		if err != nil {
-			return err
+			if err != nil {
+				return err
+			}
 		}
 	}
 

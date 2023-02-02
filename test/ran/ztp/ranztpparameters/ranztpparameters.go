@@ -24,16 +24,17 @@ type ArgocdGitDetails struct {
 const (
 	// Namespaces matching '^ztp*' are special
 	// Argocd will only let us use such namespaces for policy gen templates on the SNO nodes.
-	ZtpTestNamespace      string        = "ztp-test"
-	HubKubeEnvKey         string        = "KUBECONFIG_HUB"
-	SpokeKubeEnvKey       string        = "KUBECONFIG"
-	ZtpDeployedNamespace  string        = "openshift-gitops"
-	ZtpDeploymentName     string        = "openshift-gitops-repo-server"
-	ArgocdPoliciesAppName string        = "policies"
-	ArgocdClustersAppName string        = "clusters"
-	MinimumZtpVersion     string        = "4.12"
-	ArgocdChangeTimeout   time.Duration = 10 * time.Minute
-	ArgocdChangeInterval  time.Duration = 10 * time.Second
+	ZtpTestNamespace         string        = "ztp-test"
+	HubKubeEnvKey            string        = "KUBECONFIG_HUB"
+	SpokeKubeEnvKey          string        = "KUBECONFIG"
+	ZtpDeployedNamespace     string        = "openshift-gitops"
+	ZtpDeploymentName        string        = "openshift-gitops-repo-server"
+	ArgocdPoliciesAppName    string        = "policies"
+	ArgocdClustersAppName    string        = "clusters"
+	MinimumZtpVersion        string        = "4.12"
+	ArgocdChangeTimeout      time.Duration = 10 * time.Minute
+	ArgocdChangeInterval     time.Duration = 10 * time.Second
+	ZtpSiteGenerateImageName string        = "registry-proxy.engineering.redhat.com/rh-osbs/openshift4-ztp-site-generate"
 )
 
 // ArgocdApps is a list of the argocd app names that are defined above.
