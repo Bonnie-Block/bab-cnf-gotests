@@ -3,6 +3,7 @@ package tests
 import (
 	"context"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -17,6 +18,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/accelerator/acc100/netacc100parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/accelerator/netacceleratorhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/polarion"
@@ -30,6 +32,7 @@ var _ = Describe("Intel ACC100", func() {
 		testSkip             = ""
 		isSingleNode         bool
 		snoTimeoutMultiplier time.Duration = 1
+		isSecureBootEnabled  bool
 	)
 
 	execute.BeforeAll(func() {
@@ -74,13 +77,31 @@ var _ = Describe("Intel ACC100", func() {
 			snoTimeoutMultiplier = 2
 		}
 
+		By("Verify Secure Boot status on worker nodes")
+		workerNodeList, err := nodes.GetByRole(helper.Apiclient, parameters.RoleWorker)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(len(workerNodeList)).To(BeNumerically(">", 1))
+
+		workerNodeNames := []string{workerNodeList[0].Name, workerNodeList[1].Name}
+		isSecureBootEnabled, err = netacceleratorhelper.GetNodeSecureBootState(workerNodeNames,
+			netacc100parameters.TestNamespace)
+
+		Expect(err).NotTo(HaveOccurred(), "Unable to determine if Secure Boot is enabled")
+
+		if isSecureBootEnabled {
+			log.Println("Secure Boot is enabled on worker nodes")
+
+		} else {
+			log.Println("Secure Boot is not enabled on worker nodes")
+		}
+
 		By("Validating performance profile")
 		netacceleratorhelper.FindAndValidateOrOverridePerformanceProfile(
 			helper.Apiclient, helper.Config.General.CnfNodeLabel, snoTimeoutMultiplier)
 
 		By("Creating SriovFecClusterConfig")
 		fecConfig = netacc100helper.GetSriovFecAcc100ClusterConfigDefinition(
-			helper.Apiclient, isSingleNode)
+			helper.Apiclient, isSingleNode, isSecureBootEnabled)
 		cnfNodelabel := strings.Split(helper.Config.General.CnfNodeLabel, "/")[1]
 		netacceleratorhelper.InstallSriovFecClusterNodeConfig(
 			helper.Apiclient, fecConfig, isSingleNode, cnfNodelabel)
@@ -127,9 +148,10 @@ var _ = Describe("Intel ACC100", func() {
 
 			By("Creating bbdev test pod")
 			bbdevPod := netacceleratorhelper.CreateBbdevPod(
-				helper.Apiclient, netacc100parameters.TestNamespace, netacc100parameters.Acc100ResourceName, helper.Config)
+				netacc100parameters.TestNamespace, netacc100parameters.Acc100ResourceName, helper.Config)
+
 			By("Running bbdev tests")
-			bbdevTestResults := netacceleratorhelper.RunBbdevTests(helper.Apiclient, bbdevPod)
+			bbdevTestResults := netacceleratorhelper.RunBbdevTests(helper.Apiclient, bbdevPod, isSecureBootEnabled)
 			countOfTests := helper.CountLinesByMatches(bbdevTestResults, "Starting Test Suite :")
 			countOfPassed := helper.CountLinesByMatches(bbdevTestResults, "Tests Passed", "1")
 

@@ -31,3 +31,9 @@ var (
 		{Cr: &fecv2.SriovFecClusterConfigList{}},
 	}
 )
+
+type VFIOToken struct {
+	Extra struct {
+		VfioToken string `json:"VFIO_TOKEN"`
+	} `json:"extra"`
+}

@@ -2,12 +2,14 @@ package netacceleratorhelper
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
 
 	. "github.com/onsi/gomega"
 
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/accelerator/acc100/netacc100parameters"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -180,7 +182,7 @@ func matchingOptionalSelectorSriovFec(
 
 // CreateBbdevPod creates bbdev pod.
 func CreateBbdevPod(
-	cs *client.ClientSet, namespace, acceleratorResourceName string, config *config.Config) *corev1.Pod {
+	namespace, acceleratorResourceName string, config *config.Config) *corev1.Pod {
 	podBbdevDefinition := getBbdevPodDefinition(namespace, acceleratorResourceName, config)
 	bbdevPod := helper.WaitUntilPodCreatedAndRunning(podBbdevDefinition, 5*time.Minute)
 
@@ -240,20 +242,38 @@ func getBbdevPodDefinition(namespace, acceleratorResourceName string, config *co
 }
 
 // RunBbdevTests executes bbdev tests in bbdev pod.
-func RunBbdevTests(clientSet *client.ClientSet, bbdevPod *corev1.Pod) string {
+func RunBbdevTests(clientSet *client.ClientSet, bbdevPod *corev1.Pod, isSecureEnabled bool) string {
+	printEnvCommand := []string{"bash", "-c", "printenv | grep INTEL"}
+
+	if isSecureEnabled {
+		printEnvCommand = []string{"bash", "-c", "printenv | grep INTEL | grep -v INFO"}
+	}
+
 	pcideviceIntelComIntelFec5GBuff, err := pod.ExecCommand(
-		clientSet, *bbdevPod, []string{"bash", "-c", "printenv | grep INTEL"})
+		clientSet, *bbdevPod, printEnvCommand)
 	Expect(err).NotTo(HaveOccurred())
 
 	pcideviceIntelComIntelFec5GString := strings.TrimSpace(
 		strings.Split(pcideviceIntelComIntelFec5GBuff.String(), "=")[1])
-	command := fmt.Sprintf("/usr/bbdev/test-bbdev.py"+
+
+	testCommand := fmt.Sprintf("/usr/bbdev/test-bbdev.py"+
 		" -e \"-w %v -d /usr/bbdev/\"  -c validation"+
 		" -p /usr/bbdev/dpdk-test-bbdev"+
 		" -n 64 -b 8"+
 		" -v /usr/bbdev/test_vectors/*", pcideviceIntelComIntelFec5GString)
 
-	bbdevTestsOutput, _ := pod.ExecCommand(clientSet, *bbdevPod, []string{"bash", "-c", command})
+	if isSecureEnabled {
+		token, err := getVFIOToken(clientSet, bbdevPod, pcideviceIntelComIntelFec5GString)
+		Expect(err).NotTo(HaveOccurred())
+
+		testCommand = fmt.Sprintf("/usr/bbdev/test-bbdev.py"+
+			" -e \"-w %v --vfio-vf-token %s -d /usr/bbdev/\"  -c validation"+
+			" -p /usr/bbdev/dpdk-test-bbdev"+
+			" -n 64 -b 8 "+
+			" -v /usr/bbdev/test_vectors/*", pcideviceIntelComIntelFec5GString, token)
+	}
+
+	bbdevTestsOutput, _ := pod.ExecCommand(clientSet, *bbdevPod, []string{"bash", "-c", testCommand})
 
 	return bbdevTestsOutput.String()
 }
@@ -346,4 +366,63 @@ func validatePerformanceProfile(performanceProfile *performancev2.PerformancePro
 	}
 
 	return true, nil
+}
+
+// GetNodeSecureBootState checks if the workers have secure boot enabled.
+func GetNodeSecureBootState(nodeName []string, namespace string) (bool, error) {
+	podDefinition := defineTestPod(nodeName[0], helper.Config.Network.TestContainerImage,
+		namespace)
+
+	testPod := helper.WaitUntilPodCreatedAndRunning(podDefinition, 2*time.Minute)
+
+	defer func() {
+		err := helper.Apiclient.Pods(namespace).Delete(context.Background(), testPod.Name,
+			metav1.DeleteOptions{GracePeriodSeconds: pointer.Int64Ptr(0)})
+		Expect(err).ToNot(HaveOccurred())
+	}()
+
+	stdout, err := pod.ExecCommand(helper.Apiclient, *testPod, []string{"cat", "/host/sys/kernel/security/lockdown"})
+
+	if strings.Contains(stdout.String(), "No such file or directory") {
+		return false, nil
+	}
+
+	if err != nil {
+		return false, err
+	}
+
+	return strings.Contains(stdout.String(), "[integrity]") || strings.Contains(stdout.String(),
+		"[confidentiality]"), nil
+}
+
+func defineTestPod(node, image, namespace string) *corev1.Pod {
+	podDefinition := pod.DefinePodOnNode(namespace, image, node)
+	pod.RedefineWithVolume(podDefinition, "host", "/host",
+		corev1.VolumeSource{HostPath: &corev1.HostPathVolumeSource{Path: "/"}}, true)
+
+	podDefinition = pod.RedefineAsPrivileged(podDefinition)
+
+	return podDefinition
+}
+
+// getVFIOToken returns the vfio-token.
+func getVFIOToken(clientSet *client.ClientSet, bbdevPod *corev1.Pod, pci string) (string, error) {
+	vfioTokenJSONBuff, err := pod.ExecCommand(
+		clientSet, *bbdevPod, []string{"bash", "-c", "printenv | grep INFO"})
+
+	if err != nil {
+		return "", err
+	}
+
+	vfioTokenJSONString := strings.TrimSpace(
+		strings.Split(vfioTokenJSONBuff.String(), "=")[1])
+	result := map[string]netacc100parameters.VFIOToken{}
+
+	err = json.Unmarshal([]byte(vfioTokenJSONString), &result)
+
+	if err != nil {
+		return "", err
+	}
+
+	return result[pci].Extra.VfioToken, nil
 }

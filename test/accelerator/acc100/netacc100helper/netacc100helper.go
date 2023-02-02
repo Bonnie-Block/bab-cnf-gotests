@@ -37,7 +37,7 @@ func GetSriovFecNodeForAcc100(cs *client.ClientSet) (*fecv2.SriovFecNodeConfig, 
 
 // GetSriovFecAcc100ClusterConfigDefinition retrieves SriovFecClusterConfig definition.
 func GetSriovFecAcc100ClusterConfigDefinition(
-	clientSet *client.ClientSet, isSingleNode bool) *fecv2.SriovFecClusterConfig {
+	clientSet *client.ClientSet, isSingleNode, isSecureBootEnabled bool) *fecv2.SriovFecClusterConfig {
 	var (
 		err                error
 		sriovFecNodeConfig *fecv2.SriovFecNodeConfig
@@ -56,6 +56,11 @@ func GetSriovFecAcc100ClusterConfigDefinition(
 		NumAqsPerGroups: 16,
 		NumQueueGroups:  2,
 	}
+	pfDriverType := "pci-pf-stub"
+
+	if isSecureBootEnabled {
+		pfDriverType = "vfio-pci"
+	}
 
 	sriovFecClusterConfig := &fecv2.SriovFecClusterConfig{
 		ObjectMeta: metav1.ObjectMeta{Name: "config", Namespace: netacc100parameters.OperatorNamespace},
@@ -68,7 +73,7 @@ func GetSriovFecAcc100ClusterConfigDefinition(
 				PCIAddress: accelerator.PCIAddress,
 			},
 			PhysicalFunction: fecv2.PhysicalFunctionConfig{
-				PFDriver: "pci-pf-stub",
+				PFDriver: pfDriverType,
 				VFAmount: vfNumber,
 				VFDriver: "vfio-pci",
 				BBDevConfig: fecv2.BBDevConfig{
