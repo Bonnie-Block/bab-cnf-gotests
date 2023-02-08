@@ -5,7 +5,8 @@ import (
 
 	"github.com/golang/glog"
 
-	argocdv1alpha1 "github.com/argoproj/argo-cd/v2/pkg/client/clientset/versioned/typed/application/v1alpha1"
+	argocdoperatorv1alpha1 "github.com/argoproj-labs/argocd-operator/api/v1alpha1"
+	argocdappv1alpha1 "github.com/argoproj/argo-cd/v2/pkg/client/clientset/versioned/typed/application/v1alpha1"
 	multinetpolicyapiv1 "github.com/k8snetworkplumbingwg/multi-networkpolicy/pkg/apis/k8s.cni.cncf.io/v1beta1"
 	multinetpolicyclientv1 "github.com/k8snetworkplumbingwg/multi-networkpolicy/pkg/client/clientset/versioned/typed/k8s.cni.cncf.io/v1beta1"
 	netattdefv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
@@ -49,7 +50,7 @@ import (
 
 // ClientSet provides the struct to talk with relevant API.
 type ClientSet struct {
-	argocdv1alpha1.ArgoprojV1alpha1Interface
+	argocdappv1alpha1.ArgoprojV1alpha1Interface
 	batchv1client.BatchV1Interface
 	corev1client.CoreV1Interface
 	clientconfigv1.ConfigV1Interface
@@ -94,7 +95,7 @@ func New(kubeconfig string) *ClientSet {
 	}
 
 	clientSet := &ClientSet{}
-	clientSet.ArgoprojV1alpha1Interface = argocdv1alpha1.NewForConfigOrDie(config)
+	clientSet.ArgoprojV1alpha1Interface = argocdappv1alpha1.NewForConfigOrDie(config)
 	clientSet.BatchV1Interface = batchv1client.NewForConfigOrDie(config)
 	clientSet.CoreV1Interface = corev1client.NewForConfigOrDie(config)
 	clientSet.ConfigV1Interface = clientconfigv1.NewForConfigOrDie(config)
@@ -192,6 +193,10 @@ func New(kubeconfig string) *ClientSet {
 	}
 
 	if err := kacagentv1.SchemeBuilder.AddToScheme(crScheme); err != nil {
+		panic(err)
+	}
+
+	if err := argocdoperatorv1alpha1.SchemeBuilder.AddToScheme(crScheme); err != nil {
 		panic(err)
 	}
 

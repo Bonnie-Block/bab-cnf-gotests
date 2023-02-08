@@ -167,6 +167,8 @@ github.com/antlr/antlr4/runtime/Go/antlr v0.0.0-20220418222510-f25a4f6275ed/go.m
 github.com/apache/thrift v0.12.0/go.mod h1:cp2SuWMxlEZw2r+iP2GNCdIi4C1qmUzdZFSVb+bacwQ=
 github.com/apache/thrift v0.13.0/go.mod h1:cp2SuWMxlEZw2r+iP2GNCdIi4C1qmUzdZFSVb+bacwQ=
 github.com/apparentlymart/go-cidr v1.0.0/go.mod h1:EBcsNrHc3zQeuaeCeCtQruQm+n9/YjEn/vI25Lg7Gwc=
+github.com/argoproj-labs/argocd-operator v0.5.0 h1:dJIjEL4uy/H5PKf75AqTkNQctfXESy6ctRTwMnokxIQ=
+github.com/argoproj-labs/argocd-operator v0.5.0/go.mod h1:/sMLNAq4teuLSbAx/+pMBZM7ENLsXxrLjsG7E8NcSGI=
 github.com/argoproj/argo-cd/v2 v2.5.4 h1:AoPjSHfqXavl22vFH7yKVVwV0s//aCJnu0amuazGvMY=
 github.com/argoproj/argo-cd/v2 v2.5.4/go.mod h1:3ToENm286PFVlZKNMutBzOwNyhevz4fw9dcgyiq3FIY=
 github.com/argoproj/gitops-engine v0.7.1-0.20221004132320-98ccd3d43fd9 h1:pXN64mJfrg8qx4mgWDnJ9E2T5ikZupvVRSXYMoe39Y8=

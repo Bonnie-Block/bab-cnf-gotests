@@ -13,7 +13,7 @@ import (
 	testClient "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
 )
 
-var _ = Describe("ZTP Site Config Tests", Ordered, Label("ztp-site-config"), func() {
+var _ = Describe("ZTP Argocd clusters Tests", Ordered, Label("ztp-argocd-clusters"), func() {
 
 	// These tests use the hub and spoke
 	var clusterList []*testClient.ClientSet

@@ -217,6 +217,34 @@ func IsVersionStringInRange(version, minimum, maximum string) bool {
 	return true
 }
 
+// GetOperatorVersionFromCSV parses the ClusterServiceVersions resource to obtain the installed operator version.
+// This resource will be populated only when installing operators from the Operator Hub.
+// The returned value here is the same as you would see in the Operator Hub, e.g. "4.11.2".
+func GetOperatorVersionFromCSV(client *testclient.ClientSet, operatorName, operatorNamespace string) (string, error) {
+	// Check if the client is valid
+	if client == nil {
+		return "", fmt.Errorf("provided nil client")
+	}
+
+	// Get the CSV objects
+	csvs, err := client.ClusterServiceVersions(operatorNamespace).
+		List(context.TODO(), metav1.ListOptions{})
+
+	// Check for any error getting the CSVs
+	if err != nil {
+		return "", err
+	}
+
+	// Find the CSV that matches the operator
+	for _, csv := range csvs.Items {
+		if strings.Contains(csv.Name, operatorName) {
+			return csv.Spec.Version.String(), nil
+		}
+	}
+
+	return "", nil
+}
+
 // PrintCr print any CR.
 func PrintCr(b interface{}) error {
 	customResource, err := yaml.Marshal(b)

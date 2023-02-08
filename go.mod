@@ -64,6 +64,7 @@ require (
 	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d // indirect
 	github.com/acomagu/bufpipe v1.0.3 // indirect
 	github.com/ajeddeloh/go-json v0.0.0-20170920214419-6a2fe990e083 // indirect
+	github.com/argoproj-labs/argocd-operator v0.5.0 // indirect
 	github.com/argoproj/gitops-engine v0.7.1-0.20221004132320-98ccd3d43fd9 // indirect
 	github.com/argoproj/pkg v0.11.1-0.20211203175135-36c59d8fafe0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect

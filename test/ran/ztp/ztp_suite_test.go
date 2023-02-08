@@ -69,7 +69,7 @@ func GetArgocdAppGitDetails() error {
 	if os.Getenv(ranztpparameters.HubKubeEnvKey) != "" {
 		// Loop over the apps and save the git details
 		for _, app := range ranztpparameters.ArgocdApps {
-			repo, branch, dir, err := ranztphelper.GetGitDetailsFromArgocd(app, ranztpparameters.ZtpDeployedNamespace)
+			repo, branch, dir, err := ranztphelper.GetGitDetailsFromArgocd(app, ranztpparameters.OpenshiftGitops)
 			if err != nil {
 				return err
 			}
@@ -110,8 +110,8 @@ func InitializeClients() error {
 		log.Printf("cluster '%s' has OCP version '%s'\n", ranztphelper.HubName, ocpVersion)
 
 		ranztphelper.ZtpVersion, err = ranztphelper.GetZtpVersionFromArgocd(
-			ranztpparameters.ZtpDeploymentName,
-			ranztpparameters.ZtpDeployedNamespace,
+			ranztpparameters.OpenshiftGitopsRepoServer,
+			ranztpparameters.OpenshiftGitops,
 		)
 
 		if err != nil {
@@ -139,6 +139,17 @@ func InitializeClients() error {
 		}
 
 		log.Printf("cluster '%s' has OCP version '%s'\n", ranztphelper.SpokeName, ocpVersion)
+
+		ranztphelper.AcmVersion, err = ranhelper.GetOperatorVersionFromCSV(
+			ranztphelper.HubAPIClient,
+			ranztpparameters.AcmOperatorName,
+			ranztpparameters.AcmOperatorNamespace,
+		)
+		if err != nil {
+			return err
+		}
+
+		log.Printf("cluster '%s' has ACM version '%s'\n", ranztphelper.HubName, ranztphelper.AcmVersion)
 	}
 
 	return nil

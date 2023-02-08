@@ -83,6 +83,10 @@ github.com/acomagu/bufpipe
 # github.com/ajeddeloh/go-json v0.0.0-20170920214419-6a2fe990e083
 ## explicit
 github.com/ajeddeloh/go-json
+# github.com/argoproj-labs/argocd-operator v0.5.0
+## explicit; go 1.18
+github.com/argoproj-labs/argocd-operator/api/v1alpha1
+github.com/argoproj-labs/argocd-operator/common
 # github.com/argoproj/argo-cd/v2 v2.5.4
 ## explicit; go 1.18
 github.com/argoproj/argo-cd/v2/common

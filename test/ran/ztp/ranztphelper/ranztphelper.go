@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	argocdoperatorv1alpha1 "github.com/argoproj-labs/argocd-operator/api/v1alpha1"
 	argocdappv1alpha "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	kacv1 "github.com/stolostron/klusterlet-addon-controller/pkg/apis/agent/v1"
 	"github.com/tidwall/gjson"
@@ -18,6 +19,7 @@ import (
 	types "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var (
@@ -27,6 +29,7 @@ var (
 	SpokeName      string
 	ArgocdApps     = map[string]ranztpparameters.ArgocdGitDetails{}
 	ZtpVersion     string
+	AcmVersion     string
 )
 
 // GetZtpContext is used to get the context for the Ztp test client interactions.
@@ -52,8 +55,75 @@ func GetNode(client *testClient.ClientSet) (corev1.Node, error) {
 	return nodeList.Items[0], nil
 }
 
+// WaitForPolicyToExist is used to wait until the specified policy exists on the hub.
+func WaitForPolicyToExist(policyName, namespace string, timeout time.Duration) error {
+	err := wait.PollImmediate(
+		15*time.Second,
+		timeout,
+		func() (bool, error) {
+			// If the policy doesn't exist yet then this will return an error
+			_, err := GetPolicy(policyName, namespace)
+
+			if err != nil {
+				log.Println(err)
+
+				if strings.Contains(err.Error(), "not found") {
+					return false, nil
+				}
+
+				return true, err
+			}
+
+			// If err was nil then we are done
+			return true, nil
+		},
+	)
+
+	return err
+}
+
+// GetPolicy is used to get a policy from the hub.
+func GetPolicy(policyName, namespace string) (policiesv1.Policy, error) {
+	// Create a typed namespace object
+	typedNamespace := types.NamespacedName{}
+	typedNamespace.Name = policyName
+	typedNamespace.Namespace = namespace
+
+	// Create a policy object
+	policy := policiesv1.Policy{}
+
+	// Get the policy from the hub
+	err := HubAPIClient.Client.Get(GetZtpContext(), typedNamespace, &policy)
+
+	// Return the results
+	return policy, err
+}
+
+// GetArgocdInstance is used to fetch the Argocd gitops instance.
+func GetArgocdInstance(name, namespace string) (argocdoperatorv1alpha1.ArgoCD, error) {
+	// Create a typed namespace object
+	typedNamespace := types.NamespacedName{}
+	typedNamespace.Name = ranztpparameters.OpenshiftGitops
+	typedNamespace.Namespace = ranztpparameters.OpenshiftGitops
+
+	// Create a argocd object
+	argocd := argocdoperatorv1alpha1.ArgoCD{}
+
+	// Get the configuration from the hub
+	err := HubAPIClient.Client.Get(GetZtpContext(), typedNamespace, &argocd)
+
+	return argocd, err
+}
+
+// UpdateArgocdInstance is used to update the provided Argocd on the hub.
+func UpdateArgocdInstance(argocd argocdoperatorv1alpha1.ArgoCD) error {
+	err := HubAPIClient.Client.Update(GetZtpContext(), &argocd, &client.UpdateOptions{})
+
+	return err
+}
+
 // GetArgocdApp is used to fetch the Argocd application that is being used by Ztp.
-func GetArgocdApp(appName string, namespace string) (*argocdappv1alpha.Application, error) {
+func GetArgocdApp(appName, namespace string) (*argocdappv1alpha.Application, error) {
 	argoApp, err := HubAPIClient.
 		ArgoprojV1alpha1Interface.
 		Applications(namespace).
@@ -64,7 +134,7 @@ func GetArgocdApp(appName string, namespace string) (*argocdappv1alpha.Applicati
 
 // SetGitDetailsInArgocd is used to update the git repo, branch, and path in the Argocd app.
 func SetGitDetailsInArcgocd(gitRepo, gitBranch, gitPath, argocdApp string, waitForSync bool) error {
-	app, err := GetArgocdApp(argocdApp, ranztpparameters.ZtpDeployedNamespace)
+	app, err := GetArgocdApp(argocdApp, ranztpparameters.OpenshiftGitops)
 	if err != nil {
 		return err
 	}
@@ -88,7 +158,7 @@ func SetGitDetailsInArcgocd(gitRepo, gitBranch, gitPath, argocdApp string, waitF
 
 	_, err = HubAPIClient.
 		ArgoprojV1alpha1Interface.
-		Applications(ranztpparameters.ZtpDeployedNamespace).
+		Applications(ranztpparameters.OpenshiftGitops).
 		Update(GetZtpContext(), app, metav1.UpdateOptions{})
 	if err != nil {
 		return err
@@ -147,7 +217,7 @@ func WaitForArgocdChangeToComplete(timeout time.Duration) error {
 	log.Println("Waiting for Argocd change to finish syncing")
 
 	err := wait.PollImmediate(ranztpparameters.ArgocdChangeInterval, timeout, func() (bool, error) {
-		app, err := GetArgocdApp(ranztpparameters.ArgocdPoliciesAppName, ranztpparameters.ZtpDeployedNamespace)
+		app, err := GetArgocdApp(ranztpparameters.ArgocdPoliciesAppName, ranztpparameters.OpenshiftGitops)
 
 		if err != nil {
 			return false, err
@@ -196,16 +266,8 @@ func GetKlusterletConfiguration(clusterName string, namespace string) (kacv1.Klu
 func GetEvaluationIntervals(policyName string, namespace string) (string, string, error) {
 	log.Printf("Checking policy '%s' in namespace '%s' to fetch evaluation intervals\n", policyName, namespace)
 
-	// Create a typed namespace object
-	typedNamespace := types.NamespacedName{}
-	typedNamespace.Name = policyName
-	typedNamespace.Namespace = namespace
-
-	// Create a policy object
-	policy := policiesv1.Policy{}
-
 	// Get the policy from the hub
-	err := HubAPIClient.Client.Get(GetZtpContext(), typedNamespace, &policy)
+	policy, err := GetPolicy(policyName, namespace)
 	if err != nil {
 		return "", "", err
 	}

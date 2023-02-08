@@ -130,7 +130,11 @@ func InitializeTalmClients() error {
 			return err
 		}
 
-		rantalmhelper.TalmHubVersion, err = rantalmhelper.GetTalmVersionFromCSV(rantalmhelper.HubAPIClient)
+		rantalmhelper.TalmHubVersion, err = ranhelper.GetOperatorVersionFromCSV(
+			rantalmhelper.HubAPIClient,
+			rantalmparameters.OperatorHubTalmNamespace,
+			rantalmparameters.OpenshiftOperatorNamespace,
+		)
 		if err != nil {
 			return err
 		}

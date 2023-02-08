@@ -13,7 +13,7 @@ import (
 	testClient "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
 )
 
-var _ = Describe("ZTP PGT Tests", Ordered, Label("ztp-pgt"), func() {
+var _ = Describe("ZTP Argocd policies Tests", Ordered, Label("ztp-argocd-policies"), func() {
 
 	// These tests use the hub and spoke
 	var clusterList []*testClient.ClientSet
@@ -65,8 +65,18 @@ var _ = Describe("ZTP PGT Tests", Ordered, Label("ztp-pgt"), func() {
 			})
 
 			By("Waiting for policies to be created", func() {
-				log.Println("Sleeping for 1 minute")
-				time.Sleep(1 * time.Minute)
+				err := ranztphelper.WaitForPolicyToExist(
+					"custom-interval-policy-default",
+					ranztpparameters.ZtpTestNamespace,
+					5*time.Minute,
+				)
+				Expect(err).ToNot(HaveOccurred())
+				err = ranztphelper.WaitForPolicyToExist(
+					"custom-interval-policy-override",
+					ranztpparameters.ZtpTestNamespace,
+					5*time.Minute,
+				)
+				Expect(err).ToNot(HaveOccurred())
 			})
 
 			By("Validing the interval on the default policy", func() {
@@ -126,7 +136,7 @@ var _ = Describe("ZTP PGT Tests", Ordered, Label("ztp-pgt"), func() {
 				err := ranztphelper.WaitForConditionInArgocdApp(
 					ranztphelper.HubAPIClient,
 					ranztpparameters.ArgocdPoliciesAppName,
-					ranztpparameters.ZtpDeployedNamespace,
+					ranztpparameters.OpenshiftGitops,
 					expectedMessage, 5*time.Minute,
 				)
 				Expect(err).ToNot(HaveOccurred())

@@ -1959,27 +1959,3 @@ func PatchCgu(client *testClient.ClientSet,
 		ClusterGroupUpgrades(cgu.Namespace).
 		Patch(context.Background(), cgu.Name, types.MergePatchType, []byte(payload), options)
 }
-
-/*
-	TALM Version helpers
-*/
-
-// GetTalmVersionFromCSV parses the ClusterServiceVersions resource to obtain the installed TALM version.
-// This resource will be populated only when installing TALM from the Operator Hub.
-// The returned value here is the same as you would see in the Operator Hub, e.g. "4.11.2".
-func GetTalmVersionFromCSV(client *testClient.ClientSet) (string, error) {
-	csvs, err := client.ClusterServiceVersions(rantalmparameters.OpenshiftOperatorNamespace).
-		List(context.TODO(), metav1.ListOptions{})
-
-	if err != nil {
-		return "", err
-	}
-
-	for _, csv := range csvs.Items {
-		if strings.Contains(csv.Name, rantalmparameters.OperatorHubTalmNamespace) {
-			return csv.Spec.Version.String(), nil
-		}
-	}
-
-	return "", nil
-}
