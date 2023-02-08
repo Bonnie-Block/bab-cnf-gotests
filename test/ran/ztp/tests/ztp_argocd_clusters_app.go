@@ -2,8 +2,6 @@ package tests
 
 import (
 	"fmt"
-	"log"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -58,14 +56,10 @@ var _ = Describe("ZTP Argocd clusters Tests", Ordered, Label("ztp-argocd-cluster
 					ranztphelper.ArgocdApps[ranztpparameters.ArgocdClustersAppName].Branch,
 					testGitPath,
 					ranztpparameters.ArgocdClustersAppName,
+					true,
 					false,
 				)
 				Expect(err).ToNot(HaveOccurred())
-			})
-
-			By("waiting for the change to take effect", func() {
-				log.Println("Sleeping to wait for changes to take effect")
-				time.Sleep(1 * time.Minute)
 			})
 
 			By("Validating the klusterlet addon change occurred", func() {
@@ -87,14 +81,10 @@ var _ = Describe("ZTP Argocd clusters Tests", Ordered, Label("ztp-argocd-cluster
 				ranztphelper.ArgocdApps[ranztpparameters.ArgocdClustersAppName].Branch,
 				ranztphelper.ArgocdApps[ranztpparameters.ArgocdClustersAppName].Path,
 				ranztpparameters.ArgocdClustersAppName,
+				true,
 				false,
 			)
 			Expect(err).ToNot(HaveOccurred())
-		})
-
-		By("waiting for the change to take effect", func() {
-			log.Println("Sleeping to wait for changes to take effect")
-			time.Sleep(1 * time.Minute)
 		})
 	})
 })

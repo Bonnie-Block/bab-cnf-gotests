@@ -232,6 +232,7 @@ func ResetArgocdGitDetails() error {
 				ranztphelper.ArgocdApps[app].Path,
 				app,
 				false,
+				false,
 			)
 
 			if err != nil {

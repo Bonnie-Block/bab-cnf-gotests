@@ -162,6 +162,7 @@ var _ = Describe("ZTP Argocd ACM CR Tests", Ordered, Label("ztp-argocd-acm-crs")
 					testGitPath,
 					ranztpparameters.ArgocdPoliciesAppName,
 					true,
+					true,
 				)
 				Expect(err).ToNot(HaveOccurred())
 			})
@@ -190,14 +191,10 @@ var _ = Describe("ZTP Argocd ACM CR Tests", Ordered, Label("ztp-argocd-acm-crs")
 				ranztphelper.ArgocdApps[ranztpparameters.ArgocdPoliciesAppName].Branch,
 				ranztphelper.ArgocdApps[ranztpparameters.ArgocdPoliciesAppName].Path,
 				ranztpparameters.ArgocdPoliciesAppName,
+				true,
 				false,
 			)
 			Expect(err).ToNot(HaveOccurred())
-		})
-
-		By("waiting for the change to take effect", func() {
-			log.Println("Sleeping to wait for changes to take effect")
-			time.Sleep(1 * time.Minute)
 		})
 
 		By("reverting argocd patch for ACM CRs", func() {

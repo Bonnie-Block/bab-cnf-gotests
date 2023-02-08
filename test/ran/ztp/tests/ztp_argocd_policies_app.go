@@ -2,7 +2,6 @@ package tests
 
 import (
 	"fmt"
-	"log"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -59,6 +58,7 @@ var _ = Describe("ZTP Argocd policies Tests", Ordered, Label("ztp-argocd-policie
 					ranztphelper.ArgocdApps[ranztpparameters.ArgocdPoliciesAppName].Branch,
 					testGitPath,
 					ranztpparameters.ArgocdPoliciesAppName,
+					true,
 					true,
 				)
 				Expect(err).ToNot(HaveOccurred())
@@ -119,15 +119,10 @@ var _ = Describe("ZTP Argocd policies Tests", Ordered, Label("ztp-argocd-policie
 					ranztphelper.ArgocdApps[ranztpparameters.ArgocdPoliciesAppName].Branch,
 					testGitPath,
 					ranztpparameters.ArgocdPoliciesAppName,
+					true,
 					false,
 				)
 				Expect(err).ToNot(HaveOccurred())
-			})
-
-			By("Waiting for the policies to be attempted", func() {
-				// Argocd will refuse to create the policy since the time format is invalid
-				log.Println("Sleeping for 1 minute")
-				time.Sleep(1 * time.Minute)
 			})
 
 			By("Checking the Argocd conditions for the expected error", func() {
@@ -152,14 +147,10 @@ var _ = Describe("ZTP Argocd policies Tests", Ordered, Label("ztp-argocd-policie
 				ranztphelper.ArgocdApps[ranztpparameters.ArgocdPoliciesAppName].Branch,
 				ranztphelper.ArgocdApps[ranztpparameters.ArgocdPoliciesAppName].Path,
 				ranztpparameters.ArgocdPoliciesAppName,
+				true,
 				false,
 			)
 			Expect(err).ToNot(HaveOccurred())
-		})
-
-		By("waiting for the change to take effect", func() {
-			log.Println("Sleeping to wait for changes to take effect")
-			time.Sleep(1 * time.Minute)
 		})
 	})
 })

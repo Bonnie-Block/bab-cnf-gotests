@@ -133,7 +133,7 @@ func GetArgocdApp(appName, namespace string) (*argocdappv1alpha.Application, err
 }
 
 // SetGitDetailsInArgocd is used to update the git repo, branch, and path in the Argocd app.
-func SetGitDetailsInArcgocd(gitRepo, gitBranch, gitPath, argocdApp string, waitForSync bool) error {
+func SetGitDetailsInArcgocd(gitRepo, gitBranch, gitPath, argocdApp string, waitForSync, syncMustBeValid bool) error {
 	app, err := GetArgocdApp(argocdApp, ranztpparameters.OpenshiftGitops)
 	if err != nil {
 		return err
@@ -165,7 +165,7 @@ func SetGitDetailsInArcgocd(gitRepo, gitBranch, gitPath, argocdApp string, waitF
 	}
 
 	if waitForSync {
-		err = WaitForArgocdChangeToComplete(ranztpparameters.ArgocdChangeTimeout)
+		err = WaitForArgocdChangeToComplete(syncMustBeValid, ranztpparameters.ArgocdChangeTimeout)
 		if err != nil {
 			return err
 		}
@@ -213,7 +213,7 @@ func GetZtpVersionFromArgocd(name string, namespace string) (string, error) {
 }
 
 // WaitForArgocdChangeToComplete is used to wait until Argocd has updated its configuration.
-func WaitForArgocdChangeToComplete(timeout time.Duration) error {
+func WaitForArgocdChangeToComplete(syncMustBeValid bool, timeout time.Duration) error {
 	log.Println("Waiting for Argocd change to finish syncing")
 
 	err := wait.PollImmediate(ranztpparameters.ArgocdChangeInterval, timeout, func() (bool, error) {
@@ -223,11 +223,15 @@ func WaitForArgocdChangeToComplete(timeout time.Duration) error {
 			return false, err
 		}
 
-		// The status should be 'Synced' and we expect the status sync fields to match the configured spec
-		if app.Status.Sync.Status == "Synced" &&
-			app.Status.Sync.ComparedTo.Source.RepoURL == app.Spec.Source.RepoURL &&
+		// Check if all the git details match
+		if app.Status.Sync.ComparedTo.Source.RepoURL == app.Spec.Source.RepoURL &&
 			app.Status.Sync.ComparedTo.Source.TargetRevision == app.Spec.Source.TargetRevision &&
 			app.Status.Sync.ComparedTo.Source.Path == app.Spec.Source.Path {
+			// If we expect the sync to be successful then we also need to check that the status is 'Synced'
+			if syncMustBeValid {
+				return app.Status.Sync.Status == "Synced", nil
+			}
+
 			return true, nil
 		}
 
