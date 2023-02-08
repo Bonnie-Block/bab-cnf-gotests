@@ -442,3 +442,8 @@ func GetSnoNodes() ([]*k8sv1.Node, error) {
 
 	return snoNodes, nil
 }
+
+// GetNodeByName gets a node by its name.
+func GetNodeByName(name string) (*k8sv1.Node, error) {
+	return helper.Apiclient.Nodes().Get(context.Background(), name, metav1.GetOptions{})
+}

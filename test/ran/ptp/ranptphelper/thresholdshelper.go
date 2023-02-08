@@ -60,51 +60,13 @@ func SetThresholdsValAllConfigs(ptpConfigs *ptpv1.PtpConfigList, newClockThresho
 //
 // return value:	an error if any occurred.
 func setThresholdValues(ptpConfig *ptpv1.PtpConfig, newClockThresholds *ptpv1.PtpClockThreshold) error {
-	var ptpProfile []ptpv1.PtpProfile
-
-	newProfile := ptpv1.PtpProfile{
-		Name:                  ptpConfig.Spec.Profile[0].Name,
-		Interface:             ptpConfig.Spec.Profile[0].Interface,
-		Ptp4lOpts:             ptpConfig.Spec.Profile[0].Ptp4lOpts,
-		Phc2sysOpts:           ptpConfig.Spec.Profile[0].Phc2sysOpts,
-		Ptp4lConf:             ptpConfig.Spec.Profile[0].Ptp4lConf,
-		PtpSchedulingPolicy:   ptpConfig.Spec.Profile[0].PtpSchedulingPolicy,
-		PtpSchedulingPriority: ptpConfig.Spec.Profile[0].PtpSchedulingPriority,
-		PtpClockThreshold:     newClockThresholds,
-	}
-
-	fmt.Printf("MinOffsetThreshold: %d\nMaxOffsetThreshold: %d\nHoldOverTimeout: %d\n",
-		newProfile.PtpClockThreshold.MinOffsetThreshold,
-		newProfile.PtpClockThreshold.MaxOffsetThreshold,
-		newProfile.PtpClockThreshold.HoldOverTimeout)
-	ptpProfile = append(ptpProfile, newProfile)
-
-	policy := ptpv1.PtpConfig{
-		TypeMeta:   ptpConfig.TypeMeta,
-		ObjectMeta: ptpConfig.ObjectMeta,
-		Spec: ptpv1.PtpConfigSpec{
-			Profile:   ptpProfile,
-			Recommend: ptpConfig.Spec.Recommend,
-		},
-		Status: ptpConfig.Status,
-	}
-
+	ptpConfig.Spec.Profile[0].PtpClockThreshold = newClockThresholds
 	_, err := helper.Apiclient.PtpConfigs(parameters.PtpOperatorNamespace).Update(context.Background(),
-		&policy, metav1.UpdateOptions{})
-	if nil != err {
+		ptpConfig, metav1.UpdateOptions{})
+
+	if err != nil {
 		return err
 	}
-
-	ptpConfigUpdated, err := helper.Apiclient.PtpConfigs(parameters.PtpOperatorNamespace).Get(context.Background(),
-		ptpConfig.Name, metav1.GetOptions{})
-	if nil != err {
-		return err
-	}
-
-	fmt.Printf("MinOffsetThreshold: %d\nMaxOffsetThreshold: %d\nHoldOverTimeout: %d\n",
-		ptpConfigUpdated.Spec.Profile[0].PtpClockThreshold.MinOffsetThreshold,
-		ptpConfigUpdated.Spec.Profile[0].PtpClockThreshold.MaxOffsetThreshold,
-		ptpConfigUpdated.Spec.Profile[0].PtpClockThreshold.HoldOverTimeout)
 
 	return nil
 }
@@ -117,23 +79,28 @@ func setThresholdValues(ptpConfig *ptpv1.PtpConfig, newClockThresholds *ptpv1.Pt
 // return value:	an error if the threshold value is not one of the clock threshold parameters.
 func ThresholdsMetricsValsValidation(thresholdMetrics ranptpparameters.MetricDetails,
 	thresholdVals ptpv1.PtpClockThreshold) error {
+	var exptVal int64
+
 	switch thresholdMetrics.Threshold {
 	case ranptpparameters.HoldOverTimeout:
-		if thresholdMetrics.Value == thresholdVals.HoldOverTimeout {
+		exptVal = thresholdVals.HoldOverTimeout
+		if thresholdMetrics.Value == exptVal {
 			return nil
 		}
 	case ranptpparameters.MaxOffsetThreshold:
-		if thresholdMetrics.Value == thresholdVals.MaxOffsetThreshold {
+		exptVal = thresholdVals.MaxOffsetThreshold
+		if thresholdMetrics.Value == exptVal {
 			return nil
 		}
 	case ranptpparameters.MinOffsetThreshold:
-		if thresholdMetrics.Value != thresholdVals.MinOffsetThreshold {
+		exptVal = thresholdVals.MinOffsetThreshold
+		if thresholdMetrics.Value == exptVal {
 			return nil
 		}
 	default:
-		return fmt.Errorf("threshold value %s is undefined", thresholdMetrics.Threshold)
+		return fmt.Errorf("threshold value is undefined")
 	}
 
 	return fmt.Errorf("metric threshold %s value %d is not equal to %d",
-		thresholdMetrics.Threshold, thresholdMetrics.Value, thresholdVals.HoldOverTimeout)
+		thresholdMetrics.Threshold, thresholdMetrics.Value, exptVal)
 }

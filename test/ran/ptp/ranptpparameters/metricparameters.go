@@ -58,7 +58,7 @@ var (
 		"":        -1,
 	}
 
-	// MetricMap contains all the metrics detail, the key is the metric name.
+	// MetricMap contains all the metrics detail, the key is the profile name, and then the metric name.
 	MetricMap map[string][]MetricDetails
 
 	// InterfacesRoleMap maps Interface IDs to their role (master/slave).

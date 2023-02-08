@@ -2,12 +2,15 @@ package ranptphelper
 
 import (
 	ptpv1api "github.com/openshift/ptp-operator/api/v1"
+	"github.com/opentracing/opentracing-go/log"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ptp/ranptpparameters"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/strings/slices"
 
 	"context"
 	"fmt"
@@ -15,10 +18,9 @@ import (
 	"strings"
 )
 
-// GetInterfaces gets an interface role, "mode" and returns the interfaces' ID as a slice.
+// GetInterfaces returns ptp interfaces with specified role on given node.
 // the function returns only "master" or "slave" interfaces.
-// an error is returned if any occurred.
-func GetInterfaces(mode ptpv1api.PtpRole) ([]string, error) {
+func GetInterfaces(role ptpv1api.PtpRole, node corev1.Node) ([]string, error) {
 	var interfaces []string
 
 	configList, err := helper.Apiclient.PtpConfigs(parameters.PtpOperatorNamespace).List(context.Background(),
@@ -29,7 +31,7 @@ func GetInterfaces(mode ptpv1api.PtpRole) ([]string, error) {
 
 	interfacesRoleMap := make(map[string]ranptpparameters.RoleMap)
 	for _, config := range configList.Items {
-		interfacesRoleMap, err = interfaceSectionParser(config, interfacesRoleMap)
+		interfacesRoleMap, err = interfaceParser(config, node, interfacesRoleMap)
 		if err != nil {
 			return interfaces, err
 		}
@@ -37,12 +39,31 @@ func GetInterfaces(mode ptpv1api.PtpRole) ([]string, error) {
 
 	ranptpparameters.InterfacesRoleMap = interfacesRoleMap
 	for index, section := range ranptpparameters.InterfacesRoleMap {
-		if section["masterOnly"] == strconv.Itoa(int(mode)) {
+		if section["masterOnly"] == strconv.Itoa(int(role)) {
 			interfaces = append(interfaces, index)
 		}
 	}
 
 	return interfaces, nil
+}
+
+// GetInterfaceGroups returns a map with interface group as key, and interface names as value.
+// e.g., {"ens4fx": ["ensf40", "ens4f1"]}.
+func GetInterfaceGroups(interfaces []string) map[string][]string {
+	ifaceGroupMap := make(map[string][]string)
+
+	for _, iface := range interfaces {
+		nic := getNic(iface)
+		if !slices.Contains(ifaceGroupMap[nic], iface) {
+			ifaceGroupMap[nic] = append(ifaceGroupMap[nic], iface)
+		}
+	}
+
+	return ifaceGroupMap
+}
+
+func getNic(iface string) string {
+	return iface[:len(iface)-1] + "x"
 }
 
 // SetInterfaceStatus sets a given interface, "ifaceID", to a given state, "newState",
@@ -59,19 +80,91 @@ func SetInterfaceStatus(clientPod *corev1.Pod,
 	return err
 }
 
-// interfaceSectionParser parses the interface section of a given pointer to configuration file, "config".
+// interfaceParser parses the interface section of a given pointer to configuration file, "config".
 // an error is returned if any accord.
-func interfaceSectionParser(config ptpv1api.PtpConfig,
+func interfaceParser(config ptpv1api.PtpConfig, node corev1.Node,
 	interfacesRoleMap map[string]ranptpparameters.RoleMap) (map[string]ranptpparameters.RoleMap, error) {
 	err := checkConfiguration(config)
 	if nil != err {
 		return nil, err
 	}
 
-	lines := strings.Split(*config.Spec.Profile[0].Ptp4lConf, "\n")
+	nodeProfileMap, err := GetPtpProfilesPerNode(config)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, profile := range nodeProfileMap[node.Name] {
+		if IsOrdinaryClockProfile(profile) {
+			if _, ok := interfacesRoleMap[*profile.Interface]; ok {
+				log.Error(fmt.Errorf("slave interface %s is configured more than once", *profile.Interface))
+			}
+
+			interfacesRoleMap[*profile.Interface] = map[string]string{"masterOnly": "0"}
+
+			continue
+		}
+
+		ifceRoleMap := bcPtpProfileParser(profile)
+
+		for ifce, role := range ifceRoleMap {
+			if _, ok := interfacesRoleMap[ifce]; ok {
+				log.Error(fmt.Errorf("interface %s is configured more than once", ifce))
+			}
+
+			interfacesRoleMap[ifce] = role
+		}
+	}
+
+	return interfacesRoleMap, nil
+}
+
+// GetPtpProfilesPerNode returns a map of ptp profile list for each node.
+func GetPtpProfilesPerNode(config ptpv1api.PtpConfig) (map[string][]ptpv1api.PtpProfile, error) {
+	var nodeProfileMap = map[string][]ptpv1api.PtpProfile{}
+
+	nodeList, err := helper.Apiclient.Nodes().List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return nodeProfileMap, err
+	}
+
+	for _, node := range nodeList.Items {
+		nodeProfileMap[node.Name] = []ptpv1api.PtpProfile{}
+	}
+
+	var profileMap = map[string]ptpv1api.PtpProfile{}
+	for _, profile := range config.Spec.Profile {
+		profileMap[*profile.Name] = profile
+	}
+
+	for _, recommend := range config.Spec.Recommend {
+		recommedProfile := profileMap[*recommend.Profile]
+
+		for _, match := range recommend.Match {
+			if match.NodeName != nil {
+				nodeProfileMap[*match.NodeName] = append(nodeProfileMap[*match.NodeName], recommedProfile)
+			} else if match.NodeLabel != nil {
+				nodeList, err = nodes.GetByLabel(helper.Apiclient, *match.NodeLabel)
+				if err != nil {
+					return nodeProfileMap, err
+				}
+				for _, node := range nodeList.Items {
+					nodeProfileMap[node.Name] = append(nodeProfileMap[node.Name], recommedProfile)
+				}
+			}
+		}
+	}
+
+	return nodeProfileMap, nil
+}
+
+func bcPtpProfileParser(profile ptpv1api.PtpProfile) map[string]ranptpparameters.RoleMap {
+	ifceRoleMap := make(map[string]ranptpparameters.RoleMap)
+
+	lines := strings.Split(*profile.Ptp4lConf, "\n")
 
 	for i, line := range lines {
-		if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
+		if strings.HasPrefix(line, "[en") && strings.HasSuffix(line, "]") {
 			ifaceID := line[1 : len(line)-1]
 			role := lines[i+1]
 
@@ -79,18 +172,18 @@ func interfaceSectionParser(config ptpv1api.PtpConfig,
 				ifaceRoleSlice := strings.Split(role, " ")
 				ifaceRole := make(map[string]string)
 				ifaceRole[ifaceRoleSlice[0]] = ifaceRoleSlice[1]
-				interfacesRoleMap[ifaceID] = ifaceRole
+				ifceRoleMap[ifaceID] = ifaceRole
 			}
 		}
 	}
 
-	return interfacesRoleMap, nil
+	return ifceRoleMap
 }
 
 // checkConfiguration returns an error in the following cases:
 // 1) the given configuration, "config", has more than one profile.
 // 2) the PTP4l configuration is not exists in the profile.
-// 3) the PTP4l configuration is not empty.
+// 3) the PTP4l configuration is empty.
 func checkConfiguration(config ptpv1api.PtpConfig) error {
 	if len(config.Spec.Profile) != 1 {
 		return fmt.Errorf("more than one or no profile detected for ptpconfig %s", config.ObjectMeta.Name)

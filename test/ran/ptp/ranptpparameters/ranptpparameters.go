@@ -22,10 +22,10 @@ var (
 )
 
 const (
-	ContainerName = "cloud-event-proxy"
-	FreeRun       = "FREERUN"
-	Locked        = "LOCKED"
-	HoldOver      = "HOLDOVER"
+	CloudEventContainer = "cloud-event-proxy"
+	EventFreeRun        = "FREERUN"
+	EventLocked         = "LOCKED"
+	EventHoldOver       = "HOLDOVER"
 
 	Master = "master"
 )

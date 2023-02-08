@@ -1,12 +1,16 @@
 package ranptphelper
 
 import (
+	"bytes"
+	"fmt"
+	"log"
+	"strings"
+	"time"
+
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 	corev1 "k8s.io/api/core/v1"
-
-	"fmt"
-	"strings"
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 // GetProcessPID gets the process id with a given name.
@@ -17,8 +21,8 @@ import (
 //
 // return value:	the pid of the process and an error if any occurred.
 func GetProcessPID(ptpPod *corev1.Pod, processName string) (string, error) {
-	pidBuff, err := pod.ExecCommand(helper.Apiclient, *ptpPod, []string{"pgrep", processName})
-	if nil != err {
+	pidBuff, err := getProcessInfo(ptpPod, []string{"pgrep", processName})
+	if err != nil {
 		return "", err
 	}
 
@@ -26,7 +30,25 @@ func GetProcessPID(ptpPod *corev1.Pod, processName string) (string, error) {
 		return "", fmt.Errorf("process with the name %s is not running", processName)
 	}
 
-	return pidBuff.String(), nil
+	pid := string(bytes.TrimRight(pidBuff.Bytes(), "\r\n"))
+
+	return pid, nil
+}
+
+// WaitForProcess waits for given process to appear and returns the process id.
+func WaitForProcess(ptpPod *corev1.Pod, processName string) (string, error) {
+	var (
+		pid string
+		err error
+	)
+
+	waitErr := wait.PollImmediate(3*time.Second, 1*time.Minute, func() (bool, error) {
+		pid, err = GetProcessPID(ptpPod, processName)
+
+		return err == nil, nil
+	})
+
+	return pid, waitErr
 }
 
 // KillPtpProcess kill a process with the given name.
@@ -59,60 +81,79 @@ func KillProcess(ptpPod *corev1.Pod, pid string) error {
 	return nil
 }
 
-// GetPhc2sysConfigName gets the right configuration name of the phc2sys process.
+// getPhc2sysConfigName gets the right configuration name of the phc2sys process.
 // arguments:		"ptpPod"-	a pod that run the ptp processes.
 // return value:	a string with the name of the configuration file and an error if any occurred.
 func getPhc2sysConfigName(ptpPod *corev1.Pod) (string, error) {
-	phc2sysProcessBuff, err := pod.ExecCommand(helper.Apiclient, *ptpPod, []string{"pgrep", "-a", "phc2sys"})
-	if nil != err {
+	phc2sysProcessBuff, err := getProcessInfo(ptpPod, []string{"pgrep", "-a", "phc2sys"})
+	if err != nil {
 		return "", err
 	}
 
-	if phc2sysProcessBuff.Len() == 0 {
-		return "", fmt.Errorf("phc2sys process not found")
-	}
+	phc2sysProcesses := BytesToStrings(phc2sysProcessBuff)
 
-	phc2sysProcess := BytesToStrings(phc2sysProcessBuff)
-
-	return strings.Split(strings.Split(phc2sysProcess[0], "[")[1], "]")[0], nil
+	return strings.Split(strings.Split(phc2sysProcesses[0], "[")[1], "]")[0], nil
 }
 
-// GetPTP4lPID gets the wanted ptp4l process if it's the one that's related to the phc2sys or not
-// this function is used only for dual nic tests
-// arguments:       "ptpPod"-			a pod that run the ptp processes
-//
-//	                 "relatePHC2SYS"-	TRUE for the ptp process that related to the phc2sys process.
-//							FALSE for the onr that isn't.
-//
-// return value:	a string with the ptp4l pid. and an error if any occurred.
-func GetPTP4lPID(ptpPod *corev1.Pod, relatePHC2SYS bool) (string, error) {
+func getProcessInfo(ptpPod *corev1.Pod, command []string) (bytes.Buffer, error) {
+	var (
+		cmdOutput bytes.Buffer
+		errActual error
+	)
+
+	timeoutErr := wait.PollImmediate(3*time.Second, 30*time.Second, func() (done bool, err error) {
+		cmdOutput, errActual = pod.ExecCommand(helper.Apiclient, *ptpPod, command)
+		if errActual != nil {
+			return false, nil
+		}
+
+		if cmdOutput.Len() == 0 {
+			errActual = fmt.Errorf("process not found")
+
+			return false, nil
+		}
+
+		return true, nil
+	})
+
+	if timeoutErr != nil {
+		return cmdOutput, errActual
+	}
+
+	return cmdOutput, nil
+}
+
+// GetPtp4lPids gets ptp4l processes with given relationship with the phc2sys.
+// Note that if only 1 ptp profile is configured, then no process will be returned when relatePhc2sys=false.
+func GetPtp4lPids(ptpPod *corev1.Pod, relatePhc2sys bool) ([]string, error) {
 	phc2sysConfigFile, err := getPhc2sysConfigName(ptpPod)
 	if nil != err {
-		return "", err
+		return nil, err
 	}
 
-	ptp4lProcesses, err := getAllPTPProcess(ptpPod)
-
+	ptp4lProcesses, err := getAllPtp4lProcesses(ptpPod)
 	if nil != err {
-		return "", err
+		return nil, err
 	}
 
-	if (strings.Contains(ptp4lProcesses[0], phc2sysConfigFile) && relatePHC2SYS) ||
-		(!strings.Contains(ptp4lProcesses[0], phc2sysConfigFile) && !relatePHC2SYS) {
-		return strings.Split(ptp4lProcesses[0], " ")[0], nil
+	var processes []string
+
+	for _, ptp4lProcess := range ptp4lProcesses {
+		if strings.Contains(ptp4lProcess, phc2sysConfigFile) == relatePhc2sys {
+			processes = append(processes, strings.Split(ptp4lProcess, " ")[0])
+		}
 	}
 
-	return strings.Split(ptp4lProcesses[1], " ")[0], nil
+	return processes, nil
 }
 
-// getAllPTPProcess gets all the processes that related to ptp4l.
+// getAllPtp4lProcesses gets all the processes that related to ptp4l.
 // arguments:       "ptpPod"-	a pod that has a ptp configuration.
 // return value:	an array of strings that holds all ptp4l processes and an error if any occurred.
-func getAllPTPProcess(ptpPod *corev1.Pod) ([]string, error) {
+func getAllPtp4lProcesses(ptpPod *corev1.Pod) ([]string, error) {
 	var ptp4lProcesses []string
 
-	allProcsBuff, err := pod.ExecCommand(helper.Apiclient, *ptpPod, []string{"pgrep", "-a", "ptp4l"})
-
+	allProcsBuff, err := getProcessInfo(ptpPod, []string{"pgrep", "-a", "ptp4l"})
 	if nil != err {
 		return ptp4lProcesses, err
 	}
@@ -125,4 +166,34 @@ func getAllPTPProcess(ptpPod *corev1.Pod) ([]string, error) {
 	}
 
 	return ptp4lProcesses, nil
+}
+
+// GetPhc2sysInterface returns interface configured for phc2sys from ptp config file under /var/run.
+func GetPhc2sysInterface(ptpPod *corev1.Pod) (string, error) {
+	configName, err := getPhc2sysConfigName(ptpPod)
+	if err != nil {
+		return "", err
+	}
+
+	cmdOc := fmt.Sprintf("cat /var/run/%s | grep '^\\[en.*\\]' | tr -d '[]'", configName)
+	buff, err := pod.ExecCommand(helper.Apiclient, *ptpPod, []string{"bash", "-c", cmdOc})
+
+	if err != nil {
+		return "", err
+	}
+
+	// If BC config, then rerun cmd to find slave in BC config
+	if len(BytesToStrings(buff)) != 1 {
+		log.Println("More than 1 interface found in ptp4lconfig - switch to BC parser")
+
+		cmdBC := fmt.Sprintf("cat /var/run/%s | grep -A 1 '^\\[en.*\\]' | grep -B 1 '^masterOnly.*0' | "+
+			"grep '^\\[en' | tr -d '[]'", configName)
+		buff, err = pod.ExecCommand(helper.Apiclient, *ptpPod, []string{"bash", "-c", cmdBC})
+
+		if err != nil {
+			return "", err
+		}
+	}
+
+	return buff.String(), nil
 }

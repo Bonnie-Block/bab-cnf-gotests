@@ -27,12 +27,14 @@ func GetPTPMetrics(ptpPod corev1.Pod) error {
 		return err
 	}
 
-	err = wait.Poll(5*time.Second, 15*time.Minute, func() (bool, error) {
-		errFromParser := metricParser(buff)
-		if nil != errFromParser {
-			log.Printf("parsing failed with error %s, lets try again", errFromParser.Error())
-			buff, err = pod.ExecCommand(helper.Apiclient, ptpPod, []string{"curl", "localhost:9091/metrics"})
-			if nil != err {
+	var errFromParser error
+
+	err = wait.Poll(5*time.Second, 3*time.Minute, func() (bool, error) {
+		errFromParser = metricParser(buff)
+		if errFromParser != nil {
+			log.Printf("parsing failed with error %s, try again\n", errFromParser.Error())
+			buff, err = pod.ExecCommand(helper.Apiclient, ptpPod, []string{"curl", "-s", "localhost:9091/metrics"})
+			if err != nil {
 				return false, err
 			}
 
@@ -42,7 +44,11 @@ func GetPTPMetrics(ptpPod corev1.Pod) error {
 		return true, nil
 	})
 
-	return nil
+	if err != nil && errFromParser != nil {
+		log.Println("Error parsing ptp metrics: ", errFromParser.Error())
+	}
+
+	return err
 }
 
 // metricParser get all metrics details and the store them in the ranptpparameters.MetricMap map.
@@ -64,7 +70,7 @@ func metricParser(ptpMetricsBuff bytes.Buffer) error {
 				return err
 			}
 
-			metric, err := getDetails(singleMetric, metric)
+			metric, err = getDetails(singleMetric, metric)
 
 			if nil != err {
 				return err

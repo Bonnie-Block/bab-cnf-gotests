@@ -6,145 +6,21 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/utils/strings/slices"
 
-	"fmt"
 	"log"
 	"strings"
 	"time"
 )
-
-// GetEventValueFromEnd gets a pod, "pod", and returns the "eventNumFromEnd" before last value of published event,
-// if no event was published within the last 24 hours, an error is occurred. todo change description if needed.
-func GetEventValueFromEnd(ptpPod *corev1.Pod, eventNumFromEnd int) (string, error) {
-	msgs, err := getEventMsg(ptpPod)
-	if nil != err {
-		return "", err
-	}
-
-	numOfMsgs := len(msgs)
-	eventIndex := numOfMsgs - eventNumFromEnd - 1
-
-	if 0 > eventIndex {
-		return "", fmt.Errorf("no events exisit %d before the last event", eventNumFromEnd)
-	}
-
-	return msgs[numOfMsgs-eventNumFromEnd-1].Data.Values[0].Value, nil
-}
-
-// GetEventValueFromEndOfEventByKeyValue todo add description.
-func GetEventValueFromEndOfEventByKeyValue(ptpPod *corev1.Pod,
-	options map[string]string,
-	numFromEnd int) (string, error) {
-	eventsValue, err := SearchBy(options, ptpPod)
-	if nil != err {
-		return "", err
-	}
-
-	return eventsValue[len(eventsValue)-numFromEnd-1].Data.Values[0].Value, nil
-}
-
-// getEventMsgByEventType todo add description.
-func getEventMsgByEventType(eventsType []ranptpparameters.EventMsg, typeValue string) []ranptpparameters.EventMsg {
-	var typeEventMsg []ranptpparameters.EventMsg
-
-	for _, msg := range eventsType {
-		if strings.Contains(msg.EventType, typeValue) {
-			typeEventMsg = append(typeEventMsg, msg)
-		}
-	}
-
-	return typeEventMsg
-}
-
-// SearchBy todo add description.
-func SearchBy(options map[string]string, ptpPod *corev1.Pod) ([]ranptpparameters.EventMsg, error) {
-	var eventMsg []ranptpparameters.EventMsg
-
-	msgs, err := getEventMsg(ptpPod)
-
-	if nil != err {
-		return eventMsg, err
-	}
-
-	if len(msgs) == 0 {
-		return msgs, fmt.Errorf("no messages found")
-	}
-
-	for key, value := range options {
-		switch key {
-		case "id":
-			// add when need
-		case "type":
-			eventMsg = append(eventMsg, getEventMsgByEventType(msgs, value)...)
-			// filter the right events by type option
-			msgs = eventMsg
-		case "source":
-			eventMsg = append(eventMsg, getEventMsgByEventType(msgs, value)...)
-			// filter the right events by source option
-			msgs = eventMsg
-		case "dataContentType":
-			// add when need
-		case "time":
-			// add when need
-		case "data":
-			// add when need
-		default:
-			return msgs, fmt.Errorf("key: %s isn't exists", key)
-		}
-	}
-
-	if len(msgs) == 0 {
-		return msgs, fmt.Errorf("no events found with givin options")
-	}
-
-	return msgs, nil
-}
-
-// WaitForLastEvent waits at least 5 seconds and up to 1 minute for the last event.
-// The function returns the last events and an error if any occurred.
-func WaitForLastEvent(ptpPod *corev1.Pod) (string, error) {
-	log.Println("Waiting at least 5 seconds for new event")
-
-	currEventValue, err := GetLastEventValue(ptpPod)
-	if nil != err {
-		return "", err
-	}
-
-	var newEventValue string
-
-	err = wait.Poll(5*time.Second, 1*time.Minute, func() (bool, error) {
-		// conditional function that checks if no new event occurred during the last 5 seconds
-		newEventValue, err = GetLastEventValue(ptpPod)
-		if nil != err {
-			return false, err
-		}
-
-		if currEventValue != newEventValue {
-			currEventValue = newEventValue
-
-			return false, nil
-		}
-
-		return true, nil
-	})
-
-	if nil != err {
-		return "", err
-	}
-
-	log.Println("Got the last event")
-
-	return newEventValue, nil
-}
 
 // getEventsLogs gets a long string "logs" and an empty array of strings "eventStrings".
 // and fills "eventStrings" array with the logs that contain event state value.
 func getEventsLogs(logs string, eventStrings []string) []string {
 	logsSlice := strings.Split(logs, "\n")
 	for _, line := range logsSlice {
-		if strings.Contains(line, "id") && (strings.Contains(line, ranptpparameters.FreeRun) ||
-			strings.Contains(line, ranptpparameters.Locked) ||
-			strings.Contains(line, ranptpparameters.HoldOver)) {
+		if strings.Contains(line, "id") && (strings.Contains(line, ranptpparameters.EventFreeRun) ||
+			strings.Contains(line, ranptpparameters.EventLocked) ||
+			strings.Contains(line, ranptpparameters.EventHoldOver)) {
 			eventStrings = append(eventStrings, line)
 		}
 	}
@@ -152,22 +28,56 @@ func getEventsLogs(logs string, eventStrings []string) []string {
 	return eventStrings
 }
 
-// getEventMsg todo add description.
-func getEventMsg(ptpPod *corev1.Pod) ([]ranptpparameters.EventMsg, error) {
-	var eventMsg []ranptpparameters.EventMsg
-
-	logs, err := pod.GetLog(helper.Apiclient, ptpPod, 24*time.Hour, ranptpparameters.ContainerName)
-	if nil != err {
-		return eventMsg, err
+// WaitForEvent waits for specified event to appear in ptp cloud event proxy log.
+func WaitForEvent(ptpPod *corev1.Pod, eventType string, eventValue string, iface string, since time.Duration,
+	timeout time.Duration) error {
+	if since < 1*time.Second {
+		since = 1 * time.Second
 	}
 
-	var eventStrings []string
-	eventStrings = getEventsLogs(logs, eventStrings)
+	startTime := time.Now()
 
-	eventStringsLen := len(eventStrings)
-	if eventStringsLen == 0 {
-		return eventMsg, fmt.Errorf("no events were found")
+	logs, err := pod.GetLog(helper.Apiclient, ptpPod, since, ranptpparameters.CloudEventContainer)
+	if err != nil {
+		return err
 	}
+
+	eventMsgs := getEvents(logs)
+	if containsEvent(eventMsgs, eventType, eventValue, iface) {
+		return nil
+	}
+
+	interval := 5 * time.Second
+
+	return wait.PollImmediate(interval, timeout, func() (bool, error) {
+		time.Sleep(interval)
+		logs, err = pod.GetLog(helper.Apiclient, ptpPod, time.Since(startTime)+time.Second,
+			ranptpparameters.CloudEventContainer)
+		if err != nil {
+			return false, nil
+		}
+
+		eventMsgs = getEvents(logs)
+		if containsEvent(eventMsgs, eventType, eventValue, iface) {
+			log.Printf("%s event %s found for %s\n", eventType, eventValue, iface)
+
+			return true, nil
+		}
+
+		startTime = time.Now()
+
+		return false, nil
+	})
+}
+
+// getEvents parses ptp cloud event logs and returns EvenMsg structs.
+func getEvents(eventLogs string) []ranptpparameters.EventMsg {
+	var (
+		eventMsg     []ranptpparameters.EventMsg
+		eventStrings []string
+	)
+
+	eventStrings = getEventsLogs(eventLogs, eventStrings)
 
 	for _, line := range eventStrings {
 		logStruct := LogStrToLogStrct(line)
@@ -175,5 +85,55 @@ func getEventMsg(ptpPod *corev1.Pod) ([]ranptpparameters.EventMsg, error) {
 		eventMsg = append(eventMsg, EventMsgParser(logStruct.Msg))
 	}
 
-	return eventMsg, nil
+	return eventMsg
+}
+
+// containsEvent returns true when specified event type, value and resource is found in given event messages.
+func containsEvent(eventMsgs []ranptpparameters.EventMsg, eventType string, value string, iface string) bool {
+	if iface != "" && !strings.HasSuffix(iface, "x") {
+		iface = iface[:len(iface)-1] + "x"
+	}
+
+	var (
+		checkedResources []string
+		failedResources  []string
+	)
+
+	for _, event := range eventMsgs {
+		if event.EventType == eventType {
+			for _, val := range event.Data.Values {
+				if slices.Contains(checkedResources, val.Resource) {
+					continue
+				}
+
+				if strings.Contains(val.Value, value) {
+					if iface == "" {
+						checkedResources = append(checkedResources, val.Resource)
+					} else if strings.Contains(val.Resource, iface) {
+						return true
+					}
+				} else if iface == "" {
+					log.Printf("Info: %s has value %s for %s, expected value: %s\n",
+						eventType, val.Value, val.Resource, value)
+					failedResources = append(failedResources, val.Resource)
+				}
+			}
+		}
+	}
+
+	// Event for specific interface is not found
+	if iface != "" {
+		return false
+	}
+
+	// When events are expected for all interfaces, we return true as long as one expected event is found
+	for _, res := range failedResources {
+		if !slices.Contains(checkedResources, res) {
+			log.Printf("Warning: %s %s not found for resource %s\n", eventType, value, res)
+
+			return false
+		}
+	}
+
+	return true
 }
