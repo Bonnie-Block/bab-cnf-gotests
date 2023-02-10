@@ -12,9 +12,7 @@ import (
 	nmstatev1Shared "github.com/nmstate/kubernetes-nmstate/api/shared"
 	nmstatev1 "github.com/nmstate/kubernetes-nmstate/api/v1"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/cni/netcniparameters"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/sriov/netsriovhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nad"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/switchcmd"
 	multus "gopkg.in/k8snetworkplumbingwg/multus-cni.v3/pkg/types"
 	goclient "sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -215,10 +213,6 @@ var _ = Describe("system metallb", Ordered, func() {
 			Skip(fmt.Sprintf("skipping test due to %s. Please check METALLB_VLANS env var", err))
 		}
 
-		By("Set switch trunk port configuration")
-		err = setSwitchPortsTrunk(vlanIds)
-		Expect(err).ToNot(HaveOccurred(), "can't set trunk mode on switch ports")
-
 		By(fmt.Sprintf("Should select nodes by role %s ", parameters.RoleWorker))
 		workerNodeList, err = nodes.GetByRole(helper.Apiclient, parameters.RoleWorker)
 		Expect(err).ToNot(HaveOccurred())
@@ -232,7 +226,7 @@ var _ = Describe("system metallb", Ordered, func() {
 		intFacesFromEnvVar, err := helper.Config.GetCnfInterfaces(1)
 		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error determine secondary interfaces: %s", err))
 		validSecondaryInterfaces := getSecondaryInterfaces(workerNodeList[0].Name, intFacesFromEnvVar)
-
+		Expect(len(validSecondaryInterfaces)).To(BeNumerically(">", 1))
 		By("Setup MetalLb")
 		netmetallbhelper.SetupMetalLB()
 
@@ -378,13 +372,6 @@ var _ = Describe("system metallb", Ordered, func() {
 		err = namespaces.DeleteAndWait(helper.Apiclient, parameters.PrivPodNamespace,
 			netmlbparameters.Timeout)
 		Expect(err).ToNot(HaveOccurred())
-
-		if switchcmd.CountChanges > 0 {
-			switchCredentials, err := nethelper.NewSwitchCredentials()
-			Expect(err).ToNot(HaveOccurred())
-			err = netsriovhelper.RollBackToOriginalConfig(switchCredentials)
-			Expect(err).ToNot(HaveOccurred())
-		}
 
 		nmStateInstalledPolicy := nmstatev1.NodeNetworkConfigurationPolicy{}
 		err := helper.Apiclient.Get(
@@ -549,33 +536,6 @@ func metalLbIsRunningAndInLocalMode() {
 	Expect(netmetallbhelper.GetGWMode()).To(BeTrue())
 }
 
-func setSwitchPortsTrunk(allowedVLANs []uint16) error {
-	switchCredentials, err := nethelper.NewSwitchCredentials()
-	if err != nil {
-		Skip(fmt.Sprintf("Failed to get switch credentials: %s", err))
-	}
-
-	switchInterfaces, err := helper.Config.GetMetalLbSwitchInterfaces()
-
-	if err != nil {
-		Skip(fmt.Sprintf("Failed to get switch interfaces: %s", err))
-	}
-
-	if len(switchInterfaces) < 2 {
-		Skip(fmt.Sprintf("Wrong number of switch interfaces %v, should be 2", switchInterfaces))
-	}
-
-	for _, switchInterface := range switchInterfaces {
-		err = netmetallbhelper.SetInterfaceTrunk(switchCredentials, switchInterface, "set", allowedVLANs)
-
-		if err != nil {
-			return err
-		}
-	}
-
-	return err
-}
-
 func generateConnections(srcPod *k8sv1.Pod, srcPodIP, dstIP string) {
 	for idx := 0; ; idx++ {
 		_, err := netmetallbhelper.HTTPMlbPod(
@@ -602,7 +562,7 @@ func waitUntilNMStatePolicyStable(policyName string) {
 		}
 
 		return false
-	}, 1*time.Minute, 2*time.Second).Should(BeTrue())
+	}, 2*time.Minute, 2*time.Second).Should(BeTrue())
 }
 
 func defineAndRunNodeTrafficCapturePod(extInt, serviceIPPrimary, serviceIPSecondary, workerNodeName string) *k8sv1.Pod {
