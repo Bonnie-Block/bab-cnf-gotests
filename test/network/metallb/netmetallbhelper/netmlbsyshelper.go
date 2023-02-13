@@ -166,7 +166,7 @@ func DefineNmStateVlanInterfaceConfig(
 	nmStateIPv4Config := defineNMAddress(intFaceAddr, prefix, true, false)
 	nmStateVlanA := defineNMVlan(intFaceName, vlanID)
 
-	return defineNMInterface(intFaceName, "vlan", "up", *nmStateIPv4Config, *nmStateVlanA)
+	return DefineNMInterface(intFaceName, "vlan", "up", nmStateIPv4Config, *nmStateVlanA)
 }
 
 // GetNodeOvnRouterIP returns router ip address for given worker node.
@@ -376,14 +376,16 @@ func defineNMAddress(ipv4Address string, prefLength int, enabled, dhcp bool) *ne
 	}
 }
 
-func defineNMInterface(
-	name, intType, state string, ipv4Config netmlbparameters.NMStateIPv4Address,
+func DefineNMInterface(
+	name, intType, state string, ipv4Config *netmlbparameters.NMStateIPv4Address,
 	vlan ...netmlbparameters.NMStateVlan) *netmlbparameters.NMStateInterface {
 	nmStateIfaceConfig := &netmlbparameters.NMStateInterface{
 		Name:  name,
 		Type:  intType,
 		State: state,
-		IPv4:  ipv4Config,
+	}
+	if ipv4Config != nil {
+		nmStateIfaceConfig.IPv4 = *ipv4Config
 	}
 
 	if intType == "vlan" && len(vlan) > 0 {

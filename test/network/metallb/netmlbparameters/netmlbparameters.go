@@ -197,10 +197,10 @@ type (
 
 	NMStateInterface struct {
 		Name  string             `yaml:"name"`
-		Type  string             `yaml:"type"`
+		Type  string             `yaml:"type,omitempty"`
 		State string             `yaml:"state"`
-		IPv4  NMStateIPv4Address `yaml:"ipv4"`
-		Vlan  NMStateVlan        `yaml:"vlan"`
+		IPv4  NMStateIPv4Address `yaml:"ipv4,omitempty"`
+		Vlan  NMStateVlan        `yaml:"vlan,omitempty"`
 	}
 
 	NMStateRoute struct {

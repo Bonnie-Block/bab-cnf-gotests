@@ -633,6 +633,7 @@ func defineAndRunClientPodOnVlanNetwork(clientInternalIP, frrInternalDGIP, nadNa
 
 func defineAndCreateNMStatePolicy(
 	interfaceName, nodeName string, vlanList []uint16) nmstatev1.NodeNetworkConfigurationPolicy {
+	physicalInterface := netmetallbhelper.DefineNMInterface(interfaceName, "ethernet", "up", nil)
 	nmStatePrimaryIntConfig := netmetallbhelper.DefineNmStateVlanInterfaceConfig(
 		interfaceName, netmlbparameters.NodeIntFacePrimaryIPAddr, 24, vlanList[0])
 	nmStatePrimaryIntRoute := netmetallbhelper.DefineNMStateRoute(
@@ -645,7 +646,7 @@ func defineAndCreateNMStatePolicy(
 
 	nmStatePolicy, err := netmetallbhelper.DefineNMStatePolicy(
 		netmlbparameters.NMStatePolicyName, nodeName,
-		[]netmlbparameters.NMStateInterface{*nmStatePrimaryIntConfig, *nmStateSecondaryIntConfig},
+		[]netmlbparameters.NMStateInterface{*physicalInterface, *nmStatePrimaryIntConfig, *nmStateSecondaryIntConfig},
 		[]netmlbparameters.NMStateRoute{*nmStatePrimaryIntRoute, *nmStateSecondaryIntRoute})
 	Expect(err).ToNot(HaveOccurred())
 
