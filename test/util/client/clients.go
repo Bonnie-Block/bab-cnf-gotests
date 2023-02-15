@@ -20,6 +20,7 @@ import (
 	cguv1alpha1 "github.com/openshift-kni/cluster-group-upgrades-operator/pkg/generated/clientset/versioned/typed/clustergroupupgradesoperator/v1alpha1"
 	operv1 "github.com/openshift/api/operator/v1"
 	clientconfigv1 "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
+	imageregistryv1 "github.com/openshift/client-go/imageregistry/clientset/versioned/typed/imageregistry/v1"
 	routev1 "github.com/openshift/client-go/route/clientset/versioned/typed/route/v1"
 	performancev2 "github.com/openshift/cluster-node-tuning-operator/pkg/apis/performanceprofile/v2"
 	mcv1 "github.com/openshift/machine-config-operator/pkg/apis/machineconfiguration.openshift.io/v1"
@@ -60,6 +61,7 @@ type ClientSet struct {
 	multinetpolicyclientv1.K8sCniCncfIoV1beta1Interface
 	appsv1client.AppsV1Interface
 	discovery.DiscoveryInterface
+	imageregistryv1.ImageregistryV1Interface
 	rbacv1client.RbacV1Interface
 	clientsriovv1.SriovnetworkV1Interface
 	Config *rest.Config
@@ -102,6 +104,7 @@ func New(kubeconfig string) *ClientSet {
 	clientSet.MachineconfigurationV1Interface = clientmachineconfigv1.NewForConfigOrDie(config)
 	clientSet.AppsV1Interface = appsv1client.NewForConfigOrDie(config)
 	clientSet.DiscoveryInterface = discovery.NewDiscoveryClientForConfigOrDie(config)
+	clientSet.ImageregistryV1Interface = imageregistryv1.NewForConfigOrDie(config)
 	clientSet.SriovnetworkV1Interface = clientsriovv1.NewForConfigOrDie(config)
 	clientSet.NetworkingV1Client = *networkv1client.NewForConfigOrDie(config)
 	clientSet.PtpV1Interface = ptpv1.NewForConfigOrDie(config)
