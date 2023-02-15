@@ -39,6 +39,7 @@ const (
 	AcmOperatorNamespace      string        = "open-cluster-management"
 	AcmArgocdInitContainer    string        = "multicluster-operators-subscription"
 	AcmPolicyGeneratorName    string        = "acm-policy-generator"
+	ImageRegistryNamespace    string        = "openshift-image-registry"
 )
 
 // ArgocdApps is a list of the argocd app names that are defined above.
