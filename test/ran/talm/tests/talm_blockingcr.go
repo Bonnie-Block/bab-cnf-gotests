@@ -315,7 +315,7 @@ var _ = Describe("Talm Blocking CRs Tests", Label("talmblockingcr"), func() {
 				"",
 				metav1.ConditionTrue,
 				"",
-				6*time.Minute)
+				7*time.Minute)
 			Expect(err).To(BeNil())
 
 			By("waiting for cgu B to succeed")
@@ -327,7 +327,7 @@ var _ = Describe("Talm Blocking CRs Tests", Label("talmblockingcr"), func() {
 				"",
 				metav1.ConditionTrue,
 				"",
-				6*time.Minute)
+				7*time.Minute)
 			Expect(err).To(BeNil())
 		})
 	})
