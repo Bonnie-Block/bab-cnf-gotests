@@ -6,7 +6,6 @@ import (
 
 	"github.com/stmcginnis/gofish"
 	"github.com/stmcginnis/gofish/redfish"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/nethelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/bmer/ranbmerparameters"
 )
 
@@ -18,10 +17,6 @@ var (
 
 // GetClient returns a redfish session.
 func GetClient(config ranbmerparameters.RedfishConfig) (c *gofish.APIClient, err error) {
-	if nethelper.IPFamilyForAddress(config.Hostname) == "ipv6" {
-		config.RedfishURL = "https://[" + config.Hostname + "]"
-	}
-
 	clientConfig := gofish.ClientConfig{
 		Endpoint:  config.RedfishURL,
 		Username:  config.Username,

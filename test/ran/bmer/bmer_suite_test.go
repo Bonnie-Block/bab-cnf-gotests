@@ -115,7 +115,7 @@ var _ = BeforeSuite(func() {
 
 	By("Check consumer image is defined")
 	Expect(helper.Config.Ran.BmerConsumerImage).ToNot(BeEmpty(),
-		"RAN_HW_EVENT_CONSUMER_IMAGE environment is missing")
+		"BMER_CONSUMER_IMAGE environment is missing")
 
 	By("Configure the cluster objects for hardware event proxy")
 	err = ranbmerhelper.ConfigHwEventProxyObjects()

@@ -122,6 +122,17 @@ func GetMsgID(eventJSON string) ([]timestampEventType, error) {
 	return events, err
 }
 
+// SanitizeMsgID remove the IDRAC info which added by IDRAC.2.8+ firmware from message ID.
+// Example IDRAC.2.8.TMP0101 => TMP0101.
+func SanitizeMsgID(messageID string) string {
+	msgIDParts := strings.Split(messageID, ".")
+	if len(msgIDParts) > 3 && msgIDParts[0] == "IDRAC" {
+		return strings.Join(msgIDParts[3:], ".")
+	}
+
+	return messageID
+}
+
 // Contains checks if a string appears in a array.
 func Contains(arr []string, str string) bool {
 	for _, a := range arr {

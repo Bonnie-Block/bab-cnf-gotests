@@ -345,10 +345,12 @@ func processEvents(
 			return false
 		}
 
-		if event.MessageID != expectedEvent {
+		msgID := ranbmerhelper.SanitizeMsgID(event.MessageID)
+
+		if msgID != expectedEvent {
 			log.Printf("Event verification failed for consumer %v "+
-				"expected msgId: %v got: %v at event timestamp: %v\n",
-				consumerPod.Name, expectedEvent, event.MessageID, event.EventTimestamp)
+				"expected msgID: %v got: %v sanitized msgID: %v  at event timestamp: %v\n",
+				consumerPod.Name, expectedEvent, event.MessageID, msgID, event.EventTimestamp)
 			verificationReportChannel <- fmt.Sprintf("%v/%v/%v",
 				consumerPod.Name, expectedEvent, statusFail)
 
@@ -358,7 +360,7 @@ func processEvents(
 		if ranbmerparameters.DebugTest {
 			log.Printf("Consumer: %v received event: %v\n",
 				consumerPod.Name,
-				event.MessageID)
+				msgID)
 		}
 		verificationReportChannel <- fmt.Sprintf("%v/%v/%v",
 			consumerPod.Name, expectedEvent, statusOk)
