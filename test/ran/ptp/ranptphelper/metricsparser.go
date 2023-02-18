@@ -3,6 +3,7 @@ package ranptphelper
 import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ptp/ranptpparameters"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -90,6 +91,7 @@ func metricParser(ptpMetricsBuff bytes.Buffer) error {
 		return err
 	}
 
+	// openshift_ptp_process_status is added in 4.11
 	err = getProcessStatusValue()
 
 	return err
@@ -334,6 +336,10 @@ func getInterfaceRoleValue() error {
 // this value if for 'process_status_value' metric key only.
 // return value:	an error if the process status metrics are empty or the state value is undefined.
 func getProcessStatusValue() error {
+	if !ranhelper.IsVersionStringInRange(ranptpparameters.PtpVersion, "4.11", "") {
+		return nil
+	}
+
 	if nil == ranptpparameters.MetricMap[ranptpparameters.OpenshiftPtpProcessStatus] {
 		return fmt.Errorf("openshift_ptp_process_status metrics didn't get correctly")
 	}

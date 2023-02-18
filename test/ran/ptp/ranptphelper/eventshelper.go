@@ -3,6 +3,7 @@ package ranptphelper
 import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ptp/ranptpparameters"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -90,6 +91,11 @@ func getEvents(eventLogs string) []ranptpparameters.EventMsg {
 
 // containsEvent returns true when specified event type, value and resource is found in given event messages.
 func containsEvent(eventMsgs []ranptpparameters.EventMsg, eventType string, value string, iface string) bool {
+	// NIC info is added to ptp event since 4.11
+	if ranhelper.IsVersionStringInRange(ranptpparameters.PtpVersion, "", "4.11") {
+		iface = ""
+	}
+
 	if iface != "" && !strings.HasSuffix(iface, "x") {
 		iface = iface[:len(iface)-1] + "x"
 	}

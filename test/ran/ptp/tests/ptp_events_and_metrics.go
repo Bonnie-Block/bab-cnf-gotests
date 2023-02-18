@@ -64,6 +64,10 @@ var _ = Describe("Basic PTP Configs", func() {
 		})
 
 		It("should have the 'phc2sys' and 'ptp4l' processes in 'UP' state in PTP metrics", func() {
+			if !ranhelper.IsVersionStringInRange(ranptpparameters.PtpVersion, "4.11", "") {
+				Skip("ptp process metrics is not support in version " + ranptpparameters.PtpVersion)
+			}
+
 			for _, processState := range ranptpparameters.MetricMap[ranptpparameters.OpenshiftPtpProcessStatus] {
 				if ranptpparameters.PTP4L == processState.Process {
 					Expect(processState.ProcessStatusValue).Should(Equal(ranptpparameters.Up),

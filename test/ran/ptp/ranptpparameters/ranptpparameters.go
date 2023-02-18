@@ -19,9 +19,12 @@ var (
 		{Cr: &ptpv1.NodePtpDeviceList{}},
 		{Cr: &ptpv1.PtpOperatorConfigList{}},
 	}
+
+	PtpVersion string
 )
 
 const (
+	PtpOperatorName     = "ptp-operator"
 	CloudEventContainer = "cloud-event-proxy"
 	EventFreeRun        = "FREERUN"
 	EventLocked         = "LOCKED"

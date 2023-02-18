@@ -15,6 +15,7 @@ import (
 
 	"context"
 	"fmt"
+	"log"
 	"runtime"
 	"testing"
 )
@@ -54,6 +55,15 @@ var _ = BeforeSuite(func() {
 			Skip(fmt.Sprintf("cannot run test if %s is not exists in the pod", ranptpparameters.CloudEventContainer))
 		}
 	}
+
+	// Get ptp version
+	ranptpparameters.PtpVersion, err = ranhelper.GetOperatorVersionFromCSV(
+		helper.Apiclient,
+		ranptpparameters.PtpOperatorName,
+		parameters.PtpOperatorNamespace,
+	)
+	Expect(err).NotTo(HaveOccurred())
+	log.Println("PTP Operator version:", ranptpparameters.PtpVersion)
 
 	// Create privileged pods for ran testing if not already exist, and leave them on system.
 	helper.CreatePrivilegedPods("")
