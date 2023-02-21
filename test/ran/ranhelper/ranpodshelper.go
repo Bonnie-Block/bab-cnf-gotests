@@ -229,8 +229,8 @@ func DeployWorkloadPods(rtProfile *performancev2.PerformanceProfile, node *corev
 	// Determine cpu requests for oslat and stress-ng pods.
 	// stressNg cpu count is roughly 1/3.5 of total isolated cores
 	isolatedCPUSet := cpuset.MustParse(string(*rtProfile.Spec.CPU.Isolated))
-	// 1 cpu will be used by other consumer pods, such as process-exporter, cnfgotestpriv
-	workloadCPUCount := isolatedCPUSet.Size() - 1
+	// 2 cpu will be used by other consumer pods, such as process-exporter, cnfgotestpriv
+	workloadCPUCount := isolatedCPUSet.Size() - 2
 	oslatCPUCount := workloadCPUCount * 100 / 300
 	stressNgCPUCount := workloadCPUCount - oslatCPUCount
 	oslatMaxPodCount, stressngMaxPodCount := 2, 40
