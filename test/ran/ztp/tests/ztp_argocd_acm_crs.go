@@ -152,7 +152,22 @@ var _ = Describe("ZTP Argocd ACM CR Tests", Ordered, Label("ztp-argocd-acm-crs")
 			// https://issues.redhat.com/browse/CNF-6297
 
 			// The ztp test data is stored in a nested directory within the ztp repo
-			testGitPath := ranztphelper.ArgocdApps[ranztpparameters.ArgocdPoliciesAppName].Path + "/ztp-test/acm-crs"
+			testGitPath := ranztphelper.JoinGitPaths(
+				[]string{
+					ranztphelper.ArgocdApps[ranztpparameters.ArgocdPoliciesAppName].Path,
+					"ztp-test/acm-crs",
+				},
+			)
+
+			By("Checking if the git path exists", func() {
+				if !ranztphelper.DoesGitPathExist(
+					ranztphelper.ArgocdApps[ranztpparameters.ArgocdPoliciesAppName].Repo,
+					ranztphelper.ArgocdApps[ranztpparameters.ArgocdPoliciesAppName].Branch,
+					testGitPath+"/kustomization.yaml",
+				) {
+					Skip(fmt.Sprintf("git path '%s' could not be found", testGitPath))
+				}
+			})
 
 			By("Updating the Argocd app", func() {
 				// Update the Argo app to point to the new test kustomization
@@ -168,17 +183,23 @@ var _ = Describe("ZTP Argocd ACM CR Tests", Ordered, Label("ztp-argocd-acm-crs")
 			})
 
 			By("Waiting for policies to be created", func() {
-				err := ranztphelper.WaitForPolicyToExist("acm-crs-policy", ranztpparameters.ZtpTestNamespace, 5*time.Minute)
+				err := ranztphelper.WaitForPolicyToExist(
+					"acm-crs-policy",
+					ranztpparameters.ZtpTestNamespace,
+					ranztpparameters.ArgocdChangeTimeout,
+				)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
 			By("Validing the policy was created & wait for it to finish", func() {
-				// Get the policy from the hub
-				policy, err := ranztphelper.GetPolicy("acm-crs-policy", ranztpparameters.ZtpTestNamespace)
+				// Wait until the policy is non compliant
+				err := ranztphelper.WaitForPolicyToHaveComplianceState(
+					"acm-crs-policy",
+					ranztpparameters.ZtpTestNamespace,
+					policiesv1.NonCompliant,
+					1*time.Minute,
+				)
 				Expect(err).ToNot(HaveOccurred())
-
-				// Assert that the policy is non compliant
-				Expect(policy.Status.ComplianceState).To(Equal(policiesv1.NonCompliant))
 			})
 		})
 	})

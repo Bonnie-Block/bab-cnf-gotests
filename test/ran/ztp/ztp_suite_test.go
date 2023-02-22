@@ -6,7 +6,6 @@ import (
 	"os"
 	"runtime"
 	"testing"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	"github.com/onsi/ginkgo/v2/types"
@@ -197,7 +196,11 @@ func DeleteNamespace(allowNotExists bool) error {
 		if namespaces.Exists(ranztpparameters.ZtpTestNamespace, ranztphelper.HubAPIClient) {
 			log.Printf("Deleting namespace '%s' on node '%s'\n", ranztpparameters.ZtpTestNamespace, ranztphelper.HubName)
 
-			err := namespaces.DeleteAndWait(ranztphelper.HubAPIClient, ranztpparameters.ZtpTestNamespace, 5*time.Minute)
+			err := namespaces.DeleteAndWait(
+				ranztphelper.HubAPIClient,
+				ranztpparameters.ZtpTestNamespace,
+				ranztpparameters.ArgocdChangeTimeout,
+			)
 			if err != nil {
 				return fmt.Errorf(
 					"Failed to delete namespace '%s' on node '%s' due to error '%w'",

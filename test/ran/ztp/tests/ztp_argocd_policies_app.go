@@ -2,6 +2,7 @@ package tests
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -10,7 +11,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ztp/ranztphelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ztp/ranztpparameters"
 	testClient "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 )
 
@@ -51,7 +52,22 @@ var _ = Describe("ZTP Argocd policies Tests", Ordered, Label("ztp-argocd-policie
 			// https://issues.redhat.com/browse/CNF-6305
 
 			// The ztp test data is stored in a nested directory within the ztp repo
-			testGitPath := ranztphelper.ArgocdApps[ranztpparameters.ArgocdPoliciesAppName].Path + "/ztp-test/custom-interval"
+			testGitPath := ranztphelper.JoinGitPaths(
+				[]string{
+					ranztphelper.ArgocdApps[ranztpparameters.ArgocdPoliciesAppName].Path,
+					"ztp-test/custom-interval",
+				},
+			)
+
+			By("Checking if the git path exists", func() {
+				if !ranztphelper.DoesGitPathExist(
+					ranztphelper.ArgocdApps[ranztpparameters.ArgocdPoliciesAppName].Repo,
+					ranztphelper.ArgocdApps[ranztpparameters.ArgocdPoliciesAppName].Branch,
+					testGitPath+"/kustomization.yaml",
+				) {
+					Skip(fmt.Sprintf("git path '%s' could not be found", testGitPath))
+				}
+			})
 
 			By("Updating the Argocd app", func() {
 				// Update the Argo app to point to the new test kustomization
@@ -70,13 +86,13 @@ var _ = Describe("ZTP Argocd policies Tests", Ordered, Label("ztp-argocd-policie
 				err := ranztphelper.WaitForPolicyToExist(
 					"custom-interval-policy-default",
 					ranztpparameters.ZtpTestNamespace,
-					5*time.Minute,
+					ranztpparameters.ArgocdChangeTimeout,
 				)
 				Expect(err).ToNot(HaveOccurred())
 				err = ranztphelper.WaitForPolicyToExist(
 					"custom-interval-policy-override",
 					ranztpparameters.ZtpTestNamespace,
-					5*time.Minute,
+					ranztpparameters.ArgocdChangeTimeout,
 				)
 				Expect(err).ToNot(HaveOccurred())
 			})
@@ -112,7 +128,22 @@ var _ = Describe("ZTP Argocd policies Tests", Ordered, Label("ztp-argocd-policie
 		It("should specify an invalid interval format and verify the app error", func() {
 			// https://issues.redhat.com/browse/CNF-6306
 			// The ztp test data is stored in a nested directory within the ztp repo
-			testGitPath := ranztphelper.ArgocdApps[ranztpparameters.ArgocdPoliciesAppName].Path + "/ztp-test/invalid-interval"
+			testGitPath := ranztphelper.JoinGitPaths(
+				[]string{
+					ranztphelper.ArgocdApps[ranztpparameters.ArgocdPoliciesAppName].Path,
+					"ztp-test/invalid-interval",
+				},
+			)
+
+			By("Checking if the git path exists", func() {
+				if !ranztphelper.DoesGitPathExist(
+					ranztphelper.ArgocdApps[ranztpparameters.ArgocdPoliciesAppName].Repo,
+					ranztphelper.ArgocdApps[ranztpparameters.ArgocdPoliciesAppName].Branch,
+					testGitPath+"/kustomization.yaml",
+				) {
+					Skip(fmt.Sprintf("git path '%s' could not be found", testGitPath))
+				}
+			})
 
 			By("Updating the Argocd app", func() {
 				// Update the Argo app to point to the new test kustomization
@@ -134,7 +165,7 @@ var _ = Describe("ZTP Argocd policies Tests", Ordered, Label("ztp-argocd-policie
 					ranztphelper.HubAPIClient,
 					ranztpparameters.ArgocdPoliciesAppName,
 					ranztpparameters.OpenshiftGitops,
-					expectedMessage, 5*time.Minute,
+					expectedMessage, ranztpparameters.ArgocdChangeTimeout,
 				)
 				Expect(err).ToNot(HaveOccurred())
 			})
@@ -146,7 +177,22 @@ var _ = Describe("ZTP Argocd policies Tests", Ordered, Label("ztp-argocd-policie
 			// https://issues.redhat.com/browse/CNF-6301
 
 			// The ztp test data is stored in a nested directory within the ztp repo
-			testGitPath := ranztphelper.ArgocdApps[ranztpparameters.ArgocdPoliciesAppName].Path + "/ztp-test/image-registry"
+			testGitPath := ranztphelper.JoinGitPaths(
+				[]string{
+					ranztphelper.ArgocdApps[ranztpparameters.ArgocdPoliciesAppName].Path,
+					"ztp-test/image-registry",
+				},
+			)
+
+			By("Checking if the git path exists", func() {
+				if !ranztphelper.DoesGitPathExist(
+					ranztphelper.ArgocdApps[ranztpparameters.ArgocdPoliciesAppName].Repo,
+					ranztphelper.ArgocdApps[ranztpparameters.ArgocdPoliciesAppName].Branch,
+					testGitPath+"/kustomization.yaml",
+				) {
+					Skip(fmt.Sprintf("git path '%s' could not be found", testGitPath))
+				}
+			})
 
 			By("Updating the Argocd app", func() {
 				// Update the Argo app to point to the new test kustomization
@@ -171,7 +217,11 @@ var _ = Describe("ZTP Argocd policies Tests", Ordered, Label("ztp-argocd-policie
 
 			By("Waiting for policies to exist", func() {
 				for _, policy := range policies {
-					err := ranztphelper.WaitForPolicyToExist(policy, ranztpparameters.ZtpTestNamespace, 3*time.Minute)
+					err := ranztphelper.WaitForPolicyToExist(
+						policy,
+						ranztpparameters.ZtpTestNamespace,
+						ranztpparameters.ArgocdChangeTimeout,
+					)
 					Expect(err).ToNot(HaveOccurred())
 				}
 			})
@@ -182,23 +232,35 @@ var _ = Describe("ZTP Argocd policies Tests", Ordered, Label("ztp-argocd-policie
 						policy,
 						ranztpparameters.ZtpTestNamespace,
 						policiesv1.Compliant,
-						3*time.Minute,
+						ranztpparameters.ArgocdChangeTimeout,
 					)
 					Expect(err).ToNot(HaveOccurred())
 				}
 			})
 
-			By("Getting the image registry")
+			By("Waiting for the image registry to be in the valid state", func() {
+				err := wait.PollImmediate(
+					15*time.Second,
+					ranztpparameters.ArgocdChangeTimeout,
+					func() (done bool, err error) {
+						imageRegistry, err := ranztphelper.GetImageRegistryConfig("cluster", ranztphelper.SpokeAPIClient)
 
-			imageRegistry, err := ranztphelper.SpokeAPIClient.ImageregistryV1Interface.Configs().Get(
-				ranztphelper.GetZtpContext(),
-				"cluster",
-				v1.GetOptions{},
-			)
-			Expect(err).ToNot(HaveOccurred())
+						// If an error that wasn't a not found occurred then something bad happened
+						if err != nil && !strings.Contains(err.Error(), "not found") {
+							return false, err
+						}
 
-			By("Validating the image registry", func() {
-				Expect(imageRegistry.Spec.Storage.PVC.Claim).To(Equal("image-registry-pvc"))
+						// We need to be careful since if something isn't configured yet these could be nil pointers
+						if imageRegistry != nil &&
+							imageRegistry.Spec.Storage.PVC != nil {
+							return imageRegistry.Spec.Storage.PVC.Claim == "image-registry-pvc", nil
+						}
+
+						// If the name wasn't defined or the config wasn't found yet then we just need to wait longer
+						return false, nil
+					},
+				)
+				Expect(err).ToNot(HaveOccurred())
 			})
 		})
 	})

@@ -2,6 +2,7 @@ package tests
 
 import (
 	"fmt"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -9,6 +10,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ztp/ranztphelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ztp/ranztpparameters"
 	testClient "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 var _ = Describe("ZTP Argocd clusters Tests", Ordered, Label("ztp-argocd-clusters"), func() {
@@ -47,7 +49,22 @@ var _ = Describe("ZTP Argocd clusters Tests", Ordered, Label("ztp-argocd-cluster
 		It("should override the klusterlet addon configuration and verify the change", func() {
 			// https://issues.redhat.com/browse/CNF-6299
 			// The ztp test data is stored in a nested directory within the ztp repo
-			testGitPath := ranztphelper.ArgocdApps[ranztpparameters.ArgocdClustersAppName].Path + "/ztp-test/klusterlet-addon"
+			testGitPath := ranztphelper.JoinGitPaths(
+				[]string{
+					ranztphelper.ArgocdApps[ranztpparameters.ArgocdClustersAppName].Path,
+					"ztp-test/klusterlet-addon",
+				},
+			)
+
+			By("Checking if the git path exists", func() {
+				if !ranztphelper.DoesGitPathExist(
+					ranztphelper.ArgocdApps[ranztpparameters.ArgocdClustersAppName].Repo,
+					ranztphelper.ArgocdApps[ranztpparameters.ArgocdClustersAppName].Branch,
+					testGitPath+"/kustomization.yaml",
+				) {
+					Skip(fmt.Sprintf("git path '%s' could not be found", testGitPath))
+				}
+			})
 
 			By("updating the argo app", func() {
 				// Update the Argo app to point to the new test kustomization
@@ -63,12 +80,24 @@ var _ = Describe("ZTP Argocd clusters Tests", Ordered, Label("ztp-argocd-cluster
 			})
 
 			By("Validating the klusterlet addon change occurred", func() {
-				// Get the klusterlet addon configuration
-				kac, err := ranztphelper.GetKlusterletConfiguration(ranztphelper.SpokeName, ranztphelper.SpokeName)
-				Expect(err).ToNot(HaveOccurred())
+				// Wait until the kac config gets updated
+				err := wait.PollImmediate(
+					15*time.Second,
+					ranztpparameters.ArgocdChangeTimeout,
+					func() (bool, error) {
+						// Get the kac config
+						kac, err := ranztphelper.GetKlusterletConfiguration(ranztphelper.SpokeName, ranztphelper.SpokeName)
 
-				// Validate that the search collector is enabled now
-				Expect(kac.Spec.SearchCollectorConfig.Enabled).To(Equal(true))
+						// This should never result in an error
+						if err != nil {
+							return true, err
+						}
+
+						return kac.Spec.SearchCollectorConfig.Enabled, nil
+					},
+				)
+				// Get the klusterlet addon configuration
+				Expect(err).ToNot(HaveOccurred())
 			})
 		})
 	})
