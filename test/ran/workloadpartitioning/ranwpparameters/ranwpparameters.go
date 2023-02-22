@@ -6,9 +6,13 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/k8sreporter"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 var (
+	NonMgmtNamespaces = sets.NewString(ran.NamespaceTesting, parameters.PrivPodNamespace, ran.NamespaceFec,
+		ran.NamespaceAmq, ran.NamespaceBmer)
+
 	// ReporterNamespacesToDump tells to reporter from where to collect logs.
 	ReporterNamespacesToDump = map[string]string{
 		parameters.PerformanceAddonOperatorNamespace: "performance",

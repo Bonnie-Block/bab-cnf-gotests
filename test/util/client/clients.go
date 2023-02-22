@@ -23,6 +23,7 @@ import (
 	imageregistryv1 "github.com/openshift/client-go/imageregistry/clientset/versioned/typed/imageregistry/v1"
 	routev1 "github.com/openshift/client-go/route/clientset/versioned/typed/route/v1"
 	performancev2 "github.com/openshift/cluster-node-tuning-operator/pkg/apis/performanceprofile/v2"
+	tunedv1 "github.com/openshift/cluster-node-tuning-operator/pkg/apis/tuned/v1"
 	mcv1 "github.com/openshift/machine-config-operator/pkg/apis/machineconfiguration.openshift.io/v1"
 	clientmachineconfigv1 "github.com/openshift/machine-config-operator/pkg/generated/clientset/versioned/typed/machineconfiguration.openshift.io/v1"
 	ptpv1 "github.com/openshift/ptp-operator/pkg/client/clientset/versioned/typed/ptp/v1"
@@ -200,6 +201,10 @@ func New(kubeconfig string) *ClientSet {
 	}
 
 	if err := argocdoperatorv1alpha1.SchemeBuilder.AddToScheme(crScheme); err != nil {
+		panic(err)
+	}
+
+	if err := tunedv1.AddToScheme(crScheme); err != nil {
 		panic(err)
 	}
 

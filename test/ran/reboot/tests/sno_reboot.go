@@ -34,7 +34,7 @@ var _ = Describe("SNO Reboot", Ordered, func() {
 			Skip("Test is only applicable to SNO")
 		}
 
-		perfProfile, _ = rancpuhelper.GetPerformanceProfileWithCPUSet()
+		perfProfile, _ = rancpuhelper.GetPerformanceProfileWithCPUSet(nil)
 		if perfProfile == nil {
 			Skip("No performance profile with reserved and isolated cpu set configuration found on cluster")
 		}

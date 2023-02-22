@@ -1,6 +1,7 @@
 require (
 	github.com/Juniper/go-netconf v0.1.1
 	github.com/Masterminds/sprig v2.22.0+incompatible
+	github.com/argoproj-labs/argocd-operator v0.5.0
 	github.com/argoproj/argo-cd/v2 v2.5.4
 	github.com/containernetworking/cni v1.0.1
 	github.com/containers/podman/v2 v2.2.1
@@ -33,6 +34,7 @@ require (
 	github.com/redhat-cne/hw-event-proxy-operator v0.0.0-20220704173357-701293c0d4b5
 	github.com/smart-edge-open/sriov-fec-operator/sriov-fec v0.0.0-20220421094756-1803088bf003
 	github.com/stmcginnis/gofish v0.13.0
+	github.com/stolostron/klusterlet-addon-controller v0.0.0-20230125024035-c724f5abe19c
 	github.com/tidwall/gjson v1.14.4
 	go.universe.tf/metallb v0.13.7
 	golang.org/x/net v0.1.0
@@ -64,7 +66,6 @@ require (
 	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d // indirect
 	github.com/acomagu/bufpipe v1.0.3 // indirect
 	github.com/ajeddeloh/go-json v0.0.0-20170920214419-6a2fe990e083 // indirect
-	github.com/argoproj-labs/argocd-operator v0.5.0 // indirect
 	github.com/argoproj/gitops-engine v0.7.1-0.20221004132320-98ccd3d43fd9 // indirect
 	github.com/argoproj/pkg v0.11.1-0.20211203175135-36c59d8fafe0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
@@ -210,7 +211,6 @@ require (
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/stefanberger/go-pkcs11uri v0.0.0-20201008174630-78d3cae3a980 // indirect
 	github.com/stolostron/cluster-lifecycle-api v0.0.0-20220621134646-8b67f2e6afed // indirect
-	github.com/stolostron/klusterlet-addon-controller v0.0.0-20230125024035-c724f5abe19c // indirect
 	github.com/syndtr/gocapability v0.0.0-20200815063812-42c35b437635 // indirect
 	github.com/tchap/go-patricia v2.3.0+incompatible // indirect
 	github.com/tidwall/match v1.1.1 // indirect

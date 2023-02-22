@@ -13,7 +13,6 @@ import (
 	performancev2 "github.com/openshift/cluster-node-tuning-operator/pkg/apis/performanceprofile/v2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/kubernetes/pkg/kubelet/cm/cpuset"
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
@@ -28,9 +27,6 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 )
 
-var NonMgmtNamespaces = sets.NewString(ran.NamespaceTesting, parameters.PrivPodNamespace, ran.NamespaceFec,
-	ran.NamespaceAmq, ran.NamespaceBmer)
-
 var _ = Describe("SNO management workload partitioning", func() {
 	var (
 		node        *corev1.Node
@@ -43,7 +39,7 @@ var _ = Describe("SNO management workload partitioning", func() {
 
 	execute.BeforeAll(func() {
 		isSNO, _ = nodes.IsSingleNodeCluster(helper.Apiclient)
-		perfProfile, _ = rancpuhelper.GetPerformanceProfileWithCPUSet()
+		perfProfile, _ = rancpuhelper.GetPerformanceProfileWithCPUSet(nil)
 		// Get node for testing
 		workers, err := nodes.GetByRole(helper.Apiclient, parameters.RoleWorker)
 		Expect(err).ToNot(HaveOccurred())
@@ -80,40 +76,15 @@ var _ = Describe("SNO management workload partitioning", func() {
 	})
 
 	It("should pin OS daemon to reserved cpus", func() {
-		pidsToExclude := ranwphelper.GetKernelPids(node)
-		containersInfo := ranwphelper.GetContainersInfo(node)
-		for _, containerInfo := range containersInfo {
-			pidsToExclude = append(pidsToExclude, containerInfo.Pid)
-		}
-		allPids := ranwphelper.GetAllPids(node)
-		var pidsToCheck []int
-		for _, pid := range allPids {
-			if !findInt(pid, pidsToExclude) {
-				pidsToCheck = append(pidsToCheck, pid)
-			}
-		}
-
-		affinities := ranwphelper.GetPidsAffinity(node, pidsToCheck)
-		failedMap := make(map[int]string)
-		var failedPids []int
-		for pid, affinity := range affinities {
-			pidCpuset := cpuset.MustParse(affinity)
-			if !pidCpuset.IsSubsetOf(mgmtCPUSet) {
-				failedMap[pid] = affinity
-				failedPids = append(failedPids, pid)
-			}
-		}
-		if len(failedPids) > 0 {
-			ranwphelper.PrintPidInfo(node, failedPids)
-			Expect(failedMap).To(BeEmpty())
-		}
+		failedPids, _ := ranwphelper.CheckCPUAffinityOnNonKernelPids(node, mgmtCPUSet)
+		Expect(failedPids).To(BeEmpty())
 	})
 
 	// 41230
 	It("should have management pods pinned to reserved cpus", func() {
 		By("Checking cpuset for all running containers via crictl inspect on container host", func() {
 			containersInfo := ranwphelper.GetContainersInfo(node)
-			ranwphelper.CheckPodsAffinity(getMgmtContainersInfo(containersInfo), mgmtCPUSet)
+			ranwphelper.CheckPodsAffinity(ranwphelper.GetMgmtContainersInfo(containersInfo), mgmtCPUSet)
 		})
 	})
 
@@ -371,7 +342,7 @@ func checkCPUShares(containersInfo []ranwphelper.ContainerInfo) {
 	containerShares := make(map[string]int)
 
 	for _, ns := range allNamespaces.Items {
-		if NonMgmtNamespaces.Has(ns.Name) {
+		if ranwpparameters.NonMgmtNamespaces.Has(ns.Name) {
 			continue
 		}
 
@@ -382,7 +353,7 @@ func checkCPUShares(containersInfo []ranwphelper.ContainerInfo) {
 	}
 	// Check cpu shares for all running containers by comparing the value with pod annotation
 	for _, containerInfo := range containersInfo {
-		if isNonMgmtPod(containerInfo.PodName, containerInfo.Namespace) {
+		if ranwphelper.IsNonMgmtPod(containerInfo.PodName, containerInfo.Namespace) {
 			continue
 		}
 
@@ -408,16 +379,6 @@ func checkCPUShares(containersInfo []ranwphelper.ContainerInfo) {
 			Expect(containerInfo.Shares).To(BeEquivalentTo(2), "cpu share in crio is not 2 for %s", searchKey)
 		}
 	}
-}
-
-// isNonMgmtPod checks if a pod is a non-management pod. e.g., test pods created in automation, amq and bmer pods.
-func isNonMgmtPod(podName, namespace string) bool {
-	if NonMgmtNamespaces.Has(namespace) || strings.HasPrefix(podName, parameters.PrivPodNamespace) ||
-		strings.HasPrefix(podName, "process-exporter") {
-		return true
-	}
-
-	return false
 }
 
 // getMgmtCPUShareAnnotationExpectations returns a map with a formatted container name as key, and cpu share
@@ -462,17 +423,6 @@ func getPodsCPUShares(pods []corev1.Pod, containerShares map[string]int) map[str
 	return containerShares
 }
 
-// findInt returns true if a specific integer is in given int slice, false otherwise.
-func findInt(item int, intSlice []int) bool {
-	for _, i := range intSlice {
-		if i == item {
-			return true
-		}
-	}
-
-	return false
-}
-
 // createsTestMgmtNamespace creates a test namespace with management workload partitioning annotation.
 func createsTestMgmtNamespace() {
 	if namespaces.Exists(ran.NamespaceTesting, helper.Apiclient) {
@@ -495,17 +445,4 @@ func createsTestMgmtNamespace() {
 		_, err := helper.Apiclient.Namespaces().Create(context.Background(), namespace, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 	})
-}
-
-func getMgmtContainersInfo(containersInfo []ranwphelper.ContainerInfo) []ranwphelper.ContainerInfo {
-	var mgmtContainerInfo []ranwphelper.ContainerInfo
-
-	for _, podinfo := range containersInfo {
-		// Exclude test pods
-		if !isNonMgmtPod(podinfo.PodName, podinfo.Namespace) {
-			mgmtContainerInfo = append(mgmtContainerInfo, podinfo)
-		}
-	}
-
-	return mgmtContainerInfo
 }

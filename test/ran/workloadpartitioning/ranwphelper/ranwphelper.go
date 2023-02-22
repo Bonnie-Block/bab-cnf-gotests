@@ -2,6 +2,7 @@ package ranwphelper
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"regexp"
@@ -14,7 +15,9 @@ import (
 	"k8s.io/kubernetes/pkg/kubelet/cm/cpuset"
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/workloadpartitioning/ranwpparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 	podhelper "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 )
@@ -64,14 +67,14 @@ shares: .info.runtimeSpec.linux.resources.cpu.shares,
 	return containerinfos
 }
 
-// GetKernelPids returns list of kernel process ids.
-func GetKernelPids(node *corev1.Node) []int {
+// getKernelPids returns list of kernel process ids.
+func getKernelPids(node *corev1.Node) []int {
 	// Get all kernel threads (PID 2 and children)
 	return getPids(node, "ps --no-headers --ppid 2 -p 2 -o pid")
 }
 
-// GetAllPids returns list of all process ids.
-func GetAllPids(node *corev1.Node) []int {
+// getAllPids returns list of all process ids.
+func getAllPids(node *corev1.Node) []int {
 	return getPids(node, "ps --no-headers -e -o pid")
 }
 
@@ -110,9 +113,9 @@ func getPids(node *corev1.Node, command string) []int {
 	return pids
 }
 
-// GetPidsAffinity gets pids' affinity list from taskset command and returns a map with pid as key, and affinity
+// getPidsAffinity gets pids' affinity list from taskset command and returns a map with pid as key, and affinity
 // list as value.
-func GetPidsAffinity(node *corev1.Node, pids []int) map[int]string {
+func getPidsAffinity(node *corev1.Node, pids []int) map[int]string {
 	var pidStrings []string
 	for _, pid := range pids {
 		pidStrings = append(pidStrings, strconv.Itoa(pid))
@@ -146,8 +149,8 @@ func GetPidsAffinity(node *corev1.Node, pids []int) map[int]string {
 	return affinities
 }
 
-// PrintPidInfo prints out pids info via ps command.
-func PrintPidInfo(node *corev1.Node, pids []int) {
+// printPidInfo prints out pids info via ps command.
+func printPidInfo(node *corev1.Node, pids []int) {
 	var pidStrings []string
 	for _, pid := range pids {
 		pidStrings = append(pidStrings, strconv.Itoa(pid))
@@ -187,4 +190,81 @@ func DefineQoSTestPod(nodeName, namespace, cpuReq, cpuLimit, memReq, memLimit st
 		podhelper.DefinePodOnNode(namespace, image, nodeName), cpuReq, cpuLimit, memReq, memLimit)
 
 	return pod
+}
+
+// findInt returns true if a specific integer is in given int slice, false otherwise.
+func findInt(item int, intSlice []int) bool {
+	for _, i := range intSlice {
+		if i == item {
+			return true
+		}
+	}
+
+	return false
+}
+
+// IsNonMgmtPod checks if a pod is a non-management pod. e.g., test pods created in automation, amq and bmer pods.
+func IsNonMgmtPod(podName, namespace string) bool {
+	if ranwpparameters.NonMgmtNamespaces.Has(namespace) || strings.HasPrefix(podName, parameters.PrivPodNamespace) ||
+		strings.HasPrefix(podName, "process-exporter") {
+		return true
+	}
+
+	return false
+}
+
+func GetMgmtContainersInfo(containersInfo []ContainerInfo) []ContainerInfo {
+	var mgmtContainerInfo []ContainerInfo
+
+	for _, podinfo := range containersInfo {
+		// Exclude test pods
+		if !IsNonMgmtPod(podinfo.PodName, podinfo.Namespace) {
+			mgmtContainerInfo = append(mgmtContainerInfo, podinfo)
+		}
+	}
+
+	return mgmtContainerInfo
+}
+
+// CheckCPUAffinityOnNonKernelPids checks cpus (affinity) for non kernel pids and returns a
+// non nil error and a map of key:pids,value:cpus for those processes not matching the specified cpus.
+func CheckCPUAffinityOnNonKernelPids(node *corev1.Node, cpus cpuset.CPUSet) (map[int]string, error) {
+	pidsToExclude, containersInfo := getKernelPids(node), GetContainersInfo(node)
+
+	for _, containerInfo := range containersInfo {
+		pidsToExclude = append(pidsToExclude, containerInfo.Pid)
+	}
+
+	allPids := getAllPids(node)
+
+	var pidsToCheck []int
+
+	for _, pid := range allPids {
+		if !findInt(pid, pidsToExclude) {
+			pidsToCheck = append(pidsToCheck, pid)
+		}
+	}
+
+	affinities := getPidsAffinity(node, pidsToCheck)
+	failedMap := make(map[int]string)
+
+	var failedPids []int
+
+	for pid, affinity := range affinities {
+		pidCpuset := cpuset.MustParse(affinity)
+		if !pidCpuset.IsSubsetOf(cpus) {
+			failedMap[pid] = affinity
+			failedPids = append(failedPids, pid)
+		}
+	}
+
+	var err error = nil
+
+	if len(failedPids) > 0 {
+		err = errors.New("processes not matching reserved CPU affinites found")
+
+		printPidInfo(node, failedPids)
+	}
+
+	return failedMap, err
 }

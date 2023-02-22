@@ -33,7 +33,7 @@ var _ = Describe("Per-Core Runtime Tuning of power states - CRI-O", Ordered, fun
 		Expect(err).ToNot(HaveOccurred())
 		isSNO, _ = nodes.IsSingleNodeCluster(helper.Apiclient)
 		Expect(isSNO).Should(BeTrue(), "Currently only SNO nodes are supported by this test")
-		perfProfile, err = rancpuhelper.GetPerformanceProfileWithCPUSet()
+		perfProfile, err = rancpuhelper.GetPerformanceProfileWithCPUSet(nil)
 		Expect(err).ToNot(HaveOccurred())
 		snoNode = nodeList.Items[0]
 		// SNOHost = snoNode.Name

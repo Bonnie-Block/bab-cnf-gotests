@@ -46,7 +46,7 @@ var _ = Describe("SNO core reduction", func() {
 
 	execute.BeforeAll(func() {
 		isSNO, _ = nodes.IsSingleNodeCluster(helper.Apiclient)
-		perfProfile, _ = rancpuhelper.GetPerformanceProfileWithCPUSet()
+		perfProfile, _ = rancpuhelper.GetPerformanceProfileWithCPUSet(nil)
 		// Get node for testing
 		var err error
 		node, err = ranhelper.GetWorker(true)

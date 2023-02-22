@@ -40,6 +40,12 @@ const (
 	AcmArgocdInitContainer    string        = "multicluster-operators-subscription"
 	AcmPolicyGeneratorName    string        = "acm-policy-generator"
 	ImageRegistryNamespace    string        = "openshift-image-registry"
+	PerfProfileName           string        = "openshift-node-performance-profile"
+	MachineConfigName         string        = "02-master-workload-partitioning"
+	TunedName                 string        = "openshift-node-performance-openshift-node-performance-profile"
+	TunedPatchName            string        = "performance-patch"
+	TunedNamespace            string        = "openshift-cluster-node-tuning-operator"
+	MCPname                   string        = "master"
 )
 
 // ArgocdApps is a list of the argocd app names that are defined above.

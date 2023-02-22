@@ -51,8 +51,11 @@ func GetThreadSiblingsList(cpu int, node *corev1.Node) ([]int, error) {
 	return cpuList, err
 }
 
-// GetPerformanceProfileWithCPUSet returns performance profile with reserved and isolated cpuset defined.
-func GetPerformanceProfileWithCPUSet() (*performancev2.PerformanceProfile, error) {
+type SelectorFunc func(profile *performancev2.PerformanceProfile) bool
+
+// GetPerformanceProfileWithCPUSet returns the first performance profile found with reserved and isolated cpuset.If
+// a selector (callback) is provided, the profile will need to match specific data additionally.
+func GetPerformanceProfileWithCPUSet(selector SelectorFunc) (*performancev2.PerformanceProfile, error) {
 	profiles := &performancev2.PerformanceProfileList{}
 	if err := helper.Apiclient.List(context.TODO(), profiles); err != nil {
 		return nil, err
@@ -62,6 +65,12 @@ func GetPerformanceProfileWithCPUSet() (*performancev2.PerformanceProfile, error
 		if profile.Spec.CPU != nil &&
 			profile.Spec.CPU.Reserved != nil &&
 			profile.Spec.CPU.Isolated != nil {
+			if selector != nil {
+				if !selector(&profile) {
+					continue
+				}
+			}
+
 			return &profile, nil
 		}
 	}

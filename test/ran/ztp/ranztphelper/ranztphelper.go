@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"regexp"
 	"strings"
 	"time"
 
@@ -13,8 +14,11 @@ import (
 	imageregistryv1 "github.com/openshift/api/imageregistry/v1"
 	kacv1 "github.com/stolostron/klusterlet-addon-controller/pkg/apis/agent/v1"
 	"github.com/tidwall/gjson"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ztp/ranztpparameters"
 	testClient "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
+	mcp "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/machineconfigpool"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -26,13 +30,14 @@ import (
 )
 
 var (
-	HubAPIClient   *testClient.ClientSet
-	HubName        string
-	SpokeAPIClient *testClient.ClientSet
-	SpokeName      string
-	ArgocdApps     = map[string]ranztpparameters.ArgocdGitDetails{}
-	ZtpVersion     string
-	AcmVersion     string
+	HubAPIClient      *testClient.ClientSet
+	HubName           string
+	SpokeAPIClient    *testClient.ClientSet
+	SpokeName         string
+	ArgocdApps        = map[string]ranztpparameters.ArgocdGitDetails{}
+	ZtpVersion        string
+	AcmVersion        string
+	pidAndAffinityExp = regexp.MustCompile(`pid (\d+)'s current affinity list: (.*)$`)
 )
 
 // GetZtpContext is used to get the context for the Ztp test client interactions.
@@ -863,6 +868,102 @@ func DeleteAndWaitStorageClass(
 	}
 
 	log.Printf("Storage class '%s' does not exist\n", storageClassName)
+
+	return nil
+}
+
+// CheckAffinitiesByProcessMatch checks CPU affinities for an array of processes against an specfied
+// reserved CPU set in a given OCP node.
+func CheckAffinitiesByProcessMatch(node *corev1.Node, processNames []string, reservedCPUSet string) error {
+	if node == nil {
+		return fmt.Errorf("node was not specified")
+	}
+
+	if len(processNames) == 0 {
+		return fmt.Errorf("processes names were undefined")
+	}
+
+	if len(strings.TrimSpace(reservedCPUSet)) == 0 {
+		return fmt.Errorf("reservedCPUSet was undefined")
+	}
+
+	for _, processName := range processNames {
+		if len(strings.TrimSpace(processName)) == 0 {
+			return fmt.Errorf("processName was undefined")
+		}
+
+		cmd := fmt.Sprintf("pgrep %s | while read i; do taskset -cp $i; done", processName)
+		output, err := helper.ExecCommandOnNode(node,
+			[]string{"bash", "-c", cmd})
+
+		if err != nil {
+			return err
+		}
+
+		for _, line := range strings.Split(output, "\r\n") {
+			line = strings.TrimSpace(line)
+
+			// if process does not exist, return error
+			if len(line) == 0 {
+				return fmt.Errorf("process name: %s is not matched", processName)
+			}
+
+			match := pidAndAffinityExp.FindAllStringSubmatch(line, -1)
+			if match == nil {
+				return fmt.Errorf("unmatched pid and affinity for process name: %s", processName)
+			}
+
+			pid, affinity := match[0][1], match[0][2]
+
+			if affinity != reservedCPUSet {
+				return fmt.Errorf("process: %s pid: %s with actual affinity: %s but expected: %s",
+					processName, pid, affinity, reservedCPUSet)
+			}
+		}
+	}
+
+	return nil
+}
+
+type WaitForMcpUpdateFunc func(clientSet *testClient.ClientSet, machineConfigPoolName string) error
+
+// CheckNodeIsFunctionalAfterMCchanges checks whether an OCP node is functional after a reboot
+// caused by configuration (machine config) changes.Internally, it waits for three  conditions
+// to  be successfully  evaluated in this order: specific  mcp transitioned  from updating  to
+// updated, all mcps stable in that updated  state and finally, cluster nodes ready. The first
+// condition is fully customizable and must be defined (non nil) with a callback.
+func CheckNodeIsFunctionalAfterMCchanges(mcpName string, mcpUpdatedFunc WaitForMcpUpdateFunc) error {
+	if len(strings.TrimSpace(mcpName)) == 0 {
+		return fmt.Errorf("machine config name is undefined")
+	}
+
+	if mcpUpdatedFunc == nil {
+		return fmt.Errorf("WaitForMcpUpdateFunc function is undefined")
+	}
+
+	// check mcp is transtioned from updating to updated
+
+	err := mcpUpdatedFunc(helper.Apiclient, mcpName)
+
+	if err != nil {
+		return err
+	}
+
+	// check mcps are updated for an stable interval
+	interval := 5 * time.Second
+	stableInterval := 45 * time.Second
+	err = mcp.WaitForClusterStable(helper.Apiclient, 30*time.Minute, interval, stableInterval)
+
+	if err != nil {
+		return err
+	}
+
+	// check all nodes are Ready
+	err = nodes.WaitForNodesReady(helper.Apiclient, 10*time.Minute, interval)
+
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
