@@ -2,7 +2,6 @@ package tests
 
 import (
 	"fmt"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -82,7 +81,7 @@ var _ = Describe("ZTP Argocd clusters Tests", Ordered, Label("ztp-argocd-cluster
 			By("Validating the klusterlet addon change occurred", func() {
 				// Wait until the kac config gets updated
 				err := wait.PollImmediate(
-					15*time.Second,
+					ranztpparameters.ArgocdChangeInterval,
 					ranztpparameters.ArgocdChangeTimeout,
 					func() (bool, error) {
 						// Get the kac config

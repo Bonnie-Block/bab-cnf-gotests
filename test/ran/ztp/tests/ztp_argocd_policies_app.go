@@ -3,7 +3,6 @@ package tests
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -240,7 +239,7 @@ var _ = Describe("ZTP Argocd policies Tests", Ordered, Label("ztp-argocd-policie
 
 			By("Waiting for the image registry to be in the valid state", func() {
 				err := wait.PollImmediate(
-					15*time.Second,
+					ranztpparameters.ArgocdChangeInterval,
 					ranztpparameters.ArgocdChangeTimeout,
 					func() (done bool, err error) {
 						imageRegistry, err := ranztphelper.GetImageRegistryConfig("cluster", ranztphelper.SpokeAPIClient)

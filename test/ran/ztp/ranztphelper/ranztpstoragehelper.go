@@ -174,7 +174,7 @@ func DeleteAndWaitImageRegistryConfig(
 		log.Printf("Waiting until image registry config '%s' is gone\n", registryConfigName)
 
 		err = wait.PollImmediate(
-			15*time.Second,
+			ranztpparameters.ArgocdChangeInterval,
 			ranztpparameters.ArgocdChangeTimeout,
 			func() (done bool, err error) {
 				exists, err := DoesImageRegistryConfigExist(registryConfigName, client)
@@ -277,7 +277,7 @@ func DeleteAndWaitPersistentVolumeClaim(
 		log.Printf("Waiting until persistent volume claim '%s' is gone\n", persistentVolumeClaimName)
 
 		err = wait.PollImmediate(
-			15*time.Second,
+			ranztpparameters.ArgocdChangeInterval,
 			ranztpparameters.ArgocdChangeTimeout,
 			func() (done bool, err error) {
 				exists, err := DoesPersistentVolumeClaimExist(persistentVolumeClaimName, persistentVolumeClaimNamespace, client)
@@ -372,7 +372,7 @@ func DeleteAndWaitPersistentVolume(
 		log.Printf("Waiting until persistent volume '%s' is gone\n", persistentVolumeName)
 
 		err = wait.PollImmediate(
-			15*time.Second,
+			ranztpparameters.ArgocdChangeInterval,
 			ranztpparameters.ArgocdChangeTimeout,
 			func() (done bool, err error) {
 				exists, err := DoesPersistentVolumeExist(persistentVolumeName, client)
@@ -473,7 +473,7 @@ func DeleteAndWaitStorageClass(
 		log.Printf("Waiting until storage class '%s' is gone\n", storageClassName)
 
 		err = wait.PollImmediate(
-			15*time.Second,
+			ranztpparameters.ArgocdChangeInterval,
 			ranztpparameters.ArgocdChangeTimeout,
 			func() (done bool, err error) {
 				exists, err := DoesStorageClassExist(storageClassName, storageClassNamespace, client)

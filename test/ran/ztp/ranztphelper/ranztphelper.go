@@ -15,6 +15,7 @@ import (
 	kacv1 "github.com/stolostron/klusterlet-addon-controller/pkg/apis/agent/v1"
 	"github.com/tidwall/gjson"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/talm/rantalmhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ztp/ranztpparameters"
 	testClient "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
 	mcp "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/machineconfigpool"
@@ -65,11 +66,11 @@ func GetNode(client *testClient.ClientSet) (corev1.Node, error) {
 // WaitForPolicyToExist is used to wait until the specified policy exists on the hub.
 func WaitForPolicyToExist(policyName, namespace string, timeout time.Duration) error {
 	err := wait.PollImmediate(
-		15*time.Second,
+		ranztpparameters.ArgocdChangeInterval,
 		timeout,
 		func() (bool, error) {
 			// If the policy doesn't exist yet then this will return an error
-			_, err := GetPolicy(policyName, namespace)
+			_, err := rantalmhelper.GetPolicy(HubAPIClient, policyName, namespace)
 
 			if err != nil {
 				log.Println(err)
@@ -96,11 +97,11 @@ func WaitForPolicyToHaveComplianceState(
 	complianceState policiesv1.ComplianceState,
 	timeout time.Duration) error {
 	err := wait.PollImmediate(
-		15*time.Second,
+		ranztpparameters.ArgocdChangeInterval,
 		timeout,
 		func() (bool, error) {
 			// Get the policy
-			policy, err := GetPolicy(policyName, namespace)
+			policy, err := rantalmhelper.GetPolicy(HubAPIClient, policyName, namespace)
 			if err != nil {
 				return true, err
 			}
@@ -118,21 +119,41 @@ func WaitForPolicyToHaveComplianceState(
 	return err
 }
 
-// GetPolicy is used to get a policy from the hub.
-func GetPolicy(policyName, namespace string) (policiesv1.Policy, error) {
-	// Create a typed namespace object
-	typedNamespace := types.NamespacedName{}
-	typedNamespace.Name = policyName
-	typedNamespace.Namespace = namespace
+func WaitForConfigPolicyMessageToMatchSubstring(policyName, namespace, expectedMessage string) error {
+	log.Printf("Checking policy '%s' in namespace '%s'\n", policyName, namespace)
 
-	// Create a policy object
-	policy := policiesv1.Policy{}
+	return wait.PollImmediate(
+		ranztpparameters.ArgocdChangeInterval,
+		ranztpparameters.ArgocdChangeTimeout,
+		func() (bool, error) {
+			message, err := GetLastConfigPolicyMessage(policyName, namespace)
 
-	// Get the policy from the hub
-	err := HubAPIClient.Client.Get(GetZtpContext(), typedNamespace, &policy)
+			fmt.Printf("Checking if actual message '%s' matches expected substring '%s'\n", message, expectedMessage)
 
-	// Return the results
-	return policy, err
+			if err != nil {
+				return false, err
+			}
+
+			return strings.Contains(message, expectedMessage), nil
+		},
+	)
+}
+
+func GetLastConfigPolicyMessage(policyName, namespace string) (string, error) {
+	// Get the policy
+	policy, err := rantalmhelper.GetPolicy(HubAPIClient, policyName, namespace)
+
+	if err != nil {
+		return "", err
+	}
+
+	if len(policy.Status.Details) > 0 {
+		if len(policy.Status.Details[0].History) > 0 {
+			return policy.Status.Details[0].History[0].Message, nil
+		}
+	}
+
+	return "", nil
 }
 
 // JoinGitPaths is used to join any combination of git strings but also avoiding double slashes.
@@ -378,7 +399,7 @@ func GetEvaluationIntervals(policyName string, namespace string) (string, string
 	log.Printf("Checking policy '%s' in namespace '%s' to fetch evaluation intervals\n", policyName, namespace)
 
 	// Get the policy from the hub
-	policy, err := GetPolicy(policyName, namespace)
+	policy, err := rantalmhelper.GetPolicy(HubAPIClient, policyName, namespace)
 	if err != nil {
 		return "", "", err
 	}

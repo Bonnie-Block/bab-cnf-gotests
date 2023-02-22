@@ -192,22 +192,24 @@ func GetCgu(client *testClient.ClientSet, cguName string, namespace string) (v1a
 		return v1alpha1.ClusterGroupUpgrade{}, errors.New("provided empty namespace")
 	}
 
+	if client == nil {
+		return v1alpha1.ClusterGroupUpgrade{}, errors.New("provided nil client")
+	}
+
 	// TALM only runs on the hub so consider non hub API clients to be not existing
-	if client == HubAPIClient {
-		cgu, err := client.ClustergroupupgradesoperatorV1alpha1Interface.
-			ClusterGroupUpgrades(namespace).
-			Get(GetTestContext(), cguName, metav1.GetOptions{})
+	cgu, err := client.ClustergroupupgradesoperatorV1alpha1Interface.
+		ClusterGroupUpgrades(namespace).
+		Get(GetTestContext(), cguName, metav1.GetOptions{})
 
-		// Filter errors that don't matter
-		err = FilterMissingResourceErrors(err)
-		if err != nil {
-			return v1alpha1.ClusterGroupUpgrade{}, err
-		}
+	// Filter errors that don't matter
+	err = FilterMissingResourceErrors(err)
+	if err != nil {
+		return v1alpha1.ClusterGroupUpgrade{}, err
+	}
 
-		// Check if it matched
-		if cgu.Name == cguName {
-			return *cgu, nil
-		}
+	// Check if it matched
+	if cgu.Name == cguName {
+		return *cgu, nil
 	}
 
 	return v1alpha1.ClusterGroupUpgrade{}, errors.New("resource not found")
@@ -215,14 +217,7 @@ func GetCgu(client *testClient.ClientSet, cguName string, namespace string) (v1a
 
 // IsCguExist can be used to check if a specific cgu exists.
 func IsCguExist(client *testClient.ClientSet, cguName string, namespace string) (bool, error) {
-	// Validate inputs first
-	if cguName == "" {
-		return false, errors.New("provided empty cguName")
-	}
-
-	if namespace == "" {
-		return false, errors.New("provided empty namespace")
-	}
+	log.Printf("Checking for existence of cgu '%s' in namespace '%s'\n", cguName, namespace)
 
 	_, err := GetCgu(client, cguName, namespace)
 
@@ -249,13 +244,6 @@ func DeleteCguAndWait(client *testClient.ClientSet, cguName string, namespace st
 	exists, err := IsCguExist(client, cguName, namespace)
 	if err != nil {
 		return err
-	}
-
-	// TALM only runs on the hub so consider non hub API clients to be not existing
-	if client != HubAPIClient {
-		log.Println("skipping cgu delete on non-hub cluster")
-
-		return nil
 	}
 
 	// If it exists then attempt to delete it
@@ -680,6 +668,8 @@ func GetPolicyNameWithPrefix(
 
 // IsPolicyExist can be used to check if a specific policy exists.
 func IsPolicyExist(client *testClient.ClientSet, policyName string, namespace string) (bool, error) {
+	log.Printf("Checking for existence of policy '%s' in namespace '%s'\n", policyName, namespace)
+
 	// We can use another helper to get the object
 	policy, err := GetPolicy(client, policyName, namespace)
 
@@ -988,6 +978,8 @@ func IsPlacementBindingExist(
 	client *testClient.ClientSet,
 	placementBindingName string,
 	namespace string) (bool, error) {
+	log.Printf("Checking for existence of placement binding '%s' in namespace '%s'\n", placementBindingName, namespace)
+
 	// We can use another helper to get the object
 	placementBinding, err := GetPlacementBinding(client, placementBindingName, namespace)
 
@@ -1151,6 +1143,8 @@ func GetPlacementRule(
 
 // IsPlacementRuleExist can be used to check if a specific placement rule exists.
 func IsPlacementRuleExist(client *testClient.ClientSet, placementRuleName string, namespace string) (bool, error) {
+	log.Printf("Checking for existence of placement rule '%s' in namespace '%s'\n", placementRuleName, namespace)
+
 	// We can use another helper to get the object
 	placementRule, err := GetPlacementRule(client, placementRuleName, namespace)
 
@@ -1296,6 +1290,8 @@ func GetPolicySet(
 
 // IsPolicySetExist can be used to check if a specific policy set exists.
 func IsPolicySetExist(client *testClient.ClientSet, policySetName string, namespace string) (bool, error) {
+	log.Printf("Checking for existence of policy set '%s' in namespace '%s'\n", policySetName, namespace)
+
 	// We can use another helper to get the object
 	policySet, err := GetPolicySet(client, policySetName, namespace)
 
@@ -1434,6 +1430,8 @@ func GetCatsrc(client *testClient.ClientSet, name string, namespace string) (ope
 
 // IsCatsrcExist is used to check if the specified catalog source object exists on the cluster.
 func IsCatsrcExist(client *testClient.ClientSet, name string, namespace string) (bool, error) {
+	log.Printf("Checking for existence of catalog source '%s' in namespace '%s'\n", name, namespace)
+
 	// We can use another helper to get the object
 	catsrc, err := GetCatsrc(client, name, namespace)
 	err = FilterMissingResourceErrors(err)
