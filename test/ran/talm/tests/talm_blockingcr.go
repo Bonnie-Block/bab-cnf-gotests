@@ -51,7 +51,7 @@ var _ = Describe("Talm Blocking CRs Tests", Label("talmblockingcr"), func() {
 			// cguA
 			cguA = getNewBlockingCGU(blockingAPass, 10)
 			// cguB
-			cguB = getNewBlockingCGU(blockingBPass, 10)
+			cguB = getNewBlockingCGU(blockingBPass, 15)
 			cguB.Spec.BlockingCRs = []v1alpha1.BlockingCR{
 				{
 					Name:      fmt.Sprintf("%s-%s", rantalmparameters.CguCommonName, blockingAPass),
@@ -117,7 +117,7 @@ var _ = Describe("Talm Blocking CRs Tests", Label("talmblockingcr"), func() {
 				"",
 				metav1.ConditionTrue,
 				"",
-				15*time.Minute)
+				12*time.Minute)
 			Expect(err).To(BeNil())
 
 			By("waiting for cgu B to succeed")
@@ -129,7 +129,7 @@ var _ = Describe("Talm Blocking CRs Tests", Label("talmblockingcr"), func() {
 				"",
 				metav1.ConditionTrue,
 				"",
-				15*time.Minute)
+				17*time.Minute)
 			Expect(err).To(BeNil())
 		})
 	})
@@ -245,9 +245,9 @@ var _ = Describe("Talm Blocking CRs Tests", Label("talmblockingcr"), func() {
 
 		It("verifies CGU is blocked until blocking CR created and succeeded", func() {
 			// cguA using a small timeout value to simulate A failed
-			cguA = getNewBlockingCGU(blockingAMissing, 5)
+			cguA = getNewBlockingCGU(blockingAMissing, 10)
 			// cguB
-			cguB = getNewBlockingCGU(blockingBMissing, 5)
+			cguB = getNewBlockingCGU(blockingBMissing, 15)
 			cguB.Spec.BlockingCRs = []v1alpha1.BlockingCR{
 				{
 					Name:      fmt.Sprintf("%s-%s", rantalmparameters.CguCommonName, blockingAMissing),
@@ -315,7 +315,7 @@ var _ = Describe("Talm Blocking CRs Tests", Label("talmblockingcr"), func() {
 				"",
 				metav1.ConditionTrue,
 				"",
-				7*time.Minute)
+				12*time.Minute)
 			Expect(err).To(BeNil())
 
 			By("waiting for cgu B to succeed")
@@ -327,7 +327,7 @@ var _ = Describe("Talm Blocking CRs Tests", Label("talmblockingcr"), func() {
 				"",
 				metav1.ConditionTrue,
 				"",
-				7*time.Minute)
+				17*time.Minute)
 			Expect(err).To(BeNil())
 		})
 	})

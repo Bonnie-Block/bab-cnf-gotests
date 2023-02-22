@@ -402,7 +402,7 @@ func WaitForCguInCondition(
 
 			// Check the message if it was defined
 			if expectedMessage != "" {
-				if strings.Contains(condition.Message, expectedMessage) {
+				if !strings.Contains(condition.Message, expectedMessage) {
 					lastStatus = fmt.Errorf(
 						"actual message '%s' did not contain expected message '%s'",
 						condition.Message,

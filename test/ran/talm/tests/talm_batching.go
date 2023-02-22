@@ -135,7 +135,7 @@ var _ = Describe("Talm Batching Tests", Label("talmbatching"), func() {
 					"",
 				) {
 					conditionType = rantalmhelper.ReadyType
-					conditionMessage = "The ClusterGroupUpgrade CR has: missing managed policies: [non-existent-policy] "
+					conditionMessage = "The ClusterGroupUpgrade CR has: missing managed policies: [non-existent-policy]"
 				}
 
 				// This should immediately error out so we don't need a long timeout
