@@ -73,7 +73,7 @@ var _ = Describe("ZTP Argocd Hub templating Tests", Ordered, Label("ztp-hub-temp
 			})
 
 			By("Validating the specific error using the policy annotation", func() {
-				err := ranztphelper.WaitForConfigPolicyMessageToMatchSubstring(
+				err := ranztphelper.WaitForConfigPolicyMessageToContainSubstring(
 					ranztpparameters.ZtpTestNamespace+"."+policyName,
 					ranztphelper.SpokeName,
 					"wrong type for value; expected string; got int",

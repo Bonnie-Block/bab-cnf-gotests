@@ -119,16 +119,18 @@ func WaitForPolicyToHaveComplianceState(
 	return err
 }
 
-func WaitForConfigPolicyMessageToMatchSubstring(policyName, namespace, expectedMessage string) error {
+// WaitForConfigPolicyMessageToContainSubstring is used to check a policy's most recent message
+// and see if it contains a the provided substring.
+func WaitForConfigPolicyMessageToContainSubstring(policyName, namespace, expectedMessage string) error {
 	log.Printf("Checking policy '%s' in namespace '%s'\n", policyName, namespace)
 
 	return wait.PollImmediate(
 		ranztpparameters.ArgocdChangeInterval,
 		ranztpparameters.ArgocdChangeTimeout,
 		func() (bool, error) {
-			message, err := GetLastConfigPolicyMessage(policyName, namespace)
+			message, err := GetLastPolicyMessage(policyName, namespace)
 
-			fmt.Printf("Checking if actual message '%s' matches expected substring '%s'\n", message, expectedMessage)
+			fmt.Printf("Checking if actual message '%s' contains substring '%s'\n", message, expectedMessage)
 
 			if err != nil {
 				return false, err
@@ -139,7 +141,8 @@ func WaitForConfigPolicyMessageToMatchSubstring(policyName, namespace, expectedM
 	)
 }
 
-func GetLastConfigPolicyMessage(policyName, namespace string) (string, error) {
+// GetLastPolicyMessage is used to get the most recent message from a policy.
+func GetLastPolicyMessage(policyName, namespace string) (string, error) {
 	// Get the policy
 	policy, err := rantalmhelper.GetPolicy(HubAPIClient, policyName, namespace)
 
