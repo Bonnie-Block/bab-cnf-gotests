@@ -55,6 +55,7 @@ var _ = Describe("ZTP Argocd Hub templating Tests", Ordered, Label("ztp-hub-temp
 	})
 
 	Context("using hub side acm templating", func() {
+		// 54240
 		It("should report an error for using autoindent function where not allowed", func() {
 			// https://issues.redhat.com/browse/CNF-6304
 
@@ -81,6 +82,8 @@ var _ = Describe("ZTP Argocd Hub templating Tests", Ordered, Label("ztp-hub-temp
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})
+
+		// 54240
 		It("should create the policy successfully with a valid template", func() {
 
 			testGitPath := ranztphelper.JoinGitPaths(
