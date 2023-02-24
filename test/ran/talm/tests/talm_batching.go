@@ -50,7 +50,7 @@ var _ = Describe("Talm Batching Tests", Label("talmbatching"), func() {
 				rantalmhelper.PlacementRule,
 				rantalmhelper.PolicySetName,
 				rantalmhelper.CatalogSourceName)
-			Expect(len(errList)).To(Equal(0))
+			Expect(errList).To(BeEmpty())
 
 			// Create namespace
 			err := namespaces.Create(rantalmhelper.Namespace, client)
