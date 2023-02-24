@@ -18,6 +18,7 @@ const (
 	MasterRole  InterfaceRole = 2
 	FaultyRole  InterfaceRole = 3
 	UnknownRole InterfaceRole = 4
+	Listening   InterfaceRole = 5
 
 	Down ProcessStatus = 0
 	Up   ProcessStatus = 1

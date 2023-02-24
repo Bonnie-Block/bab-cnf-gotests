@@ -288,7 +288,7 @@ func getClockState() error {
 		case int64(2):
 			details.ClockStateValue = ranptpparameters.HoldOverState
 		default:
-			return fmt.Errorf("an unexpected value returned, returned value: %d", value)
+			return fmt.Errorf("an unexpected clock state returned, returned value: %d", value)
 		}
 	}
 
@@ -319,8 +319,10 @@ func getInterfaceRoleValue() error {
 			details.InterfaceRoleValue = ranptpparameters.FaultyRole
 		case int64(4):
 			details.InterfaceRoleValue = ranptpparameters.UnknownRole
+		case int64(5):
+			details.InterfaceRoleValue = ranptpparameters.Listening
 		default:
-			return fmt.Errorf("an unexpected value returned, returned value: %d", value)
+			return fmt.Errorf("an unexpected interface role returned, returned value: %d", value)
 		}
 	}
 
@@ -346,7 +348,7 @@ func getProcessStatusValue() error {
 		case int64(1):
 			details.ProcessStatusValue = ranptpparameters.Up
 		default:
-			return fmt.Errorf("an unexpected value returned, returned value: %d", value)
+			return fmt.Errorf("an unexpected process state returned, returned value: %d", value)
 		}
 	}
 
