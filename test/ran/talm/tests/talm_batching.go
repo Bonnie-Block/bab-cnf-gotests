@@ -921,7 +921,7 @@ var _ = Describe("Talm Batching Tests", Label("talmbatching"), func() {
 			rantalmhelper.PlacementRule,
 			rantalmhelper.PolicySetName,
 			rantalmhelper.CatalogSourceName)
-		Expect(len(errList)).To(Equal(0))
+		Expect(errList).To(BeEmpty())
 
 		// Cleanup the temporary namespace
 		err := rantalmhelper.CleanupNamespace(clusterList, rantalmhelper.TemporaryNamespaceName)

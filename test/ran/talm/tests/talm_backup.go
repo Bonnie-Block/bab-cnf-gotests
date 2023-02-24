@@ -114,7 +114,7 @@ var _ = Describe("Talm Backup Tests with single spoke", func() {
 				"",
 				false,
 			)
-			Expect(len(hubErrList)).To(Equal(0))
+			Expect(hubErrList).To(BeEmpty())
 
 			// Delete temporary namespace on spoke cluster.
 			spokeClusterList := []*testClient.ClientSet{rantalmhelper.Spoke1APIClient}

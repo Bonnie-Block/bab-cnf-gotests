@@ -1827,8 +1827,8 @@ func CleanupTestResourcesOnClients(
 	placementRule string,
 	policySet string,
 	catsrcName string) []error {
-	// Create a list of errors
-	var errors []error
+	// Create a list of cleanupErrors
+	var cleanupErrors []error
 
 	// Loop over all clients for cleanup
 	for _, client := range clients {
@@ -1847,11 +1847,11 @@ func CleanupTestResourcesOnClients(
 			true,
 		)
 		if len(cleanupErr) != 0 {
-			errors = append(errors, cleanupErr...)
+			cleanupErrors = append(cleanupErrors, cleanupErr...)
 		}
 	}
 
-	return errors
+	return cleanupErrors
 }
 
 // FilterMissingResourceErrors takes an input error and checks it for a few specific types of errors.
@@ -1866,15 +1866,15 @@ func FilterMissingResourceErrors(err error) error {
 	// Reduce logging until we can have different log levels in future project
 	// log.Printf("Checking error '%s'", err.Error())
 
-	if strings.HasPrefix(err.Error(), "server could not find the requested resource") {
+	if strings.Contains(err.Error(), "server could not find the requested resource") {
 		return nil
 	}
 
-	if strings.HasPrefix(err.Error(), "no matches for kind") {
+	if strings.Contains(err.Error(), "no matches for kind") {
 		return nil
 	}
 
-	if strings.HasSuffix(err.Error(), "not found") {
+	if strings.Contains(err.Error(), "not found") {
 		return nil
 	}
 
