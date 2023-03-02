@@ -157,7 +157,6 @@ var _ = Describe("Talm Batching Tests", Label("talmbatching"), func() {
 	Context("using a catalog source", Label("talmcatalogsource"), func() {
 		// 47952
 		It("should abort the CGU when the first batch fails with the Abort batch timeout action", func() {
-
 			if !ranhelper.IsVersionStringInRange(
 				rantalmhelper.TalmHubVersion,
 				"4.12",
@@ -306,7 +305,7 @@ var _ = Describe("Talm Batching Tests", Label("talmbatching"), func() {
 			By("validating that the timeout message matched the abort message", func() {
 
 				conditionType := rantalmhelper.SucceededType
-				conditionMessage := "Policy remediation took too long on some clusters"
+				conditionMessage := "Policy remediation took too long"
 
 				if !ranhelper.IsVersionStringInRange(
 					rantalmhelper.TalmHubVersion,
