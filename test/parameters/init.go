@@ -11,6 +11,7 @@ var (
 	MachineConfigOperatorNamespace    string
 	PerformanceAddonOperatorNamespace string
 	BmerOperatorNamespace             string
+	CloudEventNamespace               string
 )
 
 func init() {
@@ -42,5 +43,10 @@ func init() {
 	BmerOperatorNamespace = os.Getenv("BMER_OPERATOR_NAMESPACE")
 	if BmerOperatorNamespace == "" {
 		BmerOperatorNamespace = bmerOperatorNamespace
+	}
+
+	CloudEventNamespace = os.Getenv("BMER_OPERATOR_NAMESPACE")
+	if CloudEventNamespace == "" {
+		CloudEventNamespace = cloudEventNamespace
 	}
 }

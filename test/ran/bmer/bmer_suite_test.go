@@ -21,6 +21,8 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/bmer/ranbmerhelper/rfclient"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/bmer/ranbmerparameters"
 	_ "gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/bmer/tests"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranparameters"
 	testutils "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/utils"
 	corev1 "k8s.io/api/core/v1"
 )
@@ -88,28 +90,28 @@ var _ = BeforeSuite(func() {
 	} else {
 		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("failed to create secret due to: %v", err))
 	}
-	err = ranbmerhelper.WaitForDeploymentReady(
+	err = ranhelper.WaitForDeploymentReady(
 		helper.Apiclient, parameters.BmerOperatorNamespace, ranbmerparameters.AppName)
 	Expect(err).ShouldNot(HaveOccurred(), fmt.Sprintf(
 		"Hardware event deployment is not ready after creating secret due to: %v", err))
 
-	transportType, err := ranbmerhelper.GetTransportType(
+	transportType, err := ranhelper.GetTransportType(
 		helper.Apiclient, parameters.BmerOperatorNamespace, ranbmerparameters.AppName)
 	Expect(err).ShouldNot(HaveOccurred(), fmt.Sprintf(
 		"GetTransportType error: %v", err))
 	if transportType != "" {
-		ranbmerparameters.TransportType = transportType
+		ranparameters.TransportType = transportType
 	} else {
 		log.Printf("WARNING: failed to get transportType from hw-event-proxy, use default tranportType %v\n",
-			ranbmerparameters.TransportType)
+			ranparameters.TransportType)
 	}
 
 	By("Check tranportType: ", func() {
-		fmt.Fprintln(GinkgoWriter, "***", ranbmerparameters.TransportType, "***")
+		fmt.Fprintln(GinkgoWriter, "***", ranparameters.TransportType, "***")
 	})
 
 	By("Check ClusterServiceVersions mirrored images necessary for consumer deploy")
-	mirroredImages, err := ranbmerhelper.GetDeployImages()
+	mirroredImages, err := ranhelper.GetDeployImages(parameters.BmerOperatorNamespace)
 	Expect(err).ShouldNot(HaveOccurred(), fmt.Sprintf(
 		"failed to get images to be used from ClusterServiceVersions due to: %v", err))
 
@@ -133,7 +135,7 @@ var _ = BeforeSuite(func() {
 		"failed to verify HTTPS is ready to recive events due to: %v", err))
 
 	By("Deploy consumers")
-	err = ranbmerhelper.DeployConsumers(mirroredImages, ranbmerparameters.TransportType)
+	err = ranhelper.DeployConsumers(mirroredImages, ranparameters.TransportType, parameters.BmerOperatorNamespace)
 
 	// In case the consumer already exist on the cluster an error with the string skip will be returned.
 	if err != nil && err.Error() == "consumers already deployed in cluster. skipping creating them" {
@@ -143,7 +145,7 @@ var _ = BeforeSuite(func() {
 	}
 
 	By("Check consumers exist")
-	ConsumersList, err = ranbmerhelper.GetConsumers()
+	ConsumersList, err = ranhelper.GetConsumers(parameters.BmerOperatorNamespace)
 	Expect(err).ShouldNot(HaveOccurred(), fmt.Sprintf("failed to check consumers exist due to: %v", err))
 
 	By("Creating privileged pods in order to query node vendor")
@@ -164,7 +166,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).ShouldNot(HaveOccurred(), fmt.Sprintf("failed to subscribe to redfish events due to: %v", err))
 	Expect(subscriptionURI).ToNot(Equal(nil), "failed to get subscription URI replay")
 
-	if ranbmerparameters.TransportType == ranbmerparameters.TransportHTTP {
+	if ranparameters.TransportType == ranparameters.TransportHTTP {
 		log.Printf("Add 5 seconds delay for HTTP transport to be ready")
 		time.Sleep(5 * time.Second)
 	}
@@ -177,7 +179,7 @@ var _ = AfterSuite(func() {
 		teardownErrors = append(teardownErrors, rfclient.Unsubscribe(subscriptionURI, eventService))
 	}
 	By("Remove consumer pods")
-	destroyErrors := ranbmerhelper.DestroyConsumers()
+	destroyErrors := ranhelper.DestroyConsumers()
 	teardownErrors = append(teardownErrors, destroyErrors...)
 	By("Remove Hw event secret")
 	teardownErrors = append(teardownErrors, ranbmerhelper.DeleteHwEventSecret(
