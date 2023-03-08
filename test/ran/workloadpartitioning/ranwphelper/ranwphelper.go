@@ -67,6 +67,21 @@ shares: .info.runtimeSpec.linux.resources.cpu.shares,
 	return containerinfos
 }
 
+// isKernelPid checks if a given pid is a kernel process.
+func IsKernelPid(node *corev1.Node, pid int) bool {
+	// ps command via container often causes SIGURG, thus redirect output to a file first
+	cmd := fmt.Sprintf("ps --no-headers -o ppid -p %s > /tmp/x ; cat /tmp/x", strconv.Itoa(pid))
+	parentPID, _ := helper.ExecCommandOnNodeWithHostBinaries(node, []string{"bash", "-c", cmd})
+
+	if len(parentPID) == 0 || strings.TrimSpace(parentPID) == "2" {
+		// Either the process was terminated or
+		// it is a kernel process
+		return true
+	}
+
+	return false
+}
+
 // getKernelPids returns list of kernel process ids.
 func getKernelPids(node *corev1.Node) []int {
 	// Get all kernel threads (PID 2 and children)
@@ -229,13 +244,13 @@ func GetMgmtContainersInfo(containersInfo []ContainerInfo) []ContainerInfo {
 // CheckCPUAffinityOnNonKernelPids checks cpus (affinity) for non kernel pids and returns a
 // non nil error and a map of key:pids,value:cpus for those processes not matching the specified cpus.
 func CheckCPUAffinityOnNonKernelPids(node *corev1.Node, cpus cpuset.CPUSet) (map[int]string, error) {
-	pidsToExclude, containersInfo := getKernelPids(node), GetContainersInfo(node)
+	pidsToExclude := getKernelPids(node)
+	allPids := getAllPids(node)
+	containersInfo := GetContainersInfo(node)
 
 	for _, containerInfo := range containersInfo {
 		pidsToExclude = append(pidsToExclude, containerInfo.Pid)
 	}
-
-	allPids := getAllPids(node)
 
 	var pidsToCheck []int
 
@@ -253,8 +268,13 @@ func CheckCPUAffinityOnNonKernelPids(node *corev1.Node, cpus cpuset.CPUSet) (map
 	for pid, affinity := range affinities {
 		pidCpuset := cpuset.MustParse(affinity)
 		if !pidCpuset.IsSubsetOf(cpus) {
-			failedMap[pid] = affinity
-			failedPids = append(failedPids, pid)
+			// Make sure it's not a kernel process
+			// as there may have race condition in
+			// the previous queries of pids
+			if !IsKernelPid(node, pid) {
+				failedMap[pid] = affinity
+				failedPids = append(failedPids, pid)
+			}
 		}
 	}
 

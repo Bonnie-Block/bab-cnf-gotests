@@ -16,6 +16,7 @@ import (
 	"github.com/tidwall/gjson"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/cpu/rancpuhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/talm/rantalmhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/workloadpartitioning/ranwphelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ztp/ranztphelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ztp/ranztpparameters"
@@ -25,6 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/kubernetes/pkg/kubelet/cm/cpuset"
+	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	goclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -153,6 +155,15 @@ var _ = Describe("ZTP workload partitioning tests", Ordered, Label("ztp-workload
 			Expect(err).ToNot(HaveOccurred())
 		})
 
+		By("Removing the cgu if it exists", func() {
+			err := rantalmhelper.DeleteCguAndWait(
+				ranztphelper.HubAPIClient,
+				"performance-update",
+				ranztpparameters.ZtpTestNamespace,
+			)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
 		By("restoring original config for workload partitioning", func() {
 			if machineConfigWP == nil || perfProfile == nil || tunedPatch == nil {
 				Skip("No need to restore workload parititoning")
@@ -250,16 +261,66 @@ var _ = Describe("ZTP workload partitioning tests", Ordered, Label("ztp-workload
 				Expect(err).ToNot(HaveOccurred())
 			})
 
+			policies := []string{
+				"cpu-partitioning-policy-config", // enforce policy
+				"cpu-partitioning-policy-perf",   // inform policy
+			}
+
 			By("Waiting for policies to be created", func() {
-				err := ranztphelper.WaitForPolicyToExist(
+				for _, policy := range policies {
+					err := ranztphelper.WaitForPolicyToExist(
+						policy,
+						ranztpparameters.ZtpTestNamespace,
+						ranztpparameters.ArgocdChangeTimeout,
+					)
+					Expect(err).ToNot(HaveOccurred())
+				}
+			})
+
+			By("Validating the policy for workload partitioning update reaches Compliant status", func() {
+				err := ranztphelper.WaitForPolicyToHaveComplianceState(
 					"cpu-partitioning-policy-config",
 					ranztpparameters.ZtpTestNamespace,
+					policiesv1.Compliant,
 					ranztpparameters.ArgocdChangeTimeout,
 				)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			By("waiting for SNO to be functional again after rebooting due to configuration changes", func() {
+			By("waiting for SNO to be functional again after rebooting due to the workload partition change", func() {
+				// reboot expected
+				err := ranztphelper.CheckNodeIsFunctionalAfterMCchanges(ranztpparameters.MCPname, waitForMcpUpdate)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			By("Creating CGU to apply performance profile and tuned changes", func() {
+				cgu := rantalmhelper.GetCguDefinition(
+					"performance-update",
+					[]string{
+						ranztphelper.SpokeName,
+					},
+					[]string{},
+					[]string{
+						"cpu-partitioning-policy-perf",
+					},
+					ranztpparameters.ZtpTestNamespace,
+					1,
+					10,
+				)
+
+				// Make sure cgu is enabled
+				cgu.Spec.Enable = rantalmhelper.BoolAddr(true)
+
+				// Create the cgu
+				err := rantalmhelper.CreateCguAndWait(
+					ranztphelper.HubAPIClient,
+					cgu,
+				)
+
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			By("waiting for SNO to be functional again after rebooting due to the performancePerf change", func() {
 				// reboot expected
 				err := ranztphelper.CheckNodeIsFunctionalAfterMCchanges(ranztpparameters.MCPname, waitForMcpUpdate)
 				Expect(err).ToNot(HaveOccurred())
@@ -270,6 +331,7 @@ var _ = Describe("ZTP workload partitioning tests", Ordered, Label("ztp-workload
 			Expect(err).ToNot(HaveOccurred())
 
 			reservedCPUSet := cpuset.MustParse(string(*pp.Spec.CPU.Reserved))
+			log.Printf("reservedCPUSet on Performance profile: %s\n", reservedCPUSet)
 
 			By("Checking kubeletconfig reservedSystemCPUs on SNO", func() {
 
@@ -301,11 +363,8 @@ var _ = Describe("ZTP workload partitioning tests", Ordered, Label("ztp-workload
 			})
 
 			By("Checking new cpu processes affinities on SNO", func() {
-
-				log.Printf("reservedCPUSet on Performance profile: %s\n", reservedCPUSet)
-
 				processNames := []string{"crio", "kubelet", "ovn"}
-				err := ranztphelper.CheckAffinitiesByProcessMatch(snoNode, processNames, reservedCPUSet.String())
+				err := ranztphelper.CheckAffinitiesByProcessMatch(snoNode, processNames, reservedCPUSet)
 				Expect(err).ToNot(HaveOccurred())
 			})
 

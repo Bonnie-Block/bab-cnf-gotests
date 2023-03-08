@@ -24,6 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/kubernetes/pkg/kubelet/cm/cpuset"
 
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	runtimeClient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -494,7 +495,7 @@ func WaitForConditionInArgocdApp(
 
 // CheckAffinitiesByProcessMatch checks CPU affinities for an array of processes against an specfied
 // reserved CPU set in a given OCP node.
-func CheckAffinitiesByProcessMatch(node *corev1.Node, processNames []string, reservedCPUSet string) error {
+func CheckAffinitiesByProcessMatch(node *corev1.Node, processNames []string, reservedCPUSet cpuset.CPUSet) error {
 	if node == nil {
 		return fmt.Errorf("node was not specified")
 	}
@@ -503,7 +504,7 @@ func CheckAffinitiesByProcessMatch(node *corev1.Node, processNames []string, res
 		return fmt.Errorf("processes names were undefined")
 	}
 
-	if len(strings.TrimSpace(reservedCPUSet)) == 0 {
+	if len(strings.TrimSpace(reservedCPUSet.String())) == 0 {
 		return fmt.Errorf("reservedCPUSet was undefined")
 	}
 
@@ -533,11 +534,12 @@ func CheckAffinitiesByProcessMatch(node *corev1.Node, processNames []string, res
 				return fmt.Errorf("unmatched pid and affinity for process name: %s", processName)
 			}
 
-			pid, affinity := match[0][1], match[0][2]
+			pid, affinity := match[0][1], strings.TrimSpace(match[0][2])
 
-			if affinity != reservedCPUSet {
+			pidCpuset := cpuset.MustParse(affinity)
+			if !pidCpuset.IsSubsetOf(reservedCPUSet) {
 				return fmt.Errorf("process: %s pid: %s with actual affinity: %s but expected: %s",
-					processName, pid, affinity, reservedCPUSet)
+					processName, pid, affinity, reservedCPUSet.String())
 			}
 		}
 	}
