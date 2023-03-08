@@ -2,15 +2,17 @@ package tests
 
 import (
 	"fmt"
-	"strings"
+	"log"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	imageregistryv1 "github.com/openshift/api/imageregistry/v1"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ztp/ranztphelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ztp/ranztpparameters"
 	testClient "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
-	"k8s.io/apimachinery/pkg/util/wait"
+	corev1 "k8s.io/api/core/v1"
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 )
 
@@ -18,10 +20,16 @@ var _ = Describe("ZTP Argocd policies Tests", Ordered, Label("ztp-argocd-policie
 
 	// These tests use the hub and spoke
 	var clusterList []*testClient.ClientSet
+	var snoNode *corev1.Node
 
 	BeforeAll(func() {
 		// Initialize cluster list
 		clusterList = ranztphelper.GetAllTestClients()
+
+		// get SNO
+		nodeList, err := ranhelper.GetSnoNodes()
+		Expect(err).ToNot(HaveOccurred())
+		snoNode = nodeList[0]
 	})
 
 	BeforeEach(func() {
@@ -34,13 +42,13 @@ var _ = Describe("ZTP Argocd policies Tests", Ordered, Label("ztp-argocd-policie
 		By("Checking the ZTP version", func() {
 			if !ranhelper.IsVersionStringInRange(
 				ranztphelper.ZtpVersion,
-				ranztpparameters.MinimumZtpVersion,
+				"4.11",
 				"",
 			) {
 				Skip(fmt.Sprintf(
 					"unable to run test on ztp version '%s' as it is less than minimum '%s",
 					ranztphelper.ZtpVersion,
-					ranztpparameters.MinimumZtpVersion,
+					"4.11",
 				))
 			}
 		})
@@ -172,6 +180,67 @@ var _ = Describe("ZTP Argocd policies Tests", Ordered, Label("ztp-argocd-policie
 	})
 
 	Context("with an image registry configured on the du profile", Label("ztp-image-registry"), func() {
+		var imageRegistryConfig *imageregistryv1.Config
+		const imageReistryPath string = "/var/imageregistry"
+		const imageRegistryConfigName string = "cluster"
+
+		BeforeEach(func() {
+			log.Printf("Checking if the image registry directory '%s' is present on test cluster\n", imageReistryPath)
+			_, err := helper.ExecCommandOnNodeWithHostBinaries(snoNode,
+				[]string{"ls", imageReistryPath})
+			if err != nil {
+				Skip("The image registry directory '%s' should be pre-created but it doesn't exist.")
+			}
+
+			log.Printf("Getting the current image registry config '%s'\n", imageRegistryConfigName)
+			// The image registry config "cluster" is the default config auto-created
+			// by the image registry operator after the cluster is up. We expect it to be exist.
+			imageRegistryConfig, err = ranztphelper.GetImageRegistryConfig(
+				imageRegistryConfigName, ranztphelper.SpokeAPIClient)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		AfterEach(func() {
+			if imageRegistryConfig == nil {
+				Skip("No need to restore image registry config.")
+			}
+
+			// Reset the app back to the original repo to make sure the later restore/cleanup
+			// actions will not be impacted by the enforce policies
+			By("Resetting the policies app back to the original settings", func() {
+				err := ranztphelper.SetGitDetailsInArcgocd(
+					ranztphelper.ArgocdApps[ranztpparameters.ArgocdPoliciesAppName].Repo,
+					ranztphelper.ArgocdApps[ranztpparameters.ArgocdPoliciesAppName].Branch,
+					ranztphelper.ArgocdApps[ranztpparameters.ArgocdPoliciesAppName].Path,
+					ranztpparameters.ArgocdPoliciesAppName,
+					true,
+					true,
+				)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			By("Restoring the image registry configs", func() {
+				err := ranztphelper.RestoreImageRegistryConfig(
+					imageRegistryConfigName,
+					imageRegistryConfig,
+					ranztphelper.SpokeAPIClient,
+				)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			// Delete any leftovers from the image registry test
+			By("Removing the image registry leftovers if any exist", func() {
+				err := ranztphelper.CleanupImageRegistryConfig(
+					"image-registry-sc",
+					"image-registry-pv-filesystem",
+					"image-registry-pvc",
+					ranztpparameters.ImageRegistryNamespace,
+					ranztphelper.SpokeAPIClient,
+				)
+				Expect(err).ToNot(HaveOccurred())
+			})
+		})
+
 		It("should validate the image registry exists", func() {
 			// https://issues.redhat.com/browse/CNF-6301
 
@@ -225,7 +294,7 @@ var _ = Describe("ZTP Argocd policies Tests", Ordered, Label("ztp-argocd-policie
 				}
 			})
 
-			By("Waiting for the policies to be in valid state", func() {
+			By("Waiting for the policies to be in the Compliant state", func() {
 				for _, policy := range policies {
 					err := ranztphelper.WaitForPolicyToHaveComplianceState(
 						policy,
@@ -237,28 +306,13 @@ var _ = Describe("ZTP Argocd policies Tests", Ordered, Label("ztp-argocd-policie
 				}
 			})
 
-			By("Waiting for the image registry to be in the valid state", func() {
-				err := wait.PollImmediate(
-					ranztpparameters.ArgocdChangeInterval,
-					ranztpparameters.ArgocdChangeTimeout,
-					func() (done bool, err error) {
-						imageRegistry, err := ranztphelper.GetImageRegistryConfig("cluster", ranztphelper.SpokeAPIClient)
-
-						// If an error that wasn't a not found occurred then something bad happened
-						if err != nil && !strings.Contains(err.Error(), "not found") {
-							return false, err
-						}
-
-						// We need to be careful since if something isn't configured yet these could be nil pointers
-						if imageRegistry != nil &&
-							imageRegistry.Spec.Storage.PVC != nil {
-							return imageRegistry.Spec.Storage.PVC.Claim == "image-registry-pvc", nil
-						}
-
-						// If the name wasn't defined or the config wasn't found yet then we just need to wait longer
-						return false, nil
-					},
-				)
+			By("Waiting for the image registry config to be in the Available state", func() {
+				err := ranztphelper.WaitForConditionInImageRegistryConfig(
+					imageRegistryConfigName,
+					"Available",
+					"Ready",
+					"True",
+					ranztphelper.SpokeAPIClient)
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})
@@ -274,20 +328,6 @@ var _ = Describe("ZTP Argocd policies Tests", Ordered, Label("ztp-argocd-policie
 				ranztpparameters.ArgocdPoliciesAppName,
 				true,
 				false,
-			)
-			Expect(err).ToNot(HaveOccurred())
-		})
-
-		// Delete any leftovers from the image registry test
-		By("Removing the image registry leftovers if any exist", func() {
-			err := ranztphelper.CleanupImageRegistryConfig(
-				"image-registry-sc",
-				ranztpparameters.ImageRegistryNamespace,
-				"image-registry-pv-filesystem",
-				"image-registry-pvc",
-				"default",
-				"cluster",
-				ranztphelper.SpokeAPIClient,
 			)
 			Expect(err).ToNot(HaveOccurred())
 		})

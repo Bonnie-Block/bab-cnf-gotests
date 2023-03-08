@@ -6,11 +6,13 @@ import (
 	"os"
 	"runtime"
 	"testing"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	"github.com/onsi/ginkgo/v2/types"
 	. "github.com/onsi/gomega"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ztp/ranztphelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ztp/ranztpparameters"
@@ -45,6 +47,10 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 	err = CreateNamespace(false)
 	Expect(err).ToNot(HaveOccurred())
+
+	// create a helper pod to run commands on nodes
+	log.Println("Setup initiated: creating a privileged pod")
+	helper.CreatePrivilegedPods("")
 })
 
 var _ = AfterSuite(func() {
@@ -55,6 +61,14 @@ var _ = AfterSuite(func() {
 	// Delete the namespace
 	err = DeleteNamespace(true)
 	Expect(err).ToNot(HaveOccurred())
+
+	// delete privileged pod
+	log.Println("Teardown initiated: deleting privileged pod")
+	err = namespaces.CleanPods(parameters.PrivPodNamespace, helper.Apiclient)
+	Expect(err).ToNot(HaveOccurred())
+	err = namespaces.DeleteAndWait(helper.Apiclient, parameters.PrivPodNamespace, 10*time.Minute)
+	Expect(err).ToNot(HaveOccurred())
+
 })
 
 var _ = ReportAfterEach(func(report types.SpecReport) {
@@ -108,6 +122,17 @@ func InitializeClients() error {
 
 		log.Printf("cluster '%s' has OCP version '%s'\n", ranztphelper.HubName, ocpVersion)
 
+		ranztphelper.AcmVersion, err = ranhelper.GetOperatorVersionFromCSV(
+			ranztphelper.HubAPIClient,
+			ranztpparameters.AcmOperatorName,
+			ranztpparameters.AcmOperatorNamespace,
+		)
+		if err != nil {
+			return err
+		}
+
+		log.Printf("cluster '%s' has ACM version '%s'\n", ranztphelper.HubName, ranztphelper.AcmVersion)
+
 		ranztphelper.ZtpVersion, err = ranztphelper.GetZtpVersionFromArgocd(
 			ranztpparameters.OpenshiftGitopsRepoServer,
 			ranztpparameters.OpenshiftGitops,
@@ -138,17 +163,6 @@ func InitializeClients() error {
 		}
 
 		log.Printf("cluster '%s' has OCP version '%s'\n", ranztphelper.SpokeName, ocpVersion)
-
-		ranztphelper.AcmVersion, err = ranhelper.GetOperatorVersionFromCSV(
-			ranztphelper.HubAPIClient,
-			ranztpparameters.AcmOperatorName,
-			ranztpparameters.AcmOperatorNamespace,
-		)
-		if err != nil {
-			return err
-		}
-
-		log.Printf("cluster '%s' has ACM version '%s'\n", ranztphelper.HubName, ranztphelper.AcmVersion)
 	}
 
 	return nil

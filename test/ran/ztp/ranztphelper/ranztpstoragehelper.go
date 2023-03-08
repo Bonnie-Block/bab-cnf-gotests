@@ -7,10 +7,12 @@ import (
 	"time"
 
 	imageregistryv1 "github.com/openshift/api/imageregistry/v1"
+	v1 "github.com/openshift/api/operator/v1"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ztp/ranztpparameters"
 	testClient "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -20,11 +22,11 @@ import (
 
 // CleanupImageRegistryConfig is used to cleanup all the configuration related to an image registry configuration.
 func CleanupImageRegistryConfig(
-	storageClassName, storageClassNamespace,
+	storageClassName,
 	persistentVolumeName,
-	persistentVolumeClaimName, persistentVolumeClaimNamespace,
-	registryConfig string, client *testClient.ClientSet) error {
-	log.Println("Cleaning up image registry configuration")
+	persistentVolumeClaimName, persistentVolumeClaimNamespace string,
+	client *testClient.ClientSet) error {
+	log.Println("Cleaning up the resources for image registry configuration")
 
 	// Check if the client is defined
 	if client == nil {
@@ -32,23 +34,9 @@ func CleanupImageRegistryConfig(
 	}
 
 	// We must delete the pieces in order or else we will get an error
-	// 1. Registry configuration
-	// 2. Persistent volume claim
-	// 3. Persistent volume
-	// 4. Storage class
-
-	// Check if we were provided with a registry config
-	if registryConfig != "" {
-		// Delete the config if it exists
-		err := DeleteAndWaitImageRegistryConfig(
-			registryConfig,
-			ranztpparameters.ArgocdChangeTimeout,
-			client,
-		)
-		if err != nil {
-			return err
-		}
-	}
+	// 1. Persistent volume claim
+	// 2. Persistent volume
+	// 3. Storage class
 
 	// Check if we were given a persistent volume claim
 	if persistentVolumeClaimName != "" {
@@ -82,7 +70,6 @@ func CleanupImageRegistryConfig(
 		// Delete the sc if it exists
 		err := DeleteAndWaitStorageClass(
 			storageClassName,
-			storageClassNamespace,
 			ranztpparameters.ArgocdChangeTimeout,
 			client,
 		)
@@ -138,6 +125,121 @@ func DoesImageRegistryConfigExist(registryConfigName string, client *testClient.
 	return imageRegistryConfig.Name == registryConfigName, err
 }
 
+// RestoreImageRegistryConfig is used to restore/update an image registry config.
+func RestoreImageRegistryConfig(
+	registryConfigName string,
+	registryConfig *imageregistryv1.Config,
+	client *testClient.ClientSet) error {
+	var imageRegistryConfig *imageregistryv1.Config
+
+	// Check if test client is defined
+	if client == nil {
+		return fmt.Errorf("provided nil client")
+	}
+
+	// Request timeout may happen to the image registry config CR when the config is processing,
+	// get the current image registry config in a poll function so it can retry if timeout
+	err := wait.PollImmediate(
+		ranztpparameters.ArgocdChangeInterval,
+		ranztpparameters.ArgocdChangeTimeout,
+		func() (done bool, err error) {
+			imageRegistryConfig, err = GetImageRegistryConfig(registryConfigName, client)
+			if err != nil {
+				if errors.IsNotFound(err) {
+					return true, err
+				}
+
+				return false, nil
+			}
+
+			return true, nil
+		},
+	)
+	if err != nil {
+		return err
+	}
+
+	log.Printf("Restoring the image registry config '%s'\n", registryConfigName)
+
+	if imageRegistryConfig.GetAnnotations() != nil {
+		imageRegistryConfig.SetAnnotations(registryConfig.Annotations)
+	}
+
+	if imageRegistryConfig.GetLabels() != nil {
+		imageRegistryConfig.SetLabels(imageRegistryConfig.Labels)
+	}
+
+	imageRegistryConfig.Spec = registryConfig.Spec
+
+	_, err = client.ImageregistryV1Interface.Configs().Update(
+		GetZtpContext(),
+		imageRegistryConfig,
+		metav1.UpdateOptions{})
+	if err != nil {
+		return err
+	}
+
+	// Wait for the image registry config becomes available
+	err = WaitForConditionInImageRegistryConfig(registryConfigName, "Available", "Removed", "True", client)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// WaitForConditionInImageRegistryConfig is used to wait for an image registry config to reach certain state.
+func WaitForConditionInImageRegistryConfig(
+	registryConfigName string,
+	conditionType, conditionReason string,
+	conditionStatus v1.ConditionStatus,
+	client *testClient.ClientSet) error {
+	log.Printf("Waiting until image registry config \"%s\" status condition '%s' is '%s' with reason '%s'\n",
+		registryConfigName,
+		conditionType,
+		conditionStatus,
+		conditionReason,
+	)
+
+	err := wait.PollImmediate(
+		ranztpparameters.ArgocdChangeInterval,
+		ranztpparameters.ArgocdChangeTimeout,
+		func() (done bool, err error) {
+			config, err := client.
+				ImageregistryV1Interface.Configs().Get(
+				GetZtpContext(),
+				registryConfigName,
+				metav1.GetOptions{},
+			)
+			if err != nil {
+				if errors.IsNotFound(err) {
+					return false, err
+				}
+
+				log.Printf("Failed to get the image registry configs %s, Error: %s. Retrying ...\n",
+					registryConfigName, err.Error())
+
+				return false, nil
+			}
+
+			// Loop over all the conditions
+			for _, condition := range config.Status.Conditions {
+				if condition.Type == conditionType {
+					if condition.Status == conditionStatus && condition.Reason == conditionReason {
+						return true, nil
+					}
+					// Stop looping the rest conditions if expected type found
+					return false, nil
+				}
+			}
+
+			return false, nil
+		},
+	)
+
+	return err
+}
+
 // DeleteAndWaitImageRegistryConfig is used to delete an image registry config and wait for it to be gone.
 func DeleteAndWaitImageRegistryConfig(
 	registryConfigName string,
@@ -179,7 +281,10 @@ func DeleteAndWaitImageRegistryConfig(
 			func() (done bool, err error) {
 				exists, err := DoesImageRegistryConfigExist(registryConfigName, client)
 				if err != nil {
-					return false, err
+					log.Printf("Failed to get the image registry configs %s, Error: %s. Retrying ...\n",
+						registryConfigName, err.Error())
+
+					return false, nil
 				}
 
 				return !exists, nil
@@ -282,7 +387,10 @@ func DeleteAndWaitPersistentVolumeClaim(
 			func() (done bool, err error) {
 				exists, err := DoesPersistentVolumeClaimExist(persistentVolumeClaimName, persistentVolumeClaimNamespace, client)
 				if err != nil {
-					return false, err
+					log.Printf("Failed to get the PVC %s in the namespace %s, Error: %s. Retrying ...\n",
+						persistentVolumeClaimName, persistentVolumeClaimNamespace, err.Error())
+
+					return false, nil
 				}
 
 				return !exists, nil
@@ -377,7 +485,9 @@ func DeleteAndWaitPersistentVolume(
 			func() (done bool, err error) {
 				exists, err := DoesPersistentVolumeExist(persistentVolumeName, client)
 				if err != nil {
-					return false, err
+					log.Printf("Failed to get the PV %s, Error: %s. Retrying ...\n", persistentVolumeName, err.Error())
+
+					return false, nil
 				}
 
 				return !exists, nil
@@ -399,7 +509,7 @@ func DeleteAndWaitPersistentVolume(
 
 // GetStorageClass is used to get the specified storage class.
 func GetStorageClass(
-	storageClassName, storageClassNamespace string,
+	storageClassName string,
 	client *testClient.ClientSet) (storagev1.StorageClass, error) {
 	// Check if test client is defined
 	if client == nil {
@@ -409,7 +519,6 @@ func GetStorageClass(
 	// We need to use a typed namespace to get a storage class
 	scType := types.NamespacedName{}
 	scType.Name = storageClassName
-	scType.Namespace = storageClassNamespace
 
 	storageClass := storagev1.StorageClass{}
 	err := client.Get(GetZtpContext(), scType, &storageClass)
@@ -419,17 +528,17 @@ func GetStorageClass(
 }
 
 // DoesStorageClassExist is used to check whether a specified storage class exists.
-func DoesStorageClassExist(storageClassName, storageClassNamespace string, client *testClient.ClientSet) (bool, error) {
+func DoesStorageClassExist(storageClassName string, client *testClient.ClientSet) (bool, error) {
 	// Check if test client is defined
 	if client == nil {
 		return false, fmt.Errorf("provided nil client")
 	}
 
 	// Get the image registry config
-	storageClass, err := GetStorageClass(storageClassName, storageClassNamespace, client)
+	storageClass, err := GetStorageClass(storageClassName, client)
 
 	// If it wasn't found then specifically return nil here
-	if err != nil && strings.Contains(err.Error(), "not found") {
+	if err != nil && errors.IsNotFound(err) {
 		return false, nil
 	}
 
@@ -439,7 +548,7 @@ func DoesStorageClassExist(storageClassName, storageClassNamespace string, clien
 
 // DeleteAndWaitStorageClass is used to delete a persistent volume and wait for it to be gone.
 func DeleteAndWaitStorageClass(
-	storageClassName, storageClassNamespace string,
+	storageClassName string,
 	timeout time.Duration,
 	client *testClient.ClientSet) error {
 	// Check if test client is defined
@@ -448,7 +557,7 @@ func DeleteAndWaitStorageClass(
 	}
 
 	// Check if the image registry exists
-	exists, err := DoesStorageClassExist(storageClassName, storageClassNamespace, client)
+	exists, err := DoesStorageClassExist(storageClassName, client)
 	if err != nil {
 		return err
 	}
@@ -458,7 +567,7 @@ func DeleteAndWaitStorageClass(
 		log.Printf("Deleting storage class '%s'\n", storageClassName)
 
 		// Get the storage class
-		storageClass, err := GetStorageClass(storageClassName, storageClassNamespace, client)
+		storageClass, err := GetStorageClass(storageClassName, client)
 		if err != nil {
 			return err
 		}
@@ -476,9 +585,11 @@ func DeleteAndWaitStorageClass(
 			ranztpparameters.ArgocdChangeInterval,
 			ranztpparameters.ArgocdChangeTimeout,
 			func() (done bool, err error) {
-				exists, err := DoesStorageClassExist(storageClassName, storageClassNamespace, client)
+				exists, err := DoesStorageClassExist(storageClassName, client)
 				if err != nil {
-					return false, err
+					log.Printf("Failed to get the PV %s, Error: %s. Retrying ...\n", storageClassName, err.Error())
+
+					return false, nil
 				}
 
 				return !exists, nil

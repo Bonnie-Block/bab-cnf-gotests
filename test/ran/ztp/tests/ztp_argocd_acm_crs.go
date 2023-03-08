@@ -41,13 +41,13 @@ var _ = Describe("ZTP Argocd ACM CR Tests", Ordered, Label("ztp-argocd-acm-crs")
 		By("Checking the ZTP version", func() {
 			if !ranhelper.IsVersionStringInRange(
 				ranztphelper.ZtpVersion,
-				ranztpparameters.MinimumZtpVersion,
+				"4.12",
 				"",
 			) {
 				Skip(fmt.Sprintf(
 					"unable to run test on ztp version '%s' as it is less than minimum '%s",
 					ranztphelper.ZtpVersion,
-					ranztpparameters.MinimumZtpVersion,
+					"4.12",
 				))
 			}
 		})
@@ -63,13 +63,13 @@ var _ = Describe("ZTP Argocd ACM CR Tests", Ordered, Label("ztp-argocd-acm-crs")
 			// Get the deployment
 			deployment, err := ranztphelper.HubAPIClient.
 				Deployments(ranztpparameters.AcmOperatorNamespace).
-				Get(ranztphelper.GetZtpContext(), ranztpparameters.AcmOperatorName, metav1.GetOptions{})
+				Get(ranztphelper.GetZtpContext(), ranztpparameters.MulticlusterhubOperator, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			// Get the tag from the neested configuration
 			acmPolicyGeneratorImage = GetContainerImageFromDeploymentEnvironment(
 				deployment,
-				ranztpparameters.AcmOperatorName,
+				ranztpparameters.MulticlusterhubOperator,
 				"OPERAND_IMAGE_MULTICLUSTER_OPERATORS_SUBSCRIPTION",
 			)
 

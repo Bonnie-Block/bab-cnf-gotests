@@ -9,7 +9,6 @@ import (
 	. "github.com/onsi/gomega"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ztp/ranztphelper"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ztp/ranztpparameters"
 	testClient "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -38,13 +37,13 @@ var _ = Describe("ZTP Machine Config Tests", Ordered, Label("ztp-machine-config"
 		By("Checking the ZTP version", func() {
 			if !ranhelper.IsVersionStringInRange(
 				ranztphelper.ZtpVersion,
-				ranztpparameters.MinimumZtpVersion,
+				"4.11",
 				"",
 			) {
 				Skip(fmt.Sprintf(
 					"unable to run test on ztp version '%s' as it is less than minimum '%s",
 					ranztphelper.ZtpVersion,
-					ranztpparameters.MinimumZtpVersion,
+					"4.11",
 				))
 			}
 		})

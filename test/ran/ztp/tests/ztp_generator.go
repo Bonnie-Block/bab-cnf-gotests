@@ -2,7 +2,6 @@ package tests
 
 import (
 	"fmt"
-	"io/fs"
 	"log"
 	"os"
 	"strings"
@@ -11,13 +10,16 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ztp/ranztphelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ztp/ranztpparameters"
+	"gopkg.in/yaml.v3"
 )
 
 var _ = Describe("ZTP Generator Tests", Label("ztp-generator"), func() {
 
 	var siteConfigPath string
+	var user string
 
 	BeforeEach(func() {
 		// On automation / QE the user will be "kni"
@@ -25,7 +27,7 @@ var _ = Describe("ZTP Generator Tests", Label("ztp-generator"), func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		// Cleanup the output by removing whitespaces
-		user := strings.TrimSpace(string(output))
+		user = strings.TrimSpace(string(output))
 
 		// Ensure it is not an empty string
 		Expect(user).ToNot(Equal(""))
@@ -36,6 +38,32 @@ var _ = Describe("ZTP Generator Tests", Label("ztp-generator"), func() {
 		if _, err := os.Stat(siteConfigPath); err != nil {
 			Skip(fmt.Sprintf("could not find site config repo at '%s', unable to continue without repo", siteConfigPath))
 		}
+
+		// Check for minimum ztp version
+		By("Checking the ZTP version", func() {
+			if ranztphelper.ZtpVersion != "" && !ranhelper.IsVersionStringInRange(
+				ranztphelper.ZtpVersion,
+				"4.11",
+				"",
+			) {
+				Skip(fmt.Sprintf(
+					"unable to run test on ztp version '%s' as it is less than minimum '%s",
+					ranztphelper.ZtpVersion,
+					"4.11",
+				))
+			}
+		})
+	})
+
+	AfterEach(func() {
+		// Cleanup the generated artifacts
+		By("Deleting the generated manifests and policies", func() {
+			var err error
+			_, err = helper.ExecAndLogCommand(true, 1*time.Minute, "sudo", "rm", "-rf", siteConfigPath+"/siteconfig/out")
+			Expect(err).ToNot(HaveOccurred())
+			_, err = helper.ExecAndLogCommand(true, 1*time.Minute, "sudo", "rm", "-rf", siteConfigPath+"/policygentemplates/out")
+			Expect(err).ToNot(HaveOccurred())
+		})
 	})
 
 	Context("using the site generator image", func() {
@@ -126,10 +154,16 @@ var _ = Describe("ZTP Generator Tests", Label("ztp-generator"), func() {
 			})
 
 			By("validating CRs and manifests were created", func() {
-				// Validate the result - There should be 12 files in the output directory
-				files, err := os.ReadDir(fmt.Sprintf("%s/siteconfig/out/generated_installCRs/site-plan-helix49/", siteConfigPath))
+				// Validate the result
+				installCRsDir := fmt.Sprintf("%s/siteconfig/out/generated_installCRs/", siteConfigPath)
+				siteDirs, err := os.ReadDir(installCRsDir)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(len(files)).To(Equal(10))
+
+				for _, dir := range siteDirs {
+					files, err := os.ReadDir(installCRsDir + dir.Name())
+					Expect(err).ToNot(HaveOccurred())
+					Expect(len(files)).To(BeNumerically(">", 9))
+				}
 			})
 
 			By("generating the policies", func() {
@@ -152,28 +186,32 @@ var _ = Describe("ZTP Generator Tests", Label("ztp-generator"), func() {
 
 			By("validating the policies were created", func() {
 				// Validate the result
-				var files []fs.DirEntry
-				var err error
+				expectedKind := []string{"Policy", "PlacementRule", "PlacementBinding"}
 
-				// There should be 3 files in this directory
-				files, err = os.ReadDir(fmt.Sprintf("%s/policygentemplates/out/generated_configCRs", siteConfigPath))
+				// Expect to have at least 3 subdirs - common, group du, site
+				policyCRsDir := fmt.Sprintf("%s/policygentemplates/out/generated_configCRs/", siteConfigPath)
+				configDirs, err := os.ReadDir(policyCRsDir)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(len(files)).To(Equal(4))
+				Expect(len(configDirs)).To(BeNumerically(">=", 3))
 
-				// There should be 4 files in this directory
-				files, err = os.ReadDir(fmt.Sprintf("%s/policygentemplates/out/generated_configCRs/common", siteConfigPath))
-				Expect(err).ToNot(HaveOccurred())
-				Expect(len(files)).To(Equal(4))
+				for _, dir := range configDirs {
+					files, err := os.ReadDir(policyCRsDir + dir.Name())
+					Expect(err).ToNot(HaveOccurred())
+					Expect(len(files)).To(BeNumerically(">=", 3))
 
-				// There should be 3 files in this directory
-				files, err = os.ReadDir(fmt.Sprintf("%s/policygentemplates/out/generated_configCRs/group-du-sno", siteConfigPath))
-				Expect(err).ToNot(HaveOccurred())
-				Expect(len(files)).To(Equal(3))
+					for _, f := range files {
+						fBytes, err := os.ReadFile(policyCRsDir + dir.Name() + "/" + f.Name())
+						Expect(err).ToNot(HaveOccurred())
 
-				// There should be 3 files in this directory
-				files, err = os.ReadDir(fmt.Sprintf("%s/policygentemplates/out/generated_configCRs/helix49", siteConfigPath))
-				Expect(err).ToNot(HaveOccurred())
-				Expect(len(files)).To(Equal(3))
+						fcontent := make(map[string]interface{})
+						err = yaml.Unmarshal(fBytes, &fcontent)
+						Expect(err).ToNot(HaveOccurred())
+
+						kind, ok := fcontent["kind"].(string)
+						Expect(ok).Should(BeTrue())
+						Expect(kind).Should(BeElementOf(expectedKind))
+					}
+				}
 			})
 		})
 	})

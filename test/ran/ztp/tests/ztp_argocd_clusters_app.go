@@ -32,13 +32,13 @@ var _ = Describe("ZTP Argocd clusters Tests", Ordered, Label("ztp-argocd-cluster
 		By("Checking the ZTP version", func() {
 			if !ranhelper.IsVersionStringInRange(
 				ranztphelper.ZtpVersion,
-				ranztpparameters.MinimumZtpVersion,
+				"4.11",
 				"",
 			) {
 				Skip(fmt.Sprintf(
 					"unable to run test on ztp version '%s' as it is less than minimum '%s",
 					ranztphelper.ZtpVersion,
-					ranztpparameters.MinimumZtpVersion,
+					"4.11",
 				))
 			}
 		})
@@ -73,7 +73,7 @@ var _ = Describe("ZTP Argocd clusters Tests", Ordered, Label("ztp-argocd-cluster
 					testGitPath,
 					ranztpparameters.ArgocdClustersAppName,
 					true,
-					false,
+					true,
 				)
 				Expect(err).ToNot(HaveOccurred())
 			})

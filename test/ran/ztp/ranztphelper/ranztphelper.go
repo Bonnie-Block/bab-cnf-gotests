@@ -283,7 +283,7 @@ func SetGitDetailsInArcgocd(gitRepo, gitBranch, gitPath, argocdApp string, waitF
 	}
 
 	if waitForSync {
-		err = WaitForArgocdChangeToComplete(syncMustBeValid, ranztpparameters.ArgocdChangeTimeout)
+		err = WaitForArgocdChangeToComplete(argocdApp, syncMustBeValid, ranztpparameters.ArgocdChangeTimeout)
 		if err != nil {
 			return err
 		}
@@ -314,7 +314,9 @@ func GetZtpVersionFromArgocd(name string, namespace string) (string, error) {
 		// While 4.12+ uses the image name as `ztp-site-generate`
 		// So just check for `ztp-site-gen` to cover both
 		if strings.Contains(container.Image, "ztp-site-gen") {
-			ztpVersion := strings.Split(container.Image, ":")[1]
+			arr := strings.Split(container.Image, ":")
+			// Get the image tag which is the last element
+			ztpVersion := arr[len(arr)-1]
 
 			if ztpVersion == "latest" {
 				log.Println("Site generator version tag was 'latest', so returning empty version")
@@ -331,13 +333,13 @@ func GetZtpVersionFromArgocd(name string, namespace string) (string, error) {
 }
 
 // WaitForArgocdChangeToComplete is used to wait until Argocd has updated its configuration.
-func WaitForArgocdChangeToComplete(syncMustBeValid bool, timeout time.Duration) error {
+func WaitForArgocdChangeToComplete(appName string, syncMustBeValid bool, timeout time.Duration) error {
 	log.Println("Waiting for Argocd change to finish syncing")
 
 	err := wait.PollImmediate(ranztpparameters.ArgocdChangeInterval, timeout, func() (bool, error) {
 		log.Println("Checking if argo change is complete...")
 
-		app, err := GetArgocdApp(ranztpparameters.ArgocdPoliciesAppName, ranztpparameters.OpenshiftGitops)
+		app, err := GetArgocdApp(appName, ranztpparameters.OpenshiftGitops)
 
 		if err != nil {
 			return false, err

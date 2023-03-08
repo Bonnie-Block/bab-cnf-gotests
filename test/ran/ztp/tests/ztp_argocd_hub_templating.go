@@ -2,6 +2,7 @@ package tests
 
 import (
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -9,6 +10,7 @@ import (
 	. "github.com/onsi/gomega"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/talm/rantalmhelper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/talm/rantalmparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ztp/ranztphelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ztp/ranztpparameters"
 	testClient "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
@@ -25,6 +27,7 @@ var _ = Describe("ZTP Argocd Hub templating Tests", Ordered, Label("ztp-hub-temp
 
 	policyName := "hub-templating-policy-sriov-config"
 	cguName := "hub-templating"
+	cguNamespace := "default" // cgu ns should be different than the policy ns
 	cguLogHubTemplateError := "policy has hub template error"
 
 	BeforeAll(func() {
@@ -42,13 +45,13 @@ var _ = Describe("ZTP Argocd Hub templating Tests", Ordered, Label("ztp-hub-temp
 		By("Checking the ZTP version", func() {
 			if !ranhelper.IsVersionStringInRange(
 				ranztphelper.ZtpVersion,
-				ranztpparameters.MinimumZtpVersion,
+				"4.11",
 				"",
 			) {
 				Skip(fmt.Sprintf(
 					"unable to run test on ztp version '%s' as it is less than minimum '%s",
 					ranztphelper.ZtpVersion,
-					ranztpparameters.MinimumZtpVersion,
+					"4.11",
 				))
 			}
 		})
@@ -67,10 +70,20 @@ var _ = Describe("ZTP Argocd Hub templating Tests", Ordered, Label("ztp-hub-temp
 				},
 			)
 
-			HubTemplateTestSetup(testGitPath, policyName, cguName)
+			HubTemplateTestSetup(testGitPath, policyName, cguName, cguNamespace)
 
 			By("Validating TALM reported a policy error", func() {
 				assertTalmPodLog(ranztphelper.HubAPIClient, cguLogHubTemplateError)
+
+				err := rantalmhelper.WaitForCguInCondition(
+					ranztphelper.HubAPIClient,
+					cguName,
+					cguNamespace,
+					"Validated",
+					"Invalid managed policies",
+					"False",
+					"NotAllManagedPoliciesExist", 1*time.Minute)
+				Expect(err).ToNot(HaveOccurred())
 			})
 
 			By("Validating the specific error using the policy annotation", func() {
@@ -93,7 +106,7 @@ var _ = Describe("ZTP Argocd Hub templating Tests", Ordered, Label("ztp-hub-temp
 				},
 			)
 
-			HubTemplateTestSetup(testGitPath, policyName, cguName)
+			HubTemplateTestSetup(testGitPath, policyName, cguName, cguNamespace)
 
 			By("Validating the policy reaches compliant status", func() {
 				err := ranztphelper.WaitForPolicyToHaveComplianceState(
@@ -123,11 +136,13 @@ var _ = Describe("ZTP Argocd Hub templating Tests", Ordered, Label("ztp-hub-temp
 
 		// Delete any leftovers from the templating test
 		By("Removing the hub templating leftovers if any exist", func() {
+			const sriovNetNamespace string = "openshift-sriov-network-operator"
+
 			// Get the network to see if it exists
 			_, err := ranztphelper.
 				SpokeAPIClient.
 				SriovnetworkV1Interface.
-				SriovNetworks("openshift-sriov-network-operator").
+				SriovNetworks(sriovNetNamespace).
 				Get(
 					ranztphelper.GetZtpContext(),
 					ranztpparameters.ZtpTestNamespace,
@@ -139,7 +154,7 @@ var _ = Describe("ZTP Argocd Hub templating Tests", Ordered, Label("ztp-hub-temp
 				err := ranztphelper.
 					SpokeAPIClient.
 					SriovnetworkV1Interface.
-					SriovNetworks("openshift-sriov-network-operator").
+					SriovNetworks(sriovNetNamespace).
 					Delete(
 						ranztphelper.GetZtpContext(),
 						ranztpparameters.ZtpTestNamespace,
@@ -156,7 +171,7 @@ var _ = Describe("ZTP Argocd Hub templating Tests", Ordered, Label("ztp-hub-temp
 					_, err := ranztphelper.
 						SpokeAPIClient.
 						SriovnetworkV1Interface.
-						SriovNetworks("openshift-sriov-network-operator").
+						SriovNetworks(sriovNetNamespace).
 						Get(
 							ranztphelper.GetZtpContext(),
 							ranztpparameters.ZtpTestNamespace,
@@ -177,7 +192,7 @@ var _ = Describe("ZTP Argocd Hub templating Tests", Ordered, Label("ztp-hub-temp
 			err := rantalmhelper.DeleteCguAndWait(
 				ranztphelper.HubAPIClient,
 				cguName,
-				ranztpparameters.ZtpTestNamespace,
+				cguNamespace,
 			)
 			Expect(err).ToNot(HaveOccurred())
 		})
@@ -185,7 +200,7 @@ var _ = Describe("ZTP Argocd Hub templating Tests", Ordered, Label("ztp-hub-temp
 })
 
 // HubTemplateTestSetup is used to prevent duplication of the core of this particular set of tests.
-func HubTemplateTestSetup(testGitPath, policyName, cguName string) {
+func HubTemplateTestSetup(testGitPath, policyName, cguName, cguNamespace string) {
 	By("Checking if the git path exists", func() {
 		if !ranztphelper.DoesGitPathExist(
 			ranztphelper.ArgocdApps[ranztpparameters.ArgocdPoliciesAppName].Repo,
@@ -227,9 +242,9 @@ func HubTemplateTestSetup(testGitPath, policyName, cguName string) {
 			},
 			[]string{},
 			[]string{
-				"hub-templating-policy-sriov-config",
+				policyName,
 			},
-			ranztpparameters.ZtpTestNamespace,
+			cguNamespace,
 			1,
 			10,
 		)
@@ -249,20 +264,27 @@ func HubTemplateTestSetup(testGitPath, policyName, cguName string) {
 
 // assertTalmPodLog retrieves the TALM pod and asserts on the log.
 func assertTalmPodLog(client *testClient.ClientSet, expectationSubString string) {
+	log.Printf("Waiting for TALM log to report: '%s'\n", expectationSubString)
+
 	// added Eventually since logs take longer to show up in console
 	Eventually(
 		func() string {
 			podList, err := client.
-				Pods("openshift-cluster-group-upgrades").
+				Pods(rantalmparameters.OpenshiftOperatorNamespace).
 				List(ranztphelper.GetZtpContext(), metav1.ListOptions{})
 
 			Expect(err).To(BeNil())
-			Expect(len(podList.Items)).To(BeNumerically("==", 1))
+			Expect(len(podList.Items)).To(BeNumerically(">=", 1))
 
-			p := podList.Items[0]
-			plog, err := pod.GetLog(client, &p, 1*time.Minute, "manager")
+			plog := ""
+			for _, p := range podList.Items {
+				if strings.HasPrefix(p.GetName(), rantalmparameters.TalmPodNameHub) {
+					plog, err = pod.GetLog(client, &p, 1*time.Minute, rantalmparameters.TalmContainerName)
+					Expect(err).To(BeNil())
 
-			Expect(err).To(BeNil())
+					return plog
+				}
+			}
 
 			return plog
 		},
