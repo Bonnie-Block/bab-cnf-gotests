@@ -11,7 +11,6 @@ import (
 	"bytes"
 	"fmt"
 	"log"
-	"math/big"
 	"strconv"
 	"strings"
 	"time"
@@ -201,13 +200,13 @@ func getValue(metricDetails string) (int64, error) {
 	metricDetailsArr := strings.Split(metricDetails, " ")
 	valueStr := metricDetailsArr[len(metricDetailsArr)-1]
 	valueStr = valueStr[:len(valueStr)-1]
-	bigFloat, _, err := big.ParseFloat(valueStr, 10, 0, big.ToNearestEven)
+	bigFloat, err := strconv.ParseFloat(valueStr, 64)
 
 	if nil != err {
 		return value, err
 	}
 
-	value, _ = bigFloat.Int64()
+	value = int64(bigFloat)
 
 	return value, nil
 }
