@@ -10,6 +10,8 @@ const (
 	NamespaceFec     = "vran-acceleration-operators"
 	NamespaceBmer    = "openshift-bare-metal-events"
 	NamespaceAmq     = "amq-router"
+	NamespaceNetdiag = "openshift-network-diagnostics"
+	NamespaceConsole = "openshift-console"
 )
 
 const (

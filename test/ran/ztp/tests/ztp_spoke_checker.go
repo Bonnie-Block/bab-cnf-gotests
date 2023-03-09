@@ -7,6 +7,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -38,6 +39,20 @@ var _ = Describe("Test configurations applied via ZTP", Ordered, Label("ztp-spok
 					[]string{"systemctl", "is-enabled", "chronyd.service"})
 				Expect(err).To(HaveOccurred(), fmt.Sprintf("Error on executing systemctl on %s", snoName))
 				Expect(status == "disabled")
+			})
+			// 60904
+			It("verifies list of pods in "+ran.NamespaceNetdiag+" namespace on spoke", func() {
+				By("checking pods do not exist in " + ran.NamespaceNetdiag)
+				networkDiagPods, err := helper.Apiclient.Pods(ran.NamespaceNetdiag).List(context.TODO(), metav1.ListOptions{})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(networkDiagPods.Items).To(BeEmpty(), "Pods exist in ", ran.NamespaceNetdiag)
+			})
+			// 60905
+			It("verifies list of pods in "+ran.NamespaceConsole+" namespace on spoke", func() {
+				By("checking pods do not exist in " + ran.NamespaceConsole)
+				consolePods, err := helper.Apiclient.Pods(ran.NamespaceConsole).List(context.TODO(), metav1.ListOptions{})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(consolePods.Items).To(BeEmpty(), "Pods exist in ", ran.NamespaceConsole)
 			})
 		})
 })
