@@ -337,15 +337,15 @@ func processEvents(
 	}
 
 	for _, event := range events {
-		if rfclient.GetSkippedEvents(localNodeVendor)[event.MessageID] {
+		msgID := ranbmerhelper.SanitizeMsgID(event.MessageID)
+
+		if rfclient.GetSkippedEvents(localNodeVendor)[msgID] {
 			if ranbmerparameters.DebugTest {
 				log.Printf("Skipping event: %v for consumer: %v\n", event.MessageID, consumerPod.Name)
 			}
 
 			return false
 		}
-
-		msgID := ranbmerhelper.SanitizeMsgID(event.MessageID)
 
 		if msgID != expectedEvent {
 			log.Printf("Event verification failed for consumer %v "+
