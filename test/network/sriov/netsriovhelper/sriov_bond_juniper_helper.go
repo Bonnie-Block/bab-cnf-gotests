@@ -8,30 +8,11 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/switchcmd"
 )
 
-// RollBackToOriginalConfig returns the switch configuration that was before the test.
-func RollBackToOriginalConfig(credentials *nethelper.SwitchCredentials) error {
-	jnpr, err := switchcmd.NewSession(credentials.SwitchIP, credentials.User, credentials.Password)
-	if err != nil {
-		return err
-	}
-	defer jnpr.Close()
+var InterfaceConfigs []string
 
-	err = jnpr.RollbackConfig(switchcmd.CountChanges)
-	if err != nil {
-		return err
-	}
-
-	switchcmd.CountChanges = 0
-
-	return nil
-}
-
-func setOrDeleteNonLACPLAGOnJunos(credentials *nethelper.SwitchCredentials,
-	slaveInterfaceNames []string, aggregatedInterfaceName, action string) error {
-	if action != "set" && action != "delete" {
-		return fmt.Errorf("unknown action %s", action)
-	}
-
+// DeleteNonLACPLAGsOnJunos deletes given LACP Link Aggregated ports.
+func DeleteNonLACPLAGsOnJunos(credentials *nethelper.SwitchCredentials,
+	aggregatedInterfaceNames []string) error {
 	jnpr, err := switchcmd.NewSession(credentials.SwitchIP, credentials.User, credentials.Password)
 	if err != nil {
 		return err
@@ -39,19 +20,32 @@ func setOrDeleteNonLACPLAGOnJunos(credentials *nethelper.SwitchCredentials,
 	defer jnpr.Close()
 
 	var commands []string
-	for _, slaveInterfaceName := range slaveInterfaceNames {
-		commands = append(commands, fmt.Sprintf("%s interfaces %s ether-options 802.3ad %s", action,
-			slaveInterfaceName, aggregatedInterfaceName))
+	for _, aggregatedInterface := range aggregatedInterfaceNames {
+		commands = append(commands, fmt.Sprintf("delete interfaces %s", aggregatedInterface))
 	}
-	commands = append(commands, fmt.Sprintf("%s interfaces %s unit 0 family ethernet-switching",
-		action, aggregatedInterfaceName))
 
 	err = jnpr.Config(commands)
 
 	return err
 }
 
-func removeAllConfigurationFromInterfaces(credentials *nethelper.SwitchCredentials, switchInterfaces []string) error {
+// RestoreSwitchInterfacesConfiguration restores the configuration of specified switch interfaces.
+func RestoreSwitchInterfacesConfiguration(credentials *nethelper.SwitchCredentials, switchInterfaces []string) error {
+	err := RemoveAllConfigurationFromInterfaces(credentials, switchInterfaces)
+	if err != nil {
+		return err
+	}
+
+	err = restoreInterfaceConfigs(credentials)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// RemoveAllConfigurationFromInterfaces removes  all configuration from given switch interfaces.
+func RemoveAllConfigurationFromInterfaces(credentials *nethelper.SwitchCredentials, switchInterfaces []string) error {
 	jnpr, err := switchcmd.NewSession(credentials.SwitchIP, credentials.User, credentials.Password)
 	if err != nil {
 		return err
@@ -84,6 +78,18 @@ func setSwitchInterfaceStatus(credentials *nethelper.SwitchCredentials, switchIn
 	err = jnpr.Config([]string{fmt.Sprintf("%s interfaces %s disable", action, switchInterface)})
 
 	return err
+}
+
+func dumpInterfaceConfigs(credentials *nethelper.SwitchCredentials, switchInterfaces []string) error {
+	for _, switchInterface := range switchInterfaces {
+		config, err := getInterfaceConfig(credentials, switchInterface)
+		if err != nil {
+			return err
+		}
+		InterfaceConfigs = append(InterfaceConfigs, config)
+	}
+
+	return nil
 }
 
 func configureMTUOnSwitchInterfaces(credentials *nethelper.SwitchCredentials,
@@ -124,4 +130,72 @@ func isSwitchInterfaceUp(credentials *nethelper.SwitchCredentials, switchInterfa
 	}
 
 	return interfaceStatus.InterfaceInformation[0].PhysicalInterface[0].OperStatus[0].Data == "up", nil
+}
+
+func setNonLACPLAGOnJunos(credentials *nethelper.SwitchCredentials,
+	slaveInterfaceNames []string, aggregatedInterfaceName string) error {
+	jnpr, err := switchcmd.NewSession(credentials.SwitchIP, credentials.User, credentials.Password)
+	if err != nil {
+		return err
+	}
+	defer jnpr.Close()
+
+	var commands []string
+
+	if len(slaveInterfaceNames) > 0 {
+		for _, slaveInterfaceName := range slaveInterfaceNames {
+			commands = append(commands, fmt.Sprintf("set interfaces %s ether-options 802.3ad %s",
+				slaveInterfaceName, aggregatedInterfaceName))
+		}
+	}
+
+	commands = append(commands, fmt.Sprintf("set interfaces %s unit 0 family ethernet-switching",
+		aggregatedInterfaceName))
+
+	err = jnpr.Config(commands)
+
+	return err
+}
+
+func restoreInterfaceConfigs(credentials *nethelper.SwitchCredentials) error {
+	if len(InterfaceConfigs) > 0 {
+		var err error
+		for _, interfaceConfig := range InterfaceConfigs {
+			err = applyInterfaceConfig(credentials, interfaceConfig)
+			if err != nil {
+				return err
+			}
+		}
+
+		InterfaceConfigs = []string{}
+	}
+
+	return nil
+}
+
+func getInterfaceConfig(credentials *nethelper.SwitchCredentials, switchInterface string) (string, error) {
+	jnpr, err := switchcmd.NewSession(credentials.SwitchIP, credentials.User, credentials.Password)
+	if err != nil {
+		return "", err
+	}
+	defer jnpr.Close()
+
+	interfaceConfig, err := jnpr.GetInterfaceConfig(switchInterface)
+	if err != nil {
+		return "", err
+	}
+
+	return interfaceConfig, nil
+}
+
+func applyInterfaceConfig(credentials *nethelper.SwitchCredentials, interfaceConfig string) error {
+	jnpr, err := switchcmd.NewSession(credentials.SwitchIP, credentials.User, credentials.Password)
+	if err != nil {
+		return err
+	}
+	defer jnpr.Close()
+
+	err = jnpr.ApplyConfigInterface(interfaceConfig)
+
+	return err
 }

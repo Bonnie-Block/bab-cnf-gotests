@@ -131,7 +131,9 @@ func TestActiveActiveBondScenario(
 	}
 
 	By(fmt.Sprintf("Remove all configuration from the switch interfaces %v", switchInterfaces))
-	err = removeAllConfigurationFromInterfaces(switchCredentials, switchInterfaces)
+	err = dumpInterfaceConfigs(switchCredentials, switchInterfaces)
+	Expect(err).ToNot(HaveOccurred())
+	err = RemoveAllConfigurationFromInterfaces(switchCredentials, switchInterfaces)
 	Expect(err).ToNot(HaveOccurred())
 
 	By("Configure LAGs on a switch")
@@ -363,12 +365,12 @@ func createTestPods(sriovInfos *cluster.EnabledNodes, slaveNetworks []string, mt
 }
 
 func configureLAGsOnSwitch(switchCredentials *nethelper.SwitchCredentials, switchInterfaces []string) {
-	err := setOrDeleteNonLACPLAGOnJunos(switchCredentials, []string{switchInterfaces[0], switchInterfaces[1]},
-		netsriovparameters.LAGInterface1, switchcmd.SetAction)
+	err := setNonLACPLAGOnJunos(switchCredentials, []string{switchInterfaces[0], switchInterfaces[1]},
+		netsriovparameters.LAGInterface1)
 	Expect(err).ToNot(HaveOccurred())
 
-	err = setOrDeleteNonLACPLAGOnJunos(switchCredentials, []string{switchInterfaces[2], switchInterfaces[3]},
-		netsriovparameters.LAGInterface2, switchcmd.SetAction)
+	err = setNonLACPLAGOnJunos(switchCredentials, []string{switchInterfaces[2], switchInterfaces[3]},
+		netsriovparameters.LAGInterface2)
 	Expect(err).ToNot(HaveOccurred())
 
 	err = configureMTUOnSwitchInterfaces(switchCredentials, []string{netsriovparameters.LAGInterface1,

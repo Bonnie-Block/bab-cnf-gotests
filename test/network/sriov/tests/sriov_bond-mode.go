@@ -13,8 +13,6 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/sriov/netsriovhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/sriov/netsriovparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/switchcmd"
-
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/cluster"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
@@ -69,12 +67,8 @@ var _ = Describe("CNF SRIOV: Bond CNI.", func() {
 			err := nethelper.DeleteNADs(netsriovparameters.OperatorTestNamespace,
 				netsriovparameters.BondNadName)
 			Expect(err).ToNot(HaveOccurred())
-
-			if switchcmd.CountChanges > 0 {
-				switchCredentials, err := nethelper.NewSwitchCredentials()
-				Expect(err).ToNot(HaveOccurred())
-				err = netsriovhelper.RollBackToOriginalConfig(switchCredentials)
-				Expect(err).ToNot(HaveOccurred())
+			if len(netsriovhelper.InterfaceConfigs) > 0 {
+				recoverSwitchConfiguration()
 			}
 		})
 
@@ -259,3 +253,17 @@ var _ = Describe("CNF SRIOV: Bond CNI.", func() {
 		})
 	})
 })
+
+func recoverSwitchConfiguration() {
+	switchCredentials, err := nethelper.NewSwitchCredentials()
+	Expect(err).ToNot(HaveOccurred())
+	switchInterfaces, err := Config.GetSwitchInterfaces()
+	Expect(err).ToNot(HaveOccurred())
+
+	err = netsriovhelper.RestoreSwitchInterfacesConfiguration(switchCredentials, switchInterfaces)
+	Expect(err).ToNot(HaveOccurred())
+
+	err = netsriovhelper.DeleteNonLACPLAGsOnJunos(switchCredentials,
+		[]string{netsriovparameters.LAGInterface1, netsriovparameters.LAGInterface2})
+	Expect(err).ToNot(HaveOccurred())
+}

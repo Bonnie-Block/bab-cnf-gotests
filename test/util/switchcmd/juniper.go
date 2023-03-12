@@ -17,11 +17,11 @@ const (
 var (
 	rpcConfigStringSet = "<load-configuration action=\"set\"" +
 		" format=\"text\"><configuration-set>%s</configuration-set></load-configuration>"
-	rpcCommit         = "<commit-configuration/>"
-	rpcRollbackConfig = "<load-configuration rollback=\"%d\"/>"
-	rpcCommandJSON    = "<command format=\"json\">%s</command>"
-
-	CountChanges int
+	rpcGetInterfaceConfig = "<get-configuration><configuration><interfaces><interface><name>%s</name></interface>" +
+		"</interfaces></configuration></get-configuration>"
+	rpcApplyConfig = "<load-configuration format=\"xml\" action=\"replace\">%s</load-configuration>"
+	rpcCommit      = "<commit-configuration/>"
+	rpcCommandJSON = "<command format=\"json\">%s</command>"
 )
 
 type (
@@ -129,7 +129,29 @@ func (j *Junos) Config(commands []string) error {
 	if err != nil {
 		return err
 	}
-	CountChanges++
+
+	if reply.Errors != nil {
+		for _, m := range reply.Errors {
+			return errors.New(m.Message)
+		}
+	}
+
+	return nil
+}
+
+// ApplyConfigInterface applies given interface configuration to a switch.
+func (j *Junos) ApplyConfigInterface(config string) error {
+	command := fmt.Sprintf(rpcApplyConfig, config)
+
+	reply, err := j.Session.Exec(netconf.RawMethod(command))
+	if err != nil {
+		return err
+	}
+
+	err = j.Commit()
+	if err != nil {
+		return err
+	}
 
 	if reply.Errors != nil {
 		for _, m := range reply.Errors {
@@ -162,25 +184,24 @@ func (j *Junos) RunCommand(cmd string) (string, error) {
 	return reply.Data, nil
 }
 
-// RollbackConfig loads and commits the configuration of a given rollback .
-func (j *Junos) RollbackConfig(count int) error {
-	command := fmt.Sprintf(rpcRollbackConfig, count)
+// GetInterfaceConfig returns configuration for given interface.
+func (j *Junos) GetInterfaceConfig(switchInterface string) (string, error) {
+	command := fmt.Sprintf(rpcGetInterfaceConfig, switchInterface)
 
 	reply, err := j.Session.Exec(netconf.RawMethod(command))
 	if err != nil {
-		return err
-	}
-
-	err = j.Commit()
-	if err != nil {
-		return err
+		return "", err
 	}
 
 	if reply.Errors != nil {
 		for _, m := range reply.Errors {
-			return errors.New(m.Message)
+			return "", errors.New(m.Message)
 		}
 	}
 
-	return nil
+	if reply.Data == "" {
+		return "", errors.New("no output available, please check the syntax of your command")
+	}
+
+	return reply.Data, nil
 }
