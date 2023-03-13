@@ -12,6 +12,7 @@ import (
 
 	argocdoperatorv1alpha1 "github.com/argoproj-labs/argocd-operator/api/v1alpha1"
 	argocdappv1alpha "github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
+	mcv1 "github.com/openshift/machine-config-operator/pkg/apis/machineconfiguration.openshift.io/v1"
 	kacv1 "github.com/stolostron/klusterlet-addon-controller/pkg/apis/agent/v1"
 	"github.com/tidwall/gjson"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
@@ -554,27 +555,31 @@ type WaitForMcpUpdateFunc func(clientSet *testClient.ClientSet, machineConfigPoo
 // to  be successfully  evaluated in this order: specific  mcp transitioned  from updating  to
 // updated, all mcps stable in that updated  state and finally, cluster nodes ready. The first
 // condition is fully customizable and must be defined (non nil) with a callback.
-func CheckNodeIsFunctionalAfterMCchanges(mcpName string, mcpUpdatedFunc WaitForMcpUpdateFunc) error {
+func CheckNodeIsFunctionalAfterMCchanges(clientSet *testClient.ClientSet, mcpName string) error {
 	if len(strings.TrimSpace(mcpName)) == 0 {
 		return fmt.Errorf("machine config name is undefined")
 	}
 
-	if mcpUpdatedFunc == nil {
-		return fmt.Errorf("WaitForMcpUpdateFunc function is undefined")
-	}
+	// waits for mcp updating transition
+	log.Printf("Waiting for mcp %s updating transition", mcpName)
 
-	// check mcp is transtioned from updating to updated
-
-	err := mcpUpdatedFunc(helper.Apiclient, mcpName)
+	err := mcp.WaitForCondition(
+		clientSet,
+		&mcv1.MachineConfigPool{ObjectMeta: metav1.ObjectMeta{Name: mcpName}},
+		mcv1.MachineConfigPoolUpdating,
+		10*time.Minute)
 
 	if err != nil {
 		return err
 	}
 
 	// check mcps are updated for an stable interval
+	// sometimes it may take ~5mins for mcp to transit from updated to updating status
 	interval := 5 * time.Second
-	stableInterval := 45 * time.Second
-	err = mcp.WaitForClusterStable(helper.Apiclient, 30*time.Minute, interval, stableInterval)
+	stableInterval := 5 * time.Minute
+
+	log.Printf("Waiting for all mcps are updated for at least %s", stableInterval.String())
+	err = mcp.WaitForClusterStable(helper.Apiclient, 60*time.Minute, interval, stableInterval)
 
 	if err != nil {
 		return err

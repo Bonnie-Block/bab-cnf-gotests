@@ -5,8 +5,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"strings"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -21,53 +19,55 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ztp/ranztphelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ztp/ranztpparameters"
 	testClient "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
-	mcp "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/machineconfigpool"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/kubernetes/pkg/kubelet/cm/cpuset"
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	goclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func waitForMcpUpdate(clientSet *testClient.ClientSet, mcpName string) error {
-	if clientSet == nil {
-		return fmt.Errorf("clientSet is undefined")
-	}
+func validateWorkloadPartition(snoNode *corev1.Node, selector rancpuhelper.SelectorFunc) {
+	// get performance profile after ArgoCD PGT update
+	pp, err := rancpuhelper.GetPerformanceProfileWithCPUSet(selector)
+	Expect(err).ToNot(HaveOccurred())
 
-	if len(strings.TrimSpace(mcpName)) == 0 {
-		return fmt.Errorf("machine config name is undefined")
-	}
+	reservedCPUSet := cpuset.MustParse(string(*pp.Spec.CPU.Reserved))
+	log.Printf("reservedCPUSet on Performance profile: %s\n", reservedCPUSet)
 
-	// waits for updating transition
-	log.Println("Waiting for updating transition")
+	By("Checking kubeletconfig reservedSystemCPUs on SNO", func() {
 
-	err := mcp.WaitForCondition(
-		clientSet,
-		&mcv1.MachineConfigPool{ObjectMeta: metav1.ObjectMeta{Name: mcpName}},
-		mcv1.MachineConfigPoolUpdating,
-		10*time.Minute)
+		// oc get kubeletconfigs.machineconfiguration.openshift.io performance-openshift-node-performance-profile
+		kubeletconfig := mcv1.KubeletConfig{}
+		err := ranztphelper.SpokeAPIClient.Get(context.TODO(),
+			goclient.ObjectKey{Name: "performance-openshift-node-performance-profile"}, &kubeletconfig)
+		Expect(err).ToNot(HaveOccurred())
 
-	if err != nil {
-		return err
-	}
-	// waits for updated transition
-	machineCP := &mcv1.MachineConfigPool{}
-	err = clientSet.Get(context.TODO(), goclient.ObjectKey{Name: mcpName}, machineCP)
+		// from bytes to json
+		jsonBytes, err := kubeletconfig.Spec.KubeletConfig.Marshal()
+		Expect(err).ToNot(HaveOccurred())
 
-	if err != nil {
-		return err
-	}
+		// from json to string
+		jsonString := bytes.NewBuffer(jsonBytes).String()
 
-	log.Println("Waiting for updated transition")
+		reservedSystemCPUs := gjson.Get(jsonString, "reservedSystemCPUs").String()
+		Expect(reservedSystemCPUs == reservedCPUSet.String())
+	})
 
-	err = mcp.WaitForCondition(
-		clientSet,
-		&mcv1.MachineConfigPool{ObjectMeta: metav1.ObjectMeta{Name: mcpName}},
-		mcv1.MachineConfigPoolUpdated,
-		time.Duration(60*machineCP.Status.MachineCount)*time.Minute)
+	By("Checking new cpu processes affinities on SNO", func() {
+		processNames := []string{"crio", "kubelet", "ovn"}
+		err := ranztphelper.CheckAffinitiesByProcessMatch(snoNode, processNames, reservedCPUSet)
+		Expect(err).ToNot(HaveOccurred())
+	})
 
-	return err
+	By("Checking cpuset for all running containers via crictl inspect on SNO", func() {
+		containersInfo := ranwphelper.GetContainersInfo(snoNode)
+		ranwphelper.CheckPodsAffinity(ranwphelper.GetMgmtContainersInfo(containersInfo), reservedCPUSet)
+	})
+
+	By("checking OS daemon pinned to reserved cpus on SNO", func() {
+		failedPids, _ := ranwphelper.CheckCPUAffinityOnNonKernelPids(snoNode, reservedCPUSet)
+		Expect(failedPids).To(BeEmpty())
+	})
 }
 
 var _ = Describe("ZTP workload partitioning tests", Ordered, Label("ztp-workload-partitioning"), func() {
@@ -150,7 +150,7 @@ var _ = Describe("ZTP workload partitioning tests", Ordered, Label("ztp-workload
 				ranztphelper.ArgocdApps[ranztpparameters.ArgocdPoliciesAppName].Path,
 				ranztpparameters.ArgocdPoliciesAppName,
 				true,
-				false,
+				true,
 			)
 			Expect(err).ToNot(HaveOccurred())
 		})
@@ -158,7 +158,7 @@ var _ = Describe("ZTP workload partitioning tests", Ordered, Label("ztp-workload
 		By("Removing the cgu if it exists", func() {
 			err := rantalmhelper.DeleteCguAndWait(
 				ranztphelper.HubAPIClient,
-				"performance-update",
+				"workload-partition-update",
 				ranztpparameters.ZtpTestNamespace,
 			)
 			Expect(err).ToNot(HaveOccurred())
@@ -169,39 +169,24 @@ var _ = Describe("ZTP workload partitioning tests", Ordered, Label("ztp-workload
 				Skip("No need to restore workload parititoning")
 			}
 
-			machineConfigWPTmp := mcv1.MachineConfig{}
-			log.Printf("restoring machine config: %s", ranztpparameters.MachineConfigName)
-			err := ranztphelper.SpokeAPIClient.Get(context.TODO(),
-				goclient.ObjectKey{Name: ranztpparameters.MachineConfigName}, &machineConfigWPTmp)
-			Expect(err).ToNot(HaveOccurred())
-
-			machineConfigWPTmp.Spec = machineConfigWP.Spec
-			if machineConfigWP.GetAnnotations() != nil {
-				machineConfigWPTmp.SetAnnotations(machineConfigWP.Annotations)
-			}
-			if machineConfigWP.GetLabels() != nil {
-				machineConfigWPTmp.SetLabels(machineConfigWP.Labels)
-			}
-
-			err = ranztphelper.SpokeAPIClient.Update(context.TODO(), &machineConfigWPTmp)
-			Expect(err).ToNot(HaveOccurred())
-			// reboot expected
-			err = ranztphelper.CheckNodeIsFunctionalAfterMCchanges(ranztpparameters.MCPname, waitForMcpUpdate)
-			Expect(err).ToNot(HaveOccurred())
-
-			log.Printf("restoring performance profile: %s", ranztpparameters.PerfProfileName)
-			log.Printf("restoring tuned: %s", ranztpparameters.TunedPatchName)
 			// Get the current performanceprofile
 			perfProfileTmp, _ := rancpuhelper.GetPerformanceProfileWithCPUSet(selectorByName)
 			Expect(perfProfileTmp).NotTo(BeNil())
 
 			// Get the current tuned patch
 			tunedTmp := tunedv1.Tuned{}
-			err = ranztphelper.SpokeAPIClient.Get(context.TODO(),
+			err := ranztphelper.SpokeAPIClient.Get(context.TODO(),
 				types.NamespacedName{Name: ranztpparameters.TunedPatchName, Namespace: ranztpparameters.TunedNamespace}, &tunedTmp)
 			Expect(err).ToNot(HaveOccurred())
 
+			// Get the current MC
+			machineConfigWPTmp := mcv1.MachineConfig{}
+			err = ranztphelper.SpokeAPIClient.Get(context.TODO(),
+				goclient.ObjectKey{Name: ranztpparameters.MachineConfigName}, &machineConfigWPTmp)
+			Expect(err).ToNot(HaveOccurred())
+
 			// Update performanceprofile back to original setting
+			log.Printf("restoring performance profile: %s", ranztpparameters.PerfProfileName)
 			perfProfileTmp.Spec = perfProfile.Spec
 			if perfProfile.GetAnnotations() != nil {
 				perfProfileTmp.SetAnnotations(perfProfile.Annotations)
@@ -213,6 +198,7 @@ var _ = Describe("ZTP workload partitioning tests", Ordered, Label("ztp-workload
 			Expect(err).ToNot(HaveOccurred())
 
 			// Update tuned patch back to original setting
+			log.Printf("restoring tuned: %s", ranztpparameters.TunedPatchName)
 			tunedTmp.Spec = tunedPatch.Spec
 			if tunedPatch.GetAnnotations() != nil {
 				tunedTmp.SetAnnotations(tunedPatch.Annotations)
@@ -223,14 +209,32 @@ var _ = Describe("ZTP workload partitioning tests", Ordered, Label("ztp-workload
 			err = ranztphelper.SpokeAPIClient.Update(context.TODO(), &tunedTmp)
 			Expect(err).ToNot(HaveOccurred())
 
-			// reboot expected
-			err = ranztphelper.CheckNodeIsFunctionalAfterMCchanges(ranztpparameters.MCPname, waitForMcpUpdate)
+			// Update MC back to original setting
+			log.Printf("restoring machine config: %s", ranztpparameters.MachineConfigName)
+			machineConfigWPTmp.Spec = machineConfigWP.Spec
+			if machineConfigWP.GetAnnotations() != nil {
+				machineConfigWPTmp.SetAnnotations(machineConfigWP.Annotations)
+			}
+			if machineConfigWP.GetLabels() != nil {
+				machineConfigWPTmp.SetLabels(machineConfigWP.Labels)
+			}
+			err = ranztphelper.SpokeAPIClient.Update(context.TODO(), &machineConfigWPTmp)
 			Expect(err).ToNot(HaveOccurred())
+
+			// reboots expected
+			err = ranztphelper.CheckNodeIsFunctionalAfterMCchanges(
+				ranztphelper.SpokeAPIClient, ranztpparameters.MCPname)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Make sure the workload partition updates are reverted back to the original setting
+			validateWorkloadPartition(snoNode, selectorByName)
 		})
 	})
 
 	Context("when a ZTP configuration updates the cpu partitioning", Label("ztp-update-workload-partitioning"), func() {
 		// https://polarion.engineering.redhat.com/polarion/#/project/OSE/workitem?id=OCP-54235
+
+		wpPolicyName := "cpu-partitioning-policy-config" // inform policy
 
 		It("should update cpu partitioning with the new reserved cpus on spoke", func() {
 
@@ -261,47 +265,34 @@ var _ = Describe("ZTP workload partitioning tests", Ordered, Label("ztp-workload
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			policies := []string{
-				"cpu-partitioning-policy-config", // enforce policy
-				"cpu-partitioning-policy-perf",   // inform policy
-			}
-
 			By("Waiting for policies to be created", func() {
-				for _, policy := range policies {
-					err := ranztphelper.WaitForPolicyToExist(
-						policy,
-						ranztpparameters.ZtpTestNamespace,
-						ranztpparameters.ArgocdChangeTimeout,
-					)
-					Expect(err).ToNot(HaveOccurred())
-				}
-			})
-
-			By("Validating the policy for workload partitioning update reaches Compliant status", func() {
-				err := ranztphelper.WaitForPolicyToHaveComplianceState(
-					"cpu-partitioning-policy-config",
+				err := ranztphelper.WaitForPolicyToExist(
+					wpPolicyName,
 					ranztpparameters.ZtpTestNamespace,
-					policiesv1.Compliant,
 					ranztpparameters.ArgocdChangeTimeout,
 				)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			By("waiting for SNO to be functional again after rebooting due to the workload partition change", func() {
-				// reboot expected
-				err := ranztphelper.CheckNodeIsFunctionalAfterMCchanges(ranztpparameters.MCPname, waitForMcpUpdate)
+			By("Validating the policy reaches NonCompliant status", func() {
+				err := ranztphelper.WaitForPolicyToHaveComplianceState(
+					wpPolicyName,
+					ranztpparameters.ZtpTestNamespace,
+					policiesv1.NonCompliant,
+					ranztpparameters.ArgocdChangeTimeout,
+				)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			By("Creating CGU to apply performance profile and tuned changes", func() {
+			By("Creating CGU to apply the changes", func() {
 				cgu := rantalmhelper.GetCguDefinition(
-					"performance-update",
+					"workload-partition-update",
 					[]string{
 						ranztphelper.SpokeName,
 					},
 					[]string{},
 					[]string{
-						"cpu-partitioning-policy-perf",
+						wpPolicyName,
 					},
 					ranztpparameters.ZtpTestNamespace,
 					1,
@@ -320,54 +311,15 @@ var _ = Describe("ZTP workload partitioning tests", Ordered, Label("ztp-workload
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			By("waiting for SNO to be functional again after rebooting due to the performancePerf change", func() {
-				// reboot expected
-				err := ranztphelper.CheckNodeIsFunctionalAfterMCchanges(ranztpparameters.MCPname, waitForMcpUpdate)
+			By("waiting for SNO to be functional again after rebooting due to the changes", func() {
+				// reboots expected
+				err := ranztphelper.CheckNodeIsFunctionalAfterMCchanges(
+					ranztphelper.SpokeAPIClient, ranztpparameters.MCPname)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			// get performance profile after ArgoCD PGT update
-			pp, err := rancpuhelper.GetPerformanceProfileWithCPUSet(selectorByName)
-			Expect(err).ToNot(HaveOccurred())
-
-			reservedCPUSet := cpuset.MustParse(string(*pp.Spec.CPU.Reserved))
-			log.Printf("reservedCPUSet on Performance profile: %s\n", reservedCPUSet)
-
-			By("Checking kubeletconfig reservedSystemCPUs on SNO", func() {
-
-				// oc get kubeletconfigs.machineconfiguration.openshift.io performance-openshift-node-performance-profile
-				kubeletconfig := mcv1.KubeletConfig{}
-				err := ranztphelper.SpokeAPIClient.Get(context.TODO(),
-					goclient.ObjectKey{Name: "performance-openshift-node-performance-profile"}, &kubeletconfig)
-				Expect(err).ToNot(HaveOccurred())
-
-				// from bytes to json
-				jsonBytes, err := kubeletconfig.Spec.KubeletConfig.Marshal()
-				Expect(err).ToNot(HaveOccurred())
-
-				// from json to string
-				jsonString := bytes.NewBuffer(jsonBytes).String()
-
-				reservedSystemCPUs := gjson.Get(jsonString, "reservedSystemCPUs").String()
-				Expect(reservedSystemCPUs == reservedCPUSet.String())
-			})
-
-			By("Checking cpuset for all running containers via crictl inspect on SNO", func() {
-				containersInfo := ranwphelper.GetContainersInfo(snoNode)
-				ranwphelper.CheckPodsAffinity(ranwphelper.GetMgmtContainersInfo(containersInfo), reservedCPUSet)
-			})
-
-			By("checking OS daemon pinned to reserved cpus on SNO", func() {
-				failedPids, _ := ranwphelper.CheckCPUAffinityOnNonKernelPids(snoNode, reservedCPUSet)
-				Expect(failedPids).To(BeEmpty())
-			})
-
-			By("Checking new cpu processes affinities on SNO", func() {
-				processNames := []string{"crio", "kubelet", "ovn"}
-				err := ranztphelper.CheckAffinitiesByProcessMatch(snoNode, processNames, reservedCPUSet)
-				Expect(err).ToNot(HaveOccurred())
-			})
-
+			// Validate the workload partitioning updates
+			validateWorkloadPartition(snoNode, selectorByName)
 		})
 	})
 })
