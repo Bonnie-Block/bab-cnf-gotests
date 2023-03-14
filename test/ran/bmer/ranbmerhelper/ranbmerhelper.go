@@ -163,7 +163,7 @@ func GetHTTPS(url string) error {
 
 // GetAppRoute uses ranbmerparameters to query the application exposed path.
 func GetAppRoute() (string, error) {
-	routeList, err := helper.Apiclient.Routes(parameters.BmerOperatorNamespace).List(context.Background(),
+	routeList, err := helper.Apiclient.Routes(parameters.BmerNamespace).List(context.Background(),
 		metav1.ListOptions{})
 	if err != nil {
 		return "", err
@@ -180,7 +180,7 @@ func GetAppRoute() (string, error) {
 	}
 
 	return "", fmt.Errorf("failed to find route for app: %v in namespace: %v",
-		ranbmerparameters.AppRouteName, parameters.BmerOperatorNamespace)
+		ranbmerparameters.AppRouteName, parameters.BmerNamespace)
 }
 
 // ConfigHwEventProxyObjects create various hw event proxy cluster objects to allow application to start working.
@@ -194,7 +194,7 @@ func ConfigHwEventProxyObjects() error {
 			helper.Config.Ran.BmerConfigsDir, pwd)
 	}
 
-	_, err = helper.Apiclient.Deployments(parameters.BmerOperatorNamespace).Get(
+	_, err = helper.Apiclient.Deployments(parameters.BmerNamespace).Get(
 		context.Background(),
 		ranparameters.ConsumerDeploymentName,
 		metav1.GetOptions{},
@@ -359,10 +359,10 @@ func RestartSidecar(label string, timeout time.Duration) error {
 	return nil
 }
 
-// GetPodByLabel get all pods in the parameters.BmerOperatorNamespace
+// GetPodByLabel get all pods in the parameters.BmerNamespace
 // that o have a given label.
 func GetPodByLabel(label string) (corev1.Pod, error) {
-	Pods, err := helper.Apiclient.Pods(parameters.BmerOperatorNamespace).List(context.Background(),
+	Pods, err := helper.Apiclient.Pods(parameters.BmerNamespace).List(context.Background(),
 		metav1.ListOptions{
 			LabelSelector: label})
 

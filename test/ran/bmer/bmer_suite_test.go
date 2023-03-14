@@ -79,7 +79,7 @@ var _ = BeforeSuite(func() {
 	// Define the redfish access to the kubernetes operator using a secret
 	err = ranbmerhelper.CreateHwEventSecret(
 		ranbmerparameters.SecretName,
-		parameters.BmerOperatorNamespace,
+		parameters.BmerNamespace,
 		ranbmerparameters.Redfish.Hostname,
 		ranbmerparameters.Redfish.Username,
 		ranbmerparameters.Redfish.Password)
@@ -91,12 +91,12 @@ var _ = BeforeSuite(func() {
 		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("failed to create secret due to: %v", err))
 	}
 	err = ranhelper.WaitForDeploymentReady(
-		helper.Apiclient, parameters.BmerOperatorNamespace, ranbmerparameters.AppName)
+		helper.Apiclient, parameters.BmerNamespace, ranbmerparameters.AppName)
 	Expect(err).ShouldNot(HaveOccurred(), fmt.Sprintf(
 		"Hardware event deployment is not ready after creating secret due to: %v", err))
 
 	transportType, err := ranhelper.GetTransportType(
-		helper.Apiclient, parameters.BmerOperatorNamespace, ranbmerparameters.AppName)
+		helper.Apiclient, parameters.BmerNamespace, ranbmerparameters.AppName)
 	Expect(err).ShouldNot(HaveOccurred(), fmt.Sprintf(
 		"GetTransportType error: %v", err))
 	if transportType != "" {
@@ -111,7 +111,7 @@ var _ = BeforeSuite(func() {
 	})
 
 	By("Check ClusterServiceVersions mirrored images necessary for consumer deploy")
-	mirroredImages, err := ranhelper.GetDeployImages(parameters.BmerOperatorNamespace)
+	mirroredImages, err := ranhelper.GetDeployImages(parameters.BmerNamespace)
 	Expect(err).ShouldNot(HaveOccurred(), fmt.Sprintf(
 		"failed to get images to be used from ClusterServiceVersions due to: %v", err))
 
@@ -135,7 +135,7 @@ var _ = BeforeSuite(func() {
 		"failed to verify HTTPS is ready to recive events due to: %v", err))
 
 	By("Deploy consumers")
-	err = ranhelper.DeployConsumers(mirroredImages, ranparameters.TransportType, parameters.BmerOperatorNamespace)
+	err = ranhelper.DeployConsumers(mirroredImages, ranparameters.TransportType, parameters.BmerNamespace)
 
 	// In case the consumer already exist on the cluster an error with the string skip will be returned.
 	if err != nil && err.Error() == "consumers already deployed in cluster. skipping creating them" {
@@ -145,7 +145,7 @@ var _ = BeforeSuite(func() {
 	}
 
 	By("Check consumers exist")
-	ConsumersList, err = ranhelper.GetConsumers(parameters.BmerOperatorNamespace)
+	ConsumersList, err = ranhelper.GetConsumers(parameters.BmerNamespace)
 	Expect(err).ShouldNot(HaveOccurred(), fmt.Sprintf("failed to check consumers exist due to: %v", err))
 
 	By("Creating privileged pods in order to query node vendor")
@@ -183,7 +183,7 @@ var _ = AfterSuite(func() {
 	teardownErrors = append(teardownErrors, destroyErrors...)
 	By("Remove Hw event secret")
 	teardownErrors = append(teardownErrors, ranbmerhelper.DeleteHwEventSecret(
-		parameters.BmerOperatorNamespace, ranbmerparameters.SecretName))
+		parameters.BmerNamespace, ranbmerparameters.SecretName))
 	By("End redfish session.")
 	ranbmerparameters.Redfish.Session.Logout()
 	By("Purge privileged pods that were created for test")

@@ -43,7 +43,7 @@ var _ = Describe("BMER", func() {
 		By("Query the node under test redfish vendor")
 		LocalNodeVendor, err = nodevendor.GetRedfishVendor(ranbmerparameters.Redfish.Session)
 		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("On redfish vendor query, got this error: %v\n", err))
-		ConsumersList, _ = ranhelper.GetConsumers(parameters.BmerOperatorNamespace)
+		ConsumersList, _ = ranhelper.GetConsumers(parameters.BmerNamespace)
 		eventService, _ = ranbmerparameters.Redfish.Session.Service.EventService()
 		By("Get predefined Vendor events for: " + LocalNodeVendor)
 		testEvents, err = rfclient.GetVendorTestEvents(LocalNodeVendor, ranbmerparameters.Redfish)
@@ -59,9 +59,6 @@ var _ = Describe("BMER", func() {
 	})
 	// OCP-47125
 	It("recovers from hw-event-proxy app restart", func() {
-		if ranparameters.TransportType == ranparameters.TransportHTTP {
-			Skip("Skipping recovery tests for HTTP transport due to https://issues.redhat.com/browse/OCPBUGS-2832")
-		}
 		By("Validate consumer receive events")
 		err := TestEvents(ConsumersList, testEvents, eventService, LocalNodeVendor)
 		Expect(err).ShouldNot(HaveOccurred(), fmt.Sprintf("failed to verify expected events due to: %v", err))
@@ -88,10 +85,7 @@ var _ = Describe("BMER", func() {
 		Expect(err).ShouldNot(HaveOccurred(), fmt.Sprintf("failed to verify expected events due to: %v", err))
 	})
 	// OCP-47129
-	It("recovers from cloud-event-sidecar crash", func() {
-		if ranparameters.TransportType == ranparameters.TransportHTTP {
-			Skip("Skipping recovery tests for HTTP transport due to https://issues.redhat.com/browse/OCPBUGS-2832")
-		}
+	It("recovers from producer cloud-event-sidecar crash", func() {
 		By("Validate consumer receive events")
 		err := TestEvents(ConsumersList, testEvents, eventService, LocalNodeVendor)
 		Expect(err).ShouldNot(HaveOccurred(), fmt.Sprintf("failed to verify expected events due to: %v", err))
@@ -107,9 +101,6 @@ var _ = Describe("BMER", func() {
 	})
 	// OCP-47130
 	It("recovers from consumer app restart", func() {
-		if ranparameters.TransportType == ranparameters.TransportHTTP {
-			Skip("Skipping recovery tests for HTTP transport due to https://issues.redhat.com/browse/OCPBUGS-2832")
-		}
 		By("Validate consumer receive events")
 		err := TestEvents(ConsumersList, testEvents, eventService, LocalNodeVendor)
 		Expect(err).ShouldNot(HaveOccurred(), fmt.Sprintf("failed to verify expected events due to: %v", err))
@@ -131,9 +122,9 @@ var _ = Describe("BMER", func() {
 		Expect(newPod.Name).NotTo(Equal(oldPod.Name), fmt.Sprintf(
 			"failed to restart pod %v", oldPod.Name))
 
-		By("Wait 5 seconds for consumer to be ready")
-		time.Sleep(5 * time.Second)
-		ConsumersList, _ = ranhelper.GetConsumers(parameters.BmerOperatorNamespace)
+		By("Wait 30 seconds for consumer to be ready")
+		time.Sleep(30 * time.Second)
+		ConsumersList, _ = ranhelper.GetConsumers(parameters.BmerNamespace)
 
 		By("Validate again consumer receives events")
 		err = TestEvents(ConsumersList, testEvents, eventService, LocalNodeVendor)
@@ -141,9 +132,6 @@ var _ = Describe("BMER", func() {
 	})
 	// OCP-47128
 	It("recovers from node restart", func() {
-		if ranparameters.TransportType == ranparameters.TransportHTTP {
-			Skip("Skipping recovery tests for HTTP transport due to https://issues.redhat.com/browse/OCPBUGS-2832")
-		}
 		By("Validate consumer receive events")
 		err := TestEvents(ConsumersList, testEvents, eventService, LocalNodeVendor)
 		Expect(err).ShouldNot(HaveOccurred(), fmt.Sprintf("failed to verify expected events due to: %v", err))
@@ -153,22 +141,12 @@ var _ = Describe("BMER", func() {
 			"failed to get worker nodedue to: %v", err))
 
 		helper.SoftRebootNodeAndWaitForDisconnect(workerNode)
-
-		err = ranhelper.WaitForClusterRecover(workerNode, []string{parameters.AmqNamespace, parameters.BmerOperatorNamespace})
+		if ranparameters.TransportType == ranparameters.TransportHTTP {
+			err = ranhelper.WaitForClusterRecover(workerNode, []string{parameters.BmerNamespace})
+		} else {
+			err = ranhelper.WaitForClusterRecover(workerNode, []string{parameters.AmqNamespace, parameters.BmerNamespace})
+		}
 		Expect(err).NotTo(HaveOccurred())
-
-		// Apply workaround for OCPBUGS-3454 by restarting sidecars
-		// Remove this step to verify the fix for OCPBUGS-3454
-		By("Restart cloud-event-sidecar on app pod")
-		err = ranbmerhelper.RestartSidecar(ranbmerparameters.AppPodLabel, 5*time.Minute)
-		Expect(err).NotTo(HaveOccurred(), fmt.Sprintf(
-			"failed to restart sidecar on pod %v due to: %v", ranbmerparameters.AppPodLabel, err))
-
-		// Remove this step to verify the fix for OCPBUGS-3454
-		By("Restart cloud-event-sidecar on consumer pod")
-		err = ranbmerhelper.RestartSidecar(ranparameters.ConsumerPodLabel, 5*time.Minute)
-		Expect(err).NotTo(HaveOccurred(), fmt.Sprintf(
-			"failed to restart sidecar on pod %v due to: %v", ranparameters.ConsumerPodLabel, err))
 
 		By("Validate again consumer receives events")
 		err = TestEvents(ConsumersList, testEvents, eventService, LocalNodeVendor)
@@ -272,7 +250,7 @@ func ConsumerVerifyEvents(cancelCtx context.Context, consumerPod corev1.Pod, exp
 		line          string
 	)
 
-	req := helper.Apiclient.Pods(parameters.BmerOperatorNamespace).GetLogs(consumerPod.Name,
+	req := helper.Apiclient.Pods(parameters.BmerNamespace).GetLogs(consumerPod.Name,
 		&corev1.PodLogOptions{
 			Container: ranbmerparameters.ConsumerContainerName,
 			Follow:    true,

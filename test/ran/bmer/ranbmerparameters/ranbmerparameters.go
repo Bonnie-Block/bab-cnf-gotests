@@ -43,8 +43,8 @@ var (
 	}
 	// ReporterNamespacesToDump tells to reporter from where to collect logs.
 	ReporterNamespacesToDump = map[string]string{
-		parameters.BmerOperatorNamespace: "bmer",
-		ran.NamespaceTesting:             "other",
+		parameters.BmerNamespace: "bmer",
+		ran.NamespaceTesting:     "other",
 	}
 	// ReporterCrds tells to reporter what resources to collect.
 	ReporterCrds = []k8sreporter.CRData{

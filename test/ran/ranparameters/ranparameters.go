@@ -27,7 +27,7 @@ var (
 
 func CsvDict() func(string) string {
 	innerMap := map[string]string{
-		parameters.BmerOperatorNamespace: "bare-metal-event-relay.",
+		parameters.BmerNamespace: "bare-metal-event-relay.",
 	}
 
 	return func(key string) string {
@@ -37,8 +37,8 @@ func CsvDict() func(string) string {
 
 func TemplatePathDict() func(string) string {
 	innerMap := map[string]string{
-		parameters.BmerOperatorNamespace: "resources/bmer-consumer",
-		parameters.CloudEventNamespace:   "resources/ptp-consumer",
+		parameters.BmerNamespace:       "resources/bmer-consumer",
+		parameters.CloudEventNamespace: "resources/ptp-consumer",
 	}
 
 	return func(key string) string {

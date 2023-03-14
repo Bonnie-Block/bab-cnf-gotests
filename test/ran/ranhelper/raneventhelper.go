@@ -37,7 +37,7 @@ func GetConsumers(namespace string) (*corev1.PodList, error) {
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to get consumer pods from namespace: %v due to: %w",
-			parameters.BmerOperatorNamespace, err)
+			parameters.BmerNamespace, err)
 	}
 
 	if ranparameters.DebugTest {
@@ -225,7 +225,7 @@ func DeployConsumers(mirroredImages map[string]string, transportType string, nam
 		if deployment.Spec.Template.Spec.Containers[0].Image != helper.Config.Ran.BmerConsumerImage {
 			// Update dummy image to configured value
 			deployment.Spec.Template.Spec.Containers[0].Image = helper.Config.Ran.BmerConsumerImage
-			_, err = helper.Apiclient.Deployments(parameters.BmerOperatorNamespace).Update(
+			_, err = helper.Apiclient.Deployments(parameters.BmerNamespace).Update(
 				context.Background(),
 				deployment,
 				metav1.UpdateOptions{},
@@ -308,7 +308,7 @@ func deployConsumerPod(mirroredImages map[string]string, transportType string, n
 // DestroyConsumers uses parameters from bmerparameters to destroy the consumer setup.
 // it returns a map of errors encountered during deletion of the setup.
 func DestroyConsumers() (destroyErrors []error) {
-	deployment, err := helper.Apiclient.Deployments(parameters.BmerOperatorNamespace).Get(
+	deployment, err := helper.Apiclient.Deployments(parameters.BmerNamespace).Get(
 		context.Background(), ranparameters.ConsumerDeploymentName, metav1.GetOptions{})
 
 	if err == nil {
@@ -330,7 +330,7 @@ func DestroyConsumers() (destroyErrors []error) {
 	}
 
 	err = wait.PollImmediate(5*time.Second, 5*time.Minute, func() (bool, error) {
-		_, err := helper.Apiclient.Deployments(parameters.BmerOperatorNamespace).Get(
+		_, err := helper.Apiclient.Deployments(parameters.BmerNamespace).Get(
 			context.Background(),
 			ranparameters.ConsumerDeploymentName,
 			metav1.GetOptions{},
