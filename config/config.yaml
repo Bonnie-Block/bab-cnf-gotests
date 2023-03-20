@@ -12,10 +12,11 @@ ran:
   oslat_test_image: quay.io/ocp-edge-qe/oslat:latest
   process_exporter_image: quay.io/ocp-edge-qe/process-exporter:ppid-2
   process_exporter_resources: test/ran/resources/process-exporter/
+  consumer_image: quay.io/redhat-cne/cloud-event-consumer:latest
   bmc_user: root
   bmc_password: calvin
-  bmer_consumer_image: quay.io/redhat-cne/cloud-event-consumer:latest
   bmer_consumer_manifests: ../resources/bmer-preconsumer/
+  ptp_consumer_manifests: ../resources/ptp-preconsumer/
   talm_precache_policies:
     - common-config-policy
     - common-subscriptions-policy

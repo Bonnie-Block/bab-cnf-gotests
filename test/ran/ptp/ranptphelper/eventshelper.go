@@ -2,14 +2,21 @@ package ranptphelper
 
 import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ptp/ranptpparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/utils/strings/slices"
 
+	"context"
+	"encoding/json"
+	"fmt"
 	"log"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -30,7 +37,8 @@ func getEventsLogs(logs string, eventStrings []string) []string {
 }
 
 // WaitForEvent waits for specified event to appear in ptp cloud event proxy log.
-func WaitForEvent(ptpPod *corev1.Pod, eventType string, eventValue string, iface string, since time.Duration,
+func WaitForEvent(ptpPod *corev1.Pod, container string, eventType string, eventValue string,
+	iface string, since time.Duration,
 	timeout time.Duration) error {
 	if since < 1*time.Second {
 		since = 1 * time.Second
@@ -38,7 +46,7 @@ func WaitForEvent(ptpPod *corev1.Pod, eventType string, eventValue string, iface
 
 	startTime := time.Now()
 
-	logs, err := pod.GetLog(helper.Apiclient, ptpPod, since, ranptpparameters.CloudEventContainer)
+	logs, err := pod.GetLog(helper.Apiclient, ptpPod, since, container)
 	if err != nil {
 		return err
 	}
@@ -53,7 +61,7 @@ func WaitForEvent(ptpPod *corev1.Pod, eventType string, eventValue string, iface
 	return wait.PollImmediate(interval, timeout, func() (bool, error) {
 		time.Sleep(interval)
 		logs, err = pod.GetLog(helper.Apiclient, ptpPod, time.Since(startTime)+time.Second,
-			ranptpparameters.CloudEventContainer)
+			container)
 		if err != nil {
 			return false, nil
 		}
@@ -81,9 +89,21 @@ func getEvents(eventLogs string) []ranptpparameters.EventMsg {
 	eventStrings = getEventsLogs(eventLogs, eventStrings)
 
 	for _, line := range eventStrings {
-		logStruct := LogStrToLogStrct(line)
+		line = strings.ReplaceAll(line, "\\n", "")
 
-		eventMsg = append(eventMsg, EventMsgParser(logStruct.Msg))
+		eventJSON := getEventJSON(line)
+		if eventJSON != "" {
+			var event ranptpparameters.EventMsg
+
+			eventUnquote := strings.ReplaceAll(eventJSON, "\\", "")
+			err := json.Unmarshal([]byte(eventUnquote), &event)
+
+			if err != nil {
+				log.Printf("Error when parsing event log: %s", err)
+			} else {
+				eventMsg = append(eventMsg, event)
+			}
+		}
 	}
 
 	return eventMsg
@@ -142,4 +162,99 @@ func containsEvent(eventMsgs []ranptpparameters.EventMsg, eventType string, valu
 	}
 
 	return true
+}
+
+// Return the json body of the event.
+func getEventJSON(line string) string {
+	r := regexp.MustCompile(`[(received event|event sent)]\{(.*)\}`)
+
+	eventJSON := r.FindString(line)
+
+	if eventJSON == "" {
+		return ""
+	}
+
+	return eventJSON
+}
+
+// Get the ptp operator configured transport host.
+func GetPtpTransport() (string, error) {
+	// get the ptp operator configured transport host.
+	ptpOperatorConfigs, err := helper.Apiclient.PtpOperatorConfigs(parameters.PtpOperatorNamespace).
+		List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return "", fmt.Errorf("failed to ptp operator config due to: %w", err)
+	}
+
+	transportHost := ptpOperatorConfigs.Items[0].Spec.EventConfig.TransportHost
+	if strings.Contains(transportHost, "ptp-event-publisher-service") {
+		return ranparameters.TransportHTTP, nil
+	} else if strings.Contains(transportHost, "amqp") {
+		return ranparameters.TransportAMQP, nil
+	}
+
+	return "", fmt.Errorf("unexpected ptp operator transport host: %v", transportHost)
+}
+
+// Deploy an event consumer using the transport protocol from the ptp operator.
+func DeployPtpConsumer() (*corev1.PodList, error) {
+	log.Println("Check consumer image is defined")
+
+	if helper.Config.Ran.ConsumerImage == "" {
+		return nil, fmt.Errorf("CLOUD_EVENT_CONSUMER_IMAGE environment is missing")
+	}
+
+	log.Println("Configure the cluster objects for cloud event proxy")
+
+	err := ranhelper.ConfigEventProxyObjects(parameters.CloudEventNamespace)
+	if err != nil {
+		return nil, fmt.Errorf("failed to config app due to: %w", err)
+	}
+
+	mirroredImages, err := ranhelper.GetDeployImages(parameters.PtpOperatorNamespace)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get images to be used from ClusterServiceVersions due to: %w", err)
+	}
+
+	log.Println("Deploy cloud event consumers")
+
+	err = ranhelper.DeployConsumers(mirroredImages, ranparameters.TransportType, parameters.CloudEventNamespace)
+
+	// In case the consumer already exist on the cluster an error with the string skip will be returned.
+	if err != nil && err.Error() == "consumers already deployed in cluster. skipping creating them" {
+		log.Printf("Consumers creating skipped: %v", err)
+	} else if err != nil {
+		return nil, fmt.Errorf("failed to deploy consumers due to: %w", err)
+	}
+
+	log.Println("Check consumers exist")
+
+	var consumersList *corev1.PodList
+	consumersList, err = ranhelper.GetConsumers(parameters.CloudEventNamespace)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to check consumers exist due to: %w", err)
+	}
+
+	return consumersList, nil
+}
+
+// It waits for the consumer to be ready for events.
+func WaitForConsumerReady(consumerPod *corev1.Pod) error {
+	err := wait.PollImmediate(5*time.Second, 1*time.Minute, func() (bool, error) {
+		logs, err := pod.GetLog(helper.Apiclient, consumerPod, 1*time.Hour,
+			ranptpparameters.ConsumerContainer)
+
+		if err != nil {
+			return false, nil
+		}
+
+		if strings.Contains(logs, "waiting for events") {
+			return true, nil
+		}
+
+		return false, nil
+	})
+
+	return err
 }

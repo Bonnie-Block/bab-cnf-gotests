@@ -45,7 +45,7 @@ func init() {
 		BmerNamespace = bmerOperatorNamespace
 	}
 
-	CloudEventNamespace = os.Getenv("BMER_OPERATOR_NAMESPACE")
+	CloudEventNamespace = os.Getenv("CLOUD_EVENT_NAMESPACE")
 	if CloudEventNamespace == "" {
 		CloudEventNamespace = cloudEventNamespace
 	}

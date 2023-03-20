@@ -26,6 +26,7 @@ var (
 const (
 	PtpOperatorName     = "ptp-operator"
 	CloudEventContainer = "cloud-event-proxy"
+	ConsumerContainer   = "cloud-event-consumer"
 	EventFreeRun        = "FREERUN"
 	EventLocked         = "LOCKED"
 	EventHoldOver       = "HOLDOVER"

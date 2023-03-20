@@ -8,11 +8,12 @@ import (
 )
 
 const (
-	ConsumerContainerName  = "cloud-event-consumer"
-	ConsumerPodLabel       = "app=consumer"
-	ConsumerDeploymentName = "consumer"
-	TransportHTTP          = "http"
-	TransportAMQP          = "amqp"
+	ConsumerContainerName      = "cloud-event-consumer"
+	ConsumerPodLabel           = "app=consumer"
+	TransportHTTP              = "http"
+	TransportAMQP              = "amqp"
+	BmerConsumerDeploymentName = "consumer"
+	PtpConsumerDeploymentName  = "cloud-consumer-deployment"
 )
 
 var (
@@ -30,7 +31,8 @@ var (
 
 func CsvDict() func(string) string {
 	innerMap := map[string]string{
-		parameters.BmerNamespace: "bare-metal-event-relay.",
+		parameters.BmerNamespace:        "bare-metal-event-relay.",
+		parameters.PtpOperatorNamespace: "ptp-operator.",
 	}
 
 	return func(key string) string {
@@ -42,6 +44,28 @@ func TemplatePathDict() func(string) string {
 	innerMap := map[string]string{
 		parameters.BmerNamespace:       "resources/bmer-consumer",
 		parameters.CloudEventNamespace: "resources/ptp-consumer",
+	}
+
+	return func(key string) string {
+		return innerMap[key]
+	}
+}
+
+func ConsumerDeploymentDict() func(string) string {
+	innerMap := map[string]string{
+		parameters.BmerNamespace:       BmerConsumerDeploymentName,
+		parameters.CloudEventNamespace: PtpConsumerDeploymentName,
+	}
+
+	return func(key string) string {
+		return innerMap[key]
+	}
+}
+
+func ConfigDirDict() func(string) string {
+	innerMap := map[string]string{
+		parameters.BmerNamespace:       helper.Config.Ran.BmerConfigsDir,
+		parameters.CloudEventNamespace: helper.Config.Ran.PtpConfigsDir,
 	}
 
 	return func(key string) string {

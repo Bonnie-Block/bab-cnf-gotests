@@ -116,11 +116,11 @@ var _ = BeforeSuite(func() {
 		"failed to get images to be used from ClusterServiceVersions due to: %v", err))
 
 	By("Check consumer image is defined")
-	Expect(helper.Config.Ran.BmerConsumerImage).ToNot(BeEmpty(),
-		"BMER_CONSUMER_IMAGE environment is missing")
+	Expect(helper.Config.Ran.ConsumerImage).ToNot(BeEmpty(),
+		"CLOUD_EVENT_CONSUMER_IMAGE environment is missing")
 
 	By("Configure the cluster objects for hardware event proxy")
-	err = ranbmerhelper.ConfigHwEventProxyObjects()
+	err = ranhelper.ConfigEventProxyObjects(parameters.BmerNamespace)
 	Expect(err).ShouldNot(HaveOccurred(), fmt.Sprintf("failed to config app due to: %v", err))
 
 	By("Check routing to app service exist")
@@ -179,7 +179,7 @@ var _ = AfterSuite(func() {
 		teardownErrors = append(teardownErrors, rfclient.Unsubscribe(subscriptionURI, eventService))
 	}
 	By("Remove consumer pods")
-	destroyErrors := ranhelper.DestroyConsumers()
+	destroyErrors := ranhelper.DestroyConsumers(parameters.BmerNamespace)
 	teardownErrors = append(teardownErrors, destroyErrors...)
 	By("Remove Hw event secret")
 	teardownErrors = append(teardownErrors, ranbmerhelper.DeleteHwEventSecret(

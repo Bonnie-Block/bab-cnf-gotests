@@ -1,18 +1,24 @@
 package tests
 
 import (
+	"context"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	ptpv1 "github.com/openshift/ptp-operator/api/v1"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ptp/ranptphelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ptp/ranptpparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
+
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var _ = Describe("PTP Events and Metrics - interface down", func() {
@@ -54,7 +60,6 @@ var _ = Describe("PTP Events and Metrics - interface down", func() {
 
 	// 49743
 	It("should generate events when slave interface goes down and up", func() {
-
 		nodeToPtpDaemonPod, err := ranptphelper.NodesToPtpDaemonPods()
 		Expect(err).NotTo(HaveOccurred())
 
@@ -68,55 +73,7 @@ var _ = Describe("PTP Events and Metrics - interface down", func() {
 
 			for _, ifaces := range ifaceGroups {
 				time.Sleep(3 * time.Second)
-				startTime := time.Now()
-
-				By(fmt.Sprintf("Bring down ptp slave interfaces %v on node %s\n", ifaces, ptpNode.Name))
-				for _, i := range ifaces {
-					err = ranptphelper.SetInterfaceStatus(&ptpDaemonPod, parameters.PtpContainerName, i,
-						ranptpparameters.Off)
-					Expect(err).NotTo(HaveOccurred())
-				}
-
-				iface := ifaces[0]
-				By(fmt.Sprintf("Wait for ptp [HOLDOVER] state change event after salve interfaces %v goes down", ifaces))
-				err = ranptphelper.WaitForEvent(&ptpDaemonPod, "event.sync.ptp-status.ptp-state-change",
-					ranptpparameters.EventHoldOver, iface, time.Since(startTime), 1*time.Minute)
-				Expect(err).NotTo(HaveOccurred())
-
-				By(fmt.Sprintf("Wait for event [FREERUN] after salve interfaces "+
-					"%s goes down on node %s", ifaces, ptpNode.Name))
-				timeout, err := ranptphelper.GetHoldOverTimeout()
-				Expect(err).NotTo(HaveOccurred())
-				timeout += time.Since(startTime) + 120*time.Second
-				log.Printf("wait for thershold holdover to pass %s\n", timeout)
-				err = ranptphelper.WaitForEvent(&ptpDaemonPod, "event.sync.ptp-status.ptp-state-change",
-					ranptpparameters.EventFreeRun, iface, time.Since(startTime), timeout)
-				Expect(err).NotTo(HaveOccurred())
-
-				// metrics check
-				By("Validate slave interface is in [FREERUN] in ptp metrics")
-				err = ranptphelper.WaitForPtpClockStateMetric(ptpDaemonPod, ranptpparameters.FreeRunState,
-					iface, 2*time.Minute, 10*time.Second)
-				Expect(err).NotTo(HaveOccurred())
-
-				startTime = time.Now()
-				By(fmt.Sprintf("Bring up ptp slave interfaces %v on node %s\n", ifaces, ptpNode.Name))
-				for _, i := range ifaces {
-					err = ranptphelper.SetInterfaceStatus(&ptpDaemonPod, parameters.PtpContainerName, i,
-						ranptpparameters.On)
-					Expect(err).NotTo(HaveOccurred())
-				}
-
-				By(fmt.Sprintf("Wait for ptp event [LOCKED] state for all PTP clocks after salve "+
-					"interfaces %v goes up on node %s", ifaces, ptpNode.Name))
-				err = ranptphelper.WaitForEvent(&ptpDaemonPod, "event.sync.ptp-status.ptp-state-change",
-					ranptpparameters.EventLocked, iface, time.Since(startTime), 5*time.Minute)
-				Expect(err).NotTo(HaveOccurred())
-
-				// metrics check
-				By("Validate all interfaces are in LOCKED state in ptp metrics")
-				err = ranptphelper.WaitForPtpClockStateMetric(ptpDaemonPod, ranptpparameters.LockedState,
-					"", 1*time.Minute, 10*time.Second)
+				err = verifyPtpEventsAndMetricsSlaveInterfaceDownUp(ptpNode, &ptpDaemonPod, ifaces)
 				Expect(err).NotTo(HaveOccurred())
 			}
 			// Tests only 1 node
@@ -166,7 +123,8 @@ var _ = Describe("PTP Events and Metrics - interface down", func() {
 
 				By(fmt.Sprintf("Validate NO [HOLDOVER] state transition event is generated after master "+
 					"interface  %s goes down on node %s", iface, ptpNode.Name))
-				err = ranptphelper.WaitForEvent(&ptpDaemonPod, "event.sync.ptp-status.ptp-state-change",
+				err = ranptphelper.WaitForEvent(&ptpDaemonPod, ranptpparameters.CloudEventContainer,
+					"event.sync.ptp-status.ptp-state-change",
 					ranptpparameters.EventHoldOver, iface, time.Since(startTime), 1*time.Minute)
 				Expect(err).To(HaveOccurred(), "event received for clock state change to "+
 					"[HOLDOVER] after bringing down BC master interface")
@@ -189,6 +147,14 @@ var _ = Describe("PTP Events and Metrics - interface down", func() {
 			break
 		}
 		Expect(tested).To(BeTrue(), "No interfaces found for testing while BC is configured")
+	})
+
+	// 59992
+	It("Validate PTP consumer events", func() {
+		consumerNode, consumerPod := getConsumerNodeAndPod(parameters.CloudEventNamespace)
+		// Verify communication between publisher to consumer
+		err := verifyConsumerEvents(consumerNode, consumerPod)
+		Expect(err).NotTo(HaveOccurred())
 	})
 })
 
@@ -219,4 +185,153 @@ func restorePtpInterfaces() {
 			Expect(err).NotTo(HaveOccurred())
 		}
 	}
+}
+
+// get the ptp daemon pod that runs on the same node as the consumer.
+func getPtpDaemonPods(nodeName string) (*corev1.PodList, error) {
+	listOptions := metav1.ListOptions{
+		LabelSelector: parameters.PtpDaemonsetLabelSelector,
+		FieldSelector: fmt.Sprintf("spec.nodeName=%s", nodeName),
+	}
+
+	ptpDaemonPods, err := helper.Apiclient.Pods(parameters.PtpOperatorNamespace).List(context.Background(),
+		listOptions)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get ptp daemon pods on node: %s", nodeName)
+	}
+
+	return ptpDaemonPods, nil
+}
+
+func getSlaveInterface(ptpNode *corev1.Node) ([]string, error) {
+	var slaveInterfaces []string
+
+	interfaces, err := ranptphelper.GetInterfaces(ptpv1.Slave, *ptpNode)
+	Expect(err).NotTo(HaveOccurred())
+
+	ifaceGroups := ranptphelper.GetInterfaceGroups(interfaces)
+	if len(ifaceGroups) < 1 {
+		return slaveInterfaces, fmt.Errorf("interface group is empty on node :%s", ptpNode.Name)
+	}
+
+	for _, ifaces := range ifaceGroups {
+		slaveInterfaces = ifaces
+
+		break
+	}
+
+	return slaveInterfaces, nil
+}
+
+func validatePublisherService(nodeName string) {
+	serviceName := fmt.Sprintf("ptp-event-publisher-service-%s", nodeName)
+
+	_, err := helper.Apiclient.Services(parameters.PtpOperatorNamespace).Get(context.Background(),
+		serviceName, metav1.GetOptions{})
+	Expect(err).ShouldNot(HaveOccurred(), fmt.Sprintf("Service %s is not running in namespace %s: %v",
+		serviceName, parameters.PtpOperatorNamespace, err))
+}
+
+// Verify events are being received the cloud-event-consumer.
+func verifyConsumerEvents(consumerNode *corev1.Node, consumerPod *corev1.Pod) error {
+	// Validate the ptp-event-publisher-service is running in the required namespace.
+	nodeName := strings.Split(consumerNode.Name, ".")[0]
+	validatePublisherService(nodeName)
+
+	// Get the ptp daemon pod that runs on the same node as the consumer.
+	ptpDaemonPods, err := getPtpDaemonPods(consumerNode.Name)
+	Expect(err).NotTo(HaveOccurred())
+
+	// Ensure the consumer is ready for events.
+	err = ranptphelper.WaitForConsumerReady(consumerPod)
+	Expect(err).NotTo(HaveOccurred())
+
+	// only need one interface for the test.
+	slaveInterface, err := getSlaveInterface(consumerNode)
+	Expect(err).NotTo(HaveOccurred())
+
+	return verifyEventsAndMetricsSlaveInterfaceDownUp(consumerNode, &ptpDaemonPods.Items[0], consumerPod,
+		ranptpparameters.ConsumerContainer, slaveInterface, true)
+}
+
+// Verify events are being proxyed by the ptp cloud-event-proxy.
+func verifyPtpEventsAndMetricsSlaveInterfaceDownUp(consumerNode *corev1.Node, ptpPod *corev1.Pod,
+	ifaces []string) error {
+	log.Printf("Verify PTP events, pod: %s, container:%s\n", ptpPod.Name,
+		ranptpparameters.CloudEventContainer)
+
+	return verifyEventsAndMetricsSlaveInterfaceDownUp(consumerNode, ptpPod, ptpPod,
+		ranptpparameters.CloudEventContainer, ifaces, false)
+}
+
+// Create events by disabling and enabling a slave interface and verify events are being received
+// by the specific pod/container.
+func verifyEventsAndMetricsSlaveInterfaceDownUp(node *corev1.Node, ptpPod *corev1.Pod, pod *corev1.Pod,
+	container string, ifaces []string, skipMetricCheck bool) error {
+	startTime := time.Now()
+
+	By(fmt.Sprintf("Bring down ptp slave interfaces %v on node %s\n", ifaces, node.Name))
+
+	for _, i := range ifaces {
+		err := ranptphelper.SetInterfaceStatus(ptpPod, parameters.PtpContainerName, i,
+			ranptpparameters.Off)
+		Expect(err).NotTo(HaveOccurred())
+	}
+
+	slaveInterface := ifaces[0]
+
+	By(fmt.Sprintf("Wait for ptp [HOLDOVER] state change event after salve interfaces %v goes down", slaveInterface))
+	err := ranptphelper.WaitForEvent(pod, container,
+		"event.sync.ptp-status.ptp-state-change",
+		ranptpparameters.EventHoldOver, slaveInterface, time.Since(startTime), 3*time.Minute)
+	Expect(err).NotTo(HaveOccurred())
+
+	By(fmt.Sprintf("Wait for event [FREERUN] after slave interfaces "+
+		"%s goes down on node %s", slaveInterface, node.Name))
+
+	timeout, err := ranptphelper.GetHoldOverTimeout()
+	Expect(err).NotTo(HaveOccurred())
+
+	timeout += time.Since(startTime) + 120*time.Second
+	log.Printf("wait for thershold holdover to pass %s\n", timeout)
+	err = ranptphelper.WaitForEvent(pod, container,
+		"event.sync.ptp-status.ptp-state-change",
+		ranptpparameters.EventFreeRun, slaveInterface, time.Since(startTime), timeout)
+	Expect(err).NotTo(HaveOccurred())
+
+	if !skipMetricCheck {
+		// metrics check
+		By("Validate slave interface is in [FREERUN] in ptp metrics")
+
+		err = ranptphelper.WaitForPtpClockStateMetric(*ptpPod, ranptpparameters.FreeRunState,
+			slaveInterface, 2*time.Minute, 10*time.Second)
+		Expect(err).NotTo(HaveOccurred())
+	}
+
+	By(fmt.Sprintf("Bring up ptp slave interfaces %v on node %s\n", ifaces, node.Name))
+
+	for _, i := range ifaces {
+		err = ranptphelper.SetInterfaceStatus(ptpPod, parameters.PtpContainerName, i,
+			ranptpparameters.On)
+		Expect(err).NotTo(HaveOccurred())
+	}
+
+	By(fmt.Sprintf("Wait for ptp event [LOCKED] state for all PTP clocks after slave "+
+		"interfaces %v goes up on node %s", slaveInterface, node.Name))
+
+	err = ranptphelper.WaitForEvent(pod, container,
+		"event.sync.ptp-status.ptp-state-change",
+		ranptpparameters.EventLocked, slaveInterface, time.Since(startTime), 5*time.Minute)
+	Expect(err).NotTo(HaveOccurred())
+
+	if !skipMetricCheck {
+		// metrics check
+		By("Validate all interfaces are in LOCKED state in ptp metrics")
+
+		err = ranptphelper.WaitForPtpClockStateMetric(*ptpPod, ranptpparameters.LockedState,
+			"", 1*time.Minute, 10*time.Second)
+		Expect(err).NotTo(HaveOccurred())
+	}
+
+	return nil
 }

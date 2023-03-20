@@ -6,27 +6,6 @@ import (
 	"strings"
 )
 
-// LogStrToLogStrct a single log as a string from the pod's logger and parsers it into a "Log" structure
-// and returns that structure.
-func LogStrToLogStrct(log string) ranptpparameters.Log {
-	var logDetails ranptpparameters.Log
-
-	timeStartIndx := strings.Index(log, "\"") + 1
-	timeEndIndx := strings.Index(log, " ") - 1
-	logDetails.Time = log[timeStartIndx:timeEndIndx]
-
-	log = log[timeEndIndx+2:]
-	levelStartIndx := strings.Index(log, "=") + 1
-	levelEndIndx := strings.Index(log, " ")
-	logDetails.Level = log[levelStartIndx:levelEndIndx]
-
-	log = log[levelEndIndx+2:]
-	msgStartIndx := strings.Index(log, "=") + 2
-	logDetails.Msg = log[msgStartIndx : len(log)-1]
-
-	return logDetails
-}
-
 // EventMsgParser gets a single PTP event as a string from the log message and parsers it into a "EventMsg" structure
 // and returns that structure.
 func EventMsgParser(strFormat string) ranptpparameters.EventMsg {

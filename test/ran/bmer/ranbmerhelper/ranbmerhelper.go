@@ -8,7 +8,6 @@ import (
 
 	"log"
 	"net/http"
-	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -20,7 +19,6 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/bmer/ranbmerhelper/rfclient"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/bmer/ranbmerparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
@@ -181,36 +179,6 @@ func GetAppRoute() (string, error) {
 
 	return "", fmt.Errorf("failed to find route for app: %v in namespace: %v",
 		ranbmerparameters.AppRouteName, parameters.BmerNamespace)
-}
-
-// ConfigHwEventProxyObjects create various hw event proxy cluster objects to allow application to start working.
-func ConfigHwEventProxyObjects() error {
-	_, err := os.Stat(helper.Config.Ran.BmerConfigsDir)
-
-	if os.IsNotExist(err) {
-		pwd, _ := os.Getwd()
-
-		return fmt.Errorf("failed to find directory: %v in current path: %v",
-			helper.Config.Ran.BmerConfigsDir, pwd)
-	}
-
-	_, err = helper.Apiclient.Deployments(parameters.BmerNamespace).Get(
-		context.Background(),
-		ranparameters.ConsumerDeploymentName,
-		metav1.GetOptions{},
-	)
-
-	if err != nil {
-		err = ranhelper.ApplyObjects(helper.Config.Ran.BmerConfigsDir)
-	} else {
-		err = ranhelper.UpdateObjects(helper.Config.Ran.BmerConfigsDir)
-	}
-
-	if err != nil {
-		return fmt.Errorf("failed to deploy application config due to: %w", err)
-	}
-
-	return nil
 }
 
 // GetWorkerNode get the node that supplies the redfish for this test.

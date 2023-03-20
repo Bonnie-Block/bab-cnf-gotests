@@ -55,8 +55,10 @@ type Config struct {
 		PduAddr                   string   `envconfig:"PDU_ADDR"`
 		PduSocket                 string   `envconfig:"PDU_SOCKET"`
 		RanEventTestDebug         string   `envconfig:"RAN_EVENT_TEST_DEBUG"`
-		BmerConsumerImage         string   `yaml:"bmer_consumer_image" envconfig:"BMER_CONSUMER_IMAGE"`
+		ConsumerImage             string   `yaml:"consumer_image" envconfig:"CLOUD_EVENT_CONSUMER_IMAGE"`
+		BmerTestDebug             string   `envconfig:"BMER_TEST_DEBUG"`
 		BmerConfigsDir            string   `yaml:"bmer_consumer_manifests"`
+		PtpConfigsDir             string   `yaml:"ptp_consumer_manifests"`
 		KubeconfigHub             string   `envconfig:"KUBECONFIG_HUB"`
 		OcpUpgradeUpstreamURL     string   `yaml:"ocp_upgrade_upstream_url" envconfig:"OCP_UPGRADE_UPSTREAM_URL"`
 		TalmPrecachePolicies      []string `envconfig:"TALM_PRECACHE_POLICIES" yaml:"talm_precache_policies"`

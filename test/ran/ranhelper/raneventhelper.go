@@ -19,7 +19,6 @@ import (
 	"github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"github.com/pkg/errors"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
 	corev1 "k8s.io/api/core/v1"
@@ -37,11 +36,21 @@ func GetConsumers(namespace string) (*corev1.PodList, error) {
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to get consumer pods from namespace: %v due to: %w",
-			parameters.BmerNamespace, err)
+			namespace, err)
 	}
 
-	if ranparameters.DebugTest {
-		for _, pod := range consumerPods.Items {
+	if len(consumerPods.Items) == 0 {
+		return nil, fmt.Errorf("no pods found with the label selector: %s",
+			ranparameters.ConsumerPodLabel)
+	}
+
+	for _, pod := range consumerPods.Items {
+		if pod.Status.Phase != corev1.PodRunning {
+			return nil, fmt.Errorf("consumer pod %s is not running: %s",
+				pod.Name, pod.Status.Phase)
+		}
+
+		if ranparameters.DebugTest {
 			log.Print("found consumer pod: " + pod.Name)
 		}
 	}
@@ -94,7 +103,7 @@ func GetDeployImages(namespace string) (map[string]string, error) {
 		}
 	}
 
-	images[ranparameters.ConsumerImageName] = helper.Config.Ran.BmerConsumerImage
+	images[ranparameters.ConsumerImageName] = helper.Config.Ran.ConsumerImage
 
 	return images, nil
 }
@@ -133,7 +142,7 @@ func GetConsumerManifest(images map[string]string, transportType string, namespa
 	if err != nil {
 		return "", err
 	}
-	// need to get the node name here
+
 	return template.Execute(gonja.Context{
 		"kube_rbac_proxy_image":         images["kube_rbac_proxy_image"],
 		"cloud_event_proxy_image":       images["cloud_event_proxy_image"],
@@ -211,21 +220,21 @@ func DeployConsumers(mirroredImages map[string]string, transportType string, nam
 	err = wait.PollImmediate(5*time.Second, 5*time.Minute, func() (bool, error) {
 		deployment, err := helper.Apiclient.Deployments(namespace).Get(
 			context.Background(),
-			ranparameters.ConsumerDeploymentName,
+			ranparameters.ConsumerDeploymentDict()(namespace),
 			metav1.GetOptions{},
 		)
 		if err != nil {
 			log.Printf("failed to update container 0 image from %v,"+
-				" will retry\n", helper.Config.Ran.BmerConsumerImage)
+				" will retry\n", helper.Config.Ran.ConsumerImage)
 
 			return false, nil
 		}
 
 		// update consumer image source to point to disconnected repository.
-		if deployment.Spec.Template.Spec.Containers[0].Image != helper.Config.Ran.BmerConsumerImage {
+		if deployment.Spec.Template.Spec.Containers[0].Image != helper.Config.Ran.ConsumerImage {
 			// Update dummy image to configured value
-			deployment.Spec.Template.Spec.Containers[0].Image = helper.Config.Ran.BmerConsumerImage
-			_, err = helper.Apiclient.Deployments(parameters.BmerNamespace).Update(
+			deployment.Spec.Template.Spec.Containers[0].Image = helper.Config.Ran.ConsumerImage
+			_, err = helper.Apiclient.Deployments(namespace).Update(
 				context.Background(),
 				deployment,
 				metav1.UpdateOptions{},
@@ -236,7 +245,7 @@ func DeployConsumers(mirroredImages map[string]string, transportType string, nam
 			log.Printf("image updated,"+
 				" from %v -> %v retrieve updated deployment in next round\n",
 				deployment.Spec.Template.Spec.Containers[0].Image,
-				helper.Config.Ran.BmerConsumerImage)
+				helper.Config.Ran.ConsumerImage)
 		}
 
 		if deployment.Status.ReadyReplicas > 0 &&
@@ -307,9 +316,9 @@ func deployConsumerPod(mirroredImages map[string]string, transportType string, n
 
 // DestroyConsumers uses parameters from bmerparameters to destroy the consumer setup.
 // it returns a map of errors encountered during deletion of the setup.
-func DestroyConsumers() (destroyErrors []error) {
-	deployment, err := helper.Apiclient.Deployments(parameters.BmerNamespace).Get(
-		context.Background(), ranparameters.ConsumerDeploymentName, metav1.GetOptions{})
+func DestroyConsumers(namespace string) (destroyErrors []error) {
+	deployment, err := helper.Apiclient.Deployments(namespace).Get(
+		context.Background(), ranparameters.ConsumerDeploymentDict()(namespace), metav1.GetOptions{})
 
 	if err == nil {
 		err = helper.Apiclient.Client.Delete(context.TODO(), deployment)
@@ -321,18 +330,18 @@ func DestroyConsumers() (destroyErrors []error) {
 		destroyErrors = append(destroyErrors, fmt.Errorf("failed to query consumer deployment due to: %w", err))
 	}
 
-	err = DeleteObjects(helper.Config.Ran.BmerConfigsDir)
+	err = DeleteObjects(ranparameters.ConfigDirDict()(namespace))
 
 	if err != nil {
 		destroyErrors = append(destroyErrors,
 			fmt.Errorf("failed to destroy using manifest files read from: %v due to %w",
-				helper.Config.Ran.BmerConfigsDir, err))
+				ranparameters.ConfigDirDict()(namespace), err))
 	}
 
 	err = wait.PollImmediate(5*time.Second, 5*time.Minute, func() (bool, error) {
-		_, err := helper.Apiclient.Deployments(parameters.BmerNamespace).Get(
+		_, err := helper.Apiclient.Deployments(namespace).Get(
 			context.Background(),
-			ranparameters.ConsumerDeploymentName,
+			ranparameters.ConsumerDeploymentDict()(namespace),
 			metav1.GetOptions{},
 		)
 		if err != nil {
@@ -344,7 +353,7 @@ func DestroyConsumers() (destroyErrors []error) {
 
 	if err != nil {
 		destroyErrors = append(destroyErrors, fmt.Errorf("failed to destroy consumer deployemnt: %v due to: %w",
-			ranparameters.ConsumerDeploymentName, err))
+			ranparameters.ConsumerDeploymentDict()(namespace), err))
 	}
 
 	return destroyErrors
@@ -363,6 +372,37 @@ func WaitForDeploymentReady(client *client.ClientSet, namespace, deployment stri
 	})
 
 	return err
+}
+
+// It create various cloud event proxy cluster objects to allow application to start working.
+func ConfigEventProxyObjects(namespace string) error {
+	configDir := ranparameters.ConfigDirDict()(namespace)
+	_, err := os.Stat(configDir)
+
+	if os.IsNotExist(err) {
+		pwd, _ := os.Getwd()
+
+		return fmt.Errorf("failed to find directory: %v in current path: %v",
+			configDir, pwd)
+	}
+
+	_, err = helper.Apiclient.Deployments(namespace).Get(
+		context.Background(),
+		ranparameters.ConsumerDeploymentDict()(namespace),
+		metav1.GetOptions{},
+	)
+
+	if err != nil {
+		err = ApplyObjects(configDir)
+	} else {
+		err = UpdateObjects(configDir)
+	}
+
+	if err != nil {
+		return fmt.Errorf("failed to deploy application config due to: %w", err)
+	}
+
+	return nil
 }
 
 // GetTransportType ...
