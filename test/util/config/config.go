@@ -29,6 +29,7 @@ type Config struct {
 		ReportDirAbsPath              string `yaml:"report" envconfig:"REPORT_DIR_NAME"`
 		CnfNodeLabel                  string `yaml:"cnf_worker_label" envconfig:"ROLE_WORKER_CNF"`
 		DumpFailedTestsReportLocation string `envconfig:"REPORTER_ERROR_OUTPUT"`
+		PolarionReport                bool   `yaml:"polarion_report" envconfig:"POLARION_REPORT"`
 	} `yaml:"general"`
 	Network struct {
 		TestContainerImage      string `yaml:"test_container_image" envconfig:"NETWORK_TEST_CONTAINER_IMAGE"`
@@ -130,6 +131,17 @@ func (c *Config) GetReportPath(file string) string {
 	reportFileName := strings.TrimSuffix(filepath.Base(file), filepath.Ext(filepath.Base(file)))
 
 	return fmt.Sprintf("%s.xml", filepath.Join(c.General.ReportDirAbsPath, reportFileName))
+}
+
+// GetPolarionReportPath returns full path to the polarion report file.
+func (c *Config) GetPolarionReportPath() string {
+	reportFileName := strings.TrimSuffix(filepath.Base("report"), filepath.Ext(filepath.Base("report")))
+
+	if !c.General.PolarionReport {
+		return ""
+	}
+
+	return fmt.Sprintf("%s_polarion.xml", filepath.Join(c.General.ReportDirAbsPath, reportFileName))
 }
 
 // GetCnfInterfaces returns list of requested interfaces.

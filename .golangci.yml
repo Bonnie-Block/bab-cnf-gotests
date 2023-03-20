@@ -97,6 +97,10 @@ issues:
 #    - path: cnf-gotests/test/testcmd_suite_test.go
 #      linters:
 #        - goanalysis_metalinter
+    - path: test/util/polarion/polarion.go
+      linters:
+        - exhaustive
+
     - path: test/parameters/init.go
       linters:
         - gochecknoinits
