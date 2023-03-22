@@ -4,12 +4,18 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"time"
+
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranpower/ranpowerparameters"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	performancev2 "github.com/openshift/cluster-node-tuning-operator/pkg/apis/performanceprofile/v2"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/cpu/rancpuhelper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranpower/ranpowerhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -87,4 +93,60 @@ var _ = Describe("Per-Core Runtime Tuning of power states - CRI-O", Ordered, fun
 		"check power consumption with no workload pods.", func() {
 	})
 
+	Context("Collect power usage metrics", func() {
+
+		When("ipmitool exists", func() {
+
+			var (
+				samplingInterval time.Duration
+				powerState       string
+			)
+
+			BeforeAll(func() {
+				if !ranhelper.IsIpmitoolExist() {
+					Skip("ipmitool is not installed on test executor. Skip retrieving power metrics.")
+				}
+			})
+
+			BeforeEach(func() {
+				metricSamplingInterval := rancpuhelper.GetEnv(ran.EnvMetricSamplingInterval,
+					ranpowerparameters.DefaultRanMetricSamplingInterval)
+				samplingInterval, err = time.ParseDuration(metricSamplingInterval)
+				Expect(err).ToNot(HaveOccurred())
+
+				// Determine power state to be used as a tag for the metric
+				powerState, err = ranpowerhelper.GetPowerState(perfProfile)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("Check power usage for 'noworkload' scenario", func() {
+				noWorkloadDuration := rancpuhelper.GetEnv(ran.EnvNoWorkloadDuration,
+					ranpowerparameters.DefaultRanNoWorkloadDuration)
+				duration, err := time.ParseDuration(noWorkloadDuration)
+				Expect(err).ToNot(HaveOccurred())
+				compMap, err := ranpowerhelper.CollectPowerMetricsWithNoWorkload(duration, samplingInterval, powerState)
+				Expect(err).ToNot(HaveOccurred())
+				// Persist power usage metric to ginkgo report for further processing in pipeline.
+				for metricName, metricValue := range compMap {
+					_, err := fmt.Fprintf(GinkgoWriter, "%s: %s\n", metricName, metricValue)
+					Expect(err).ToNot(HaveOccurred())
+				}
+			})
+
+			It("Check power usage for 'steadyworkload' scenario", func() {
+				workloadDuration := rancpuhelper.GetEnv(ran.EnvWorkloadDuration,
+					ranpowerparameters.DefaultRanSteadyWorkloadDuration)
+				duration, err := time.ParseDuration(workloadDuration)
+				Expect(err).ToNot(HaveOccurred())
+				compMap, err := ranpowerhelper.CollectPowerMetricsWithSteadyWorkload(duration, samplingInterval,
+					powerState, perfProfile, &snoNode)
+				Expect(err).ToNot(HaveOccurred())
+				// Persist power usage metric to ginkgo report for further processing in pipeline.
+				for metricName, metricValue := range compMap {
+					_, err := fmt.Fprintf(GinkgoWriter, "%s: %s\n", metricName, metricValue)
+					Expect(err).ToNot(HaveOccurred())
+				}
+			})
+		})
+	})
 })

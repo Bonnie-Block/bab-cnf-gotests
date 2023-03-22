@@ -37,6 +37,18 @@ func TestPowerSave(t *testing.T) {
 var _ = BeforeSuite(func() {
 	ranhelper.CleanupRanTestResources()
 	PrivilegedPods = helper.CreatePrivilegedPods("")
+
+	// Cleanup and create test namespace
+	if namespaces.Exists(ran.NamespaceTesting, helper.Apiclient) {
+		log.Println("Deleting test namespace", ran.NamespaceTesting)
+		_ = namespaces.DeleteAndWait(helper.Apiclient, ran.NamespaceTesting, 5*time.Minute)
+	}
+	log.Println("Creating test namespace", ran.NamespaceTesting)
+	err := namespaces.Create(ran.NamespaceTesting, helper.Apiclient)
+	Expect(err).ToNot(HaveOccurred())
+
+	// Deploy process-exporter pod on each node
+	ranhelper.DeployProcessExporter()
 })
 
 var _ = AfterSuite(func() {

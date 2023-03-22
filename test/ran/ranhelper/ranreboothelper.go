@@ -18,7 +18,7 @@ import (
 // PowerOffAndOnSno powers off SNO node via BMC and wait for cluster to be unreachable
 // Returns host power on timestamp.
 func PowerOffAndOnSno() time.Time {
-	user, password, hosts := parseBmcInfo(helper.Config)
+	user, password, hosts := ParseBmcInfo(helper.Config)
 	// Always attempt to power on host
 	defer func() {
 		errs := powerControlHosts(true, hosts, user, password)
@@ -37,7 +37,7 @@ func PowerOffAndOnSno() time.Time {
 
 // PowerOnSnoWithImpi turn on SNO.
 func PowerOnSnoWithImpi() []error {
-	user, password, hosts := parseBmcInfo(helper.Config)
+	user, password, hosts := ParseBmcInfo(helper.Config)
 	if len(hosts) > 1 {
 		log.Printf("multiple hosts detected, only using %s\n", hosts[0])
 	}
@@ -54,7 +54,7 @@ func PowerOnSnoWithImpi() []error {
 
 // PowerOffSnoWithIpmi turn off SNO.
 func PowerOffSnoWithIpmi() []error {
-	user, password, hosts := parseBmcInfo(helper.Config)
+	user, password, hosts := ParseBmcInfo(helper.Config)
 	if len(hosts) > 1 {
 		log.Printf("multiple hosts detected, only using %s\n", hosts[0])
 	}
@@ -69,8 +69,8 @@ func PowerOffSnoWithIpmi() []error {
 	return err
 }
 
-// parseBmcInfo returns bmc username, password, and hosts from environment variables if exist.
-func parseBmcInfo(conf *config.Config) (bmcUser, bmcPassword string, bmcHosts []string) {
+// ParseBmcInfo returns bmc username, password, and hosts from environment variables if exist.
+func ParseBmcInfo(conf *config.Config) (bmcUser, bmcPassword string, bmcHosts []string) {
 	hostsEnvVar := conf.Ran.BmcHosts
 	Expect(hostsEnvVar).ToNot(BeEmpty(), "Please set BMC_HOSTS environment variable.")
 	hosts := strings.Split(hostsEnvVar, ",")

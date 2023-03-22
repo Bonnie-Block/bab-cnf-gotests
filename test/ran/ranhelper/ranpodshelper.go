@@ -235,7 +235,6 @@ func DeployWorkloadPods(rtProfile *performancev2.PerformanceProfile, node *corev
 	stressNgCPUCount := workloadCPUCount - oslatCPUCount
 	oslatMaxPodCount, stressngMaxPodCount := 2, 40
 	oslatPodsCPUs := parsePodCountAndCpus(oslatMaxPodCount, oslatCPUCount)
-	stressngPodsCPUs := parsePodCountAndCpus(stressngMaxPodCount, stressNgCPUCount)
 
 	var err error
 	// Create and wait for oslat pod to be Ready
@@ -255,6 +254,21 @@ func DeployWorkloadPods(rtProfile *performancev2.PerformanceProfile, node *corev
 
 	log.Printf("Creating up to %d stress-ng pods with total %d cpus", stressngMaxPodCount, stressNgCPUCount)
 
+	// Deploy stress-ng workload pods to fill up isolated cpus
+	stressngPods := DeployStressNgPods(stressNgCPUCount, stressngMaxPodCount, node)
+
+	return append(workloadPods, stressngPods...)
+}
+
+// DeployStressNgPods deploys the stress-ng workload pods.
+func DeployStressNgPods(stressNgCPUCount, stressngMaxPodCount int, node *corev1.Node) []*corev1.Pod {
+	// Determine cpu requests for stress-ng pods.
+	stressngPodsCPUs := parsePodCountAndCpus(stressngMaxPodCount, stressNgCPUCount)
+
+	var err error
+	// Create and wait for stress-ng pods to be Ready
+	log.Printf("Creating up to %d stress-ng pods with total %d cpus", stressngMaxPodCount, stressNgCPUCount)
+
 	stressngPods := []*corev1.Pod{}
 
 	for _, cpuReq := range stressngPodsCPUs {
@@ -267,7 +281,7 @@ func DeployWorkloadPods(rtProfile *performancev2.PerformanceProfile, node *corev
 	helper.WaitForPodsHealthy(stressngPods, 20*time.Minute)
 	log.Printf("%d stress-ng pods with total %d cpus are created and running", len(stressngPods), stressNgCPUCount)
 
-	return append(workloadPods, stressngPods...)
+	return stressngPods
 }
 
 func parsePodCountAndCpus(maxPodCount, cpuCount int) []int {

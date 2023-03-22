@@ -1,7 +1,9 @@
 package ran
 
 const (
-	EnvWorkloadDuration = "RAN_WORKLOAD_DURATION"
+	EnvWorkloadDuration       = "RAN_WORKLOAD_DURATION"
+	EnvNoWorkloadDuration     = "RAN_NO_WORKLOAD_DURATION"
+	EnvMetricSamplingInterval = "RAN_METRIC_SAMPLING_INTERVAL"
 )
 
 const (
