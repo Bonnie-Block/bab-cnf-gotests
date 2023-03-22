@@ -26,7 +26,7 @@ require (
 	github.com/openshift/client-go v0.0.0-20220831193253-4950ae70c8ea
 	github.com/openshift/cluster-node-tuning-operator v0.0.0-20221212105308-07894f42e7dc
 	github.com/openshift/machine-config-operator v4.2.0-alpha.0.0.20190917115525-033375cbe820+incompatible
-	github.com/openshift/ptp-operator v0.0.0-20230313142258-49d521a136a9
+	github.com/openshift/ptp-operator v0.0.0-20230415000340-fcbdad1b1174
 	github.com/opentracing/opentracing-go v1.2.0
 	github.com/operator-framework/api v0.10.7
 	github.com/operator-framework/operator-lifecycle-manager v3.11.0+incompatible
@@ -41,12 +41,12 @@ require (
 	gopkg.in/k8snetworkplumbingwg/multus-cni.v3 v3.7.2
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
-	k8s.io/api v0.26.1
+	k8s.io/api v0.26.3
 	k8s.io/apiextensions-apiserver v0.25.2
-	k8s.io/apimachinery v0.26.1
+	k8s.io/apimachinery v0.26.3
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/kubernetes v1.25.4
-	k8s.io/utils v0.0.0-20221107191617-1a15be271d1d
+	k8s.io/utils v0.0.0-20230313181309-38a27ef9d749
 	open-cluster-management.io/config-policy-controller v0.9.0
 	open-cluster-management.io/governance-policy-propagator v0.8.0
 	open-cluster-management.io/multicloud-operators-subscription v0.6.0

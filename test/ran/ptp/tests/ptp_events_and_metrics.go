@@ -161,7 +161,7 @@ var _ = Describe("Basic PTP Configs", func() {
 })
 
 func getPtpConfigCounts(ptpConfigsList ptpv1.PtpConfigList) []int {
-	configCount, ocCount, bcCount := 0, 0, 0
+	configCount, ocCount, bcCount /*, gmCount*/ := 0, 0, 0 /*, 0*/
 
 	for _, ptpconfig := range ptpConfigsList.Items {
 		for _, profile := range ptpconfig.Spec.Profile {
@@ -175,9 +175,15 @@ func getPtpConfigCounts(ptpConfigsList ptpv1.PtpConfigList) []int {
 
 			if ranptphelper.IsBoundaryClockProfile(profile) {
 				bcCount++
-			} else {
-				log.Println("Warning: unrecognized PTP profile type: ", *profile.Name)
+
+				continue
 			}
+
+			//if ranptphelper.IsGMProfile(profile) {
+			//	gmCount++
+			//} else {
+			//	log.Println("Warning: unrecognized PTP profile type: ", *profile.Name)
+			//}
 		}
 	}
 
