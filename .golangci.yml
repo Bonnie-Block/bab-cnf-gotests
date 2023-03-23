@@ -83,7 +83,6 @@ linters:
     - varnamelen
     - wsl
     - nlreturn
-
 output:
   format: colored-line-number
 issues:

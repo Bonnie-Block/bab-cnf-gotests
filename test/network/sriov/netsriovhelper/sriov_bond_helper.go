@@ -1,3 +1,4 @@
+//nolint
 package netsriovhelper
 
 import (
@@ -110,6 +111,8 @@ func TestActiveActiveBondScenario(
 	mtu int,
 	sriovInfos *cluster.EnabledNodes,
 	protocol, bondMode, ipAddrServer, ipAddrClient string) {
+	// Remove the Skip once TCP issue with the switch is solved.
+	Skip("Skipped due to TCP issue with the switch")
 	By("Validating test parameters")
 
 	switchCredentials, err := nethelper.NewSwitchCredentials()
