@@ -212,7 +212,7 @@ func IsBoundaryClockProfile(profile ptpv1.PtpProfile) bool {
 	return strings.Contains(ptp4lconf, "[en") && strings.Contains(ptp4lconf, "masterOnly 1")
 }
 
-//// IsGMProfile checks if given profile has boundary clock config.
-//func IsGMProfile(profile ptpv1.PtpProfile) bool {
-//	return strings.Contains(*profile.Ts2PhcConf, "ts2phc.master 1")
-//}
+// IsGrandmasterProfile checks if given profile has boundary clock config.
+func IsGrandmasterProfile(profile ptpv1.PtpProfile) bool {
+	return strings.Contains(*profile.Ts2PhcConf, "ts2phc.master 1")
+}

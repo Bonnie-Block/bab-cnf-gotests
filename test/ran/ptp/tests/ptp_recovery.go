@@ -358,7 +358,7 @@ func getConsumerNodeAndPod(namespace string) (*corev1.Node, *corev1.Pod) {
 	}
 
 	consumerPod := &consumersList.Items[0]
-	// Get the the node object where the consumer pod is running.
+	// Get the node object where the consumer pod is running.
 	consumerNode, err := ranhelper.GetNodeByName(consumerPod.Spec.NodeName)
 	Expect(err).NotTo(HaveOccurred())
 
