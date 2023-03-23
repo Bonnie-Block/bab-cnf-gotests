@@ -14,6 +14,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/talm/rantalmparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ztp/ranztphelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ztp/ranztpparameters"
 	_ "gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ztp/tests"
@@ -143,6 +144,17 @@ func InitializeClients() error {
 		}
 
 		log.Printf("cluster '%s' has ZTP version '%s'\n", ranztphelper.HubName, ranztphelper.ZtpVersion)
+
+		ranztphelper.TalmVersion, err = ranhelper.GetOperatorVersionFromCSV(
+			ranztphelper.HubAPIClient,
+			rantalmparameters.OperatorHubTalmNamespace,
+			rantalmparameters.OpenshiftOperatorNamespace,
+		)
+		if err != nil {
+			return err
+		}
+
+		log.Printf("cluster '%s' has TALM version '%s'\n", ranztphelper.HubName, ranztphelper.TalmVersion)
 	}
 
 	// Spoke is the default kubeconfig

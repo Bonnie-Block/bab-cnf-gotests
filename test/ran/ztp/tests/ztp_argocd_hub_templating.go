@@ -75,15 +75,21 @@ var _ = Describe("ZTP Argocd Hub templating Tests", Ordered, Label("ztp-hub-temp
 			By("Validating TALM reported a policy error", func() {
 				assertTalmPodLog(ranztphelper.HubAPIClient, cguLogHubTemplateError)
 
-				err := rantalmhelper.WaitForCguInCondition(
-					ranztphelper.HubAPIClient,
-					cguName,
-					cguNamespace,
-					"Validated",
-					"Invalid managed policies",
-					"False",
-					"NotAllManagedPoliciesExist", 1*time.Minute)
-				Expect(err).ToNot(HaveOccurred())
+				if ranhelper.IsVersionStringInRange(
+					ranztphelper.TalmVersion,
+					"4.12",
+					"",
+				) {
+					err := rantalmhelper.WaitForCguInCondition(
+						ranztphelper.HubAPIClient,
+						cguName,
+						cguNamespace,
+						"Validated",
+						"Invalid managed policies",
+						"False",
+						"NotAllManagedPoliciesExist", 1*time.Minute)
+					Expect(err).ToNot(HaveOccurred())
+				}
 			})
 
 			By("Validating the specific error using the policy annotation", func() {

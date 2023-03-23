@@ -39,6 +39,7 @@ var (
 	ArgocdApps        = map[string]ranztpparameters.ArgocdGitDetails{}
 	ZtpVersion        string
 	AcmVersion        string
+	TalmVersion       string
 	pidAndAffinityExp = regexp.MustCompile(`pid (\d+)'s current affinity list: (.*)$`)
 )
 
