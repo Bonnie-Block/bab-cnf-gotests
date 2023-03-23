@@ -5,6 +5,8 @@ import (
 	"strings"
 	"time"
 
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/polarion"
+
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 
 	sriovv1 "github.com/k8snetworkplumbingwg/sriov-network-operator/api/v1"
@@ -85,129 +87,133 @@ var _ = Describe("CNF SRIOV", Ordered, func() {
 		})
 
 		// 46528
-		It("Operator re-installation. Verify SR-IOV operator control plane is operational before removal", func() {
-			sriovPolicies, err := helper.Apiclient.SriovNetworkNodePolicies(parameters.SriovOperatorNamespace).List(
-				context.TODO(), metav1.ListOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(len(sriovPolicies.Items)).Should(BeNumerically(">", 1))
-			sriovPolicyInstalled := false
-			for _, sriovPolicy := range sriovPolicies.Items {
-				if strings.Contains(sriovPolicy.Name, netsriovparameters.SriovNetworkPolicyMTUUsual) {
-					sriovPolicyInstalled = true
+		It("Operator re-installation. Verify SR-IOV operator control plane is operational before removal",
+			polarion.ID("46528"), func() {
+				sriovPolicies, err := helper.Apiclient.SriovNetworkNodePolicies(parameters.SriovOperatorNamespace).List(
+					context.TODO(), metav1.ListOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(len(sriovPolicies.Items)).Should(BeNumerically(">", 1))
+				sriovPolicyInstalled := false
+				for _, sriovPolicy := range sriovPolicies.Items {
+					if strings.Contains(sriovPolicy.Name, netsriovparameters.SriovNetworkPolicyMTUUsual) {
+						sriovPolicyInstalled = true
+					}
 				}
-			}
-			Expect(sriovPolicyInstalled).To(BeTrue())
+				Expect(sriovPolicyInstalled).To(BeTrue())
 
-			sriovNetworks, err := helper.Apiclient.SriovNetworks(
-				parameters.SriovOperatorNamespace).List(context.TODO(), metav1.ListOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			sriovNetworkInstalled := false
-			for _, sriovNetwork := range sriovNetworks.Items {
-				if strings.Contains(sriovNetwork.Name, netsriovparameters.SriovStaticNetworkUsualMTUNameDiff) {
-					sriovNetworkInstalled = true
+				sriovNetworks, err := helper.Apiclient.SriovNetworks(
+					parameters.SriovOperatorNamespace).List(context.TODO(), metav1.ListOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				sriovNetworkInstalled := false
+				for _, sriovNetwork := range sriovNetworks.Items {
+					if strings.Contains(sriovNetwork.Name, netsriovparameters.SriovStaticNetworkUsualMTUNameDiff) {
+						sriovNetworkInstalled = true
+					}
 				}
-			}
-			Expect(sriovNetworkInstalled).To(BeTrue())
-		})
+				Expect(sriovNetworkInstalled).To(BeTrue())
+			})
 
 		// 46529
-		It("Operator re-installation. Verify SR-IOV operator data plane is operational before removal", func() {
-			clientPodCommand, err := netsriovhelper.DefineTestCommandParameters(
-				false, netsriovparameters.CommunicationProtocolUnicastICMP, netsriovparameters.MTUStandard,
-				netsriovparameters.ServerPodIP, 0, netsriovparameters.TestInterfaceName)
-			Expect(err).ToNot(HaveOccurred())
+		It("Operator re-installation. Verify SR-IOV operator data plane is operational before removal",
+			polarion.ID("46529"), func() {
+				clientPodCommand, err := netsriovhelper.DefineTestCommandParameters(
+					false, netsriovparameters.CommunicationProtocolUnicastICMP, netsriovparameters.MTUStandard,
+					netsriovparameters.ServerPodIP, 0, netsriovparameters.TestInterfaceName)
+				Expect(err).ToNot(HaveOccurred())
 
-			By("Test connectivity")
-			_, err = pod.ExecCommand(helper.Apiclient, *clientPod, clientPodCommand)
-			Expect(err).ToNot(HaveOccurred())
-		})
+				By("Test connectivity")
+				_, err = pod.ExecCommand(helper.Apiclient, *clientPod, clientPodCommand)
+				Expect(err).ToNot(HaveOccurred())
+			})
 
 		// 46530
-		It("Operator re-installation. Verify all SR-IOV components are deleted when operator is removed", func() {
+		It("Operator re-installation. Verify all SR-IOV components are deleted when operator is removed",
+			polarion.ID("46530"), func() {
 
-			By("Clean all SR-IOV policies and networks")
-			err := namespaces.Clean(parameters.SriovOperatorNamespace, netsriovparameters.OperatorTestNamespace,
-				helper.Apiclient, false)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(netsriovhelper.IsSriovPreConfigured()).To(BeFalse())
+				By("Clean all SR-IOV policies and networks")
+				err := namespaces.Clean(parameters.SriovOperatorNamespace, netsriovparameters.OperatorTestNamespace,
+					helper.Apiclient, false)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(netsriovhelper.IsSriovPreConfigured()).To(BeFalse())
 
-			By("Check if cluster is SNO")
-			isSingleNode, err := nodes.IsSingleNodeCluster(helper.Apiclient)
-			Expect(err).ToNot(HaveOccurred())
+				By("Check if cluster is SNO")
+				isSingleNode, err := nodes.IsSingleNodeCluster(helper.Apiclient)
+				Expect(err).ToNot(HaveOccurred())
 
-			var snoTimeoutMultiplier time.Duration = 1
-			if isSingleNode {
-				snoTimeoutMultiplier = 2
-			}
-
-			By("Wait until SR-IOV cluster is stable ")
-			helper.WaitForSRIOVStable(parameters.SriovOperatorNamespace, netsriovparameters.WaitingTime, snoTimeoutMultiplier)
-
-			By("Remove sriov subscription")
-			err = helper.Apiclient.Subscriptions(
-				parameters.SriovOperatorNamespace).Delete(context.TODO(), sriovSubscription.Name, metav1.DeleteOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			By("Remove SR-IOV CSV")
-			csvs, err := helper.Apiclient.ClusterServiceVersions(
-				parameters.SriovOperatorNamespace).List(context.TODO(), metav1.ListOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			var sriovCsv string
-			for _, csv := range csvs.Items {
-				if strings.Contains(csv.Name, "sriov-network-operator") {
-					sriovCsv = csv.Name
+				var snoTimeoutMultiplier time.Duration = 1
+				if isSingleNode {
+					snoTimeoutMultiplier = 2
 				}
-			}
-			Expect(sriovCsv).ToNot(BeEmpty())
 
-			By("Remove SR-IOV CSV")
-			err = helper.Apiclient.ClusterServiceVersions(
-				parameters.SriovOperatorNamespace).Delete(context.TODO(), sriovCsv, metav1.DeleteOptions{})
-			Expect(err).ToNot(HaveOccurred())
+				By("Wait until SR-IOV cluster is stable ")
+				helper.WaitForSRIOVStable(parameters.SriovOperatorNamespace, netsriovparameters.WaitingTime, snoTimeoutMultiplier)
 
-			By("Remove SR-IOV CRDs")
-			for _, crdName := range netsriovparameters.SriovCrds {
-				crd := &v1.CustomResourceDefinition{}
-				err = helper.Apiclient.Get(context.TODO(), goclient.ObjectKey{Name: crdName}, crd)
+				By("Remove sriov subscription")
+				err = helper.Apiclient.Subscriptions(
+					parameters.SriovOperatorNamespace).Delete(context.TODO(), sriovSubscription.Name, metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				sriovCrdsList = append(sriovCrdsList, crd)
-			}
-
-			for _, crds := range sriovCrdsList {
-				err := helper.Apiclient.Delete(context.TODO(), crds)
+				By("Remove SR-IOV CSV")
+				csvs, err := helper.Apiclient.ClusterServiceVersions(
+					parameters.SriovOperatorNamespace).List(context.TODO(), metav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
-			}
-			By("Validate and remove webhooks")
-			mutationWebHookList := admregv1.MutatingWebhookConfigurationList{}
-			err = helper.Apiclient.List(context.TODO(), &mutationWebHookList)
-			Expect(err).ToNot(HaveOccurred())
-			for _, mutationWebHook := range mutationWebHookList.Items {
-				if elementInList(netsriovparameters.SriovMutationWebhooks, mutationWebHook.Name) {
-					// Remove comment below once BZ:https://bugzilla.redhat.com/show_bug.cgi?id=2033440 is fixed
-					// Expect(*each.Webhooks[0].FailurePolicy).To(BeIdenticalTo("Ignore"))
-					err = helper.Apiclient.Delete(context.TODO(), &mutationWebHook)
+				var sriovCsv string
+				for _, csv := range csvs.Items {
+					if strings.Contains(csv.Name, "sriov-network-operator") {
+						sriovCsv = csv.Name
+					}
+				}
+				Expect(sriovCsv).ToNot(BeEmpty())
+
+				By("Remove SR-IOV CSV")
+				err = helper.Apiclient.ClusterServiceVersions(
+					parameters.SriovOperatorNamespace).Delete(context.TODO(), sriovCsv, metav1.DeleteOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Remove SR-IOV CRDs")
+				for _, crdName := range netsriovparameters.SriovCrds {
+					crd := &v1.CustomResourceDefinition{}
+					err = helper.Apiclient.Get(context.TODO(), goclient.ObjectKey{Name: crdName}, crd)
+					Expect(err).ToNot(HaveOccurred())
+					sriovCrdsList = append(sriovCrdsList, crd)
+				}
+
+				for _, crds := range sriovCrdsList {
+					err := helper.Apiclient.Delete(context.TODO(), crds)
 					Expect(err).ToNot(HaveOccurred())
 				}
-			}
-
-			validationWebhookConfigList := admregv1.ValidatingWebhookConfigurationList{}
-			err = helper.Apiclient.List(context.TODO(), &validationWebhookConfigList)
-			Expect(err).ToNot(HaveOccurred())
-			for _, validationWebhookConfig := range validationWebhookConfigList.Items {
-				if validationWebhookConfig.Name == netsriovparameters.SriovValidationWebhook {
-					// Remove comment below once BZ:https://bugzilla.redhat.com/show_bug.cgi?id=2033440 is fixed
-					// Expect(*each.Webhooks[0].FailurePolicy).To(BeIdenticalTo("Ignore"))
-					err = helper.Apiclient.Delete(context.TODO(), &validationWebhookConfig)
-					Expect(err).ToNot(HaveOccurred())
+				By("Validate and remove webhooks")
+				mutationWebHookList := admregv1.MutatingWebhookConfigurationList{}
+				err = helper.Apiclient.List(context.TODO(), &mutationWebHookList)
+				Expect(err).ToNot(HaveOccurred())
+				for _, mutationWebHook := range mutationWebHookList.Items {
+					if elementInList(netsriovparameters.SriovMutationWebhooks, mutationWebHook.Name) {
+						// Remove comment below once BZ:https://bugzilla.redhat.com/show_bug.cgi?id=2033440 is fixed
+						// Expect(*each.Webhooks[0].FailurePolicy).To(BeIdenticalTo("Ignore"))
+						err = helper.Apiclient.Delete(context.TODO(), &mutationWebHook)
+						Expect(err).ToNot(HaveOccurred())
+					}
 				}
-			}
 
-			By("Remove SR-IOV namespace")
-			err = namespaces.DeleteAndWait(helper.Apiclient, parameters.SriovOperatorNamespace, 5*time.Minute)
-			Expect(err).ToNot(HaveOccurred())
-		})
+				validationWebhookConfigList := admregv1.ValidatingWebhookConfigurationList{}
+				err = helper.Apiclient.List(context.TODO(), &validationWebhookConfigList)
+				Expect(err).ToNot(HaveOccurred())
+				for _, validationWebhookConfig := range validationWebhookConfigList.Items {
+					if validationWebhookConfig.Name == netsriovparameters.SriovValidationWebhook {
+						// Remove comment below once BZ:https://bugzilla.redhat.com/show_bug.cgi?id=2033440 is fixed
+						// Expect(*each.Webhooks[0].FailurePolicy).To(BeIdenticalTo("Ignore"))
+						err = helper.Apiclient.Delete(context.TODO(), &validationWebhookConfig)
+						Expect(err).ToNot(HaveOccurred())
+					}
+				}
+
+				By("Remove SR-IOV namespace")
+				err = namespaces.DeleteAndWait(helper.Apiclient, parameters.SriovOperatorNamespace, 5*time.Minute)
+				Expect(err).ToNot(HaveOccurred())
+			})
 
 		// 46531
 		It("Operator re-installation. Validate that SR-IOV resources can not be deployed without SR-IOV operator",
+			polarion.ID("46531"),
 			func() {
 
 				By("Validate that SR-IOV operator namespace was removed")
@@ -234,6 +240,7 @@ var _ = Describe("CNF SRIOV", Ordered, func() {
 
 		// 46532
 		It("Operator re-installation. Validate that re-installed SR-IOV operator’s control plane is up and running.",
+			polarion.ID("46532"),
 			func() {
 
 				By("Deploy SR-IOV operator namespace")
@@ -292,6 +299,7 @@ var _ = Describe("CNF SRIOV", Ordered, func() {
 
 		// 46533
 		It("Operator re-installation. Validate that re-installed SR-IOV operator’s data plane is up and running",
+			polarion.ID("46533"),
 			func() {
 				By("Run Server pod")
 				sriovInfos, err := cluster.DiscoverSriov(helper.Apiclient, parameters.SriovOperatorNamespace)

@@ -4,6 +4,9 @@ import (
 	"runtime"
 	"testing"
 
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/polarion"
+
 	"github.com/onsi/ginkgo/v2/types"
 
 	. "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
@@ -45,4 +48,9 @@ var _ = AfterSuite(func() {
 
 var _ = ReportAfterEach(func(report types.SpecReport) {
 	testutils.ReportIfFailed(report, currentFile, netbfdparameters.ReporterNamespacesToDump, nil)
+})
+
+var _ = ReportAfterSuite("", func(report Report) {
+	polarion.CreateReport(
+		report, Config.GetPolarionReportPath(), parameters.PolarionTCPrefix)
 })

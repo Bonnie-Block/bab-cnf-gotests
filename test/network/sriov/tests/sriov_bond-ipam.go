@@ -13,10 +13,10 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/sriov/netsriovhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/sriov/netsriovparameters"
 	generalParameters "gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
-
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/cluster"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/polarion"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -66,7 +66,7 @@ var _ = Describe("CNF SRIOV: Bond CNI.", func() {
 		})
 
 		DescribeTable(
-			"whereabouts, Ip Stack: IPv6",
+			"whereabouts, Ip Stack: IPv6", polarion.ID("47070"),
 			func(mtu int, protocol string, connectivity string, bond bool) {
 				netsriovhelper.TestBondScenario(
 					mtu,

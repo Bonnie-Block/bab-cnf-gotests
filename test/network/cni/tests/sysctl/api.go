@@ -20,6 +20,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/polarion"
 	multus "gopkg.in/k8snetworkplumbingwg/multus-cni.v3/pkg/types"
 	k8sv1 "k8s.io/api/core/v1"
 )
@@ -98,7 +99,7 @@ var _ = Describe("CNF Sysctl", func() {
 	Context("pod one secondary interface,", func() {
 
 		// 50247
-		It("one NAD, forward one valid interface level flag", func() {
+		It("one NAD, forward one valid interface level flag", polarion.ID("50247"), func() {
 			By("Define and create NAD with valid single sysctl flag")
 			createSysctlTuningNad(
 				netcniparameters.FirstNetworkConfig.Name, netcniparameters.SingleSysctlFlag, validMacVlanInterfaces[0].Name)
@@ -113,7 +114,7 @@ var _ = Describe("CNF Sysctl", func() {
 		})
 
 		// 50248
-		It("one SriovNetwork, forward all valid interface level flags", func() {
+		It("one SriovNetwork, forward all valid interface level flags", polarion.ID("50248"), func() {
 			By("Define and create sr-iov network with all valid sysctl flags")
 			createSysctlTuningSriovNetwork(validSriovInterfaces[0],
 				netcniparameters.AllFlagsSysctlPluginConfig, netcniparameters.FirstNetworkConfig.Name, true)
@@ -128,7 +129,7 @@ var _ = Describe("CNF Sysctl", func() {
 		})
 
 		// 50340
-		It("one SR-IOV network, forward one invalid flag", func() {
+		It("one SR-IOV network, forward one invalid flag", polarion.ID("50340"), func() {
 			By("Define and create sr-iov network with single invalid sysctl flags")
 			createSysctlTuningSriovNetwork(
 				validSriovInterfaces[0],
@@ -144,7 +145,7 @@ var _ = Describe("CNF Sysctl", func() {
 		})
 
 		// 50342
-		It("one NAD, forward all valid interface level flags one global kernel flag", func() {
+		It("one NAD, forward all valid interface level flags one global kernel flag", polarion.ID("50342"), func() {
 
 			By("Define and create NAD with invalid sysctl flag")
 			nadWithInvalidSysctlFlag := netcnihelper.CopyMap(netcniparameters.AllFlagsSysctlPluginConfig)
@@ -161,7 +162,7 @@ var _ = Describe("CNF Sysctl", func() {
 		})
 
 		// 50343
-		It("one SR-IOV, forward all valid flags one static kernel interface flag", func() {
+		It("one SR-IOV, forward all valid flags one static kernel interface flag", polarion.ID("50343"), func() {
 
 			By("Define and create sr-iov network with invalid interface level flag")
 			nadWithInvalidSysctlFlag := netcnihelper.CopyMap(netcniparameters.AllFlagsSysctlPluginConfig)
@@ -178,7 +179,7 @@ var _ = Describe("CNF Sysctl", func() {
 		})
 
 		// 50346
-		It("one NAD, forward interface level duplicated flags", func() {
+		It("one NAD, forward interface level duplicated flags", polarion.ID("50346"), func() {
 			Skip("TC skipped due to BZ:2077683")
 			By("Define and create nad network with duplicated sysctl flag")
 			duplicatedFlag := defineTuningSysctlNadWithDuplicatedKernelArg(
@@ -193,7 +194,7 @@ var _ = Describe("CNF Sysctl", func() {
 		})
 
 		// 50436
-		It("one NAD, set kernel flag manually using sysctl cmd", func() {
+		It("one NAD, set kernel flag manually using sysctl cmd", polarion.ID("50436"), func() {
 
 			By("Define and create NAD without single sysctl flag")
 			createSysctlTuningNad(netcniparameters.FirstNetworkConfig.Name,
@@ -224,7 +225,7 @@ var _ = Describe("CNF Sysctl", func() {
 	Context("pod multiple secondary interfaces,", func() {
 
 		// 50249
-		It("one NAD, Forward all valid interface level flags", func() {
+		It("one NAD, Forward all valid interface level flags", polarion.ID("50249"), func() {
 
 			By("Define and create NAD with all valid interface level flags")
 			createSysctlTuningNad(netcniparameters.FirstNetworkConfig.Name,
@@ -246,7 +247,7 @@ var _ = Describe("CNF Sysctl", func() {
 
 		// 50250
 		It("two SR-IOV, Forward all valid interface level flags to one interface and single interface level flag "+
-			"to the second interface", func() {
+			"to the second interface", polarion.ID("50250"), func() {
 
 			By("Define and create NAD with all valid interface level flags")
 			createSysctlTuningSriovNetwork(validSriovInterfaces[0],
@@ -269,7 +270,7 @@ var _ = Describe("CNF Sysctl", func() {
 
 		// 50432
 		It("two NADs, Forward all valid interface level flags to one interface and multiple flags to the second "+
-			"interface with one general network kernel flag", func() {
+			"interface with one general network kernel flag", polarion.ID("50432"), func() {
 
 			By("Define and create NAD with all valid interface level flags")
 			createSysctlTuningNad(netcniparameters.FirstNetworkConfig.Name,
@@ -293,7 +294,7 @@ var _ = Describe("CNF Sysctl", func() {
 
 		// 50433
 		It("two SR-IOV, Forward all valid interface level flags to one interface and one general kernel flag to "+
-			"the second interface", func() {
+			"the second interface", polarion.ID("50433"), func() {
 
 			By("Define sr-iov network with all sysctl flags")
 			createSysctlTuningSriovNetwork(validSriovInterfaces[0],
@@ -313,30 +314,31 @@ var _ = Describe("CNF Sysctl", func() {
 		})
 
 		// 50434
-		It("two NADs, try to inject static interface level flag for net1 interface using net2 NAD", func() {
+		It("two NADs, try to inject static interface level flag for net1 interface using net2 NAD",
+			polarion.ID("50434"), func() {
 
-			By("Define and create NAD")
-			createSysctlTuningNad(netcniparameters.FirstNetworkConfig.Name,
-				netcniparameters.SingleSysctlFlag, validMacVlanInterfaces[0].Name)
+				By("Define and create NAD")
+				createSysctlTuningNad(netcniparameters.FirstNetworkConfig.Name,
+					netcniparameters.SingleSysctlFlag, validMacVlanInterfaces[0].Name)
 
-			By("Define and create NAD with static sysctl interface flag")
-			staticSysctlInterfaceKernelKey := fmt.Sprintf(
-				"net.ipv4.conf.%s.accept_redirects", netcniparameters.MultusFirstInterfaceName)
-			oneStaticInterfaceSysctlFlag := map[string]string{staticSysctlInterfaceKernelKey: "0"}
-			createSysctlTuningNad(netcniparameters.SecondNetworkConfig.Name,
-				oneStaticInterfaceSysctlFlag, validMacVlanInterfaces[0].Name)
+				By("Define and create NAD with static sysctl interface flag")
+				staticSysctlInterfaceKernelKey := fmt.Sprintf(
+					"net.ipv4.conf.%s.accept_redirects", netcniparameters.MultusFirstInterfaceName)
+				oneStaticInterfaceSysctlFlag := map[string]string{staticSysctlInterfaceKernelKey: "0"}
+				createSysctlTuningNad(netcniparameters.SecondNetworkConfig.Name,
+					oneStaticInterfaceSysctlFlag, validMacVlanInterfaces[0].Name)
 
-			By("Define and create pod")
-			defineCreatePodWithNetworksAndWaitUntilPending([]multus.NetworkSelectionElement{netcniparameters.FirstNetworkConfig,
-				netcniparameters.SecondNetworkConfig})
+				By("Define and create pod")
+				defineCreatePodWithNetworksAndWaitUntilPending([]multus.NetworkSelectionElement{netcniparameters.FirstNetworkConfig,
+					netcniparameters.SecondNetworkConfig})
 
-			By("Wait until event failed message")
-			waitUntilEventListContainsSysctlFailedCreatePodSandBoxMessage(staticSysctlInterfaceKernelKey)
-		})
+				By("Wait until event failed message")
+				waitUntilEventListContainsSysctlFailedCreatePodSandBoxMessage(staticSysctlInterfaceKernelKey)
+			})
 
 		// 50435
 		It("two NADs, forward all valid flags to both interfaces and the second "+
-			"interface has static interface level duplicated flag", func() {
+			"interface has static interface level duplicated flag", polarion.ID("50435"), func() {
 
 			By("Define and create NAD with all sysctl flags")
 			defineTuningSysctlNadWithDuplicatedKernelArg(netcniparameters.FirstNetworkConfig.Name,

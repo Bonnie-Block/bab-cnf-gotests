@@ -19,6 +19,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/polarion"
 	"go.universe.tf/metallb/api/v1beta1"
 	k8sv1 "k8s.io/api/core/v1"
 )
@@ -170,7 +171,7 @@ var _ = Describe("MetalLB NodeSelector", func() {
 		})
 
 		// OCP-53986
-		It("Advertise separate IPAddressPools using the node selector option", func() {
+		It("Advertise separate IPAddressPools using the node selector option", polarion.ID("53986"), func() {
 			By("should create BGPAdvertisement for external FRR1 container")
 			err = createBGPAdvertisementWithNodeSelector(netmlbparameters.BGPAdvertisementName,
 				workerNodeList[0].Name, netmlbparameters.CommunityNoAdv, clusterIPStack,
@@ -218,7 +219,7 @@ var _ = Describe("MetalLB NodeSelector", func() {
 		})
 
 		// OCP-53989
-		It("Update the node selector option with a label that does not exist", func() {
+		It("Update the node selector option with a label that does not exist", polarion.ID("53989"), func() {
 			By("should create BGPAdvertisement for external FRR1 container")
 
 			err = createBGPAdvertisementWithNodeSelector(netmlbparameters.BGPAdvertisementName,
@@ -360,156 +361,158 @@ var _ = Describe("MetalLB NodeSelector", func() {
 		})
 
 		// OCP-53987
-		It("Advertise a single IPAddressPool with only one Speaker using the node selector option", func() {
-			By("should create BGPAdvertisement for external FRR1 container with the nodeSelector option")
+		It("Advertise a single IPAddressPool with only one Speaker using the node selector option",
+			polarion.ID("53987"), func() {
+				By("should create BGPAdvertisement for external FRR1 container with the nodeSelector option")
 
-			err = createBGPAdvertisementWithNodeSelector(netmlbparameters.BGPAdvertisementName,
-				workerNodeList[0].Name, netmlbparameters.CommunityNoAdv, clusterIPStack,
-				[]string{netmlbparameters.AddressPoolS1Name}, []string{netmlbparameters.BGPPeerName1v4},
-				netmlbparameters.LocalPref100)
+				err = createBGPAdvertisementWithNodeSelector(netmlbparameters.BGPAdvertisementName,
+					workerNodeList[0].Name, netmlbparameters.CommunityNoAdv, clusterIPStack,
+					[]string{netmlbparameters.AddressPoolS1Name}, []string{netmlbparameters.BGPPeerName1v4},
+					netmlbparameters.LocalPref100)
 
-			Expect(err).ToNot(HaveOccurred(), "Error creating BGPAdvertisement for FRR1")
+				Expect(err).ToNot(HaveOccurred(), "Error creating BGPAdvertisement for FRR1")
 
-			By("should create BGPAdvertisement for external FRR2 container without the nodeSelector option")
+				By("should create BGPAdvertisement for external FRR2 container without the nodeSelector option")
 
-			err = helper.Apiclient.Create(
-				context.Background(),
-				defineCreateBGPAdvertisementNoNodeSelector(netmlbparameters.BGPAdvertisement2Name,
-					netmlbparameters.AddressPoolS1Name, netmlbparameters.BGPPeerName2v4, clusterIPStack,
-					netmlbparameters.CustomCommunity, netmlbparameters.LocalPref500),
-			)
+				err = helper.Apiclient.Create(
+					context.Background(),
+					defineCreateBGPAdvertisementNoNodeSelector(netmlbparameters.BGPAdvertisement2Name,
+						netmlbparameters.AddressPoolS1Name, netmlbparameters.BGPPeerName2v4, clusterIPStack,
+						netmlbparameters.CustomCommunity, netmlbparameters.LocalPref500),
+				)
 
-			Expect(err).ToNot(HaveOccurred(), "Error creating BGPAdvertisement for FRR2")
+				Expect(err).ToNot(HaveOccurred(), "Error creating BGPAdvertisement for FRR2")
 
-			By("should validate route to the external FRR1 container with nodeSelector option")
-			workerNodesAdressesList1 := []string{workerNodesAdresses[0]}
+				By("should validate route to the external FRR1 container with nodeSelector option")
+				workerNodesAdressesList1 := []string{workerNodesAdresses[0]}
 
-			Eventually(func() error {
-				return netmetallbhelper.CheckBGPRoutesSingleNode(masterNodeFRRPod1, workerNodesAdressesList1,
-					[]string{netmlbparameters.AddressPoolS1[0]}, netparameters.IPV4Family,
-					netmlbparameters.PrefixLen32)
-			}, 30*time.Second, netmlbparameters.Interval).ShouldNot(HaveOccurred(),
-				"Failed to find route on FRR1")
+				Eventually(func() error {
+					return netmetallbhelper.CheckBGPRoutesSingleNode(masterNodeFRRPod1, workerNodesAdressesList1,
+						[]string{netmlbparameters.AddressPoolS1[0]}, netparameters.IPV4Family,
+						netmlbparameters.PrefixLen32)
+				}, 30*time.Second, netmlbparameters.Interval).ShouldNot(HaveOccurred(),
+					"Failed to find route on FRR1")
 
-			By("should validate route to the external FRR2 container without nodeSelector option")
-			Eventually(func() error {
-				return netmetallbhelper.CheckBGPRoutesSingleNode(masterNodeFRRPod2, workerNodesAdresses,
-					[]string{netmlbparameters.AddressPoolS1[0]}, netparameters.IPV4Family,
-					netmlbparameters.PrefixLen32)
-			}, 30*time.Second, netmlbparameters.Interval).ShouldNot(HaveOccurred(),
-				"Failed to find route on FRR2")
+				By("should validate route to the external FRR2 container without nodeSelector option")
+				Eventually(func() error {
+					return netmetallbhelper.CheckBGPRoutesSingleNode(masterNodeFRRPod2, workerNodesAdresses,
+						[]string{netmlbparameters.AddressPoolS1[0]}, netparameters.IPV4Family,
+						netmlbparameters.PrefixLen32)
+				}, 30*time.Second, netmlbparameters.Interval).ShouldNot(HaveOccurred(),
+					"Failed to find route on FRR2")
 
-			By("should validate Local Preferences and Community settings to the external FRR containers")
-			err := netmetallbhelper.ValidateLocalPref(masterNodeFRRPod1, netmlbparameters.LocalPref100,
-				netparameters.IPV4Family)
+				By("should validate Local Preferences and Community settings to the external FRR containers")
+				err := netmetallbhelper.ValidateLocalPref(masterNodeFRRPod1, netmlbparameters.LocalPref100,
+					netparameters.IPV4Family)
 
-			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(
-				"Local Pref is not as expected on FRR %s", masterNodeFRRPod1.Name))
+				Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(
+					"Local Pref is not as expected on FRR %s", masterNodeFRRPod1.Name))
 
-			err = netmetallbhelper.ValidateLocalPref(masterNodeFRRPod2, netmlbparameters.LocalPref500,
-				netparameters.IPV4Family)
+				err = netmetallbhelper.ValidateLocalPref(masterNodeFRRPod2, netmlbparameters.LocalPref500,
+					netparameters.IPV4Family)
 
-			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(
-				"Local Pref is not as expected on FRR %s", masterNodeFRRPod2.Name))
+				Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(
+					"Local Pref is not as expected on FRR %s", masterNodeFRRPod2.Name))
 
-			err = netmetallbhelper.ValidateRouteCommunity(masterNodeFRRPod1, netmlbparameters.CommunityNoAdv,
-				netparameters.IPV4Family)
+				err = netmetallbhelper.ValidateRouteCommunity(masterNodeFRRPod1, netmlbparameters.CommunityNoAdv,
+					netparameters.IPV4Family)
 
-			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(
-				"Community is not as expected on FRR %s", masterNodeFRRPod1.Name))
+				Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(
+					"Community is not as expected on FRR %s", masterNodeFRRPod1.Name))
 
-			err = netmetallbhelper.ValidateRouteCommunity(masterNodeFRRPod2, netmlbparameters.CustomCommunity,
-				netparameters.IPV4Family)
+				err = netmetallbhelper.ValidateRouteCommunity(masterNodeFRRPod2, netmlbparameters.CustomCommunity,
+					netparameters.IPV4Family)
 
-			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(
-				"Community is not as expected on FRR %s", masterNodeFRRPod2.Name))
-		})
+				Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(
+					"Community is not as expected on FRR %s", masterNodeFRRPod2.Name))
+			})
 
 		// OCP-53988
-		It("Advertise a single IPAddressPool with only one Speaker using the node selector option", func() {
-			By("should create BGPAdvertisement without the node seclector option")
-			bgpAdvertisement := netmetallbhelper.DefineBGPAdvertisement(netmlbparameters.BGPAdvertisement2Name,
-				netmlbparameters.CommunityNoAdv, clusterIPStack, []string{netmlbparameters.AddressPoolS1Name},
-				netmlbparameters.PrefixLen32, netmlbparameters.LocalPref100)
-			err = helper.Apiclient.Create(context.Background(), bgpAdvertisement)
-			Expect(err).ToNot(HaveOccurred())
+		It("Advertise a single IPAddressPool with only one Speaker using the node selector option",
+			polarion.ID("53988"), func() {
+				By("should create BGPAdvertisement without the node seclector option")
+				bgpAdvertisement := netmetallbhelper.DefineBGPAdvertisement(netmlbparameters.BGPAdvertisement2Name,
+					netmlbparameters.CommunityNoAdv, clusterIPStack, []string{netmlbparameters.AddressPoolS1Name},
+					netmlbparameters.PrefixLen32, netmlbparameters.LocalPref100)
+				err = helper.Apiclient.Create(context.Background(), bgpAdvertisement)
+				Expect(err).ToNot(HaveOccurred())
 
-			By("should create BGPAdvertisement for external FRR1 container with the node and peer selector option")
-			err = createBGPAdvertisementWithNodeSelector(netmlbparameters.BGPAdvertisementName,
-				workerNodeList[0].Name, netmlbparameters.CustomCommunity, clusterIPStack,
-				[]string{netmlbparameters.AddressPoolS1Name}, []string{netmlbparameters.BGPPeerName1v4},
-				netmlbparameters.LocalPref500)
+				By("should create BGPAdvertisement for external FRR1 container with the node and peer selector option")
+				err = createBGPAdvertisementWithNodeSelector(netmlbparameters.BGPAdvertisementName,
+					workerNodeList[0].Name, netmlbparameters.CustomCommunity, clusterIPStack,
+					[]string{netmlbparameters.AddressPoolS1Name}, []string{netmlbparameters.BGPPeerName1v4},
+					netmlbparameters.LocalPref500)
 
-			Expect(err).ToNot(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred())
 
-			By("should validate route to the external FRR1 container with nodeSelector and peer option")
-			workerNodesAdressesList1 := []string{workerNodesAdresses[0]}
+				By("should validate route to the external FRR1 container with nodeSelector and peer option")
+				workerNodesAdressesList1 := []string{workerNodesAdresses[0]}
 
-			Eventually(func() error {
-				return netmetallbhelper.CheckBGPRoutesSingleNode(masterNodeFRRPod1, workerNodesAdressesList1,
-					[]string{netmlbparameters.AddressPoolS1[0]}, netparameters.IPV4Family,
-					netmlbparameters.PrefixLen32)
-			}, 30*time.Second, netmlbparameters.Interval).ShouldNot(HaveOccurred())
+				Eventually(func() error {
+					return netmetallbhelper.CheckBGPRoutesSingleNode(masterNodeFRRPod1, workerNodesAdressesList1,
+						[]string{netmlbparameters.AddressPoolS1[0]}, netparameters.IPV4Family,
+						netmlbparameters.PrefixLen32)
+				}, 30*time.Second, netmlbparameters.Interval).ShouldNot(HaveOccurred())
 
-			By("should validate route to the external FRR2 container without nodeSelector option")
-			Eventually(func() error {
-				return netmetallbhelper.CheckBGPRoutesMultipleNodes(masterNodeFRRPod2, workerNodesAdresses,
-					[]string{netmlbparameters.AddressPoolS1[0]}, netparameters.IPV4Family,
-					netmlbparameters.PrefixLen32)
-			}, 30*time.Second, netmlbparameters.Interval).ShouldNot(HaveOccurred())
+				By("should validate route to the external FRR2 container without nodeSelector option")
+				Eventually(func() error {
+					return netmetallbhelper.CheckBGPRoutesMultipleNodes(masterNodeFRRPod2, workerNodesAdresses,
+						[]string{netmlbparameters.AddressPoolS1[0]}, netparameters.IPV4Family,
+						netmlbparameters.PrefixLen32)
+				}, 30*time.Second, netmlbparameters.Interval).ShouldNot(HaveOccurred())
 
-			By("should validate Local Preferences for FRR1 container with nodeselector and peer option")
-			err := validateLocalPref(masterNodeFRRPod1, netmlbparameters.LocalPref500, netmlbparameters.LocalPref100)
+				By("should validate Local Preferences for FRR1 container with nodeselector and peer option")
+				err := validateLocalPref(masterNodeFRRPod1, netmlbparameters.LocalPref500, netmlbparameters.LocalPref100)
 
-			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(
-				"Local Pref is not as expected on FRR %s", masterNodeFRRPod1.Name))
+				Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(
+					"Local Pref is not as expected on FRR %s", masterNodeFRRPod1.Name))
 
-			By("should validate Community for FRR1 container with nodeselector and peer option")
+				By("should validate Community for FRR1 container with nodeselector and peer option")
 
-			err = netmetallbhelper.ValidateRouteCommunity(masterNodeFRRPod1, netmlbparameters.CommunityNoAdv,
-				netparameters.IPV4Family)
+				err = netmetallbhelper.ValidateRouteCommunity(masterNodeFRRPod1, netmlbparameters.CommunityNoAdv,
+					netparameters.IPV4Family)
 
-			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(
-				"Community %s  is not as expected on FRR1", netmlbparameters.CommunityNoAdv))
+				Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(
+					"Community %s  is not as expected on FRR1", netmlbparameters.CommunityNoAdv))
 
-			err = netmetallbhelper.ValidateRouteCommunity(masterNodeFRRPod1, netmlbparameters.CustomCommunity,
-				netparameters.IPV4Family)
+				err = netmetallbhelper.ValidateRouteCommunity(masterNodeFRRPod1, netmlbparameters.CustomCommunity,
+					netparameters.IPV4Family)
 
-			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(
-				"Community %s  is not as expected on FRR1", netmlbparameters.CustomCommunity))
+				Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(
+					"Community %s  is not as expected on FRR1", netmlbparameters.CustomCommunity))
 
-			By("should validate Local Preferences for FRR2 container without node selector")
+				By("should validate Local Preferences for FRR2 container without node selector")
 
-			err = validateLocalPref(masterNodeFRRPod2, netmlbparameters.LocalPref100, netmlbparameters.LocalPref100)
+				err = validateLocalPref(masterNodeFRRPod2, netmlbparameters.LocalPref100, netmlbparameters.LocalPref100)
 
-			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(
-				"Local Pref is incorrect on FRR %s", masterNodeFRRPod2.Name))
+				Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(
+					"Local Pref is incorrect on FRR %s", masterNodeFRRPod2.Name))
 
-			By("should validate Local Preferences is not received on FRR2 from node with " +
-				"nodeselector and peer option")
+				By("should validate Local Preferences is not received on FRR2 from node with " +
+					"nodeselector and peer option")
 
-			err = validateLocalPref(masterNodeFRRPod2, netmlbparameters.LocalPref500, netmlbparameters.LocalPref100)
+				err = validateLocalPref(masterNodeFRRPod2, netmlbparameters.LocalPref500, netmlbparameters.LocalPref100)
 
-			Expect(err).To(HaveOccurred(), fmt.Sprintf(
-				"Local Pref is incorrect on FRR %s", masterNodeFRRPod2.Name))
+				Expect(err).To(HaveOccurred(), fmt.Sprintf(
+					"Local Pref is incorrect on FRR %s", masterNodeFRRPod2.Name))
 
-			By("should validate Community for FRR2 container without node selector")
+				By("should validate Community for FRR2 container without node selector")
 
-			err = netmetallbhelper.ValidateRouteCommunity(masterNodeFRRPod2, netmlbparameters.CommunityNoAdv,
-				netparameters.IPV4Family)
+				err = netmetallbhelper.ValidateRouteCommunity(masterNodeFRRPod2, netmlbparameters.CommunityNoAdv,
+					netparameters.IPV4Family)
 
-			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(
-				"Community %s  is not as expected on FRR2", netmlbparameters.CommunityNoAdv))
+				Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(
+					"Community %s  is not as expected on FRR2", netmlbparameters.CommunityNoAdv))
 
-			err = netmetallbhelper.ValidateRouteCommunity(masterNodeFRRPod2, netmlbparameters.CustomCommunity,
-				netparameters.IPV4Family)
+				err = netmetallbhelper.ValidateRouteCommunity(masterNodeFRRPod2, netmlbparameters.CustomCommunity,
+					netparameters.IPV4Family)
 
-			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(
-				"Community %s  is not as expected on FRR2", netmlbparameters.CustomCommunity))
-		})
+				Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(
+					"Community %s  is not as expected on FRR2", netmlbparameters.CustomCommunity))
+			})
 
-		// OCP-53989
-		It("Update the node selector option with a label that does not exist", func() {
+		// OCP-61336
+		It("Update the node selector option with a label that does not exist", polarion.ID("61336"), func() {
 			By("should create BGPAdvertisement for external FRR1 container")
 
 			err = createBGPAdvertisementWithNodeSelector(netmlbparameters.BGPAdvertisementName,
@@ -548,7 +551,7 @@ var _ = Describe("MetalLB NodeSelector", func() {
 		})
 
 		// OCP-53991
-		It("Remove from node label used in the node selector option", func() {
+		It("Remove from node label used in the node selector option", polarion.ID("53991"), func() {
 			By("should create BGPAdvertisement for external FRR1 container")
 
 			err = createBGPAdvertisementWithNodeSelector(netmlbparameters.BGPAdvertisementName,

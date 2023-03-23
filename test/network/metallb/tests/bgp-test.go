@@ -19,6 +19,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/polarion"
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -88,7 +89,7 @@ var _ = Describe("MetalLB BGP", func() {
 
 	Context("functionality", func() {
 		// 	47174
-		DescribeTable("Creating AddressPool with bgp-advertisement",
+		DescribeTable("Creating AddressPool with bgp-advertisement", polarion.ID("47174"),
 			func(ipStack string, prefixLen int32) {
 				netmetallbhelper.TestBGPAdvertismentTable(
 					ipStack,
@@ -98,14 +99,23 @@ var _ = Describe("MetalLB BGP", func() {
 					masterNodeList,
 					prefixLen)
 			},
-			Entry(describeIPStackPrefix, netparameters.IPV4Family, netmlbparameters.PrefixLen32),
-			Entry(describeIPStackPrefix, netparameters.IPV4Family, netmlbparameters.PrefixLen28),
-			Entry(describeIPStackPrefix, netparameters.IPV6Family, netmlbparameters.PrefixLen128),
-			Entry(describeIPStackPrefix, netparameters.IPV6Family, netmlbparameters.PrefixLen64),
+			Entry(describeIPStackPrefix, netparameters.IPV4Family, netmlbparameters.PrefixLen32,
+				polarion.SetProperty("IPStack", netparameters.IPV4Family),
+				polarion.SetProperty("PrefixLenght", fmt.Sprintf("%d", netmlbparameters.PrefixLen32))),
+			Entry(describeIPStackPrefix, netparameters.IPV4Family, netmlbparameters.PrefixLen28,
+				polarion.SetProperty("IPStack", netparameters.IPV4Family),
+				polarion.SetProperty("PrefixLenght", fmt.Sprintf("%d", netmlbparameters.PrefixLen28))),
+			Entry(describeIPStackPrefix, netparameters.IPV6Family, netmlbparameters.PrefixLen128,
+				polarion.SetProperty("IPStack", netparameters.IPV6Family),
+				polarion.SetProperty("PrefixLenght", fmt.Sprintf("%d", netmlbparameters.PrefixLen128))),
+			Entry(describeIPStackPrefix, netparameters.IPV6Family, netmlbparameters.PrefixLen64,
+				polarion.SetProperty("IPStack", netparameters.IPV6Family),
+				polarion.SetProperty("PrefixLenght", fmt.Sprintf("%d", netmlbparameters.PrefixLen64))),
 		)
 
 		// 47203
 		DescribeTable("Verify external FRR BGP Peer cannot propagate routes to Speaker",
+			polarion.ID("47203"),
 			func(ipStack string) {
 				netmetallbhelper.TestBGPBlockRouteAdvertisment(
 					ipStack,
@@ -114,14 +124,16 @@ var _ = Describe("MetalLB BGP", func() {
 					masterNodeList,
 					workerNodeList)
 			},
-			Entry(describeIPStack, netparameters.IPV4Family),
-			Entry(describeIPStack, netparameters.IPV6Family),
+			Entry(describeIPStack, netparameters.IPV4Family,
+				polarion.SetProperty("IPStack", netparameters.IPV4Family)),
+			Entry(describeIPStack, netparameters.IPV6Family,
+				polarion.SetProperty("IPStack", netparameters.IPV6Family)),
 		)
 	})
 
 	Context("updates", func() {
 		// 	47178
-		DescribeTable("Verify bgp-advertisement updates",
+		DescribeTable("Verify bgp-advertisement updates", polarion.ID("47178"),
 			func(ipStack string, prefixLen int32) {
 				netmetallbhelper.TestBGPAdvertismentTableUpdates(
 					masterNodeList,
@@ -131,11 +143,15 @@ var _ = Describe("MetalLB BGP", func() {
 					ipStack,
 					prefixLen)
 			},
-			Entry(describeIPStackPrefix, netparameters.IPV4Family, netmlbparameters.PrefixLen32),
-			Entry(describeIPStackPrefix, netparameters.IPV6Family, netmlbparameters.PrefixLen128),
+			Entry(describeIPStackPrefix, netparameters.IPV4Family, netmlbparameters.PrefixLen32,
+				polarion.SetProperty("IPStack", netparameters.IPV4Family),
+				polarion.SetProperty("PrefixLenght", fmt.Sprintf("%d", netmlbparameters.PrefixLen32))),
+			Entry(describeIPStackPrefix, netparameters.IPV6Family, netmlbparameters.PrefixLen128,
+				polarion.SetProperty("IPStack", netparameters.IPV6Family),
+				polarion.SetProperty("PrefixLenght", fmt.Sprintf("%d", netmlbparameters.PrefixLen128))),
 		)
 		// 47180
-		It("BGP Timer update", func() {
+		It("BGP Timer update", polarion.ID("47180"), func() {
 
 			By("should create external FRR container")
 
@@ -218,7 +234,7 @@ var _ = Describe("MetalLB BGP", func() {
 			})
 
 			// 47202
-			It("provides Prometheus BGP metrics", func() {
+			It("provides Prometheus BGP metrics", polarion.ID("47202"), func() {
 				_, err := namespaces.LabelNamespace(helper.Apiclient,
 					netmlbparameters.MetalLBOperatorNameSpace,
 					netmlbparameters.MonitoringLabel,
@@ -271,14 +287,14 @@ var _ = Describe("MetalLB BGP", func() {
 		})
 
 		// 49810
-		It("Verify FRR Speaker default Informational logs", func() {
+		It("Verify FRR Speaker default Informational logs", polarion.ID("49810"), func() {
 			By("should be validate default log level informational")
 			err = netmetallbhelper.ValidateLogLevel(netmlbparameters.LogLevelInfo)
 			Expect(err).ToNot(HaveOccurred())
 		})
 
 		// 49812
-		It("Verify FRR Speaker debugging logs", func() {
+		It("Verify FRR Speaker debugging logs", polarion.ID("49812"), func() {
 
 			By("should enable debug level logs on Speaker FRR containers")
 			err = netmetallbhelper.SetLogLevel(metallboperatorv1beta1.LogLevelDebug)

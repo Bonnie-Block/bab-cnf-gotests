@@ -3,6 +3,8 @@ package tests
 import (
 	"context"
 
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/polarion"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -88,7 +90,7 @@ var _ = Describe("BFD", func() {
 		masterNodePod = helper.WaitUntilPodCreatedAndRunning(frrPod, netbfdparameters.WaitingTime)
 	})
 
-	It("Should have BFD status up", func() {
+	It("Should have BFD status up", polarion.ID("61337"), func() {
 		Eventually(func() error {
 			return netbfdhelper.IsBFDStatusUp(masterNodePod, workerNodesAddresses)
 		}, netbfdparameters.WaitingTime, netbfdparameters.Interval).ShouldNot(HaveOccurred())

@@ -17,6 +17,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nad"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/polarion"
 
 	cniTypes "github.com/containernetworking/cni/pkg/types"
 	multinetpolicyapiv1 "github.com/k8snetworkplumbingwg/multi-networkpolicy/pkg/apis/k8s.cni.cncf.io/v1beta1"
@@ -80,7 +81,7 @@ var _ = Describe("MultiNetworkPolicy sriov", func() {
 		})
 
 		// 53901
-		It("Ingress Default rule without PolicyType deny all", func() {
+		It("Ingress Default rule without PolicyType deny all", polarion.ID("53901"), func() {
 			By("Apply MultiNetworkPolicy with ingress rule deny all without PolicyType field")
 			netpolicyhelper.MakeMultiNetworkPolicy(netpolicyparameters.TestNamespace, netpolicyparameters.SriovNetworkName,
 				netpolicyhelper.WithPodSelector(netpolicyparameters.LabelSelectorPod1),
@@ -106,7 +107,7 @@ var _ = Describe("MultiNetworkPolicy sriov", func() {
 
 		// 53899
 		// The test fails due to OCPBUGS-974
-		It("Ingress Default rule without PolicyType allow all", func() {
+		It("Ingress Default rule without PolicyType allow all", polarion.ID("53899"), func() {
 			By("Apply MultiNetworkPolicy with ingress rule allow all without PolicyType field")
 			netpolicyhelper.MakeMultiNetworkPolicy(netpolicyparameters.TestNamespace, netpolicyparameters.SriovNetworkName,
 				netpolicyhelper.WithPodSelector(metav1.LabelSelector{}),
@@ -130,7 +131,7 @@ var _ = Describe("MultiNetworkPolicy sriov", func() {
 		})
 
 		// 53900
-		It("Egress TCP endPort allow specific pod", func() {
+		It("Egress TCP endPort allow specific pod", polarion.ID("53900"), func() {
 			By("Apply MultiNetworkPolicy with egress rule allow ports in range 5000-5002")
 			var (
 				policyPort5001 = intstr.FromInt(5001)
@@ -181,7 +182,7 @@ var _ = Describe("MultiNetworkPolicy sriov", func() {
 		})
 
 		// 53898
-		It("Ingress and Egress allow IPv4 address", func() {
+		It("Ingress and Egress allow IPv4 address", polarion.ID("53898"), func() {
 			By("Apply MultiNetworkPolicy with ingress and egress rules allow specific IPv4 addresses")
 			netpolicyhelper.MakeMultiNetworkPolicy(netpolicyparameters.TestNamespace, netpolicyparameters.SriovNetworkName,
 				netpolicyhelper.WithPodSelector(netpolicyparameters.LabelSelectorPod1),
@@ -226,7 +227,8 @@ var _ = Describe("MultiNetworkPolicy sriov", func() {
 				serverPod.Name, firstClientPod.Name, netpolicyparameters.Port5001))
 		})
 
-		It("Disable multi-network policy", func() {
+		// 55990
+		It("Disable multi-network policy", polarion.ID("55990"), func() {
 			By("Apply MultiNetworkPolicy with ingress rule deny all")
 			netpolicyhelper.MakeMultiNetworkPolicy(netpolicyparameters.TestNamespace, netpolicyparameters.SriovNetworkName,
 				netpolicyhelper.WithPodSelector(netpolicyparameters.LabelSelectorPod1),

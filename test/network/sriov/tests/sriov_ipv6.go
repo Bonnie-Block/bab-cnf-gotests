@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/polarion"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -59,7 +61,7 @@ var _ = Describe("CNF SRIOV", func() {
 	})
 
 	DescribeTable(
-		"Ipam type: IP Static, Ip Stack: ipv6, Mac address: MAC static",
+		"Ipam type: IP Static, Ip Stack: ipv6, Mac address: MAC static", polarion.ID("31794"),
 		func(mtu int, protocol string, connectivity string, bond bool) {
 			netsriovhelper.TestSriovIPv6Scenario(
 				mtu,
@@ -96,7 +98,7 @@ var _ = Describe("CNF SRIOV", func() {
 	)
 
 	DescribeTable(
-		"Ipam type: IP Static, Ip Stack: ipv6, Mac address: MAC dynamic",
+		"Ipam type: IP Static, Ip Stack: ipv6, Mac address: MAC dynamic", polarion.ID("31804"),
 		func(mtu int, protocol string, connectivity string, bond bool) {
 			netsriovhelper.TestSriovIPv6Scenario(mtu, sriovInfos, Config, protocol, connectivity, "", "",
 				netsriovparameters.IpamStatic)
@@ -127,7 +129,7 @@ var _ = Describe("CNF SRIOV", func() {
 
 	// 31807
 	DescribeTable(
-		"Ipam type: IP whereabouts, Ip Stack: ipv6, Mac address: Dynamic",
+		"Ipam type: IP whereabouts, Ip Stack: ipv6, Mac address: Dynamic", polarion.ID("61251"),
 		func(mtu int, protocol, connectivity string, bond bool) {
 			netsriovhelper.TestSriovIPv6Scenario(mtu, sriovInfos, Config, protocol, connectivity, "", "",
 				netsriovparameters.IpamWhereabouts)

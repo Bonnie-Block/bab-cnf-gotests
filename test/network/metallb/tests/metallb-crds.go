@@ -21,7 +21,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
-
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/polarion"
 	"golang.org/x/net/context"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -186,7 +186,7 @@ var _ = Describe("MetalLb New CRDs", func() {
 		})
 
 		// OCP-50060
-		DescribeTable("should work together",
+		DescribeTable("should work together", polarion.ID("50060"),
 			func(externalTrafficPolicy k8sv1.ServiceExternalTrafficPolicyType) {
 				By("Creating 2 MetalLB services for L2 and L3 server nginx pods")
 				_, err = netmetallbhelper.DefineAndCreateLBService(
@@ -259,8 +259,10 @@ var _ = Describe("MetalLb New CRDs", func() {
 					fmt.Sprintf("L2client %s can curl LB IP address %s which is not expected: %s",
 						l2Client.Name, netmlbparameters.IPv4AddressesLBList[0], httpOutput))
 			},
-			Entry(describe, k8sv1.ServiceExternalTrafficPolicyTypeCluster),
-			Entry(describe, k8sv1.ServiceExternalTrafficPolicyTypeLocal),
+			Entry(describe, k8sv1.ServiceExternalTrafficPolicyTypeCluster,
+				polarion.SetProperty("TrafficPolicy", netmlbparameters.ExtTrafPolCluster)),
+			Entry(describe, k8sv1.ServiceExternalTrafficPolicyTypeLocal,
+				polarion.SetProperty("TrafficPolicy", netmlbparameters.ExtTrafPolLocal)),
 		)
 	})
 	Context("Concurrent Layer2 and Layer3", func() {
@@ -320,7 +322,7 @@ var _ = Describe("MetalLb New CRDs", func() {
 			netmetallbhelper.RestoreNodeGWMode()
 		})
 		// 50059
-		It("should work concurrently Layer 2 and Layer 3", func() {
+		It("should work concurrently Layer 2 and Layer 3", polarion.ID("50059"), func() {
 			By("Creating MetalLB service")
 			_, err = netmetallbhelper.DefineAndCreateLBService(
 				netmlbparameters.TestNamespace,

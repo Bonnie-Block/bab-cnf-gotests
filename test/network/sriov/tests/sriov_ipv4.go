@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/polarion"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -59,7 +61,7 @@ var _ = Describe("CNF SRIOV", func() {
 	})
 
 	DescribeTable(
-		"Ipam type: IP Static, Ip Stack: ipv4, Mac address: MAC static",
+		"Ipam type: IP Static, Ip Stack: ipv4, Mac address: MAC static", polarion.ID("31801"),
 		func(mtu int, protocol string, connectivity string, bond bool) {
 			netsriovhelper.TestSriovIPv4Scenario(
 				mtu,
@@ -97,7 +99,7 @@ var _ = Describe("CNF SRIOV", func() {
 	)
 
 	DescribeTable(
-		"Ipam type: IP Static, Ip Stack: ipv4, Mac address: MAC static, Vlan",
+		"Ipam type: IP Static, Ip Stack: ipv4, Mac address: MAC static, Vlan", polarion.ID("31808"),
 		func(mtu int, protocol string, connectivity string, bond bool) {
 			netsriovhelper.TestSriovIPv4Scenario(
 				mtu,
@@ -134,7 +136,7 @@ var _ = Describe("CNF SRIOV", func() {
 	)
 
 	DescribeTable(
-		"Ipam type: IP Static, Ip Stack: ipv4, Mac address: MAC dynamic",
+		"Ipam type: IP Static, Ip Stack: ipv4, Mac address: MAC dynamic", polarion.ID("31815"),
 		func(mtu int, protocol string, connectivity string, bond bool) {
 			netsriovhelper.TestSriovIPv4Scenario(mtu, 0, protocol, connectivity, sriovInfos, Config, "", "",
 				netsriovparameters.IpamStatic)
@@ -166,7 +168,7 @@ var _ = Describe("CNF SRIOV", func() {
 
 	// 31802
 	DescribeTable(
-		"Ipam type: IP whereabouts, Ip Stack: ipv4, Mac address: MAC static",
+		"Ipam type: IP whereabouts, Ip Stack: ipv4, Mac address: MAC static", polarion.ID("31802"),
 		func(mtu int, protocol string, connectivity string, bond bool) {
 			netsriovhelper.TestSriovIPv4Scenario(mtu, 0, protocol, connectivity, sriovInfos, Config,
 				netsriovparameters.ClientMacAddress,

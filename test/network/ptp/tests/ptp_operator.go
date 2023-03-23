@@ -15,13 +15,13 @@ import (
 	"k8s.io/utils/pointer"
 
 	ptpv1 "github.com/openshift/ptp-operator/api/v1"
-
 	. "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/ptp/netptpparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/polarion"
 )
 
 var _ = Describe("PTP", func() {
@@ -91,7 +91,7 @@ var _ = Describe("PTP", func() {
 		})
 
 		// 37056
-		It("from the same policy", func() {
+		It("from the same policy", polarion.ID("37056"), func() {
 			for _, podEntry := range ptpRunningPods {
 				Eventually(func() map[string]int {
 					ptpProcessesAndMetrics := amountPtpProcessesAndMetrics(podEntry)

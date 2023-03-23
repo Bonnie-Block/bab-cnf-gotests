@@ -15,16 +15,16 @@ import (
 	. "github.com/onsi/gomega"
 
 	. "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/sriov/netsriovparameters"
-	generalParameters "gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
-
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/nethelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/netparameters"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/sriov/netsriovparameters"
+	generalParameters "gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/cluster"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/polarion"
 
 	sriovv1 "github.com/k8snetworkplumbingwg/sriov-network-operator/api/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -206,6 +206,7 @@ func BuildTableEntries(
 			if optionIndex >= len(optionParameters) {
 				optionIndex = 0
 			}
+
 			tableEntries = append(
 				tableEntries,
 				Entry(
@@ -214,6 +215,9 @@ func BuildTableEntries(
 					protocolParameters[protocolIndex],
 					optionParameters[optionIndex],
 					bond,
+					polarion.SetProperty("MTU", fmt.Sprintf("%d", mtuParameters[optionIndex])),
+					polarion.SetProperty("Connectivity", optionParameters[optionIndex]),
+					polarion.SetProperty("Protocol", protocolParameters[protocolIndex]),
 				),
 			)
 			mtuIndex++
@@ -226,7 +230,10 @@ func BuildTableEntries(
 				for _, option := range optionParameters {
 					tableEntries = append(
 						tableEntries,
-						Entry(describe, mtu, protocol, option, bond))
+						Entry(describe, mtu, protocol, option, bond,
+							polarion.SetProperty("MTU", fmt.Sprintf("%d", mtu)),
+							polarion.SetProperty("Connectivity", option),
+							polarion.SetProperty("Protocol", protocol)))
 				}
 			}
 		}

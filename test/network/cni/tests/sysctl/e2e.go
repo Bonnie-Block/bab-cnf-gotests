@@ -20,6 +20,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/polarion"
 	multus "gopkg.in/k8snetworkplumbingwg/multus-cni.v3/pkg/types"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -108,7 +109,7 @@ var _ = Describe("CNF Sysctl", func() {
 	Context("pod one secondary interface,", func() {
 
 		// 50437
-		It("set accept_redirects=0 on one of two NAD macvlans", func() {
+		It("set accept_redirects=0 on one of two NAD macvlans", polarion.ID("50437"), func() {
 			By("Define and create nad with sysctl mutation flag accept_redirects=0")
 			createSysctlTuningNad(netcniparameters.NetworkWithSysctlMutation,
 				netcniparameters.SingleSysctlFlag, validMacVlanInterfaces[0].Name)
@@ -139,7 +140,7 @@ var _ = Describe("CNF Sysctl", func() {
 		})
 
 		// 50439
-		It("set accept_redirects=0 on one of two SriovNetworks", func() {
+		It("set accept_redirects=0 on one of two SriovNetworks", polarion.ID("50439"), func() {
 			By("Define sr-iov network without sysctl mutation flags")
 			createSysctlTuningSriovNetwork(validSriovInterfaces[0],
 				nil, netcniparameters.NetworkWithoutSysctlMutation, true)
@@ -171,7 +172,7 @@ var _ = Describe("CNF Sysctl", func() {
 
 		// 50502
 		It("sriov-bond interface. One SriovNetwork 2 sriov interfaces, one bound NAD. "+
-			"Set accept_redirects=0 on interface", func() {
+			"Set accept_redirects=0 on interface", polarion.ID("50502"), func() {
 
 			By("Define sr-iov network without sysctl flags")
 			createSysctlTuningSriovNetwork(validSriovInterfaces[0],
@@ -213,7 +214,7 @@ var _ = Describe("CNF Sysctl", func() {
 	Context("pod multiple interfaces,", func() {
 
 		// 50438
-		It("set accept_redirects=0 on one first NAD and 1 on the second NAD", func() {
+		It("set accept_redirects=0 on one first NAD and 1 on the second NAD", polarion.ID("50438"), func() {
 			By("Define and create nad with sysctl mutation plugin")
 			createSysctlTuningNad(netcniparameters.NetworkWithSysctlMutation,
 				netcniparameters.SingleSysctlFlag, validMacVlanInterfaces[0].Name)
@@ -240,7 +241,7 @@ var _ = Describe("CNF Sysctl", func() {
 		})
 
 		// 50501
-		It("set accept_redirects=0 on first SriovNetwork and 1 on the second SriovNetwork", func() {
+		It("set accept_redirects=0 on first SriovNetwork and 1 on the second SriovNetwork", polarion.ID("50501"), func() {
 			By("Define sr-iov network without sysctl mutation flags")
 			createSysctlTuningSriovNetwork(validSriovInterfaces[0],
 				nil, netcniparameters.NetworkWithoutSysctlMutation, true)
@@ -267,7 +268,7 @@ var _ = Describe("CNF Sysctl", func() {
 		})
 
 		// 50503
-		It("sriov-bond. Set accept_redirects=0 on first bond NAD and 1 on the second bond NAD", func() {
+		It("sriov-bond. Set accept_redirects=0 on first bond NAD and 1 on the second bond NAD", polarion.ID("50503"), func() {
 			By("Define sr-iov network without sysctl mutation flags")
 			createSysctlTuningSriovNetwork(validSriovInterfaces[0],
 				nil, parameters.SriovPolicyName, false)

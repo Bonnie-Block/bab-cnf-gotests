@@ -9,6 +9,7 @@ var (
 	capabilityAll          = []k8sv1.Capability{"ALL"}
 	defaultGroupID         = int64(3000)
 	defaultUserID          = int64(2000)
+	PolarionTCPrefix       = "OCP-"
 	DefaultSecurityContext = k8sv1.SecurityContext{
 		AllowPrivilegeEscalation: &falseVar,
 		RunAsNonRoot:             &trueVar,

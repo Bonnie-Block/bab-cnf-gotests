@@ -47,4 +47,10 @@ function run_tests {
     esac
 }
 
-run_tests ${1}
+if [[ -z "${REPORT_DIR_NAME}" ]]; then
+  POLARION_REPORT_PATH="./reports/"
+else
+  POLARION_REPORT_PATH="${REPORT_DIR_NAME}"
+fi
+rm -rf "${POLARION_REPORT_PATH}/report_polarion.xml"
+run_tests "${1}"

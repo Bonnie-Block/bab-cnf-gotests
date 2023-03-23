@@ -14,10 +14,10 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/metallb/netmlbparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/netparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
-
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/polarion"
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -79,7 +79,7 @@ var _ = Describe("MetalLB BGP", func() {
 	})
 
 	// 47182
-	It("Multi-Service Validation", func() {
+	It("Multi-Service Validation", polarion.ID("47182"), func() {
 		By("should create an IPAddressPool and BGPAdvertisement for service 1")
 		ipAddressPool := netmetallbhelper.DefineMetalLBIPAddressPool(netmlbparameters.AddressPoolS1,
 			netparameters.IPV4Family,

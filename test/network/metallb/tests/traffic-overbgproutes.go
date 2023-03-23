@@ -7,14 +7,14 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/metallb/netmetallbhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/metallb/netmlbparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/netparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
-
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/polarion"
 	k8sv1 "k8s.io/api/core/v1"
 )
 
@@ -80,7 +80,7 @@ var _ = Describe("MetalLB BGP", func() {
 	})
 
 	// 49447
-	DescribeTable("Verify data plane traffic over IBGP routes",
+	DescribeTable("Verify data plane traffic over IBGP routes", polarion.ID("49447"),
 		func(ipStack string, trafficPolicy string) {
 			netmetallbhelper.TestBGPTable(
 				ipStack,
@@ -89,16 +89,29 @@ var _ = Describe("MetalLB BGP", func() {
 				trafficPolicy,
 				netmlbparameters.IBGPASN)
 		},
-		Entry(describe, netparameters.IPV4Family, netmlbparameters.ExtTrafPolLocal),
-		Entry(describe, netparameters.IPV4Family, netmlbparameters.ExtTrafPolCluster),
-		Entry(describe, netparameters.IPV6Family, netmlbparameters.ExtTrafPolLocal),
-		Entry(describe, netparameters.IPV6Family, netmlbparameters.ExtTrafPolCluster),
-		Entry(describe, netparameters.DualIPFamily, netmlbparameters.ExtTrafPolLocal),
-		Entry(describe, netparameters.DualIPFamily, netmlbparameters.ExtTrafPolCluster),
+		Entry(describe, netparameters.IPV4Family, netmlbparameters.ExtTrafPolLocal,
+			polarion.SetProperty("IPStack", netparameters.IPV4Family),
+			polarion.SetProperty("TrafficPolicy", netmlbparameters.ExtTrafPolLocal)),
+		Entry(describe, netparameters.IPV4Family, netmlbparameters.ExtTrafPolCluster,
+			polarion.SetProperty("IPStack", netparameters.IPV4Family),
+			polarion.SetProperty("TrafficPolicy", netmlbparameters.ExtTrafPolCluster)),
+		Entry(describe, netparameters.IPV6Family, netmlbparameters.ExtTrafPolLocal,
+			polarion.SetProperty("IPStack", netparameters.IPV6Family),
+			polarion.SetProperty("TrafficPolicy", netmlbparameters.ExtTrafPolLocal)),
+		Entry(describe, netparameters.IPV6Family, netmlbparameters.ExtTrafPolCluster,
+			polarion.SetProperty("IPStack", netparameters.IPV6Family),
+			polarion.SetProperty("TrafficPolicy", netmlbparameters.ExtTrafPolCluster)),
+		Entry(describe, netparameters.DualIPFamily, netmlbparameters.ExtTrafPolLocal,
+			polarion.SetProperty("IPStack", netparameters.DualIPFamily),
+			polarion.SetProperty("TrafficPolicy", netmlbparameters.ExtTrafPolLocal)),
+		Entry(describe, netparameters.DualIPFamily, netmlbparameters.ExtTrafPolCluster,
+			polarion.SetProperty("IPStack", netparameters.DualIPFamily),
+			polarion.SetProperty("TrafficPolicy", netmlbparameters.ExtTrafPolCluster)),
 	)
 
 	// 49449
 	DescribeTable("Verify data plane traffic over EBGP routes",
+		polarion.ID("49449"),
 		func(ipStack string, trafficPolicy string) {
 			netmetallbhelper.TestBGPTable(
 				ipStack,
@@ -107,11 +120,23 @@ var _ = Describe("MetalLB BGP", func() {
 				trafficPolicy,
 				netmlbparameters.EBGPASN)
 		},
-		Entry(describe, netparameters.IPV4Family, netmlbparameters.ExtTrafPolLocal),
-		Entry(describe, netparameters.IPV4Family, netmlbparameters.ExtTrafPolCluster),
-		Entry(describe, netparameters.IPV6Family, netmlbparameters.ExtTrafPolLocal),
-		Entry(describe, netparameters.IPV6Family, netmlbparameters.ExtTrafPolCluster),
-		Entry(describe, netparameters.DualIPFamily, netmlbparameters.ExtTrafPolLocal),
-		Entry(describe, netparameters.DualIPFamily, netmlbparameters.ExtTrafPolCluster),
+		Entry(describe, netparameters.IPV4Family, netmlbparameters.ExtTrafPolLocal,
+			polarion.SetProperty("IPStack", netparameters.IPV4Family),
+			polarion.SetProperty("TrafficPolicy", netmlbparameters.ExtTrafPolLocal)),
+		Entry(describe, netparameters.IPV4Family, netmlbparameters.ExtTrafPolCluster,
+			polarion.SetProperty("IPStack", netparameters.IPV4Family),
+			polarion.SetProperty("TrafficPolicy", netmlbparameters.ExtTrafPolCluster)),
+		Entry(describe, netparameters.IPV6Family, netmlbparameters.ExtTrafPolLocal,
+			polarion.SetProperty("IPStack", netparameters.IPV6Family),
+			polarion.SetProperty("TrafficPolicy", netmlbparameters.ExtTrafPolLocal)),
+		Entry(describe, netparameters.IPV6Family, netmlbparameters.ExtTrafPolCluster,
+			polarion.SetProperty("IPStack", netparameters.IPV6Family),
+			polarion.SetProperty("TrafficPolicy", netmlbparameters.ExtTrafPolCluster)),
+		Entry(describe, netparameters.DualIPFamily, netmlbparameters.ExtTrafPolLocal,
+			polarion.SetProperty("IPStack", netparameters.DualIPFamily),
+			polarion.SetProperty("TrafficPolicy", netmlbparameters.ExtTrafPolLocal)),
+		Entry(describe, netparameters.DualIPFamily, netmlbparameters.ExtTrafPolCluster,
+			polarion.SetProperty("IPStack", netparameters.DualIPFamily),
+			polarion.SetProperty("TrafficPolicy", netmlbparameters.ExtTrafPolCluster)),
 	)
 })

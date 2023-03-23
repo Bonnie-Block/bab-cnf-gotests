@@ -12,10 +12,10 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/sriov/netsriovhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/sriov/netsriovparameters"
 	generalParameters "gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
-
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/cluster"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/polarion"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -59,7 +59,7 @@ var _ = Describe("CNF SRIOV", func() {
 	})
 
 	DescribeTable(
-		"Ipam type: IP Static, Ip Stack: dual-stack, Mac address: MAC static",
+		"Ipam type: IP Static, Ip Stack: dual-stack, Mac address: MAC static", polarion.ID("31789"),
 		func(mtu int, protocol string, connectivity string, bond bool) {
 			netsriovhelper.TestSriovDualScenario(
 				mtu,
@@ -92,7 +92,7 @@ var _ = Describe("CNF SRIOV", func() {
 	)
 
 	DescribeTable(
-		"Ipam type: IP Static, Ip Stack: dual-stack, Mac address: MAC dynamic",
+		"Ipam type: IP Static, Ip Stack: dual-stack, Mac address: MAC dynamic", polarion.ID("31795"),
 		func(mtu int, protocol string, connectivity string, bond bool) {
 			netsriovhelper.TestSriovDualScenario(mtu, protocol, connectivity, sriovInfos, Config, "", "")
 		},

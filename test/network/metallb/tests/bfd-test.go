@@ -21,6 +21,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/polarion"
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -176,14 +177,15 @@ var _ = Describe("BFD", func() {
 					Should(BeTrue(), "Speaker pods are not ready")
 			})
 
-			It("should provide fast link failure detection ", func() {
+			// 47188
+			It("should provide fast link failure detection ", polarion.ID("47188"), func() {
 				netmetallbhelper.TestMetalLBBFD(netmlbparameters.ScenarioSingleHop,
 					clientPodOnMasterNode,
 					firstWorkerNodeAddress, secondWorkerNodeAddress, netmlbparameters.ExtTrafPolLocal)
 			})
 		})
 
-		It("provides Prometheus BFD metrics", func() {
+		It("provides Prometheus BFD metrics", polarion.ID("47187"), func() {
 			_, err := namespaces.LabelNamespace(helper.Apiclient,
 				netmlbparameters.MetalLBOperatorNameSpace,
 				netmlbparameters.MonitoringLabel,
@@ -273,6 +275,7 @@ var _ = Describe("BFD", func() {
 		})
 
 		DescribeTable("should provide fast link failure detection",
+			polarion.ID("47186"),
 			func(bgpProtocol string, ipStack string, externalTrafficPolicy k8sv1.ServiceExternalTrafficPolicyType) {
 
 				err = netmetallbhelper.ValidateIPs(append(ipv4metalLBIPList, firstWorkerNodeAddress), ipStack)
@@ -374,13 +377,25 @@ var _ = Describe("BFD", func() {
 					externalTrafficPolicy)
 			},
 			Entry(describe, netmlbparameters.IBPGPProtocol, netparameters.IPV4Family,
-				k8sv1.ServiceExternalTrafficPolicyTypeCluster),
+				k8sv1.ServiceExternalTrafficPolicyTypeCluster,
+				polarion.SetProperty("BGPPeer", netmlbparameters.IBPGPProtocol),
+				polarion.SetProperty("IPStack", netparameters.IPV4Family),
+				polarion.SetProperty("TrafficPolicy", "Cluster")),
 			Entry(describe, netmlbparameters.IBPGPProtocol, netparameters.IPV4Family,
-				k8sv1.ServiceExternalTrafficPolicyTypeLocal),
+				k8sv1.ServiceExternalTrafficPolicyTypeLocal,
+				polarion.SetProperty("BGPPeer", netmlbparameters.IBPGPProtocol),
+				polarion.SetProperty("IPStack", netparameters.IPV4Family),
+				polarion.SetProperty("TrafficPolicy", "Local")),
 			Entry(describe, netmlbparameters.EBGPProtocol, netparameters.IPV4Family,
-				k8sv1.ServiceExternalTrafficPolicyTypeCluster),
+				k8sv1.ServiceExternalTrafficPolicyTypeCluster,
+				polarion.SetProperty("BGPPeer", netmlbparameters.EBGPProtocol),
+				polarion.SetProperty("IPStack", netparameters.IPV4Family),
+				polarion.SetProperty("TrafficPolicy", "Cluster")),
 			Entry(describe, netmlbparameters.EBGPProtocol, netparameters.IPV4Family,
-				k8sv1.ServiceExternalTrafficPolicyTypeLocal),
+				k8sv1.ServiceExternalTrafficPolicyTypeLocal,
+				polarion.SetProperty("BGPPeer", netmlbparameters.EBGPProtocol),
+				polarion.SetProperty("IPStack", netparameters.IPV4Family),
+				polarion.SetProperty("TrafficPolicy", "Local")),
 		)
 	})
 })

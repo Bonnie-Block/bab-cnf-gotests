@@ -16,6 +16,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/cni/netcniparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/polarion"
 )
 
 var _ = Describe("CNF VRF", func() {
@@ -71,6 +72,7 @@ var _ = Describe("CNF VRF", func() {
 	})
 	// 36306
 	DescribeTable("Integration: NAD, IPAM: static, Interfaces: 2, Scheme: 2 Pods 2 VRFs network overlap",
+		polarion.ID("36306"),
 		func(node string, ipStack string) {
 			vrfClientNetConfig, vrfServerNetConfig := netcnihelper.DefineClientServerVRFsIPConfig(
 				vrfRed.Name, vrfBlue.Name, "overLapToVRF", ipStack)
@@ -83,13 +85,22 @@ var _ = Describe("CNF VRF", func() {
 				vrfClientNetConfig,
 				vrfServerNetConfig)
 		},
-		Entry(describe, netcniparameters.SameNode, netcniparameters.IPStackIPv4),
-		Entry(describe, netcniparameters.DiffNode, netcniparameters.IPStackIPv4),
-		Entry(describe, netcniparameters.SameNode, netcniparameters.IPStackIPv6),
-		Entry(describe, netcniparameters.DiffNode, netcniparameters.IPStackIPv6),
+		Entry(describe, netcniparameters.SameNode, netcniparameters.IPStackIPv4,
+			polarion.SetProperty("Node", netcniparameters.SameNode),
+			polarion.SetProperty("IPStack", netcniparameters.IPStackIPv4)),
+		Entry(describe, netcniparameters.DiffNode, netcniparameters.IPStackIPv4,
+			polarion.SetProperty("Node", netcniparameters.DiffNode),
+			polarion.SetProperty("IPStack", netcniparameters.IPStackIPv4)),
+		Entry(describe, netcniparameters.SameNode, netcniparameters.IPStackIPv6,
+			polarion.SetProperty("Node", netcniparameters.SameNode),
+			polarion.SetProperty("IPStack", netcniparameters.IPStackIPv6)),
+		Entry(describe, netcniparameters.DiffNode, netcniparameters.IPStackIPv6,
+			polarion.SetProperty("Node", netcniparameters.DiffNode),
+			polarion.SetProperty("IPStack", netcniparameters.IPStackIPv6)),
 	)
 	// 36314
 	DescribeTable("Integration: NAD, IPAM: static, Interfaces: 2, Scheme: 2 Pods 2 VRFs Different IP networks",
+		polarion.ID("36314"),
 		func(node string, ipStack string) {
 			vrfClientNetConfig, vrfServerNetConfig := netcnihelper.DefineClientServerVRFsIPConfig(
 				vrfRed.Name, vrfBlue.Name, "nonOverLap", ipStack)
@@ -102,13 +113,22 @@ var _ = Describe("CNF VRF", func() {
 				vrfClientNetConfig,
 				vrfServerNetConfig)
 		},
-		Entry(describe, netcniparameters.SameNode, netcniparameters.IPStackIPv4),
-		Entry(describe, netcniparameters.DiffNode, netcniparameters.IPStackIPv4),
-		Entry(describe, netcniparameters.SameNode, netcniparameters.IPStackIPv6),
-		Entry(describe, netcniparameters.DiffNode, netcniparameters.IPStackIPv6),
+		Entry(describe, netcniparameters.SameNode, netcniparameters.IPStackIPv4,
+			polarion.SetProperty("Node", netcniparameters.SameNode),
+			polarion.SetProperty("IPStack", netcniparameters.IPStackIPv4)),
+		Entry(describe, netcniparameters.DiffNode, netcniparameters.IPStackIPv4,
+			polarion.SetProperty("Node", netcniparameters.DiffNode),
+			polarion.SetProperty("IPStack", netcniparameters.IPStackIPv4)),
+		Entry(describe, netcniparameters.SameNode, netcniparameters.IPStackIPv6,
+			polarion.SetProperty("Node", netcniparameters.SameNode),
+			polarion.SetProperty("IPStack", netcniparameters.IPStackIPv6)),
+		Entry(describe, netcniparameters.DiffNode, netcniparameters.IPStackIPv6,
+			polarion.SetProperty("Node", netcniparameters.DiffNode),
+			polarion.SetProperty("IPStack", netcniparameters.IPStackIPv6)),
 	)
 	// 36300
 	DescribeTable("Integration: NAD, IPAM: static, Interfaces: 2, Scheme: 2 Pods 2 VRFs OCP Primary network overlap",
+		polarion.ID("36300"),
 		func(node string, ipStack string) {
 			vrfClientNetConfig, vrfServerNetConfig := defineClientServerVRFsIPOverlapConfig(
 				vrfRed.Name, vrfBlue.Name, node, nodeListString)
@@ -124,7 +144,11 @@ var _ = Describe("CNF VRF", func() {
 				vrfClientNetConfig,
 				vrfServerNetConfig)
 		},
-		Entry(describe, netcniparameters.SameNode, netcniparameters.IPStackIPv4),
-		Entry(describe, netcniparameters.DiffNode, netcniparameters.IPStackIPv4),
+		Entry(describe, netcniparameters.SameNode, netcniparameters.IPStackIPv4,
+			polarion.SetProperty("Node", netcniparameters.SameNode),
+			polarion.SetProperty("IPStack", netcniparameters.IPStackIPv4)),
+		Entry(describe, netcniparameters.DiffNode, netcniparameters.IPStackIPv4,
+			polarion.SetProperty("Node", netcniparameters.DiffNode),
+			polarion.SetProperty("IPStack", netcniparameters.IPStackIPv4)),
 	)
 })

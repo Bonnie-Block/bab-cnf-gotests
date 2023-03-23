@@ -19,6 +19,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/polarion"
 )
 
 var _ = Describe("Intel ACC100", func() {
@@ -94,7 +95,7 @@ var _ = Describe("Intel ACC100", func() {
 
 		})
 
-		It("configuration", func() {
+		It("configuration", polarion.ID("41073"), func() {
 			Eventually(func() int64 {
 				testedNode, err := helper.Apiclient.CoreV1Interface.Nodes().Get(
 					context.TODO(),
@@ -109,7 +110,7 @@ var _ = Describe("Intel ACC100", func() {
 			}, 10*time.Minute, time.Second).Should(Equal(int64(2)))
 		})
 
-		It("validation", func() {
+		It("validation", polarion.ID("41216"), func() {
 			By("Waiting for resource to reported in the node")
 			Eventually(func() int64 {
 				testedNode, err := helper.Apiclient.CoreV1Interface.Nodes().Get(

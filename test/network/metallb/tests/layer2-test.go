@@ -12,6 +12,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	metallboperatorv1beta1 "github.com/metallb/metallb-operator/api/v1beta1"
+	metallbutils "github.com/metallb/metallb-operator/test/e2e/metallb"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/metallb/netmetallbhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/metallb/netmlbparameters"
@@ -21,9 +23,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
-
-	metallboperatorv1beta1 "github.com/metallb/metallb-operator/api/v1beta1"
-	metallbutils "github.com/metallb/metallb-operator/test/e2e/metallb"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/polarion"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -108,7 +108,7 @@ var _ = Describe("CNF MetalLB", func() {
 	})
 
 	// OCP-42936
-	It("Validate MetalLB Layer 2 functionality", func() {
+	It("Validate MetalLB Layer 2 functionality", polarion.ID("42936"), func() {
 		By("should have valid environment IP variable for MetalLB address pool")
 		netmetallbhelper.IsEnvVarMetallbIPinNodeExtNetRange(strings.Split(
 			helper.Config.General.CnfNodeLabel, "/")[1],
@@ -185,7 +185,7 @@ var _ = Describe("CNF MetalLB", func() {
 		}, 1*time.Minute, 2*time.Second).ShouldNot(HaveOccurred(), "unable to curl")
 	})
 	// OCP-42751
-	It("Failure of MetalLB announcing speaker node", func() {
+	It("Failure of MetalLB announcing speaker node", polarion.ID("42751"), func() {
 		By("should have valid environment IP variable for MetalLB address pool")
 		netmetallbhelper.IsEnvVarMetallbIPinNodeExtNetRange(strings.Split(
 			helper.Config.General.CnfNodeLabel, "/")[1],

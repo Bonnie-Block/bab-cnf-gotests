@@ -3,20 +3,21 @@ package tests
 import (
 	"context"
 	"fmt"
+
 	"time"
 
 	metallboperatorv1beta1 "github.com/metallb/metallb-operator/api/v1beta1"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
-	k8sv1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
-
 	metallbutils "github.com/metallb/metallb-operator/test/e2e/metallb"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/metallb/netmetallbhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/metallb/netmlbparameters"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/polarion"
+	k8sv1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = Describe("MetalLB", func() {
@@ -32,7 +33,7 @@ var _ = Describe("MetalLB", func() {
 	})
 
 	// 54131
-	It("Deployment Helm Chart with all parameters set", func() {
+	It("Deployment Helm Chart with all parameters set", polarion.ID("54131"), func() {
 		By("Setup Metallb")
 		createMetalLBHelmChartNoUpdate()
 
@@ -42,7 +43,7 @@ var _ = Describe("MetalLB", func() {
 	})
 
 	// 54132
-	It("Update Helm Chart parameters with baseline deployment", func() {
+	It("Update Helm Chart parameters with baseline deployment", polarion.ID("54132"), func() {
 		By("Setup Metallb")
 		netmetallbhelper.SetupMetalLB()
 		updateMetalLBHelmChart()

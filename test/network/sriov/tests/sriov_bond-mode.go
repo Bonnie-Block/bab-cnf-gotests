@@ -17,7 +17,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
-
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/polarion"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -73,7 +73,7 @@ var _ = Describe("CNF SRIOV: Bond CNI.", func() {
 		})
 
 		DescribeTable(
-			netsriovparameters.BondModeActiveBackup,
+			netsriovparameters.BondModeActiveBackup, polarion.ID("47074"),
 			func(mtu int, protocol string, connectivity string, bond bool) {
 				netsriovhelper.TestBondScenario(
 					mtu,
@@ -105,32 +105,34 @@ var _ = Describe("CNF SRIOV: Bond CNI.", func() {
 			),
 		)
 
-		DescribeTable("Active-Active Bond modes", func(mtu int, protocol string, bondMode string, bond bool) {
-			netsriovhelper.TestActiveActiveBondScenario(
-				mtu,
-				sriovInfos,
-				protocol,
-				bondMode,
-				netsriovparameters.ServerPodIP,
-				netsriovparameters.ClientPodIP)
-		}, netsriovhelper.BuildTableEntries(
-			sriovSmokeTestMode,
-			describeActiveActive,
-			true,
-			[]int{
-				netsriovparameters.MTUCustom,
-				netsriovparameters.MTUJumbo,
-				netsriovparameters.MTUStandard,
+		DescribeTable("Active-Active Bond modes", polarion.ID("47075"),
+			func(mtu int, protocol string, bondMode string, bond bool) {
+				netsriovhelper.TestActiveActiveBondScenario(
+					mtu,
+					sriovInfos,
+					protocol,
+					bondMode,
+					netsriovparameters.ServerPodIP,
+					netsriovparameters.ClientPodIP)
 			},
-			[]string{
-				netsriovparameters.BondModeRR,
-				netsriovparameters.BondModeXOR,
-			},
-			[]string{
-				netsriovparameters.CommunicationProtocolUnicastICMP,
-				netsriovparameters.CommunicationProtocolUnicastTCP,
-			},
-		))
+			BuildBondTableEntries(
+				sriovSmokeTestMode,
+				describeActiveActive,
+				true,
+				[]int{
+					netsriovparameters.MTUCustom,
+					netsriovparameters.MTUJumbo,
+					netsriovparameters.MTUStandard,
+				},
+				[]string{
+					netsriovparameters.BondModeRR,
+					netsriovparameters.BondModeXOR,
+				},
+				[]string{
+					netsriovparameters.CommunicationProtocolUnicastICMP,
+					netsriovparameters.CommunicationProtocolUnicastTCP,
+				},
+			))
 	})
 
 	Context("Scale: Bond with 16 VFs", func() {
@@ -247,7 +249,7 @@ var _ = Describe("CNF SRIOV: Bond CNI.", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("should work with ICMP traffic", func() {
+		It("should work with ICMP traffic", polarion.ID("47067"), func() {
 			_, err = pod.ExecCommand(Apiclient, *clientPod, clientTestCommand)
 			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Failed to run ICMP traffic - %s", err))
 		})
@@ -266,4 +268,80 @@ func recoverSwitchConfiguration() {
 	err = netsriovhelper.DeleteNonLACPLAGsOnJunos(switchCredentials,
 		[]string{netsriovparameters.LAGInterface1, netsriovparameters.LAGInterface2})
 	Expect(err).ToNot(HaveOccurred())
+}
+
+func BuildBondTableEntries(
+	sriovSmokeTestMode bool,
+	describe interface{},
+	bond bool,
+	mtuParameters []int,
+	optionParameters []string,
+	protocolParameters []string) []TableEntry {
+	var tableEntries []TableEntry
+
+	if sriovSmokeTestMode {
+		var (
+			protocolIndex            int
+			mtuIndex                 int
+			optionIndex              int
+			lenghtOfParametersArrays = []int{
+				len(mtuParameters),
+				len(optionParameters),
+				len(protocolParameters),
+			}
+			max = lenghtOfParametersArrays[0]
+		)
+
+		for _, listLenght := range lenghtOfParametersArrays {
+			if listLenght > max {
+				max = listLenght
+			}
+		}
+
+		for i := 0; i < max; i++ {
+			if protocolIndex >= len(protocolParameters) {
+				protocolIndex = 0
+			}
+
+			if mtuIndex >= len(mtuParameters) {
+				mtuIndex = 0
+			}
+
+			if optionIndex >= len(optionParameters) {
+				optionIndex = 0
+			}
+
+			tableEntries = append(
+				tableEntries,
+				Entry(
+					describe,
+					mtuParameters[mtuIndex],
+					protocolParameters[protocolIndex],
+					optionParameters[optionIndex],
+					bond,
+					polarion.SetProperty("MTU", fmt.Sprintf("%d", mtuParameters[optionIndex])),
+					polarion.SetProperty("BondMode", optionParameters[optionIndex]),
+					polarion.SetProperty("Protocol", protocolParameters[protocolIndex]),
+				),
+			)
+			mtuIndex++
+			optionIndex++
+			protocolIndex++
+		}
+	} else {
+		for _, protocol := range protocolParameters {
+			for _, mtu := range mtuParameters {
+				for _, option := range optionParameters {
+					tableEntries = append(
+						tableEntries,
+						Entry(describe, mtu, protocol, option, bond,
+							polarion.SetProperty("MTU", fmt.Sprintf("%d", mtu)),
+							polarion.SetProperty("BondMode", option),
+							polarion.SetProperty("Protocol", protocol)))
+				}
+			}
+		}
+	}
+
+	return tableEntries
 }

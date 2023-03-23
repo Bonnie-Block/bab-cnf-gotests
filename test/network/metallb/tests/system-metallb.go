@@ -16,8 +16,6 @@ import (
 	multus "gopkg.in/k8snetworkplumbingwg/multus-cni.v3/pkg/types"
 	goclient "sigs.k8s.io/controller-runtime/pkg/client"
 
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
@@ -28,6 +26,8 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/polarion"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -143,6 +143,7 @@ var _ = Describe("system metallb", func() {
 		netmetallbhelper.RemoveMetallbBGPTestSetup(externalNadList, masterConfigMapList)
 	})
 
+	// 53766
 	DescribeTable("MetalLB Load balance external IP accessible to internal cluster IPs",
 		func(diffNode bool) {
 			workerNodeName := workerNodeList[0].Name
@@ -180,9 +181,9 @@ var _ = Describe("system metallb", func() {
 		},
 
 		// 53792
-		Entry("same node", false),
+		Entry("same node", polarion.ID("53792"), false),
 		// 53766
-		Entry("different node", true),
+		Entry("different node", polarion.ID("53766"), true),
 	)
 })
 
@@ -405,7 +406,7 @@ var _ = Describe("system metallb", Ordered, func() {
 	Context("MetalLB accessing the load balance ip from secondary host interfaces with multiple VLANs", func() {
 
 		// 53894
-		It("", func() {
+		It("", polarion.ID("53894"), func() {
 			for idx, vlanID := range vlanIds {
 
 				clientIP := netmlbparameters.InternalClient1IPv4
@@ -469,7 +470,7 @@ var _ = Describe("system metallb", Ordered, func() {
 		})
 
 		// 53947
-		It("after node reboot", func() {
+		It("after node reboot", polarion.ID("53947"), func() {
 			By("Reboot worker node")
 			helper.CreatePrivilegedPods(helper.Config.Network.TestContainerImage)
 			helper.SoftRebootNodeAndWaitForDisconnect(&workerNodeList[1])
