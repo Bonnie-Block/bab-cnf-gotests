@@ -274,7 +274,7 @@ func ConsumerVerifyEvents(cancelCtx context.Context, consumerPod corev1.Pod, exp
 				log.Printf("failed to close log stream from consumer pod: %v due to: %v\n", consumerPod.Name, err)
 			}
 
-			break
+			return
 		case expectedEvent = <-expectedEventIn:
 			for scanner.Scan() {
 				line = scanner.Text()
