@@ -1,8 +1,12 @@
 package sysctl
 
 import (
+	"context"
 	"fmt"
 	"strings"
+	"time"
+
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	sriovv1 "github.com/k8snetworkplumbingwg/sriov-network-operator/api/v1"
 	. "github.com/onsi/ginkgo/v2"
@@ -37,6 +41,13 @@ func createSysctlTuningSriovNetwork(
 	nethelper.DefineAndCreateSriovNetwork(
 		sriovInterface, sriovNetworkName, netcniparameters.ResourceNameSysctl, ipam, sysctlPluginConfig,
 		netcniparameters.TestNamespace)
+	By("Wait until NAD is available")
+	Eventually(func() error {
+		_, err = helper.Apiclient.NetworkAttachmentDefinitions(netcniparameters.TestNamespace).Get(
+			context.TODO(), sriovNetworkName, v1.GetOptions{})
+
+		return err
+	}, 60*time.Second, netcniparameters.RetryInterval).ShouldNot(HaveOccurred())
 }
 
 func verifySysctlKernelParametersConfiguredOnPodInterface(
