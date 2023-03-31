@@ -64,7 +64,7 @@ func Subscribe(
 		return "", nil, err
 	}
 
-	log.Printf("Creted Event subscription URI: %v\n", uri)
+	log.Printf("Created Event subscription URI: %v\n", uri)
 
 	return uri, eventService, err
 }

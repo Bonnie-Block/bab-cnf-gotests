@@ -12,6 +12,7 @@ import (
 	"github.com/stmcginnis/gofish"
 	"github.com/stmcginnis/gofish/redfish"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/bmer/ranbmerparameters"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranparameters"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
@@ -92,7 +93,7 @@ func SendEventZt(eventService *redfish.EventService, msgID string) error {
 			resp, err = eventService.Client.Post(submitTestEventTarget, payload)
 			if err == nil {
 				return true, nil
-			} else if ranbmerparameters.DebugTest {
+			} else if ranparameters.DebugTest {
 				log.Printf("During SendEventZt() got this error: %v will retry\n", err)
 			}
 

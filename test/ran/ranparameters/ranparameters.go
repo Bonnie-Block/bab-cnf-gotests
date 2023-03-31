@@ -1,6 +1,9 @@
 package ranparameters
 
 import (
+	"strings"
+
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 )
 
@@ -17,7 +20,7 @@ var (
 		"kube_rbac_proxy_image":   {"ose-kube-rbac-proxy", "kube_rbac_proxy_image"},
 		"cloud_event_proxy_image": {"ose-cloud-event-proxy", "cloud_event_proxy_image"},
 	}
-	DebugTest            = false
+	DebugTest            = strings.ToLower(helper.Config.Ran.RanEventTestDebug) == "true"
 	ConsumerManifestHTTP = "consumer_http_manifest.j2"
 	ConsumerManifestAMQP = "consumer_amqp_manifest.j2"
 	ConsumerImageName    = "cloud_event_consumer"

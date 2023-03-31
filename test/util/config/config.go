@@ -54,7 +54,7 @@ type Config struct {
 		BmcPassword               string   `yaml:"bmc_password" envconfig:"BMC_PASSWORD"`
 		PduAddr                   string   `envconfig:"PDU_ADDR"`
 		PduSocket                 string   `envconfig:"PDU_SOCKET"`
-		BmerTestDebug             string   `envconfig:"BMER_TEST_DEBUG"`
+		RanEventTestDebug         string   `envconfig:"RAN_EVENT_TEST_DEBUG"`
 		BmerConsumerImage         string   `yaml:"bmer_consumer_image" envconfig:"BMER_CONSUMER_IMAGE"`
 		BmerConfigsDir            string   `yaml:"bmer_consumer_manifests"`
 		KubeconfigHub             string   `envconfig:"KUBECONFIG_HUB"`

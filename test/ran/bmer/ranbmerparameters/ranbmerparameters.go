@@ -51,7 +51,6 @@ var (
 		{Cr: &mcfgv1.MachineConfigPoolList{}},
 	}
 	EventRxTimeout = time.Duration(30) * time.Second
-	DebugTest      = false
 
 	DellPowerOffEvents = []string{"PSU0800", "PSU0003", "RDU0012"}
 	DellPowerOnEvents  = []string{"PSU0800", "PSU0019", "RDU0011"}
