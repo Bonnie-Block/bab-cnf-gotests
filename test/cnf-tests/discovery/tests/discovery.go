@@ -506,7 +506,7 @@ func definePTPDiscoveryModePolicy(config *config.Config) {
 		"-2",
 		"-a -r -r",
 		parameters.DiscoveryPtpGrandmasterNodeLabel,
-		pointer.Int64Ptr(5))
+		pointer.Int64(5))
 	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error to create PtpConfig grandmaster: %s", err))
 
 	By("Creating the policy for the worker node")
@@ -518,7 +518,7 @@ func definePTPDiscoveryModePolicy(config *config.Config) {
 		"-s -2",
 		"-a -r",
 		parameters.DiscoveryPtpSlaveNodeLabel,
-		pointer.Int64Ptr(5))
+		pointer.Int64(5))
 	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error to create PtpConfig slave: %s", err))
 
 	By("Restart the linuxptp-daemon pods")
@@ -532,7 +532,7 @@ func definePTPDiscoveryModePolicy(config *config.Config) {
 		err = Apiclient.Pods(generalParam.PtpOperatorNamespace).Delete(
 			context.Background(),
 			pod.Name,
-			metav1.DeleteOptions{GracePeriodSeconds: pointer.Int64Ptr(0)})
+			metav1.DeleteOptions{GracePeriodSeconds: pointer.Int64(0)})
 		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error to remove ptp pod: %s, %s", pod.Name, err))
 	}
 

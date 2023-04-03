@@ -230,7 +230,7 @@ func DeleteAllLBServices(namespace string) error {
 	for _, service := range allServices.Items {
 		err = helper.Apiclient.Services(namespace).Delete(context.Background(),
 			service.Name,
-			metav1.DeleteOptions{GracePeriodSeconds: pointer.Int64Ptr(0)})
+			metav1.DeleteOptions{GracePeriodSeconds: pointer.Int64(0)})
 		if err != nil {
 			return err
 		}

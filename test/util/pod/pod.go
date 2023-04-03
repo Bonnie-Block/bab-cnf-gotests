@@ -57,7 +57,7 @@ func getDefinition(namespace string, image string) *corev1.Pod {
 			GenerateName: "testpod-",
 			Namespace:    namespace},
 		Spec: corev1.PodSpec{
-			TerminationGracePeriodSeconds: pointer.Int64Ptr(0),
+			TerminationGracePeriodSeconds: pointer.Int64(0),
 			Containers: []corev1.Container{{Name: parameters.MainContainerName,
 				Image:   image,
 				Command: parameters.SleepCommand}}}}
@@ -308,7 +308,7 @@ func DeletePodAndWait(apiClient *testclient.ClientSet, podToDelete *corev1.Pod) 
 	err := apiClient.Pods(podToDelete.Namespace).Delete(
 		context.Background(),
 		podToDelete.Name,
-		metav1.DeleteOptions{GracePeriodSeconds: pointer.Int64Ptr(0)})
+		metav1.DeleteOptions{GracePeriodSeconds: pointer.Int64(0)})
 	if err != nil {
 		return err
 	}

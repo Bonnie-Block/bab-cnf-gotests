@@ -163,7 +163,7 @@ func configurePTP() {
 		"-2",
 		"-a -r -r",
 		netptpparameters.PtpGrandmasterNodeLabel,
-		pointer.Int64Ptr(5))
+		pointer.Int64(5))
 	Expect(err).ToNot(HaveOccurred())
 
 	By("Creating the policy for the slave node")
@@ -173,7 +173,7 @@ func configurePTP() {
 		"-s -2",
 		"-a -r",
 		netptpparameters.PtpSlaveNodeLabel,
-		pointer.Int64Ptr(5))
+		pointer.Int64(5))
 	Expect(err).ToNot(HaveOccurred())
 
 	By("Restart the linuxptp-daemon pods")
@@ -188,7 +188,7 @@ func configurePTP() {
 		err = Apiclient.Pods(parameters.PtpOperatorNamespace).Delete(
 			context.Background(),
 			ptpPod.Name,
-			metav1.DeleteOptions{GracePeriodSeconds: pointer.Int64Ptr(0)},
+			metav1.DeleteOptions{GracePeriodSeconds: pointer.Int64(0)},
 		)
 		Expect(err).ToNot(HaveOccurred())
 	}

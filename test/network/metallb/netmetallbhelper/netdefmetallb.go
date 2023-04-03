@@ -48,8 +48,8 @@ func defineBFDProfile(name string) *metallbv1beta1.BFDProfile {
 			TransmitInterval: uint32Ptr(300),
 			DetectMultiplier: uint32Ptr(3),
 			EchoInterval:     uint32Ptr(300),
-			EchoMode:         pointer.BoolPtr(false),
-			PassiveMode:      pointer.BoolPtr(false),
+			EchoMode:         pointer.Bool(false),
+			PassiveMode:      pointer.Bool(false),
 			MinimumTTL:       uint32Ptr(5),
 		},
 	}

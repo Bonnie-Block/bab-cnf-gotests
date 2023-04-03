@@ -76,7 +76,7 @@ func CleanPods(namespace string, cs *testclient.ClientSet) error {
 	}
 
 	err := cs.Pods(namespace).DeleteCollection(context.Background(), metav1.DeleteOptions{
-		GracePeriodSeconds: pointer.Int64Ptr(0),
+		GracePeriodSeconds: pointer.Int64(0),
 	}, metav1.ListOptions{})
 
 	if err != nil {
@@ -203,7 +203,7 @@ func CleanEventsInNamespace(namespace string, clientSet *testclient.ClientSet) e
 	}
 
 	err := clientSet.Events(namespace).DeleteCollection(context.Background(),
-		metav1.DeleteOptions{GracePeriodSeconds: pointer.Int64Ptr(0)},
+		metav1.DeleteOptions{GracePeriodSeconds: pointer.Int64(0)},
 		metav1.ListOptions{})
 
 	return err

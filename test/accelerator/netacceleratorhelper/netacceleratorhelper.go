@@ -198,8 +198,8 @@ func getBbdevPodDefinition(namespace, acceleratorResourceName string, config *co
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{{
 				SecurityContext: &corev1.SecurityContext{
-					RunAsUser:  pointer.Int64Ptr(0),
-					Privileged: pointer.BoolPtr(false),
+					RunAsUser:  pointer.Int64(0),
+					Privileged: pointer.Bool(false),
 					Capabilities: &corev1.Capabilities{
 						Add: []corev1.Capability{"IPC_LOCK", "SYS_RESOURCE"},
 					},
@@ -377,7 +377,7 @@ func GetNodeSecureBootState(nodeName []string, namespace string) (bool, error) {
 
 	defer func() {
 		err := helper.Apiclient.Pods(namespace).Delete(context.Background(), testPod.Name,
-			metav1.DeleteOptions{GracePeriodSeconds: pointer.Int64Ptr(0)})
+			metav1.DeleteOptions{GracePeriodSeconds: pointer.Int64(0)})
 		Expect(err).ToNot(HaveOccurred())
 	}()
 

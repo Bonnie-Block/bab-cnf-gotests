@@ -19,6 +19,7 @@ package v1
 import (
 	"errors"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -115,6 +116,25 @@ func (r *PtpConfig) validate() error {
 				return errors.New("PtpSchedulingPriority must be set for SCHED_FIFO PtpSchedulingPolicy")
 			}
 		}
+
+		if profile.PtpSettings != nil {
+			for k, v := range profile.PtpSettings {
+				switch {
+				case k == "stdoutFilter":
+					_, err := regexp.Compile(v)
+					if err != nil {
+						return errors.New("stdoutFilter='" + v + "' is invalid; " + err.Error())
+					}
+				case k == "logReduce":
+					v = strings.ToLower(v)
+					if v != "true" && v != "false" {
+						return errors.New("logReduce='" + v + "' is invalid; must be in 'true' or 'false'")
+					}
+				default:
+					return errors.New("profile.PtpSettings '" + k + "' is not a configurable setting")
+				}
+			}
+		}
 	}
 	return nil
 }
@@ -153,10 +173,10 @@ func getInterfaces(input *ptp4lConf, mode PtpRole) (interfaces []string) {
 func GetInterfaces(config PtpConfig, mode PtpRole) (interfaces []string) {
 
 	if len(config.Spec.Profile) > 1 {
-		logrus.Warnf("More than one profile detected for ptpconfig %s", &config.ObjectMeta.Name)
+		logrus.Warnf("More than one profile detected for ptpconfig %s", config.ObjectMeta.Name)
 	}
 	if len(config.Spec.Profile) == 0 {
-		logrus.Warnf("No profile detected for ptpconfig %s", &config.ObjectMeta.Name)
+		logrus.Warnf("No profile detected for ptpconfig %s", config.ObjectMeta.Name)
 		return interfaces
 	}
 	conf := &ptp4lConf{}
@@ -170,12 +190,14 @@ func GetInterfaces(config PtpConfig, mode PtpRole) (interfaces []string) {
 	var finalInterfaces []string
 	for _, aIf := range interfaces {
 		if aIf == "global" {
-			finalInterfaces = append(finalInterfaces, *config.Spec.Profile[0].Interface)
+			if config.Spec.Profile[0].Interface != nil {
+				finalInterfaces = append(finalInterfaces, *config.Spec.Profile[0].Interface)
+			}
 		} else {
 			finalInterfaces = append(finalInterfaces, aIf)
 		}
 	}
-	if len(interfaces) == 0 && mode == Slave {
+	if len(interfaces) == 0 && mode == Slave && config.Spec.Profile[0].Interface != nil {
 		finalInterfaces = append(finalInterfaces, *config.Spec.Profile[0].Interface)
 	}
 	return finalInterfaces
