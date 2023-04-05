@@ -59,6 +59,44 @@ var _ = Describe("ZTP Argocd Hub templating Tests", Ordered, Label("ztp-hub-temp
 
 	Context("using hub side acm templating", func() {
 		// 54240
+		It("should report an error for using printf function where not allowed", func() {
+			// https://issues.redhat.com/browse/CNF-6304
+
+			// The ztp test data is stored in a nested directory within the ztp repo
+			testGitPath := ranztphelper.JoinGitPaths(
+				[]string{
+					ranztphelper.ArgocdApps[ranztpparameters.ArgocdPoliciesAppName].Path,
+					"ztp-test/hub-templating-printf",
+				},
+			)
+
+			HubTemplateTestSetup(testGitPath, policyName, cguName, cguNamespace)
+
+			By("Validating TALM reported a policy error", func() {
+				assertTalmPodLog(ranztphelper.HubAPIClient, "printf variable is not supported in the template function Name field")
+			})
+		})
+
+		// 54240
+		It("should report an error for using fromsecret function where not allowed", func() {
+			// https://issues.redhat.com/browse/CNF-6304
+
+			// The ztp test data is stored in a nested directory within the ztp repo
+			testGitPath := ranztphelper.JoinGitPaths(
+				[]string{
+					ranztphelper.ArgocdApps[ranztpparameters.ArgocdPoliciesAppName].Path,
+					"ztp-test/hub-templating-fromsecret",
+				},
+			)
+
+			HubTemplateTestSetup(testGitPath, policyName, cguName, cguNamespace)
+
+			By("Validating TALM reported a policy error", func() {
+				assertTalmPodLog(ranztphelper.HubAPIClient, "template function is not supported in TALM")
+			})
+		})
+
+		// 54240
 		It("should report an error for using autoindent function where not allowed", func() {
 			// https://issues.redhat.com/browse/CNF-6304
 
@@ -184,7 +222,7 @@ var _ = Describe("ZTP Argocd Hub templating Tests", Ordered, Label("ztp-hub-temp
 							metav1.GetOptions{},
 						)
 
-					if err != nil && strings.Contains(err.Error(), "not found") {
+					if err != nil && (strings.Contains(err.Error(), "could not find") || strings.Contains(err.Error(), "not found")) {
 						return true, nil
 					}
 
