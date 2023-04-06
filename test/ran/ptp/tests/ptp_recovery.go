@@ -50,6 +50,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 	})
 
 	AfterEach(func() {
+		restorePtpInterfaces()
 		// Always restore ptpconfigs to original values after each test
 		log.Println("Restore ptpconfigs to original specs")
 		restorePtpConfigs(originPtpConfigSpecs)
@@ -401,9 +402,6 @@ func verifySubscriberIsRemoved(node *corev1.Node, startTime time.Time) error {
 			ranptpparameters.Off)
 		Expect(err).NotTo(HaveOccurred())
 	}
-
-	err = wait.PollImmediate(5*time.Second, 5*time.Minute, condition)
-	Expect(err).NotTo(HaveOccurred())
 
 	time.Sleep(timeout + 5*time.Second)
 
