@@ -187,13 +187,17 @@ func GetPtpTransport() (string, error) {
 	}
 
 	transportHost := ptpOperatorConfigs.Items[0].Spec.EventConfig.TransportHost
-	if strings.Contains(transportHost, "ptp-event-publisher-service") {
-		return ranparameters.TransportHTTP, nil
-	} else if strings.Contains(transportHost, "amqp") {
-		return ranparameters.TransportAMQP, nil
-	}
 
-	return "", fmt.Errorf("unexpected ptp operator transport host: %v", transportHost)
+	switch {
+	case transportHost == "":
+		return ranparameters.TransportHTTP, nil
+	case strings.Contains(transportHost, "ptp-event-publisher-service"):
+		return ranparameters.TransportHTTP, nil
+	case strings.Contains(transportHost, "amqp"):
+		return ranparameters.TransportAMQP, nil
+	default:
+		return "", fmt.Errorf("unexpected ptp operator transport host: %v", transportHost)
+	}
 }
 
 // Deploy an event consumer using the transport protocol from the ptp operator.

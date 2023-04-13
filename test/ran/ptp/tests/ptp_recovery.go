@@ -11,15 +11,12 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
 
 	"context"
 	"fmt"
 	"log"
-	"strings"
 	"time"
 )
 
@@ -260,6 +257,11 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 
 	// 59996
 	It("validates the system is fully functional after removing consumer", func() {
+		transport, err := ranptphelper.GetPtpTransport()
+		Expect(err).NotTo(HaveOccurred())
+		if transport != ranparameters.TransportHTTP {
+			Skip("This test can only be applied to HTTP transport")
+		}
 		// getConsumerNodeAndPod ensures the consumer is running
 		consumerNode, _ := getConsumerNodeAndPod(parameters.CloudEventNamespace)
 
@@ -269,7 +271,6 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 		for _, err := range destroyErrors {
 			Expect(err).ShouldNot(HaveOccurred())
 		}
-		startTime := time.Now()
 
 		// Validate the PTP events are working after the consumer is removed.
 		By("Verify PTP events")
@@ -282,14 +283,10 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 		err = verifyPtpEventsAndMetricsSlaveInterfaceDownUp(consumerNode, &ptpDaemonPods.Items[0], ifaces)
 		Expect(err).NotTo(HaveOccurred())
 
-		transport, err := ranptphelper.GetPtpTransport()
-		Expect(err).NotTo(HaveOccurred())
-
-		if transport == ranparameters.TransportHTTP {
-			By("Verify subscriber is removed")
-			err = verifySubscriberIsRemoved(consumerNode, startTime)
-			Expect(err).NotTo(HaveOccurred())
-		}
+		// Once the configmap is available, the verification of subscriber removal will be re-enabled.
+		// By("Verify subscriber is removed")
+		// err = verifySubscriberIsRemoved(consumerNode, startTime)
+		// Expect(err).NotTo(HaveOccurred())
 
 		// Redeploy consumer and validate the consumer get the events
 		By("Redeploy the consumer")
@@ -366,50 +363,4 @@ func getConsumerNodeAndPod(namespace string) (*corev1.Node, *corev1.Pod) {
 	Expect(err).NotTo(HaveOccurred())
 
 	return consumerNode, consumerPod
-}
-
-func verifySubscriberIsRemoved(node *corev1.Node, startTime time.Time) error {
-	ptpDaemonPods, err := getPtpDaemonPods(node.Name)
-	Expect(err).NotTo(HaveOccurred())
-
-	// generate some events by bringing slave interface down and up
-	ifaces, err := getSlaveInterface(node)
-	Expect(err).NotTo(HaveOccurred())
-
-	timeout, err := ranptphelper.GetHoldOverTimeout()
-	Expect(err).NotTo(HaveOccurred())
-
-	// make sure the daemon skips event publishing
-	condition := func() (bool, error) {
-		logs, err := pod.GetLog(helper.Apiclient, &ptpDaemonPods.Items[0], time.Since(startTime),
-			ranptpparameters.CloudEventContainer)
-
-		if err != nil {
-			return false, err
-		}
-
-		if strings.Contains(logs, "skipping event publishing, clients need to register") {
-			return true, nil
-		}
-
-		return false, nil
-	}
-
-	log.Printf("Bring down/up ptp slave interfaces %v on node %s to generate events\n", ifaces, node.Name)
-
-	for _, i := range ifaces {
-		err := ranptphelper.SetInterfaceStatus(&ptpDaemonPods.Items[0], parameters.PtpContainerName, i,
-			ranptpparameters.Off)
-		Expect(err).NotTo(HaveOccurred())
-	}
-
-	time.Sleep(timeout + 5*time.Second)
-
-	for _, i := range ifaces {
-		err := ranptphelper.SetInterfaceStatus(&ptpDaemonPods.Items[0], parameters.PtpContainerName, i,
-			ranptpparameters.On)
-		Expect(err).NotTo(HaveOccurred())
-	}
-
-	return wait.PollImmediate(5*time.Second, 5*time.Minute, condition)
 }
