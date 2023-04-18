@@ -3,6 +3,7 @@ package ranztphelper
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"fmt"
 	"log"
 	"net/http"
@@ -204,8 +205,16 @@ func DoesGitPathExist(gitURL, gitBranch, gitPath string) bool {
 	// Log the url we are trying
 	log.Printf("Checking if git url '%s' exists\n", url)
 
-	// Attempt the http get
-	resp, err := http.Head(url)
+	// Create a custom http.Transport with insecure TLS configuration
+	transport := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+
+	// Create a custom http.Client using the insecure transport
+	client := &http.Client{Transport: transport}
+
+	// Make a request using the custom client
+	resp, err := client.Get(url)
 
 	// Check if we got a valid response
 	if err == nil && resp.StatusCode == 200 {

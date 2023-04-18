@@ -112,22 +112,6 @@ var _ = Describe("ZTP Argocd Hub templating Tests", Ordered, Label("ztp-hub-temp
 
 			By("Validating TALM reported a policy error", func() {
 				assertTalmPodLog(ranztphelper.HubAPIClient, cguLogHubTemplateError)
-
-				if ranhelper.IsVersionStringInRange(
-					ranztphelper.TalmVersion,
-					"4.12",
-					"",
-				) {
-					err := rantalmhelper.WaitForCguInCondition(
-						ranztphelper.HubAPIClient,
-						cguName,
-						cguNamespace,
-						"Validated",
-						"Invalid managed policies",
-						"False",
-						"NotAllManagedPoliciesExist", 1*time.Minute)
-					Expect(err).ToNot(HaveOccurred())
-				}
 			})
 
 			By("Validating the specific error using the policy annotation", func() {
@@ -140,13 +124,60 @@ var _ = Describe("ZTP Argocd Hub templating Tests", Ordered, Label("ztp-hub-temp
 			})
 		})
 
+		It("should report an error for using invalid lookup hub template function", func() {
+			if !ranhelper.IsVersionStringInRange(
+				ranztphelper.TalmVersion,
+				"4.12",
+				"",
+			) {
+				Skip("The minimum required TALM version for this test is 4.12")
+			}
+
+			// The ztp test data is stored in a nested directory within the ztp repo
+			testGitPath := ranztphelper.JoinGitPaths(
+				[]string{
+					ranztphelper.ArgocdApps[ranztpparameters.ArgocdPoliciesAppName].Path,
+					"ztp-test/hub-templating-lookup-invalid",
+				},
+			)
+
+			HubTemplateTestSetup(testGitPath, policyName, cguName, cguNamespace)
+
+			By("Validating CGU reported an invalid policy error", func() {
+				err := rantalmhelper.WaitForCguInCondition(
+					ranztphelper.HubAPIClient,
+					cguName,
+					cguNamespace,
+					"Validated",
+					"Invalid managed policies",
+					"False",
+					"NotAllManagedPoliciesExist", 1*time.Minute)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			By("Validating TALM reported a policy error", func() {
+				assertTalmPodLog(ranztphelper.HubAPIClient,
+					"template function only allows the resource with apiVersion in"+
+						" 'cluster.open-cluster-management.io', kind 'ManagedCluster' and empty namespace")
+			})
+		})
+
 		// 54240
 		It("should create the policy successfully with a valid template", func() {
+
+			testGitRepo := "ztp-test/hub-templating-valid_4.11"
+			if ranhelper.IsVersionStringInRange(
+				ranztphelper.TalmVersion,
+				"4.12",
+				"",
+			) {
+				testGitRepo = "ztp-test/hub-templating-valid"
+			}
 
 			testGitPath := ranztphelper.JoinGitPaths(
 				[]string{
 					ranztphelper.ArgocdApps[ranztpparameters.ArgocdPoliciesAppName].Path,
-					"ztp-test/hub-templating-valid",
+					testGitRepo,
 				},
 			)
 
