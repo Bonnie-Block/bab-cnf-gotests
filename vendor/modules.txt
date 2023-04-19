@@ -2052,8 +2052,8 @@ k8s.io/utils/net
 k8s.io/utils/pointer
 k8s.io/utils/strings/slices
 k8s.io/utils/trace
-# open-cluster-management.io/api v0.8.0
-## explicit; go 1.18
+# open-cluster-management.io/api v0.10.1
+## explicit; go 1.19
 open-cluster-management.io/api/cluster/v1
 # open-cluster-management.io/config-policy-controller v0.9.0
 ## explicit; go 1.19

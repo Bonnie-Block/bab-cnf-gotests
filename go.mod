@@ -47,6 +47,7 @@ require (
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/kubernetes v1.25.4
 	k8s.io/utils v0.0.0-20230313181309-38a27ef9d749
+	open-cluster-management.io/api v0.10.1
 	open-cluster-management.io/config-policy-controller v0.9.0
 	open-cluster-management.io/governance-policy-propagator v0.8.0
 	open-cluster-management.io/multicloud-operators-subscription v0.6.0
@@ -268,7 +269,6 @@ require (
 	k8s.io/kube-openapi v0.0.0-20221012153701-172d655c2280 // indirect
 	k8s.io/kubectl v0.24.2 // indirect
 	k8s.io/kubelet v0.24.1 // indirect
-	open-cluster-management.io/api v0.8.0 // indirect
 	sigs.k8s.io/json v0.0.0-20220713155537-f223a00ba0e2 // indirect
 	sigs.k8s.io/kustomize/api v0.12.1 // indirect
 	sigs.k8s.io/kustomize/kyaml v0.13.9 // indirect

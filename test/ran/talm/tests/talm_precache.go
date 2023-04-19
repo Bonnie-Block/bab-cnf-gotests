@@ -521,7 +521,6 @@ var _ = Describe("TALM tests with multiple spokes where one turns off", Ordered,
 			Expect(err).ToNot(HaveOccurred())
 
 		})
-
 	})
 
 	AfterAll(func() {

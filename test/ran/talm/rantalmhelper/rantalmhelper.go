@@ -23,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	configurationPolicyv1 "open-cluster-management.io/config-policy-controller/api/v1"
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	policiesv1beta1 "open-cluster-management.io/governance-policy-propagator/api/v1beta1"
@@ -1956,4 +1957,24 @@ func PatchCgu(client *testClient.ClientSet,
 		ClustergroupupgradesoperatorV1alpha1Interface.
 		ClusterGroupUpgrades(cgu.Namespace).
 		Patch(context.Background(), cgu.Name, types.MergePatchType, []byte(payload), options)
+}
+
+// IsClusterLabelExist looks for a label on a managed cluster and returns true if it exists.
+func IsClusterLabelExist(clusterName string, expectedLabel string) (bool, error) {
+	var managedCluster clusterv1.ManagedCluster
+
+	err := HubAPIClient.Get(context.Background(), runtimeclient.ObjectKey{Name: clusterName}, &managedCluster)
+
+	if err != nil {
+		return false, err
+	}
+
+	for label := range managedCluster.Labels {
+		if label == expectedLabel {
+			return true, nil
+		}
+	}
+
+	// Label was not found
+	return false, fmt.Errorf("label %s is not found in managedcluster %s", expectedLabel, clusterName)
 }

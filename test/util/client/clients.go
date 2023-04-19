@@ -44,6 +44,7 @@ import (
 	rbacv1client "k8s.io/client-go/kubernetes/typed/rbac/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	policiesv1beta1 "open-cluster-management.io/governance-policy-propagator/api/v1beta1"
 	placementrulev1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
@@ -181,6 +182,10 @@ func New(kubeconfig string) *ClientSet {
 	}
 
 	if err := placementrulev1.AddToScheme(crScheme); err != nil {
+		panic(err)
+	}
+
+	if err := clusterv1.AddToScheme(crScheme); err != nil {
 		panic(err)
 	}
 
