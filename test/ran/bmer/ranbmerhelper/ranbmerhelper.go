@@ -239,7 +239,7 @@ func RestartPod(label string, timeout time.Duration) error {
 	}
 
 	err = wait.PollImmediate(5*time.Second, timeout, func() (bool, error) {
-		pod, err := GetPodByLabel(label)
+		pod, err = GetPodByLabel(label)
 		if err != nil {
 			return false, nil
 		}
@@ -330,7 +330,7 @@ func RestartSidecar(label string, timeout time.Duration) error {
 // GetPodByLabel get all pods in the parameters.BmerNamespace
 // that o have a given label.
 func GetPodByLabel(label string) (corev1.Pod, error) {
-	Pods, err := helper.Apiclient.Pods(parameters.BmerNamespace).List(context.Background(),
+	podList, err := helper.Apiclient.Pods(parameters.BmerNamespace).List(context.Background(),
 		metav1.ListOptions{
 			LabelSelector: label})
 
@@ -338,9 +338,12 @@ func GetPodByLabel(label string) (corev1.Pod, error) {
 		return corev1.Pod{}, err
 	}
 
-	pod := Pods.Items[0]
+	if len(podList.Items) < 1 {
+		return corev1.Pod{}, fmt.Errorf("no pod found with label %s under namespace %s", label,
+			parameters.BmerNamespace)
+	}
 
-	return pod, nil
+	return podList.Items[0], nil
 }
 
 func isHwEventSecret(namespace, secretName string) bool {
