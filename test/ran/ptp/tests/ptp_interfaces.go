@@ -234,9 +234,12 @@ func validatePublisherService(nodeName string) {
 
 // Verify events are being received the cloud-event-consumer.
 func verifyConsumerEvents(consumerNode *corev1.Node, consumerPod *corev1.Pod) error {
-	// Validate the ptp-event-publisher-service is running in the required namespace.
-	nodeName := strings.Split(consumerNode.Name, ".")[0]
-	validatePublisherService(nodeName)
+	// ptp-event-publisher-service is added in 4.12
+	if ranhelper.IsVersionStringInRange(ranptpparameters.PtpVersion, "4.12", "") {
+		// Validate the ptp-event-publisher-service is running in the required namespace.
+		nodeName := strings.Split(consumerNode.Name, ".")[0]
+		validatePublisherService(nodeName)
+	}
 
 	// Get the ptp daemon pod that runs on the same node as the consumer.
 	ptpDaemonPods, err := getPtpDaemonPods(consumerNode.Name)
