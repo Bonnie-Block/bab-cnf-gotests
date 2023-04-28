@@ -15,6 +15,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ztp/ranztpparameters"
 	testClient "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
@@ -88,6 +89,19 @@ var _ = Describe("ZTP Argocd Hub templating Tests", Ordered, Label("ztp-hub-temp
 					"ztp-test/hub-templating-fromsecret",
 				},
 			)
+
+			// Create secret
+			secret := corev1.Secret{}
+			secret.Name = ranztphelper.SpokeName + "-sriovdata"
+			secret.StringData = map[string]string{
+				"vlan": "MTEwCg==",
+			}
+
+			_, err := ranztphelper.HubAPIClient.
+				Secrets(ranztpparameters.ZtpTestNamespace).
+				Create(ranztphelper.GetZtpContext(), &secret, metav1.CreateOptions{})
+
+			Expect(err).ToNot(HaveOccurred())
 
 			HubTemplateTestSetup(testGitPath, policyName, cguName, cguNamespace)
 
@@ -270,6 +284,20 @@ var _ = Describe("ZTP Argocd Hub templating Tests", Ordered, Label("ztp-hub-temp
 				cguNamespace,
 			)
 			Expect(err).ToNot(HaveOccurred())
+		})
+
+		By("Removing test secret if it exists", func() {
+			secret, err := ranztphelper.HubAPIClient.
+				Secrets(ranztpparameters.ZtpTestNamespace).
+				Get(ranztphelper.GetZtpContext(), ranztphelper.SpokeName+"-sriovdata", metav1.GetOptions{})
+
+			if secret != nil && err == nil {
+				err = ranztphelper.HubAPIClient.
+					Secrets(ranztpparameters.ZtpTestNamespace).
+					Delete(ranztphelper.GetZtpContext(), secret.Name, metav1.DeleteOptions{})
+
+				Expect(err).ToNot(HaveOccurred())
+			}
 		})
 	})
 })
