@@ -48,6 +48,10 @@ var _ = BeforeSuite(func() {
 			LabelSelector: parameters.PtpDaemonsetLabelSelector})
 	Expect(err).NotTo(HaveOccurred())
 
+	if len(ptpDaemonPods.Items) == 0 {
+		Skip("PTP linux Daemon pod does not exist")
+	}
+
 	for _, ptpDaemonPod := range ptpDaemonPods.Items {
 		err = helper.IsPodHealthy(&ptpDaemonPod)
 		Expect(err).NotTo(HaveOccurred())
@@ -57,6 +61,9 @@ var _ = BeforeSuite(func() {
 			Skip(fmt.Sprintf("cannot run test if %s is not exists in the pod", ranptpparameters.CloudEventContainer))
 		}
 	}
+
+	_, err = ranptphelper.GetOcpInterface(ptpDaemonPods.Items[0], parameters.PtpContainerName)
+	Expect(err).ToNot(HaveOccurred())
 
 	// Get ptp version
 	ranptpparameters.PtpVersion, err = ranhelper.GetOperatorVersionFromCSV(

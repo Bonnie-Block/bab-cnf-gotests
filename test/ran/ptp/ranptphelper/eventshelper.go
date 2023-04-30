@@ -21,10 +21,12 @@ import (
 	"time"
 )
 
-// getEventsLogs gets a long string "logs" and an empty array of strings "eventStrings".
+// getClockStateEventsLogs gets a long string "logs" and an empty array of strings "eventStrings".
 // and fills "eventStrings" array with the logs that contain event state value.
-func getEventsLogs(logs string, eventStrings []string) []string {
+func getClockStateEventsLogs(logs string, eventStrings []string) []string {
+	logs = strings.ReplaceAll(logs, "\\n", "")
 	logsSlice := strings.Split(logs, "\n")
+
 	for _, line := range logsSlice {
 		if strings.Contains(line, "id") && (strings.Contains(line, ranptpparameters.EventFreeRun) ||
 			strings.Contains(line, ranptpparameters.EventLocked) ||
@@ -38,8 +40,7 @@ func getEventsLogs(logs string, eventStrings []string) []string {
 
 // WaitForEvent waits for specified event to appear in ptp cloud event proxy log.
 func WaitForEvent(ptpPod *corev1.Pod, container string, eventType string, eventValue string,
-	iface string, since time.Duration,
-	timeout time.Duration) error {
+	iface string, since time.Duration, timeout time.Duration) error {
 	if since < 1*time.Second {
 		since = 1 * time.Second
 	}
@@ -68,8 +69,6 @@ func WaitForEvent(ptpPod *corev1.Pod, container string, eventType string, eventV
 
 		eventMsgs = getEvents(logs)
 		if containsEvent(eventMsgs, eventType, eventValue, iface) {
-			log.Printf("%s event %s found for %s\n", eventType, eventValue, iface)
-
 			return true, nil
 		}
 
@@ -86,11 +85,9 @@ func getEvents(eventLogs string) []ranptpparameters.EventMsg {
 		eventStrings []string
 	)
 
-	eventStrings = getEventsLogs(eventLogs, eventStrings)
+	eventStrings = getClockStateEventsLogs(eventLogs, eventStrings)
 
 	for _, line := range eventStrings {
-		line = strings.ReplaceAll(line, "\\n", "")
-
 		eventJSON := getEventJSON(line)
 		if eventJSON != "" {
 			var event ranptpparameters.EventMsg
@@ -111,6 +108,10 @@ func getEvents(eventLogs string) []ranptpparameters.EventMsg {
 
 // containsEvent returns true when specified event type, value and resource is found in given event messages.
 func containsEvent(eventMsgs []ranptpparameters.EventMsg, eventType string, value string, iface string) bool {
+	if len(eventMsgs) == 0 {
+		return false
+	}
+
 	// NIC info is added to ptp event since 4.11
 	if ranhelper.IsVersionStringInRange(ranptpparameters.PtpVersion, "", "4.11") {
 		iface = ""
@@ -128,7 +129,7 @@ func containsEvent(eventMsgs []ranptpparameters.EventMsg, eventType string, valu
 	for _, event := range eventMsgs {
 		if event.EventType == eventType {
 			for _, val := range event.Data.Values {
-				if slices.Contains(checkedResources, val.Resource) {
+				if !strings.Contains(val.DataType, "notification") || slices.Contains(checkedResources, val.Resource) {
 					continue
 				}
 
@@ -136,6 +137,8 @@ func containsEvent(eventMsgs []ranptpparameters.EventMsg, eventType string, valu
 					if iface == "" {
 						checkedResources = append(checkedResources, val.Resource)
 					} else if strings.Contains(val.Resource, iface) {
+						log.Printf("Info: %s %s is found for resource(s): %v\n", eventType, value, iface)
+
 						return true
 					}
 				} else if iface == "" {
@@ -147,8 +150,8 @@ func containsEvent(eventMsgs []ranptpparameters.EventMsg, eventType string, valu
 		}
 	}
 
-	// Event for specific interface is not found
-	if iface != "" {
+	// Event for specific interface is not found or no expect event found at all
+	if iface != "" || len(checkedResources) == 0 {
 		return false
 	}
 
@@ -161,23 +164,20 @@ func containsEvent(eventMsgs []ranptpparameters.EventMsg, eventType string, valu
 		}
 	}
 
+	log.Printf("Info: %s %s is found for resources: %v\n", eventType, value, checkedResources)
+
 	return true
 }
 
 // Return the json body of the event.
 func getEventJSON(line string) string {
 	r := regexp.MustCompile(`[(received event|event sent)]\{(.*)\}`)
-
 	eventJSON := r.FindString(line)
-
-	if eventJSON == "" {
-		return ""
-	}
 
 	return eventJSON
 }
 
-// Get the ptp operator configured transport host.
+// GetPtpTransport gets the ptp operator configured transport host.
 func GetPtpTransport() (string, error) {
 	// get the ptp operator configured transport host.
 	ptpOperatorConfigs, err := helper.Apiclient.PtpOperatorConfigs(parameters.PtpOperatorNamespace).
@@ -200,7 +200,7 @@ func GetPtpTransport() (string, error) {
 	}
 }
 
-// Deploy an event consumer using the transport protocol from the ptp operator.
+// DeployPtpConsumer deploys an event consumer using the transport protocol from the ptp operator.
 func DeployPtpConsumer() (*corev1.PodList, error) {
 	log.Println("Check consumer image is defined")
 
@@ -243,7 +243,7 @@ func DeployPtpConsumer() (*corev1.PodList, error) {
 	return consumersList, nil
 }
 
-// It waits for the consumer to be ready for events.
+// WaitForConsumerReady waits for the consumer to be ready for events.
 func WaitForConsumerReady(consumerPod *corev1.Pod) error {
 	err := wait.PollImmediate(5*time.Second, 1*time.Minute, func() (bool, error) {
 		logs, err := pod.GetLog(helper.Apiclient, consumerPod, 1*time.Hour,

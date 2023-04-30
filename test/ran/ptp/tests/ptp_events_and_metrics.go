@@ -95,14 +95,8 @@ var _ = Describe("Basic PTP Configs", func() {
 				err = ranptphelper.SaveOriginalValues()
 				Expect(err).NotTo(HaveOccurred())
 
-				configsList, err := helper.Apiclient.PtpConfigs(parameters.PtpOperatorNamespace).
-					List(context.Background(),
-						metav1.ListOptions{})
-				Expect(err).NotTo(HaveOccurred())
-
-				By("Modify the ptp config - ptp clock thresholds value")
-				err = ranptphelper.SetThresholdsValAllConfigs(configsList, &ranptpparameters.ModifiedThresholdsValues)
-				Expect(err).NotTo(HaveOccurred())
+				verifyEventsAndMetricsModifyThresholds(&ptpDaemonPod, &ptpDaemonPod,
+					ranptpparameters.CloudEventContainer, 5*time.Minute, false)
 
 				By("Validate new values in ptpconfig")
 				ptpConfigs, err := ranptphelper.GetPtpConfigs()
@@ -115,11 +109,6 @@ var _ = Describe("Basic PTP Configs", func() {
 					Expect(ptpConfig.Spec.Profile[0].PtpClockThreshold.MinOffsetThreshold).Should(
 						Equal(ranptpparameters.ModifiedThresholdsValues.MinOffsetThreshold))
 				}
-
-				By("Validate slave clock state changed to [FREERUN] in ptp metrics")
-				err = ranptphelper.WaitForPtpClockStateMetric(ptpDaemonPod, ranptpparameters.FreeRunState, "",
-					5*time.Minute, 10*time.Second)
-				Expect(err).NotTo(HaveOccurred())
 
 				By("Validate ptp thresholds metrics values changed to new values in ptp metrics")
 				for _, thresholdMetrics := range ranptpparameters.MetricMap[ranptpparameters.OpenshiftPtpThreshold] {
@@ -248,4 +237,45 @@ func ptpPretestValidations() (map[string]ptpv1.PtpConfigSpec, []int, error) {
 	ptpConfigCounts := getPtpConfigCounts(*originPtpConfigList)
 
 	return originPtpConfigSpecs, ptpConfigCounts, beforeAllErr
+}
+
+// verifyEventsAndMetricsModifyThresholds verifies ptp metrics and events by changing thresholds for HOLDOVER/FREERUN.
+func verifyEventsAndMetricsModifyThresholds(ptpDaemonPod *corev1.Pod, pod *corev1.Pod,
+	containerName string, timeout time.Duration, skipMetricCheck bool) {
+	startTime := time.Now()
+	time.Sleep(1 * time.Second)
+
+	By("Validate no [FREERUN] event received via pod: " + pod.Name)
+	err := ranptphelper.WaitForEvent(pod, containerName,
+		"event.sync.ptp-status.ptp-state-change",
+		ranptpparameters.EventFreeRun, "", time.Since(startTime), 10*time.Second)
+	Expect(err).To(HaveOccurred(), "FREERUN event is received before modifying maxoffset threshold")
+
+	// reset start time for FREERUN event test
+	startTime = time.Now()
+	time.Sleep(1 * time.Second)
+
+	configsList, err := helper.Apiclient.PtpConfigs(parameters.PtpOperatorNamespace).
+		List(context.Background(),
+			metav1.ListOptions{})
+	Expect(err).NotTo(HaveOccurred())
+
+	By("Modify the ptp profile ptpClockThresholds values to trigger FREERUN events")
+
+	err = ranptphelper.SetThresholdsValAllConfigs(configsList, &ranptpparameters.ModifiedThresholdsValues)
+	Expect(err).NotTo(HaveOccurred())
+
+	By("Validate clock state changed to [FREERUN] in ptp events via pod: " + pod.Name)
+	err = ranptphelper.WaitForEvent(pod, containerName,
+		"event.sync.ptp-status.ptp-state-change",
+		ranptpparameters.EventFreeRun, "", time.Since(startTime), timeout)
+	Expect(err).NotTo(HaveOccurred())
+
+	if !skipMetricCheck {
+		By("Validate slave clock state changed to [FREERUN] in ptp metrics")
+
+		err = ranptphelper.WaitForPtpClockStateMetric(*ptpDaemonPod, ranptpparameters.FreeRunState, "",
+			timeout, 0)
+		Expect(err).NotTo(HaveOccurred())
+	}
 }

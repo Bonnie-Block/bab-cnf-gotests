@@ -2,7 +2,6 @@ package ranptphelper
 
 import (
 	ptpv1api "github.com/openshift/ptp-operator/api/v1"
-	"github.com/opentracing/opentracing-go/log"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ptp/ranptpparameters"
@@ -14,6 +13,7 @@ import (
 
 	"context"
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
 )
@@ -97,7 +97,7 @@ func interfaceParser(config ptpv1api.PtpConfig, node corev1.Node,
 	for _, profile := range nodeProfileMap[node.Name] {
 		if IsOrdinaryClockProfile(profile) {
 			if _, ok := interfacesRoleMap[*profile.Interface]; ok {
-				log.Error(fmt.Errorf("slave interface %s is configured more than once", *profile.Interface))
+				log.Printf("Warning: slave interface %s is configured more than once", *profile.Interface)
 			}
 
 			interfacesRoleMap[*profile.Interface] = map[string]string{"masterOnly": "0"}
@@ -109,7 +109,7 @@ func interfaceParser(config ptpv1api.PtpConfig, node corev1.Node,
 
 		for ifce, role := range ifceRoleMap {
 			if _, ok := interfacesRoleMap[ifce]; ok {
-				log.Error(fmt.Errorf("interface %s is configured more than once", ifce))
+				log.Printf("Warning: interface %s is configured more than once", ifce)
 			}
 
 			interfacesRoleMap[ifce] = role
@@ -194,4 +194,32 @@ func checkConfiguration(config ptpv1api.PtpConfig) error {
 	}
 
 	return nil
+}
+
+// GetOcpInterface returns the interface whose physical port is also used by br-ex virtual interface.
+// PTP test will avoid bringing down this interface.
+func GetOcpInterface(privPod corev1.Pod, containerName string) (string, error) {
+	cmd := []string{"bash", "-c", "MAC=`cat /sys/class/net/br-ex/address`; ip addr | grep -B 1 ${MAC} | " +
+		"grep \" UP \" | grep -v br-ex | awk '{print $2}' | tr -d [:]"}
+
+	ocpInterfaceBytes, err := pod.ExecCommand(helper.Apiclient, privPod, cmd, containerName)
+	if err != nil {
+		return "", err
+	}
+
+	ranptpparameters.OcpInterface = strings.TrimSpace(ocpInterfaceBytes.String())
+	log.Println("Interface used by OCP:", ranptpparameters.OcpInterface)
+
+	return ranptpparameters.OcpInterface, nil
+}
+
+// ContainsOcpInterface returns true if port for any given interfaces is also used by br-ex virtual interface.
+func ContainsOcpInterface(interfaces []string) bool {
+	for _, iface := range interfaces {
+		if iface == ranptpparameters.OcpInterface {
+			return true
+		}
+	}
+
+	return false
 }

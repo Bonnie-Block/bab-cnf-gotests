@@ -141,7 +141,7 @@ func WaitForPtpClockStateMetric(ptpDaemonPod corev1.Pod, state ranptpparameters.
 	}
 
 	startTime := time.Now()
-	interval := 15 * time.Second
+	interval := 5 * time.Second
 
 	successMsg := fmt.Sprintf("Reached PTP clock state %v for %s", state, iface)
 	if iface == "" {

@@ -67,6 +67,7 @@ var _ = Describe("PTP Events and Metrics - interface down", func() {
 		nodeToPtpDaemonPod, err := ranptphelper.NodesToPtpDaemonPods()
 		Expect(err).NotTo(HaveOccurred())
 
+		tested := false
 		for nodeName, ptpDaemonPod := range nodeToPtpDaemonPod {
 			ptpNode, err := ranhelper.GetNodeByName(nodeName)
 			Expect(err).NotTo(HaveOccurred())
@@ -76,12 +77,26 @@ var _ = Describe("PTP Events and Metrics - interface down", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			for _, ifaces := range ifaceGroups {
+				if ranptphelper.ContainsOcpInterface(ifaces) {
+					log.Println("Avoid bringing down interface used by ocp:", ranptpparameters.OcpInterface)
+
+					continue
+				}
+
 				time.Sleep(3 * time.Second)
-				err = verifyPtpEventsAndMetricsSlaveInterfaceDownUp(ptpNode, &ptpDaemonPod, ifaces)
-				Expect(err).NotTo(HaveOccurred())
+				log.Printf("Verify ptp events and metrics via ptp pod")
+				verifyEventsAndMetricsSlaveInterfaceDownUp(ptpNode, &ptpDaemonPod, &ptpDaemonPod,
+					ranptpparameters.CloudEventContainer, ifaces, false)
+				tested = true
 			}
 			// Tests only 1 node
-			break
+			if tested {
+				break
+			}
+		}
+
+		if !tested {
+			Skip("Test skipped to avoid bringing down port used by br-ex interface")
 		}
 	})
 
@@ -151,14 +166,6 @@ var _ = Describe("PTP Events and Metrics - interface down", func() {
 			break
 		}
 		Expect(tested).To(BeTrue(), "No interfaces found for testing while BC is configured")
-	})
-
-	// 59992
-	It("Validate PTP consumer events", func() {
-		consumerNode, consumerPod := getConsumerNodeAndPod(parameters.CloudEventNamespace)
-		// Verify communication between publisher to consumer
-		err := verifyConsumerEvents(consumerNode, consumerPod)
-		Expect(err).NotTo(HaveOccurred())
 	})
 
 	// 59866
@@ -268,26 +275,6 @@ func getPtpDaemonPods(nodeName string) (*corev1.PodList, error) {
 	return ptpDaemonPods, nil
 }
 
-func getSlaveInterface(ptpNode *corev1.Node) ([]string, error) {
-	var slaveInterfaces []string
-
-	interfaces, err := ranptphelper.GetInterfaces(ptpv1.Slave, *ptpNode)
-	Expect(err).NotTo(HaveOccurred())
-
-	ifaceGroups := ranptphelper.GetInterfaceGroups(interfaces)
-	if len(ifaceGroups) < 1 {
-		return slaveInterfaces, fmt.Errorf("interface group is empty on node :%s", ptpNode.Name)
-	}
-
-	for _, ifaces := range ifaceGroups {
-		slaveInterfaces = ifaces
-
-		break
-	}
-
-	return slaveInterfaces, nil
-}
-
 func validatePublisherService(nodeName string) {
 	serviceName := fmt.Sprintf("ptp-event-publisher-service-%s", nodeName)
 
@@ -297,45 +284,10 @@ func validatePublisherService(nodeName string) {
 		serviceName, parameters.PtpOperatorNamespace, err))
 }
 
-// Verify events are being received the cloud-event-consumer.
-func verifyConsumerEvents(consumerNode *corev1.Node, consumerPod *corev1.Pod) error {
-	// ptp-event-publisher-service is added in 4.12
-	if ranhelper.IsVersionStringInRange(ranptpparameters.PtpVersion, "4.12", "") {
-		// Validate the ptp-event-publisher-service is running in the required namespace.
-		nodeName := strings.Split(consumerNode.Name, ".")[0]
-		validatePublisherService(nodeName)
-	}
-
-	// Get the ptp daemon pod that runs on the same node as the consumer.
-	ptpDaemonPods, err := getPtpDaemonPods(consumerNode.Name)
-	Expect(err).NotTo(HaveOccurred())
-
-	// Ensure the consumer is ready for events.
-	err = ranptphelper.WaitForConsumerReady(consumerPod)
-	Expect(err).NotTo(HaveOccurred())
-
-	// only need one interface for the test.
-	slaveInterface, err := getSlaveInterface(consumerNode)
-	Expect(err).NotTo(HaveOccurred())
-
-	return verifyEventsAndMetricsSlaveInterfaceDownUp(consumerNode, &ptpDaemonPods.Items[0], consumerPod,
-		ranptpparameters.ConsumerContainer, slaveInterface, true)
-}
-
-// Verify events are being proxyed by the ptp cloud-event-proxy.
-func verifyPtpEventsAndMetricsSlaveInterfaceDownUp(consumerNode *corev1.Node, ptpPod *corev1.Pod,
-	ifaces []string) error {
-	log.Printf("Verify PTP events, pod: %s, container:%s\n", ptpPod.Name,
-		ranptpparameters.CloudEventContainer)
-
-	return verifyEventsAndMetricsSlaveInterfaceDownUp(consumerNode, ptpPod, ptpPod,
-		ranptpparameters.CloudEventContainer, ifaces, false)
-}
-
 // Create events by disabling and enabling a slave interface and verify events are being received
 // by the specific pod/container.
 func verifyEventsAndMetricsSlaveInterfaceDownUp(node *corev1.Node, ptpPod *corev1.Pod, pod *corev1.Pod,
-	container string, ifaces []string, skipMetricCheck bool) error {
+	container string, ifaces []string, skipMetricCheck bool) {
 	startTime := time.Now()
 
 	By(fmt.Sprintf("Bring down ptp slave interfaces %v on node %s\n", ifaces, node.Name))
@@ -361,7 +313,6 @@ func verifyEventsAndMetricsSlaveInterfaceDownUp(node *corev1.Node, ptpPod *corev
 	Expect(err).NotTo(HaveOccurred())
 
 	timeout += time.Since(startTime) + 120*time.Second
-	log.Printf("wait for thershold holdover to pass %s\n", timeout)
 	err = ranptphelper.WaitForEvent(pod, container,
 		"event.sync.ptp-status.ptp-state-change",
 		ranptpparameters.EventFreeRun, slaveInterface, time.Since(startTime), timeout)
@@ -372,7 +323,7 @@ func verifyEventsAndMetricsSlaveInterfaceDownUp(node *corev1.Node, ptpPod *corev
 		By("Validate slave interface is in [FREERUN] in ptp metrics")
 
 		err = ranptphelper.WaitForPtpClockStateMetric(*ptpPod, ranptpparameters.FreeRunState,
-			slaveInterface, 2*time.Minute, 10*time.Second)
+			slaveInterface, 5*time.Minute, 10*time.Second)
 		Expect(err).NotTo(HaveOccurred())
 	}
 
@@ -400,6 +351,4 @@ func verifyEventsAndMetricsSlaveInterfaceDownUp(node *corev1.Node, ptpPod *corev
 			"", 1*time.Minute, 10*time.Second)
 		Expect(err).NotTo(HaveOccurred())
 	}
-
-	return nil
 }

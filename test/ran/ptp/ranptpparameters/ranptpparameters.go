@@ -10,7 +10,7 @@ import (
 var (
 	// ReporterNamespacesToDump tells to reporter from where to collect logs.
 	ReporterNamespacesToDump = map[string]string{
-		parameters.PtpOperatorNamespace: "ptp",
+		parameters.PtpOperatorNamespace: "openshift-ptp",
 	}
 	// ReporterCrds tells to reporter what resources to collect.
 	ReporterCrds = []k8sreporter.CRData{
@@ -20,7 +20,8 @@ var (
 		{Cr: &ptpv1.PtpOperatorConfigList{}},
 	}
 
-	PtpVersion string
+	PtpVersion   string
+	OcpInterface string
 )
 
 const (

@@ -17,6 +17,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 )
 
@@ -255,50 +256,71 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 		Expect(err).NotTo(HaveOccurred())
 	})
 
-	// 59996
-	It("validates the system is fully functional after removing consumer", func() {
-		transport, err := ranptphelper.GetPtpTransport()
-		Expect(err).NotTo(HaveOccurred())
-		if transport != ranparameters.TransportHTTP {
-			Skip("This test can only be applied to HTTP transport")
-		}
-		// getConsumerNodeAndPod ensures the consumer is running
-		consumerNode, _ := getConsumerNodeAndPod(parameters.CloudEventNamespace)
+	Context("HTTP events using consumer", Ordered, func() {
+		var (
+			consumerNode *corev1.Node
+			consumerPod  *corev1.Pod
+			ptpDaemonPod *corev1.Pod
+		)
 
-		// Remove the consumer.
-		By("Remove the consumer")
-		destroyErrors := ranhelper.DestroyConsumers(parameters.CloudEventNamespace)
-		for _, err := range destroyErrors {
-			Expect(err).ShouldNot(HaveOccurred())
-		}
+		BeforeAll(func() {
+			transport, err := ranptphelper.GetPtpTransport()
+			Expect(err).NotTo(HaveOccurred())
+			if transport != ranparameters.TransportHTTP {
+				Skip("This test can only be applied to HTTP transport")
+			}
 
-		// Validate the PTP events are working after the consumer is removed.
-		By("Verify PTP events")
-		ifaces, err := getSlaveInterface(consumerNode)
-		Expect(err).NotTo(HaveOccurred())
+			consumerNode, consumerPod = getConsumerNodeAndPod(parameters.CloudEventNamespace)
+			ptpDaemonPods, err := getPtpDaemonPods(consumerNode.Name)
+			Expect(err).NotTo(HaveOccurred())
+			ptpDaemonPod = &ptpDaemonPods.Items[0]
+		})
 
-		ptpDaemonPods, err := getPtpDaemonPods(consumerNode.Name)
-		Expect(err).NotTo(HaveOccurred())
+		AfterAll(func() {
+			// Make sure consumer exists or redeployed after destroy consumer test case
+			getConsumerNodeAndPod(parameters.CloudEventNamespace)
+		})
 
-		err = verifyPtpEventsAndMetricsSlaveInterfaceDownUp(consumerNode, &ptpDaemonPods.Items[0], ifaces)
-		Expect(err).NotTo(HaveOccurred())
+		// 59992
+		It("validates HTTP PTP events via consumer", func() {
+			// Verify communication between publisher to consumer
+			verifyConsumerEvents(consumerNode, consumerPod)
+		})
 
-		// Once the configmap is available, the verification of subscriber removal will be re-enabled.
-		// By("Verify subscriber is removed")
-		// err = verifySubscriberIsRemoved(consumerNode, startTime)
-		// Expect(err).NotTo(HaveOccurred())
+		// 59996
+		It("validates the system is fully functional after removing consumer", func() {
+			// Remove the consumer.
+			By("Remove the consumer")
+			destroyErrors := ranhelper.DestroyConsumers(parameters.CloudEventNamespace)
+			for _, err := range destroyErrors {
+				Expect(err).ShouldNot(HaveOccurred())
+			}
 
-		// Redeploy consumer and validate the consumer get the events
-		By("Redeploy the consumer")
-		consumersList, err := ranptphelper.DeployPtpConsumer()
-		Expect(err).NotTo(HaveOccurred())
-		log.Println("Redeployed consumer:", consumersList.Items[0].Name)
-		consumerNode, consumerPod := getConsumerNodeAndPod(parameters.CloudEventNamespace)
+			// Validate the PTP events are working after the consumer is removed.
+			By("Verify PTP events and metrics after the consumer is removed")
+			verifyEventsAndMetricsModifyThresholds(ptpDaemonPod, ptpDaemonPod,
+				ranptpparameters.CloudEventContainer, 10*time.Minute, false)
 
-		By("Verify consumer events again")
-		err = verifyConsumerEvents(consumerNode, consumerPod)
-		Expect(err).NotTo(HaveOccurred())
+			By("Restore PTP configs and wait for clock locked")
+			restorePtpConfigs(originPtpConfigSpecs)
+			err := checkPtpLockState(5*time.Minute, 10*time.Second)
+			Expect(err).ToNot(HaveOccurred())
 
+			// Once the configmap is available, the verification of subscriber removal will be re-enabled.
+			// By("Verify subscriber is removed")
+			// err = verifySubscriberIsRemoved(consumerNode, startTime)
+			// Expect(err).NotTo(HaveOccurred())
+
+			// Redeploy consumer and validate the consumer get the events
+			By("Redeploy the consumer")
+			consumersList, err := ranptphelper.DeployPtpConsumer()
+			Expect(err).NotTo(HaveOccurred())
+			log.Println("Redeployed consumer:", consumersList.Items[0].Name)
+			consumerNode, consumerPod = getConsumerNodeAndPod(parameters.CloudEventNamespace)
+
+			By("Verify consumer events again")
+			verifyConsumerEvents(consumerNode, consumerPod)
+		})
 	})
 
 	Context("ptp node reboot", Ordered, func() {
@@ -336,13 +358,13 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 
 		// 59995
 		It("Validate PTP consumer events after ptp node reboot", func() {
-			By("Create events by disabling and enabling a slave interface and verify events are being received by the consumer")
+			By("Workaround for OCPBUGS-12954 - sleep for 5 minutes after reboot.")
+			time.Sleep(5 * time.Minute)
 
+			By("Generate events by changing ptp offset thresholds and verify events are received by the consumer")
 			// Verify communication between publisher to consumer
 			consumerNode, consumerPod := getConsumerNodeAndPod(parameters.CloudEventNamespace)
-			err := verifyConsumerEvents(consumerNode, consumerPod)
-			Expect(err).NotTo(HaveOccurred())
-
+			verifyConsumerEvents(consumerNode, consumerPod)
 		})
 	})
 })
@@ -363,4 +385,25 @@ func getConsumerNodeAndPod(namespace string) (*corev1.Node, *corev1.Pod) {
 	Expect(err).NotTo(HaveOccurred())
 
 	return consumerNode, consumerPod
+}
+
+// Verify events are being received the cloud-event-consumer.
+func verifyConsumerEvents(consumerNode *corev1.Node, consumerPod *corev1.Pod) {
+	// ptp-event-publisher-service is added in 4.12
+	if ranhelper.IsVersionStringInRange(ranptpparameters.PtpVersion, "4.12", "") {
+		// Validate the ptp-event-publisher-service is running in the required namespace.
+		nodeName := strings.Split(consumerNode.Name, ".")[0]
+		validatePublisherService(nodeName)
+	}
+
+	// Get the ptp daemon pod that runs on the same node as the consumer.
+	ptpDaemonPods, err := getPtpDaemonPods(consumerNode.Name)
+	Expect(err).NotTo(HaveOccurred())
+
+	// Ensure the consumer is ready for events.
+	err = ranptphelper.WaitForConsumerReady(consumerPod)
+	Expect(err).NotTo(HaveOccurred())
+
+	verifyEventsAndMetricsModifyThresholds(&ptpDaemonPods.Items[0], consumerPod,
+		ranptpparameters.ConsumerContainer, 10*time.Minute, false)
 }
