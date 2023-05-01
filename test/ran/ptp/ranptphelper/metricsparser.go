@@ -44,8 +44,8 @@ func GetPTPMetrics(ptpPod corev1.Pod) error {
 		return true, nil
 	})
 
-	if err != nil && errFromParser != nil {
-		log.Println("Error parsing ptp metrics: ", errFromParser.Error())
+	if errFromParser != nil {
+		return errFromParser
 	}
 
 	return err

@@ -2,6 +2,7 @@ package tests
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"strings"
@@ -19,11 +20,13 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 var _ = Describe("PTP Events and Metrics - interface down", func() {
 	var (
 		errBeforeAll  error
+		ocConfigCount int
 		bcConfigCount int
 		// isOcConfigured  bool
 		originPtpConfigSpecs = map[string]ptpv1.PtpConfigSpec{}
@@ -32,6 +35,7 @@ var _ = Describe("PTP Events and Metrics - interface down", func() {
 	execute.BeforeAll(func() {
 		var ptpConfigCounts []int
 		originPtpConfigSpecs, ptpConfigCounts, errBeforeAll = ptpPretestValidations()
+		ocConfigCount = ptpConfigCounts[1]
 		bcConfigCount = ptpConfigCounts[2]
 	})
 
@@ -155,6 +159,67 @@ var _ = Describe("PTP Events and Metrics - interface down", func() {
 		// Verify communication between publisher to consumer
 		err := verifyConsumerEvents(consumerNode, consumerPod)
 		Expect(err).NotTo(HaveOccurred())
+	})
+
+	// 59866
+	It("should fail when removing interface from ptpconfig", func() {
+
+		if ocConfigCount == 0 {
+			Skip("Test requires Ordinary Clock configuration")
+		}
+
+		type patchInterfaceValue struct {
+			Op    string `json:"op"`
+			Path  string `json:"path"`
+			Value string `json:"value"`
+		}
+
+		ptpConfigList, err := helper.Apiclient.PtpConfigs(parameters.PtpOperatorNamespace).List(
+			context.Background(), metav1.ListOptions{})
+		Expect(err).NotTo(HaveOccurred())
+
+		ptpProfilePerNode, err := ranptphelper.GetPtpProfilesPerNode(ptpConfigList.Items[0])
+		Expect(err).NotTo(HaveOccurred())
+
+	OUTERLOOP:
+		for nodeName, profiles := range ptpProfilePerNode {
+			for _, profile := range profiles {
+				if ranptphelper.IsOrdinaryClockProfile(profile) {
+
+					patch := []patchInterfaceValue{{
+						Op:   "remove",
+						Path: "/spec/profile/0/interface",
+					}}
+
+					newPatchPtpBytes, err := json.Marshal(patch)
+					Expect(err).NotTo(HaveOccurred())
+
+					By("Patch ptp config with new ptp4lConf value")
+					_, err = helper.Apiclient.PtpConfigs(parameters.PtpOperatorNamespace).Patch(
+						context.Background(), ptpConfigList.Items[0].Name, types.JSONPatchType, newPatchPtpBytes, metav1.PatchOptions{})
+					Expect(err).NotTo(HaveOccurred())
+
+					node, err := ranhelper.GetNodeByName(nodeName)
+					Expect(err).NotTo(HaveOccurred())
+
+					ptpDaemonPod, err := ranptphelper.GetPtpDaemonPodFromNode(node)
+					Expect(err).NotTo(HaveOccurred())
+
+					By("Check openshift_ptp_clock_state should not appear in the metrics after interface removal")
+					log.Println("GetPTPMetrics waits 3 mins and return an error if occurred")
+					Eventually(func() bool {
+						err = ranptphelper.GetPTPMetrics(*ptpDaemonPod)
+						if err == nil {
+							return false
+						}
+
+						return strings.Contains(err.Error(), "openshift_ptp_clock_state")
+					}, 3*time.Minute, 10*time.Second).Should(BeTrue(), "openshift_ptp_clock_state still appears in ptp metrics")
+
+					break OUTERLOOP
+				}
+			}
+		}
 	})
 })
 

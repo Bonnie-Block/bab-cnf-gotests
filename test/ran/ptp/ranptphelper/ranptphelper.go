@@ -198,12 +198,12 @@ func WaitForPtpClockStateMetric(ptpDaemonPod corev1.Pod, state ranptpparameters.
 
 // IsOrdinaryClockProfile checks if given profile has slave only config.
 func IsOrdinaryClockProfile(profile ptpv1.PtpProfile) bool {
-	return profile.Interface != nil && profile.Ptp4lOpts != nil && strings.Contains(*profile.Ptp4lOpts, " -s ")
+	return profile.Interface != nil && profile.Ptp4lOpts != nil && strings.Contains(*profile.Ptp4lOpts, " -s")
 }
 
 // IsBoundaryClockProfile checks if given profile has boundary clock config.
 func IsBoundaryClockProfile(profile ptpv1.PtpProfile) bool {
-	if profile.Interface != nil || (profile.Ptp4lOpts != nil && strings.Contains(*profile.Ptp4lOpts, " -s ")) {
+	if profile.Interface != nil || (profile.Ptp4lOpts != nil && strings.Contains(*profile.Ptp4lOpts, " -s")) {
 		return false
 	}
 
