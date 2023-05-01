@@ -1978,3 +1978,20 @@ func IsClusterLabelExist(clusterName string, expectedLabel string) (bool, error)
 	// Label was not found
 	return false, fmt.Errorf("label %s is not found in managedcluster %s", expectedLabel, clusterName)
 }
+
+// DeleteClusterLabel deletes a label from a specified cluster.
+func DeleteClusterLabel(clusterName string, labelToBeDeleted string) error {
+	managedCluster := &clusterv1.ManagedCluster{}
+
+	err := HubAPIClient.Get(context.Background(), runtimeclient.ObjectKey{Name: clusterName}, managedCluster)
+
+	if err != nil {
+		return err
+	}
+
+	delete(managedCluster.Labels, labelToBeDeleted)
+
+	err = HubAPIClient.Update(context.Background(), managedCluster)
+
+	return err
+}
