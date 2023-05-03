@@ -357,6 +357,7 @@ var _ = Describe("TALM tests with multiple spokes where one turns off", Ordered,
 	cguName := fmt.Sprintf("%s-%s", rantalmparameters.CguCommonName, curName)
 	policyName := fmt.Sprintf("%s-%s", rantalmparameters.PolicyNameCommonName, curName)
 	var nodeToTurnOff *k8sv1.Node
+	var talmCompleteLabel = "talmcomplete"
 
 	BeforeAll(func() {
 		// For 4.11- releases, if one spoke fails, then precache will fail for all spokes
@@ -390,97 +391,90 @@ var _ = Describe("TALM tests with multiple spokes where one turns off", Ordered,
 		Expect(len(errArr)).To(BeNumerically("==", 0))
 	})
 
-	AfterEach(func() {
-		// delete generated CRs
-		rantalmhelper.CleanupTestResourcesOnClient(
-			rantalmhelper.HubAPIClient,
-			cguName,
-			policyName,
-			rantalmparameters.TalmTestNamespace,
-			fmt.Sprintf("%s-%s", rantalmparameters.PlacementBindingCommonName, curName),
-			fmt.Sprintf("%s-%s", rantalmparameters.PlacementRuleCommonName, curName),
-			fmt.Sprintf("%s-%s", rantalmparameters.PolicySetNameCommonName, curName),
-			"",
-			false,
-		)
-	})
-
-	It("verifies precaching fails for one spoke and succeeds for the other", func() {
-		By("creating precache CGU with two spokes and OCP upgrade policy ")
-		cgu := getNewPrecacheCGU(cguName,
-			[]string{fmt.Sprintf("%s-%s", rantalmparameters.PolicyNameCommonName, curName)},
-			[]string{rantalmhelper.Spoke1Name, rantalmhelper.Spoke2Name})
-
-		// prep clusterVersion
-		clusterVersion, _ := rantalmhelper.GetClusterVersionDefinition("Both", rantalmhelper.Spoke2APIClient)
-
-		// apply
-		err := rantalmhelper.CreatePolicyAndCgu(
-			rantalmhelper.HubAPIClient,
-			clusterVersion,
-			configurationPolicyv1.MustHave,
-			configurationPolicyv1.Inform,
-			fmt.Sprintf("%s-%s", rantalmparameters.PolicyNameCommonName, curName),
-			fmt.Sprintf("%s-%s", rantalmparameters.PolicySetNameCommonName, curName),
-			fmt.Sprintf("%s-%s", rantalmparameters.PlacementBindingCommonName, curName),
-			fmt.Sprintf("%s-%s", rantalmparameters.PlacementRuleCommonName, curName),
-			rantalmparameters.TalmTestNamespace,
-			metav1.LabelSelector{},
-			cgu,
-		)
-		Expect(err).To(BeNil())
-
-		message := "Precaching spec is valid and consistent"
-		if !ranhelper.IsVersionStringInRange(
-			rantalmhelper.TalmHubVersion,
-			"4.11",
-			"",
-		) {
-			message = "Pre-caching spec is valid and consistent"
-		}
-
-		log.Println("waiting for precache to confirm that it is valid")
-		err = rantalmhelper.WaitForCguInCondition(rantalmhelper.HubAPIClient,
-			cgu.Name,
-			cgu.Namespace,
-			"PrecacheSpecValid",
-			message,
-			metav1.ConditionTrue,
-			"", 5*time.Minute)
-		Expect(err).To(BeNil())
-
-		By("verifying precache succeeded for spoke2")
-		assertPrecacheStatus(cgu.Name, rantalmhelper.Spoke2Name, "Succeeded")
-
-		By("enabling CGU")
-		err = rantalmhelper.EnableCgu(rantalmhelper.HubAPIClient, cgu)
-		Expect(err).To(BeNil())
-
-		By("verifying CGU reports one spoke failed in PrecachingSucceeded condition")
-		err = rantalmhelper.WaitForCguInCondition(rantalmhelper.HubAPIClient,
-			cgu.Name,
-			cgu.Namespace,
-			"PrecachingSuceeded",
-			"Precaching failed for 1 clusters",
-			metav1.ConditionTrue,
-			"PartiallyDone", 5*time.Minute)
-		Expect(err).To(BeNil())
-
-		By("verifying CGU reports spoke1 failed with UnrecoverableError in precache status")
-		assertPrecacheStatus(cgu.Name, rantalmhelper.Spoke1Name, "UnrecoverableError")
-	})
-
-	Context("with one managed cluster powered off and unavailable", func() {
+	Context("precaching with one managed cluster powered off and unavailable", func() {
 		AfterEach(func() {
-
-			// Delete temporary namespace on spoke cluster.
-			spoke2ClusterList := []*testClient.ClientSet{rantalmhelper.Spoke2APIClient}
-			cleanupErr := rantalmhelper.CleanupNamespace(spoke2ClusterList, rantalmhelper.TemporaryNamespaceName)
-			Expect(cleanupErr).ToNot(HaveOccurred())
+			// delete generated CRs
+			rantalmhelper.CleanupTestResourcesOnClient(
+				rantalmhelper.HubAPIClient,
+				cguName,
+				policyName,
+				rantalmparameters.TalmTestNamespace,
+				fmt.Sprintf("%s-%s", rantalmparameters.PlacementBindingCommonName, curName),
+				fmt.Sprintf("%s-%s", rantalmparameters.PlacementRuleCommonName, curName),
+				fmt.Sprintf("%s-%s", rantalmparameters.PolicySetNameCommonName, curName),
+				"",
+				false,
+			)
 		})
 
-		// ocp-54854
-		It("Verifies CGU fails on 'down' spoke in first batch and succeeds for the 'up' spoke in second batch", func() {
+		It("verifies precaching fails for one spoke and succeeds for the other", func() {
+			By("creating precache CGU with two spokes and OCP upgrade policy ")
+			cgu := getNewPrecacheCGU(cguName,
+				[]string{fmt.Sprintf("%s-%s", rantalmparameters.PolicyNameCommonName, curName)},
+				[]string{rantalmhelper.Spoke1Name, rantalmhelper.Spoke2Name})
+
+			// prep clusterVersion
+			clusterVersion, _ := rantalmhelper.GetClusterVersionDefinition("Both", rantalmhelper.Spoke2APIClient)
+
+			// apply
+			err := rantalmhelper.CreatePolicyAndCgu(
+				rantalmhelper.HubAPIClient,
+				clusterVersion,
+				configurationPolicyv1.MustHave,
+				configurationPolicyv1.Inform,
+				fmt.Sprintf("%s-%s", rantalmparameters.PolicyNameCommonName, curName),
+				fmt.Sprintf("%s-%s", rantalmparameters.PolicySetNameCommonName, curName),
+				fmt.Sprintf("%s-%s", rantalmparameters.PlacementBindingCommonName, curName),
+				fmt.Sprintf("%s-%s", rantalmparameters.PlacementRuleCommonName, curName),
+				rantalmparameters.TalmTestNamespace,
+				metav1.LabelSelector{},
+				cgu,
+			)
+			Expect(err).To(BeNil())
+
+			message := "Precaching spec is valid and consistent"
+			if !ranhelper.IsVersionStringInRange(
+				rantalmhelper.TalmHubVersion,
+				"4.11",
+				"",
+			) {
+				message = "Pre-caching spec is valid and consistent"
+			}
+
+			log.Println("waiting for precache to confirm that it is valid")
+			err = rantalmhelper.WaitForCguInCondition(rantalmhelper.HubAPIClient,
+				cgu.Name,
+				cgu.Namespace,
+				"PrecacheSpecValid",
+				message,
+				metav1.ConditionTrue,
+				"", 5*time.Minute)
+			Expect(err).To(BeNil())
+
+			By("verifying precache succeeded for spoke2")
+			assertPrecacheStatus(cgu.Name, rantalmhelper.Spoke2Name, "Succeeded")
+
+			By("enabling CGU")
+			err = rantalmhelper.EnableCgu(rantalmhelper.HubAPIClient, cgu)
+			Expect(err).To(BeNil())
+
+			By("verifying CGU reports one spoke failed in PrecachingSucceeded condition")
+			err = rantalmhelper.WaitForCguInCondition(rantalmhelper.HubAPIClient,
+				cgu.Name,
+				cgu.Namespace,
+				"PrecachingSuceeded",
+				"Precaching failed for 1 clusters",
+				metav1.ConditionTrue,
+				"PartiallyDone", 5*time.Minute)
+			Expect(err).To(BeNil())
+
+			By("verifying CGU reports spoke1 failed with UnrecoverableError in precache status")
+			assertPrecacheStatus(cgu.Name, rantalmhelper.Spoke1Name, "UnrecoverableError")
+		})
+	})
+
+	Context("batching with one managed cluster powered off and unavailable", Ordered, func() {
+		BeforeAll(func() {
 			By("creating CGU with two spokes, one of which is unavailable")
 
 			cgu := rantalmhelper.GetCguDefinition(
@@ -506,21 +500,91 @@ var _ = Describe("TALM tests with multiple spokes where one turns off", Ordered,
 			)
 			Expect(err).ToNot(HaveOccurred())
 
-			By("Waiting for running spoke cluster to report success")
-			err = rantalmhelper.WaitForClusterSuccessInCgu(
+			// CGU Patch Payload creates an afterCompletion action to add a cluster label called talmcomplete
+			payload := fmt.Sprintf(`{"spec":{"actions":{"afterCompletion":{"addClusterLabels":{"%s":""}}}}}`, talmCompleteLabel)
+
+			// Patch CGU to add the afterCompletion action
+			_, err = rantalmhelper.PatchCgu(
 				rantalmhelper.HubAPIClient,
-				cgu.Name,
+				payload,
+				cgu,
+				metav1.PatchOptions{},
+			)
+			Expect(err).ToNot(HaveOccurred())
+
+		})
+		// ocp-54854
+		It("Verifies CGU fails on 'down' spoke in first batch and succeeds for the 'up' spoke in second batch", func() {
+			By("creating CGU with two spokes, one of which is unavailable")
+			err := rantalmhelper.WaitForClusterSuccessInCgu(
+				rantalmhelper.HubAPIClient,
+				cguName,
 				rantalmhelper.Spoke2Name,
 				rantalmparameters.TalmTestNamespace,
-				7*time.Minute,
+				10*time.Minute,
 			)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("waiting for the cgu to timeout")
-			err = rantalmhelper.WaitForCguToTimeout(cgu.Name, rantalmparameters.TalmTestNamespace, 5*time.Minute)
+			err = rantalmhelper.WaitForCguToTimeout(cguName, rantalmparameters.TalmTestNamespace, 5*time.Minute)
 			Expect(err).ToNot(HaveOccurred())
 
 		})
+		// ocp-59946
+		It("Verifies that CGU afterCompletion action executes on spoke2 when spoke1 is offline", func() {
+
+			By("waiting for the cgu to timeout")
+			err := rantalmhelper.WaitForCguToTimeout(cguName, rantalmparameters.TalmTestNamespace, 5*time.Minute)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Verify that the online cluster has the 'talmcomplete' label
+			By("Checking cluster for post-action label")
+			labelPresent, err := rantalmhelper.IsClusterLabelExist(
+				rantalmhelper.Spoke2Name,
+				talmCompleteLabel,
+			)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(labelPresent).To(BeTrue())
+
+			// Verify that the offline cluster does not have the 'talmcomplete' label
+			By("Checking offline cluster for post-action label")
+			labelPresent, err = rantalmhelper.IsClusterLabelExist(
+				rantalmhelper.Spoke1Name,
+				talmCompleteLabel,
+			)
+			Expect(labelPresent).To(BeFalse())
+			Expect(err.Error()).To(ContainSubstring("is not found in managedcluster"))
+
+		})
+
+		AfterAll(func() {
+			// Delete temporary namespace on spoke cluster.
+			spoke2ClusterList := []*testClient.ClientSet{rantalmhelper.Spoke2APIClient}
+			spoke2CleanupErr := rantalmhelper.CleanupNamespace(spoke2ClusterList, rantalmhelper.TemporaryNamespaceName)
+
+			// delete generated CRs
+			crCleanupErr := rantalmhelper.CleanupTestResourcesOnClient(
+				rantalmhelper.HubAPIClient,
+				cguName,
+				policyName,
+				rantalmparameters.TalmTestNamespace,
+				fmt.Sprintf("%s-%s", rantalmparameters.PlacementBindingCommonName, curName),
+				fmt.Sprintf("%s-%s", rantalmparameters.PlacementRuleCommonName, curName),
+				fmt.Sprintf("%s-%s", rantalmparameters.PolicySetNameCommonName, curName),
+				"",
+				false,
+			)
+
+			// Delete label from managedcluster
+			labelCleanupErr := rantalmhelper.DeleteClusterLabel(rantalmhelper.Spoke2Name, talmCompleteLabel)
+
+			Expect(labelCleanupErr).ToNot(HaveOccurred())
+			Expect(spoke2CleanupErr).ToNot(HaveOccurred())
+			Expect(crCleanupErr).To(BeEmpty())
+
+		})
+
 	})
 
 	AfterAll(func() {
