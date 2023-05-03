@@ -53,10 +53,11 @@ var _ = Describe("PTP Events and Metrics - interface down", func() {
 	})
 
 	AfterEach(func() {
-		restorePtpInterfaces()
-		// Always restore ptpconfigs to original values after each test
 		log.Println("Restore ptpconfigs to original specs")
 		restorePtpConfigs(originPtpConfigSpecs)
+		restorePtpInterfaces()
+
+		// Always restore ptpconfigs to original values after each test
 		log.Println("Check ptp clocks are in sync")
 		err := checkPtpLockState(5*time.Minute, 10*time.Second)
 		Expect(err).ToNot(HaveOccurred())
@@ -166,6 +167,75 @@ var _ = Describe("PTP Events and Metrics - interface down", func() {
 			break
 		}
 		Expect(tested).To(BeTrue(), "No interfaces found for testing while BC is configured")
+	})
+
+	// 59865
+	It("should fail when modify interface on ptpconfig", func() {
+
+		if ocConfigCount == 0 {
+			Skip("Test requires Ordinary Clock configuration")
+		}
+
+		type patchInterfaceValue struct {
+			Op    string `json:"op"`
+			Path  string `json:"path"`
+			Value string `json:"value"`
+		}
+
+		ifaceToModify := "ens000"
+		ptpConfigList, err := helper.Apiclient.PtpConfigs(parameters.PtpOperatorNamespace).List(
+			context.Background(), metav1.ListOptions{})
+		Expect(err).NotTo(HaveOccurred())
+
+		ptpProfilePerNode, err := ranptphelper.GetPtpProfilesPerNode(ptpConfigList.Items[0])
+		Expect(err).NotTo(HaveOccurred())
+
+	OUTERLOOP:
+		for nodeName, profiles := range ptpProfilePerNode {
+			for _, profile := range profiles {
+				if ranptphelper.IsOrdinaryClockProfile(profile) {
+
+					patch := []patchInterfaceValue{{
+						Op:    "replace",
+						Path:  "/spec/profile/0/interface",
+						Value: ifaceToModify,
+					}}
+
+					newPatchPtpBytes, err := json.Marshal(patch)
+					Expect(err).NotTo(HaveOccurred())
+
+					By("Patch ptp config with new ptp4lConf value")
+					_, err = helper.Apiclient.PtpConfigs(parameters.PtpOperatorNamespace).Patch(
+						context.Background(), ptpConfigList.Items[0].Name, types.JSONPatchType, newPatchPtpBytes, metav1.PatchOptions{})
+					Expect(err).NotTo(HaveOccurred())
+
+					By("Assert new interface is being used")
+					ptpconfig, err := helper.Apiclient.PtpConfigs(parameters.PtpOperatorNamespace).Get(
+						context.Background(), ptpConfigList.Items[0].Name, metav1.GetOptions{})
+					Expect(err).NotTo(HaveOccurred())
+					Expect(*ptpconfig.Spec.Profile[0].Interface).To(Equal(ifaceToModify), "new interface is not being used")
+
+					node, err := ranhelper.GetNodeByName(nodeName)
+					Expect(err).NotTo(HaveOccurred())
+
+					ptpDaemonPod, err := ranptphelper.GetPtpDaemonPodFromNode(node)
+					Expect(err).NotTo(HaveOccurred())
+
+					By("Check openshift_ptp_clock_state should not appear in the metrics after interface modification")
+					log.Println("GetPTPMetrics waits 3 mins and return an error if occurred")
+					Eventually(func() bool {
+						err = ranptphelper.GetPTPMetrics(*ptpDaemonPod)
+						if err == nil {
+							return false
+						}
+
+						return strings.Contains(err.Error(), "openshift_ptp_clock_state")
+					}, 3*time.Minute, 10*time.Second).Should(BeTrue(), "openshift_ptp_clock_state still appears in ptp metrics")
+
+					break OUTERLOOP
+				}
+			}
+		}
 	})
 
 	// 59866
