@@ -4,9 +4,12 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
+	"log"
 	"strings"
+	"time"
 
 	"github.com/Juniper/go-netconf/netconf"
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 const (
@@ -69,7 +72,19 @@ type (
 // NewSession establishes a new connection to a Junos device that we will use
 // to run our commands against.
 func NewSession(host, user, password string) (*Junos, error) {
-	session, err := netconf.DialSSH(host, netconf.SSHConfigPassword(user, password))
+	var session *netconf.Session
+
+	err := wait.PollImmediate(30*time.Second, 120*time.Second, func() (done bool, err error) {
+		session, err = netconf.DialSSH(host, netconf.SSHConfigPassword(user, password))
+		if err != nil {
+			log.Print(err)
+
+			return false, nil
+		}
+
+		return true, nil
+	})
+
 	if err != nil {
 		return nil, err
 	}
