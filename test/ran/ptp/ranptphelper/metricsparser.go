@@ -153,7 +153,8 @@ func getDetails(singleMetric string, metric ranptpparameters.MetricDetails) (ran
 //
 //	an error if any occurred.
 func getMetricName(metricDetails string) (string, error) {
-	if strings.Contains(metricDetails, "promhttp_metric_handler_requests_in_flight") {
+	if strings.Contains(metricDetails, "promhttp_metric_handler_requests_in_flight") ||
+		strings.Contains(metricDetails, "cne_amqp_connection_reset") {
 		return strings.Split(metricDetails, " ")[1], nil
 	}
 
