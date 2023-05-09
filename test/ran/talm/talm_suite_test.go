@@ -61,6 +61,10 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 	err = CreateTalmTestNamespace()
 	Expect(err).ToNot(HaveOccurred())
+
+	// create a helper pod to run commands on spoke1
+	log.Println("Setup initiated: creating a privileged pod")
+	helper.CreatePrivilegedPods("")
 })
 
 var _ = AfterSuite(func() {

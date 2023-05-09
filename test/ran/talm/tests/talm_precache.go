@@ -14,16 +14,19 @@ import (
 	"github.com/openshift-kni/cluster-group-upgrades-operator/api/v1alpha1"
 	v1alpha12 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/talm/rantalmhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/talm/rantalmparameters"
 	testClient "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/kubernetes/pkg/apis/core"
 	configurationPolicyv1 "open-cluster-management.io/config-policy-controller/api/v1"
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -70,7 +73,6 @@ var _ = Describe("Talm precache one spoke", Label("talmprecache"), func() {
 			}
 
 			policyAndCoWithSub = findAllPoliciesWithSubAndCopyAndApply(listPolicy)
-
 		})
 
 		AfterEach(func() {
@@ -119,7 +121,7 @@ var _ = Describe("Talm precache one spoke", Label("talmprecache"), func() {
 		})
 	})
 
-	Context("Precache OCP", func() {
+	Context("Precache OCP with version", func() {
 		curName := "precache-ocp"
 		cguName := fmt.Sprintf("%s-%s", rantalmparameters.CguCommonName, curName)
 		policyName := fmt.Sprintf("%s-%s", rantalmparameters.PolicyNameCommonName, curName)
@@ -174,6 +176,49 @@ var _ = Describe("Talm precache one spoke", Label("talmprecache"), func() {
 			err = checkPrecachePodLog(rantalmhelper.Spoke1APIClient)
 			Expect(err).ToNot(HaveOccurred())
 		})
+	})
+
+	Context("Precache OCP with image", Ordered, func() {
+		curName := "precache-ocp"
+		cguName := fmt.Sprintf("%s-%s", rantalmparameters.CguCommonName, curName)
+		policyName := fmt.Sprintf("%s-%s", rantalmparameters.PolicyNameCommonName, curName)
+		excludedPrecacheImage := "openshift/ose-vsphere-problem-detector"
+		// Command to generate a list of cached images on the spoke cluster
+		spokeImageListCmd := fmt.Sprintf(`podman images  --noheading --filter "label=name=%s"`, excludedPrecacheImage)
+
+		// Command to delete excludedPrecacheimage
+		spokeImageDeleteCmd := fmt.Sprintf(`podman images --noheading  --filter "label=name=%s" --format {{.ID}}|`+
+			`xargs podman rmi`, excludedPrecacheImage)
+
+		var spoke1Master *k8sv1.Node
+
+		BeforeEach(func() {
+			By("Check spoke cluster precache images for excluded images")
+			masterNodeList, err := nodes.GetByRole(helper.Apiclient, parameters.RoleMaster)
+			Expect(err).To(BeNil())
+			spoke1Master = &masterNodeList[0]
+
+			By("wiping any existing images from the spoke cluster")
+			status, _ := helper.ExecCommandOnNodeWithHostBinaries(spoke1Master,
+				[]string{"bash", "-c", spokeImageDeleteCmd})
+			log.Println("status:", status)
+			// Expect(err).ToNot(HaveOccurred())
+
+		})
+		AfterEach(func() {
+			// delete generated CRs
+			rantalmhelper.CleanupTestResourcesOnClient(
+				rantalmhelper.HubAPIClient,
+				cguName,
+				policyName,
+				rantalmparameters.TalmTestNamespace,
+				fmt.Sprintf("%s-%s", rantalmparameters.PlacementBindingCommonName, curName),
+				fmt.Sprintf("%s-%s", rantalmparameters.PlacementRuleCommonName, curName),
+				fmt.Sprintf("%s-%s", rantalmparameters.PolicySetNameCommonName, curName),
+				"",
+				false,
+			)
+		})
 
 		It("tests for ocp cache with image", func() {
 			By("creating and applying policy with clusterversion " +
@@ -210,6 +255,80 @@ var _ = Describe("Talm precache one spoke", Label("talmprecache"), func() {
 			By("waiting until new precache pod in spoke1 succeeded and log reports done")
 			err = checkPrecachePodLog(rantalmhelper.Spoke1APIClient)
 			Expect(err).ToNot(HaveOccurred())
+
+			By("generating list of pracached images on spoke cluster to ensure excluded image is present")
+			precachedImages, err := helper.ExecCommandOnNodeWithHostBinaries(spoke1Master,
+				[]string{"bash", "-c", spokeImageListCmd})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Ensure excludedPrecacheImage is present on spoke cluster")
+			Expect(precachedImages).ToNot(BeEmpty())
+		})
+
+		// ocp-59948
+		It("tests precache image filtering", func() {
+			if !ranhelper.IsVersionStringInRange(
+				rantalmhelper.TalmHubVersion,
+				"4.13",
+				"",
+			) {
+				Skip("Skiping Precache Filtering if TALM is older than 4.13")
+			}
+
+			By("defining a configmap to exclude images matching  {excludedPrecacheImages} from precaching")
+			filterConfigMap := core.ConfigMap{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "ConfigMap",
+					APIVersion: "v1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cluster-group-upgrade-overrides",
+					Namespace: rantalmparameters.TalmTestNamespace,
+				},
+				Data: map[string]string{"excludePrecachePatterns": "vsphere"},
+			}
+
+			By("creating the configmap on hubcluster")
+			_, err := rantalmhelper.HubAPIClient.ConfigMaps(rantalmparameters.TalmTestNamespace).Create(context.Background(),
+				(*k8sv1.ConfigMap)(&filterConfigMap),
+				metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			// Prepare to create second CGU, this one with image filtering enabled.
+			By("Creating a CGU with an image filter")
+			cgu := getNewPrecacheCGU(cguName, []string{fmt.Sprintf("%s-%s",
+				rantalmparameters.PolicyNameCommonName, curName)},
+				[]string{rantalmhelper.Spoke1Name})
+
+			// prep clusterVersion
+			clusterVersion, err := rantalmhelper.GetClusterVersionDefinition("Image",
+				rantalmhelper.Spoke1APIClient)
+			Expect(err).To(BeNil())
+
+			// apply CGU
+			err = rantalmhelper.CreatePolicyAndCgu(
+				rantalmhelper.HubAPIClient,
+				clusterVersion,
+				configurationPolicyv1.MustHave,
+				configurationPolicyv1.Inform,
+				fmt.Sprintf("%s-%s", rantalmparameters.PolicyNameCommonName, curName),
+				fmt.Sprintf("%s-%s", rantalmparameters.PolicySetNameCommonName, curName),
+				fmt.Sprintf("%s-%s", rantalmparameters.PlacementBindingCommonName, curName),
+				fmt.Sprintf("%s-%s", rantalmparameters.PlacementRuleCommonName, curName),
+				rantalmparameters.TalmTestNamespace,
+				metav1.LabelSelector{},
+				cgu,
+			)
+			Expect(err).To(BeNil())
+
+			By("waiting until CGU Succeeded")
+			assertPrecacheStatus(cgu.Name, rantalmhelper.Spoke1Name, "Succeeded")
+
+			By("Checking images list for excluded image")
+			precachedImages, err := helper.ExecCommandOnNodeWithHostBinaries(spoke1Master,
+				[]string{"bash", "-c", spokeImageListCmd})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(precachedImages).Should(BeEmpty())
 		})
 	})
 })
