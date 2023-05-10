@@ -203,7 +203,7 @@ func GetPhysicalNodeInterfaces(clientSet *client.ClientSet, node, namespace stri
 
 		if len(splitedInterfaceSting) > 1 {
 			for _, interfaceInfo := range strings.Split(interfaceLinksStatus.String(), "ff:ff:ff:ff:ff:ff") {
-				if strings.Contains(interfaceInfo, interfaceName) {
+				if strings.Contains(interfaceInfo, fmt.Sprintf("%s: ", interfaceName)) {
 					if strings.Contains(interfaceInfo, "state UP") {
 						nodeInterface.UP = true
 					}
