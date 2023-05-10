@@ -14,6 +14,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ztp/ranztphelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ztp/ranztpparameters"
 	testClient "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -90,6 +91,27 @@ var _ = Describe("ZTP Argocd Hub templating Tests", Ordered, Label("ztp-hub-temp
 				},
 			)
 
+			// Since we need to create the secret first, we need to create the namespace
+			// Normally that would be handled by the site config but this test is a special case
+
+			// Create the namespace
+			err := namespaces.Create(ranztpparameters.ZtpTestNamespace, ranztphelper.HubAPIClient)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Wait until the test namespace exists
+			err = wait.PollImmediate(
+				30*time.Second,
+				5*time.Minute,
+				func() (bool, error) {
+					if namespaces.Exists(ranztpparameters.ZtpTestNamespace, ranztphelper.HubAPIClient) {
+						return true, nil
+					}
+
+					return false, nil
+				},
+			)
+			Expect(err).ToNot(HaveOccurred())
+
 			// Create secret
 			secret := corev1.Secret{}
 			secret.Name = ranztphelper.SpokeName + "-sriovdata"
@@ -97,7 +119,7 @@ var _ = Describe("ZTP Argocd Hub templating Tests", Ordered, Label("ztp-hub-temp
 				"vlan": "MTEwCg==",
 			}
 
-			_, err := ranztphelper.HubAPIClient.
+			_, err = ranztphelper.HubAPIClient.
 				Secrets(ranztpparameters.ZtpTestNamespace).
 				Create(ranztphelper.GetZtpContext(), &secret, metav1.CreateOptions{})
 
