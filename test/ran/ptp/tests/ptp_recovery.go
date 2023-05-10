@@ -23,15 +23,17 @@ import (
 
 var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 	var (
-		errBeforeAll         error
-		ptpConfigCount       int
-		originPtpConfigSpecs = map[string]ptpv1.PtpConfigSpec{}
+		errBeforeAll          error
+		ptpConfigCount        int
+		grandMasterConfigsNum int
+		originPtpConfigSpecs  = map[string]ptpv1.PtpConfigSpec{}
 	)
 
 	execute.BeforeAll(func() {
 		var ptpConfigCounts []int
 		originPtpConfigSpecs, ptpConfigCounts, errBeforeAll = ptpPretestValidations()
 		ptpConfigCount = ptpConfigCounts[0]
+		grandMasterConfigsNum = ptpConfigCounts[3]
 	})
 
 	BeforeEach(func() {
@@ -106,7 +108,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 
 				By(fmt.Sprintf("Kill a ptp4l process on node %s", workerNode.Name))
 				// get the ptp4l PID that is not related to the phc2sys
-				oldPtp4lPids, err := ranptphelper.GetPtp4lPids(&ptpDaemonPod, false)
+				oldPtp4lPids, err := ranptphelper.GetPtp4lPids(&ptpDaemonPod, "phc2sys", false)
 				Expect(err).NotTo(HaveOccurred())
 				oldPtp4lPid := oldPtp4lPids[0]
 
@@ -123,7 +125,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 				Expect(newPhc2sysPid).Should(Equal(oldPhc2sysPid))
 
 				By("Validate a new ptp4l process is started")
-				newPtp4lPids, err := ranptphelper.GetPtp4lPids(&ptpDaemonPod, false)
+				newPtp4lPids, err := ranptphelper.GetPtp4lPids(&ptpDaemonPod, "phc2sys", false)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(newPtp4lPids).ShouldNot(ContainElement(oldPtp4lPid))
 
@@ -152,11 +154,11 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 
 				By(fmt.Sprintf("Kill the two ptp4l processes on node %s", workerNode.Name))
 				// the ptp4l that is related to the phc2sys process
-				oldPtp4lPidPhc2sys, err := ranptphelper.GetPtp4lPids(&ptpDaemonPod, true)
+				oldPtp4lPidPhc2sys, err := ranptphelper.GetPtp4lPids(&ptpDaemonPod, "phc2sys", true)
 				Expect(err).NotTo(HaveOccurred())
 
 				// the ptp4l that is not related to the phc2sys process
-				oldPtp4lPids, err := ranptphelper.GetPtp4lPids(&ptpDaemonPod, false)
+				oldPtp4lPids, err := ranptphelper.GetPtp4lPids(&ptpDaemonPod, "phc2sys", false)
 				Expect(err).NotTo(HaveOccurred())
 
 				// kill the ptp4l process that is related to phc2sys process
@@ -169,10 +171,10 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 
 				By("Validate new ptp4l processes are started")
 				// the new ptp4l that is not related to the phc2sys process
-				newPtp4lPhc2sys, err := ranptphelper.GetPtp4lPids(&ptpDaemonPod, true)
+				newPtp4lPhc2sys, err := ranptphelper.GetPtp4lPids(&ptpDaemonPod, "phc2sys", true)
 				Expect(err).NotTo(HaveOccurred())
 				// the new ptp4l that is related to the phc2sys process
-				newPtp4lPids, err := ranptphelper.GetPtp4lPids(&ptpDaemonPod, false)
+				newPtp4lPids, err := ranptphelper.GetPtp4lPids(&ptpDaemonPod, "phc2sys", false)
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(newPtp4lPhc2sys[0]).ShouldNot(Equal(oldPtp4lPidPhc2sys[0]))
@@ -194,7 +196,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 				workerNode, err := ranhelper.GetNodeByName(nodeName)
 				Expect(err).NotTo(HaveOccurred())
 
-				oldPtp4lPidsPhc2sys, err := ranptphelper.GetPtp4lPids(&ptpDaemonPod, true)
+				oldPtp4lPidsPhc2sys, err := ranptphelper.GetPtp4lPids(&ptpDaemonPod, "phc2sys", true)
 				Expect(err).NotTo(HaveOccurred())
 				oldPhc2sysPid, err := ranptphelper.GetProcessPID(&ptpDaemonPod, "phc2sys")
 				Expect(err).NotTo(HaveOccurred())
@@ -211,7 +213,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 				Expect(newPhc2sysPid).To(Equal(oldPhc2sysPid))
 
 				By("Validate a new ptp4l process is started")
-				newPtl4lPidsPhc2sys, err := ranptphelper.GetPtp4lPids(&ptpDaemonPod, true)
+				newPtl4lPidsPhc2sys, err := ranptphelper.GetPtp4lPids(&ptpDaemonPod, "phc2sys", true)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(newPtl4lPidsPhc2sys[0]).ShouldNot(Equal(oldPtp4lPidsPhc2sys[0]))
 
@@ -222,6 +224,74 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 
 				// test on one node only
 				break
+			}
+		})
+		// 59863
+		It("should recover the ts2phc process after the killing a ts2phc process", func() {
+			if grandMasterConfigsNum == 0 {
+				Skip("Test requires grand master configuration")
+			}
+
+			nodeToPtpDaemonPod, err := ranptphelper.NodesToPtpDaemonPods()
+			Expect(err).NotTo(HaveOccurred())
+
+			for nodeName, ptpDaemonPod := range nodeToPtpDaemonPod {
+				workerNode, err := ranhelper.GetNodeByName(nodeName)
+				Expect(err).NotTo(HaveOccurred())
+
+				log.Println("get ts2phc PID")
+				pid, err := ranptphelper.GetProcessPID(&ptpDaemonPod, "ts2phc")
+				Expect(err).NotTo(HaveOccurred())
+
+				By(fmt.Sprintf("Kill a ts2phc process on node %s", workerNode.Name))
+				err = ranptphelper.KillProcess(&ptpDaemonPod, pid)
+				Expect(err).NotTo(HaveOccurred())
+
+				By("Validate a new ts2phc process is started")
+				log.Println("get new ts2phc PID")
+				newPid, err := ranptphelper.GetProcessPID(&ptpDaemonPod, "ts2phc")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(pid).ShouldNot(Equal(newPid))
+
+				By("Validate all ptp clocks are in LOCKED state in ptp metrics")
+				err = ranptphelper.WaitForPtpClockStateMetric(ptpDaemonPod, ranptpparameters.LockedState,
+					"", 1*time.Minute, 10*time.Second)
+				Expect(err).NotTo(HaveOccurred())
+			}
+		})
+
+		// 59863
+		It("should recover the ptp4l process after the killing a ptp4l process that is related to ts2phc process", func() {
+			if grandMasterConfigsNum == 0 {
+				Skip("Test requires grand master configuration")
+			}
+
+			nodeToPtpDaemonPod, err := ranptphelper.NodesToPtpDaemonPods()
+			Expect(err).NotTo(HaveOccurred())
+
+			for nodeName, ptpDaemonPod := range nodeToPtpDaemonPod {
+				workerNode, err := ranhelper.GetNodeByName(nodeName)
+				Expect(err).NotTo(HaveOccurred())
+
+				log.Println("get ptp4l PID")
+				pid, err := ranptphelper.GetPtp4lPids(&ptpDaemonPod, "ts2phc", true)
+				Expect(err).NotTo(HaveOccurred())
+
+				By(fmt.Sprintf("Kill a ptp4l process that is related to ts2phc on node %s", workerNode.Name))
+				err = ranptphelper.KillProcess(&ptpDaemonPod, pid[0])
+				Expect(err).NotTo(HaveOccurred())
+
+				By("Validate a new ptp4l process is started")
+				log.Println("new get ptp4l PID")
+				newPid, err := ranptphelper.GetPtp4lPids(&ptpDaemonPod, "ts2phc", true)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(pid).ShouldNot(Equal(newPid))
+
+				By("Validate all ptp clocks are in LOCKED state in ptp metrics")
+				err = ranptphelper.WaitForPtpClockStateMetric(ptpDaemonPod, ranptpparameters.LockedState,
+					"", 1*time.Minute, 10*time.Second)
+				Expect(err).NotTo(HaveOccurred())
+
 			}
 		})
 	})

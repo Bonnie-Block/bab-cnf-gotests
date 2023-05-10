@@ -156,6 +156,12 @@ func getPtpConfigCounts(ptpConfigsList ptpv1.PtpConfigList) []int {
 		for _, profile := range ptpconfig.Spec.Profile {
 			configCount++
 
+			if ranptphelper.IsGrandmasterProfile(profile) {
+				gmCount++
+
+				continue
+			}
+
 			if ranptphelper.IsOrdinaryClockProfile(profile) {
 				ocCount++
 
@@ -164,19 +170,13 @@ func getPtpConfigCounts(ptpConfigsList ptpv1.PtpConfigList) []int {
 
 			if ranptphelper.IsBoundaryClockProfile(profile) {
 				bcCount++
-
-				continue
-			}
-
-			if ranptphelper.IsGrandmasterProfile(profile) {
-				gmCount++
 			} else {
 				log.Println("Warning: unrecognized PTP profile type: ", *profile.Name)
 			}
 		}
 	}
 
-	return []int{configCount, ocCount, bcCount}
+	return []int{configCount, ocCount, bcCount, gmCount}
 }
 
 // restore ptp configs on system to original configs.

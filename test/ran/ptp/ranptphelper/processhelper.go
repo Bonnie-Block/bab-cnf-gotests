@@ -16,10 +16,9 @@ import (
 
 // GetProcessPID gets the process id with a given name.
 // the function returns an error if any occurred or if the process is not running.
-// arguments:		"ptpPod"-			a pod that run the ptp processes.
-//
-//	"processName"-		the name of a process.
-//
+// Arguments:
+// "ptpPod"-		a pod that run the ptp processes.
+// "processName"-	the name of a process.
 // return value:	the pid of the process and an error if any occurred.
 func GetProcessPID(ptpPod *corev1.Pod, processName string) (string, error) {
 	pidBuff, err := getProcessInfo(ptpPod, "pgrep "+processName)
@@ -53,10 +52,9 @@ func WaitForProcess(ptpPod *corev1.Pod, processName string) (string, error) {
 }
 
 // KillPtpProcess kill a process with the given name.
-// arguments:		"ptpPod"-			a pod that run the ptp processes.
-//
-//	"processName"-		the name of a process to be killed.
-//
+// Arguments:
+// "ptpPod"-		a pod that run the ptp processes.
+// "processName"-	the name of a process to be killed.
 // return value:	an error if any occurred.
 func KillPtpProcess(ptpPod *corev1.Pod, processName string) error {
 	_, err := pod.ExecCommand(helper.Apiclient, *ptpPod, []string{"pkill", processName})
@@ -68,10 +66,9 @@ func KillPtpProcess(ptpPod *corev1.Pod, processName string) error {
 }
 
 // KillProcess kill a process with the given pid.
-// arguments:		"ptpPod"-	a pod that run the ptp processes.
-//
-//	"pid"-		the pid of a process to be killed.
-//
+// Arguments:
+// "ptpPod"-		a pod that run the ptp processes.
+// "pid"	-		the pid of a process to be killed.
 // return value:	an error if any occurred.
 func KillProcess(ptpPod *corev1.Pod, pid string) error {
 	_, err := pod.ExecCommand(helper.Apiclient, *ptpPod, []string{"kill", "-9", pid})
@@ -80,45 +77,6 @@ func KillProcess(ptpPod *corev1.Pod, pid string) error {
 	}
 
 	return nil
-}
-
-// getPhc2sysRelatedPtp4lConfig gets ptp4l config that is related to phc2sys process.
-// arguments:		"ptpPod"-	a pod that run the ptp processes.
-// return value:	a string with the name of the configuration file and an error if any occurred.
-func getPhc2sysRelatedPtp4lConfig(ptpPod *corev1.Pod) (string, error) {
-	ptp4lConfigRegex := regexp.MustCompile(`ptp4l.[\d]+.config`)
-
-	phc2sysProcessBuff, err := getProcessInfo(ptpPod, "pgrep -a phc2sys | grep /var/run")
-	if err != nil {
-		return "", err
-	}
-
-	phc2sysProcess := BytesToStrings(phc2sysProcessBuff)[0]
-
-	// handles phc2sys process output like this:
-	// "/usr/sbin/phc2sys -a -r -n 24 -m -u 1 -z /var/run/ptp4l.0.socket -t [ptp4l.0.config]"
-	if strings.Contains(phc2sysProcess, "[ptp4l") {
-		return ptp4lConfigRegex.FindAllString(phc2sysProcess, 1)[0], nil
-	}
-
-	// handles phc2sys process output like this:
-	// "/usr/sbin/phc2sys -f /var/run/phc2sys.1.config  -s enp49s0f0 -w -r -m -n 24 -N 8 -R 16"
-	if strings.Contains(phc2sysProcess, "-f /var/run/phc2sys") {
-		phc2sysConfigRegex := regexp.MustCompile(`/var/run/phc2sys.[\d]+.config`)
-
-		phc2sysConfig := phc2sysConfigRegex.FindAllString(phc2sysProcess, 1)[0]
-		// Expect output like this: "message_tag [ptp4l.0.config]"
-		ptp4lConfgBuff, err := getProcessInfo(ptpPod,
-			fmt.Sprintf("cat %s | grep --color=no '\\[ptp4l'", phc2sysConfig))
-
-		if err != nil {
-			return "", err
-		}
-
-		return ptp4lConfigRegex.FindAllString(BytesToStrings(ptp4lConfgBuff)[0], 1)[0], nil
-	}
-
-	return "", fmt.Errorf("output unrecognized: %v", phc2sysProcess)
 }
 
 func getProcessInfo(ptpPod *corev1.Pod, command string) (bytes.Buffer, error) {
@@ -130,6 +88,7 @@ func getProcessInfo(ptpPod *corev1.Pod, command string) (bytes.Buffer, error) {
 	timeoutErr := wait.PollImmediate(3*time.Second, 30*time.Second, func() (done bool, err error) {
 		cmdOutput, errActual = pod.ExecCommand(helper.Apiclient, *ptpPod, []string{"bash", "-c", command})
 		if errActual != nil {
+
 			return false, nil
 		}
 
@@ -150,9 +109,9 @@ func getProcessInfo(ptpPod *corev1.Pod, command string) (bytes.Buffer, error) {
 }
 
 // GetPtp4lPids gets ptp4l processes with given relationship with the phc2sys.
-// Note that if only 1 ptp profile is configured, then no process will be returned when relatePhc2sys=false.
-func GetPtp4lPids(ptpPod *corev1.Pod, relatePhc2sys bool) ([]string, error) {
-	phc2sysConfigFile, err := getPhc2sysRelatedPtp4lConfig(ptpPod)
+// Note that if only 1 ptp profile is configured, then no process will be returned when relateToProcess=false.
+func GetPtp4lPids(ptpPod *corev1.Pod, processName string, relateToProcess bool) ([]string, error) {
+	processConfigFile, err := getProcessRelatedPtp4lConfig(ptpPod, processName)
 	if nil != err {
 		return nil, err
 	}
@@ -165,7 +124,7 @@ func GetPtp4lPids(ptpPod *corev1.Pod, relatePhc2sys bool) ([]string, error) {
 	var processes []string
 
 	for _, ptp4lProcess := range ptp4lProcesses {
-		if strings.Contains(ptp4lProcess, phc2sysConfigFile) == relatePhc2sys {
+		if strings.Contains(ptp4lProcess, processConfigFile) == relateToProcess {
 			processes = append(processes, strings.Split(ptp4lProcess, " ")[0])
 		}
 	}
@@ -174,7 +133,8 @@ func GetPtp4lPids(ptpPod *corev1.Pod, relatePhc2sys bool) ([]string, error) {
 }
 
 // getAllPtp4lProcesses gets all the processes that related to ptp4l.
-// arguments:       "ptpPod"-	a pod that has a ptp configuration.
+// Arguments:
+// "ptpPod"-		a pod that has a ptp configuration.
 // return value:	an array of strings that holds all ptp4l processes and an error if any occurred.
 func getAllPtp4lProcesses(ptpPod *corev1.Pod) ([]string, error) {
 	var ptp4lProcesses []string
@@ -196,7 +156,7 @@ func getAllPtp4lProcesses(ptpPod *corev1.Pod) ([]string, error) {
 
 // GetPhc2sysInterface returns interface configured for phc2sys from ptp config file under /var/run.
 func GetPhc2sysInterface(ptpPod *corev1.Pod) (string, error) {
-	configName, err := getPhc2sysRelatedPtp4lConfig(ptpPod)
+	configName, err := getProcessRelatedPtp4lConfig(ptpPod, "phc2sys")
 	if err != nil {
 		return "", err
 	}
@@ -222,4 +182,46 @@ func GetPhc2sysInterface(ptpPod *corev1.Pod) (string, error) {
 	}
 
 	return buff.String(), nil
+}
+
+// getProcessRelatedPtp4lConfig gets ptp4l config that is related to a given process.
+// Arguments:
+// "ptpPod"-		a pod that run the ptp processes.
+// "processName"	the name of the related process (e.g "phc2sys" of "ts2phc"...).
+// return value:	a string with the name of the configuration file and an error if any occurred.
+func getProcessRelatedPtp4lConfig(ptpPod *corev1.Pod, processName string) (string, error) {
+	ptp4lConfigRegex := regexp.MustCompile(`ptp4l.[\d]+.config`)
+
+	processBuff, err := getProcessInfo(ptpPod, "pgrep -a "+processName+" | grep /var/run")
+	if err != nil {
+		return "", err
+	}
+
+	process := BytesToStrings(processBuff)[0]
+	// handles  process output like this:
+	// "/usr/sbin/phc2sys -a -r -n 24 -m -u 1 -z /var/run/ptp4l.0.socket -t [ptp4l.0.config]"
+	if strings.Contains(process, "[ptp4l") {
+		return ptp4lConfigRegex.FindAllString(process, 1)[0], nil
+	}
+
+	// handles process output like this:
+	// "/usr/sbin/phc2sys -f /var/run/phc2sys.1.config  -s enp49s0f0 -w -r -m -n 24 -N 8 -R 16"
+	if strings.Contains(process, "-f /var/run/"+processName) {
+		processConfigRegex := regexp.MustCompile(fmt.Sprintf("/var/run/%s.[\\d]+.config", processName))
+
+		processConfig := processConfigRegex.FindAllString(process, 1)[0]
+
+		// Expect output like this: "uds_address [ptp4l.0.socket]"
+		ptp4lConfigBuff, err := getProcessInfo(ptpPod,
+			fmt.Sprintf("cat %s | grep --color=no uds_address", processConfig))
+
+		if err != nil {
+			return "", err
+		}
+
+		return strings.TrimSuffix(
+			strings.TrimSpace(strings.Split(ptp4lConfigBuff.String(), " ")[1]), "socket") + "config", nil
+	}
+
+	return "", fmt.Errorf("output unrecognized: %v", process)
 }
