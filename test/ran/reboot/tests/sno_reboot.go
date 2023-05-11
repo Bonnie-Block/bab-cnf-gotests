@@ -101,6 +101,7 @@ var _ = Describe("SNO Reboot", Ordered, func() {
 			waitForClusterRecoverAndLogTime(powerOnTime, node, ranrebootparameters.RanMetricPowerCycle)
 		})
 
+		// ocp-63531
 		It("crio images should not be wiped after reboot", func() {
 			if originTimeStampLatestImage == "" {
 				Skip("Skipping if ztp versionis lower than 4.13")
