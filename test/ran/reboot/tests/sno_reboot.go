@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"time"
@@ -12,6 +13,7 @@ import (
 	. "github.com/onsi/gomega"
 	performancev2 "github.com/openshift/cluster-node-tuning-operator/pkg/apis/performanceprofile/v2"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/cpu/rancpuhelper"
@@ -69,16 +71,55 @@ var _ = Describe("SNO Reboot", Ordered, func() {
 		})
 	})
 
-	Context("power cycle with workloads running", func() {
-		BeforeEach(func() {
+	Context("power cycle with workloads running", Ordered, func() {
+		var originTimeStampLatestImage string
+		imageDateCommand := `ls -rot --full-time /var/lib/containers/storage/overlay-images/ |tail -5 |` +
+			`head -1 |awk {'print $6'}`
+
+		BeforeAll(func() {
 			if !ranhelper.IsIpmitoolExist() {
 				Skip("ipmitool is not installed on test executor. Skip power cycle test.")
+			}
+
+			// Check if 99-crio-disable-wipe-master MachineConfig exists on spoke
+			_, err := helper.Apiclient.MachineConfigs().Get(context.Background(),
+				"99-crio-disable-wipe-master",
+				metav1.GetOptions{})
+
+			if err == nil {
+				// 99-crio-disable-wipe-master MC exists, therefore ZTP>4.12. Get timestamp of last image
+				originTimeStampLatestImage, err = helper.ExecCommandOnNodeWithHostBinaries(node,
+					[]string{"bash", "-c", imageDateCommand})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(originTimeStampLatestImage).ToNot(BeEmpty())
+
 			}
 		})
 		// 40814
 		It("cluster and workload pods should be recovered after power comes back", func() {
 			powerOnTime := ranhelper.PowerOffAndOnSno()
 			waitForClusterRecoverAndLogTime(powerOnTime, node, ranrebootparameters.RanMetricPowerCycle)
+		})
+
+		It("crio images should not be wiped after reboot", func() {
+			if originTimeStampLatestImage == "" {
+				Skip("Skipping if ztp versionis lower than 4.13")
+			}
+
+			// 99-crio-disable-wipe-master exists, therefore ZTP>4.12. Get timestamp of last image
+			crioConfCommand := `ls -l /etc/crio/crio.conf.d/99-crio-disable-wipe.toml`
+
+			By("verifying /etc/crio/crio.conf.d/99-crio-disable-wipe.toml exists")
+			crioConfOutput, err := helper.ExecCommandOnNodeWithHostBinaries(node,
+				[]string{"bash", "-c", crioConfCommand})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(crioConfOutput).ToNot(BeEmpty())
+
+			By("verifying time/date stamp on the last image remains the same after reboot")
+			postTimeStampLatestImage, err := helper.ExecCommandOnNodeWithHostBinaries(node,
+				[]string{"bash", "-c", imageDateCommand})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(originTimeStampLatestImage).To(Equal(postTimeStampLatestImage))
 		})
 	})
 })
