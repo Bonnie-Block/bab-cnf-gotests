@@ -6,22 +6,28 @@ import (
 	"log"
 	"reflect"
 	"regexp"
+	"strings"
 	"time"
 
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranpower/ranpowerparameters"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/workloadpartitioning/ranwphelper"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	performancev2 "github.com/openshift/cluster-node-tuning-operator/pkg/apis/performanceprofile/v2"
-
+	"github.com/openshift/cluster-node-tuning-operator/pkg/performanceprofile/controller/performanceprofile/components"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/cpu/rancpuhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranpower/ranpowerhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/kubernetes/pkg/kubelet/cm/cpuset"
 	"k8s.io/utils/pointer"
 )
 
@@ -92,6 +98,7 @@ var _ = Describe("Per-Core Runtime Tuning of power states - CRI-O", Ordered, fun
 		}
 
 	})
+
 	// OCP-54572 - Enable powersave at node level and then enable performance at node level
 	It("Enable powersave at node level and then enable performance at node level", func() {
 		By("Patching the performance profile with the workload hints")
@@ -111,8 +118,78 @@ var _ = Describe("Per-Core Runtime Tuning of power states - CRI-O", Ordered, fun
 
 	// OCP-54574 - Telco_Case: Enable powersave at node level and then enable high performance
 	// at node level, check power consumption with no workload pods.
-	PIt("Enable powersave, and then enable high performance at node level, "+
+	It("Enable powersave, and then enable high performance at node level, "+
 		"check power consumption with no workload pods.", func() {
+
+		testPodAnnotations := map[string]string{
+			"cpu-load-balancing.crio.io": "disable",
+			"cpu-quota.crio.io":          "disable",
+			"irq-load-balancing.crio.io": "disable",
+			"cpu-c-states.crio.io":       "disable",
+			"cpu-freq-governor.crio.io":  "performance",
+		}
+
+		cpuLimit := resource.MustParse("2")
+		memLimit := resource.MustParse("100Mi")
+
+		By("Patching the performance profile with the workload hints")
+		err := setPowerMode(perfProfile, snoNode.Name, true, false, true)
+		Expect(err).ToNot(HaveOccurred(), "Unable to set power mode")
+
+		By("Define test pod")
+		testpod := ranwphelper.DefineQoSTestPod(snoNode.Name, parameters.PrivPodNamespace, cpuLimit.String(),
+			cpuLimit.String(), memLimit.String(), memLimit.String())
+		testpod.Annotations = testPodAnnotations
+		runtimeClass := components.GetComponentName(perfProfile.Name, components.ComponentNamePrefix)
+		testpod.Spec.RuntimeClassName = &runtimeClass
+
+		By("Create test pod")
+		testpod = helper.WaitUntilPodCreatedAndRunning(testpod, 10*time.Minute)
+		Expect(testpod.Status.QOSClass).To(Equal(corev1.PodQOSGuaranteed), "Test pod does not have QoS class of Guaranteed")
+
+		defer func() {
+			// delete the pod only if the tc had failed and the pod still exists
+			By("Delete pod in case of a failure")
+			podExists, err := helper.Apiclient.Pods(testpod.Namespace).Get(context.Background(),
+				testpod.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			if podExists != nil {
+				err = pod.DeletePodAndWait(helper.Apiclient, testpod)
+				Expect(err).ToNot(HaveOccurred())
+			}
+		}()
+
+		output, err := pod.ExecCommand(helper.Apiclient, *testpod,
+			[]string{"cat", "/sys/fs/cgroup/cpuset/cpuset.cpus"}, "test")
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Verify powersetting of cpus used by the pod")
+		trimmedOutput := strings.Trim(output.String(), "\r\n")
+		cpusUsed, err := cpuset.Parse(trimmedOutput)
+		Expect(err).ToNot(HaveOccurred())
+
+		targetCpus := cpusUsed.ToSlice()
+		err = checkCPUGovernorsAndResumeLatency(targetCpus, &snoNode, "n/a", "performance")
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Verify the rest of cpus have default power setting")
+		allCpus := snoNode.Status.Capacity.Cpu()
+		cpus := cpuset.MustParse(fmt.Sprintf("0-%d", allCpus.Value()-1))
+
+		otherCPUs := cpus.Difference(cpusUsed)
+		// Verify cpus not assigned to the pod have default power settings.
+		err = checkCPUGovernorsAndResumeLatency(otherCPUs.ToSlice(), &snoNode, "0", "performance")
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Delete the pod")
+		err = pod.DeletePodAndWait(helper.Apiclient, testpod)
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Verify after pod was deleted cpus assigned to container have default powersave settings")
+		err = checkCPUGovernorsAndResumeLatency(targetCpus, &snoNode, "0", "performance")
+		Expect(err).ToNot(HaveOccurred())
+
 	})
 
 	Context("Collect power usage metrics", func() {
@@ -211,4 +288,31 @@ func updatePerformanceProfileSpecs(perfProfile *performancev2.PerformanceProfile
 	perfProfile.Spec = newSpec
 
 	return helper.Apiclient.Update(context.TODO(), perfProfile)
+}
+
+// checkCPUGovernorsAndResumeLatency  Checks power and latency settings of the cpus.
+func checkCPUGovernorsAndResumeLatency(cpus []int, targetNode *corev1.Node, pmQos string, governor string) error {
+	for _, cpu := range cpus {
+		cmd := []string{"/bin/bash", "-c", fmt.Sprintf(
+			"cat /sys/devices/system/cpu/cpu%d/power/pm_qos_resume_latency_us", cpu)}
+
+		output, err := helper.ExecCommandOnNode(targetNode, cmd)
+		if err != nil {
+			return err
+		}
+
+		Expect(strings.Trim(output, "\r")).To(Equal(pmQos))
+
+		cmd = []string{"/bin/bash", "-c", fmt.Sprintf(
+			"cat /sys/devices/system/cpu/cpu%d/cpufreq/scaling_governor", cpu)}
+
+		output, err = helper.ExecCommandOnNode(targetNode, cmd)
+		if err != nil {
+			return err
+		}
+
+		Expect(strings.Trim(output, "\r")).To(Equal(governor))
+	}
+
+	return nil
 }

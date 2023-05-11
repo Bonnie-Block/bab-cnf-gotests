@@ -194,7 +194,7 @@ func CheckPodsAffinity(containersInfo []ContainerInfo, affinedCPUSet cpuset.CPUS
 // DefineQoSTestPod defines test pod with given cpu and memory resources.
 func DefineQoSTestPod(nodeName, namespace, cpuReq, cpuLimit, memReq, memLimit string) *corev1.Pod {
 	image := helper.Config.Ran.CnfTestImage
-	// Create namespace if not alrady created
+	// Create namespace if not already created
 	if !namespaces.Exists(namespace, helper.Apiclient) {
 		log.Println("Creating namespace:", namespace)
 		err := namespaces.Create(namespace, helper.Apiclient)
