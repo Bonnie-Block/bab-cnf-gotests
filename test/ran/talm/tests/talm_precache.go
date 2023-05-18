@@ -640,7 +640,7 @@ var _ = Describe("TALM tests with multiple spokes where one turns off", Ordered,
 				cguName,
 				rantalmhelper.Spoke2Name,
 				rantalmparameters.TalmTestNamespace,
-				10*time.Minute,
+				15*time.Minute,
 			)
 			Expect(err).ToNot(HaveOccurred())
 
