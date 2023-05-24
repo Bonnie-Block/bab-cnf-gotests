@@ -295,11 +295,11 @@ func SoftRebootNodeAndWaitForDisconnect(node *k8sv1.Node) {
 		}
 	}
 
-	waitForNodeUnreachable(node)
+	WaitForNodeUnreachable(node)
 }
 
-// waitForNodeUnreachable waits for ping node to fail.
-func waitForNodeUnreachable(node *k8sv1.Node) {
+// WaitForNodeUnreachable waits for ping node to fail.
+func WaitForNodeUnreachable(node *k8sv1.Node) {
 	log.Printf("Waiting for node %s to be unreachable via ping", node.Name)
 
 	timeout := 5 * time.Minute

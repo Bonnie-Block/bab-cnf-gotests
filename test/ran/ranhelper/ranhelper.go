@@ -12,6 +12,7 @@ import (
 
 	"github.com/k8snetworkplumbingwg/sriov-network-operator/pkg/render"
 	"github.com/pkg/errors"
+	mcp "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/machineconfigpool"
 	"gopkg.in/yaml.v2"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -474,4 +475,22 @@ func GetSnoNodes() ([]*k8sv1.Node, error) {
 // GetNodeByName gets a node by its name.
 func GetNodeByName(name string) (*k8sv1.Node, error) {
 	return helper.Apiclient.Nodes().Get(context.Background(), name, metav1.GetOptions{})
+}
+
+// WaitForSnoRebootAndMcpUpdated waits for sno to reboot and all mcps to be updated.
+func WaitForSnoRebootAndMcpUpdated(node *k8sv1.Node) error {
+	interval := 5 * time.Second
+	stableInterval := 5 * time.Minute
+
+	helper.WaitForNodeUnreachable(node)
+	helper.WaitForNodeReachable(node)
+
+	err := WaitForClusterReachable()
+	if err != nil {
+		return err
+	}
+
+	log.Printf("Waiting for all mcps are updated for at least %s", stableInterval.String())
+
+	return mcp.WaitForClusterStable(helper.Apiclient, 60*time.Minute, interval, stableInterval)
 }
