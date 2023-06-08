@@ -29,6 +29,7 @@ const (
 	HpeRedfishOem                = "Hpe"
 	ZTRedfishOem                 = "Ami"
 	AppRouteName                 = AppName
+	BmerOperatorName             = "bare-metal-event-relay"
 )
 
 var (
@@ -88,6 +89,8 @@ var (
 	}
 
 	CustomResourceDefinition = "openshift-bare-metal-events"
+
+	BmerVersion string
 )
 
 func GetPDU() bool {

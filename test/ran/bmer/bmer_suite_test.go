@@ -95,6 +95,15 @@ var _ = BeforeSuite(func() {
 	Expect(err).ShouldNot(HaveOccurred(), fmt.Sprintf(
 		"Hardware event deployment is not ready after creating secret due to: %v", err))
 
+	// Get bmer version
+	ranbmerparameters.BmerVersion, err = ranhelper.GetOperatorVersionFromCSV(
+		helper.Apiclient,
+		ranbmerparameters.BmerOperatorName,
+		parameters.BmerNamespace,
+	)
+	Expect(err).NotTo(HaveOccurred())
+	log.Println("BMER Operator version:", ranbmerparameters.BmerVersion)
+
 	transportType, err := ranhelper.GetTransportType(
 		helper.Apiclient, parameters.BmerNamespace, ranbmerparameters.AppName)
 	Expect(err).ShouldNot(HaveOccurred(), fmt.Sprintf(
