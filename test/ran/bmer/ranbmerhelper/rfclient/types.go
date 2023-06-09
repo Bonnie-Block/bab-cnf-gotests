@@ -4,71 +4,6 @@ import "github.com/stmcginnis/gofish/redfish"
 
 // EventType is Dell's event type for version <1.5.
 type (
-	EventType struct {
-		ID              string `json:"id"`
-		Type            string `json:"type"`
-		DataContentType string `json:"dataContentType"`
-		Time            string `json:"time"`
-		Data            struct {
-			Version string `json:"version"`
-			Data    struct {
-				OdataContext string `json:"@odata.context"`
-				Context      string `json:"Context"`
-				OdataType    string `json:"@odata.type"`
-				Events       []struct {
-					Context        string   `json:"Context"`
-					EventGroupID   int      `json:"EventGroupID"`
-					EventID        string   `json:"EventID"`
-					EventTimestamp string   `json:"EventTimestamp"`
-					Message        string   `json:"Message"`
-					MessageArgs    []string `json:"MessageArgs"`
-					Severity       string   `json:"Severity"`
-					EventType      string   `json:"EventType"`
-					MessageID      string   `json:"MessageId"`
-					MemberID       string   `json:"MemberID"`
-				}
-				ID   string `json:"ID"`
-				Name string `json:"Name"`
-			}
-		}
-	}
-
-	// EventType15 is Dell's event type for version 1.5.
-	EventType15 struct {
-		ID              string `json:"id"`
-		Type            string `json:"type"`
-		Source          string `json:"source"`
-		DataContentType string `json:"data_content_type"`
-		Time            string `json:"time"`
-		Data            struct {
-			Version string `json:"version"`
-			Values  []struct {
-				Resource  string `json:"resource"`
-				DataType  string `json:"data_type"`
-				ValueType string `json:"value_type"`
-				Value     struct {
-					OdataContext string `json:"odata_context"`
-					Context      string `json:"context"`
-					OdataType    string `json:"odata_type"`
-					Events       []struct {
-						Context        string   `json:"Context"`
-						EventGroupID   int      `json:"EventGroupID"`
-						EventID        string   `json:"EventID"`
-						EventTimestamp string   `json:"EventTimestamp"`
-						Message        string   `json:"Message"`
-						MessageArgs    []string `json:"MessageArgs"`
-						Severity       string   `json:"Severity"`
-						EventType      string   `json:"EventType"`
-						MessageID      string   `json:"MessageId"`
-						MemberID       string   `json:"MemberID"`
-					}
-					ID   string `json:"id"`
-					Name string `json:"name"`
-				}
-			}
-		}
-	}
-
 	// zTsubscriptionPayload to create the event subscription.
 	zTsubscriptionPayload struct {
 		Destination string                           `json:"Destination"`
@@ -100,8 +35,6 @@ type (
 		SubordinateResources bool   `json:"SubordinateResources"`
 		SubscriptionType     string `json:"SubscriptionType"`
 	}
-
-	MsgID string
 
 	// EEMIRegistryType is Dell's events registry.
 	// Any of these events can be sent using SubmitEventTest.

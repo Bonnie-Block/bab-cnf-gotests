@@ -24,15 +24,12 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranparameters"
 	testutils "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/utils"
-	corev1 "k8s.io/api/core/v1"
 )
 
 var (
 	_, currentFile, _, _ = runtime.Caller(0)
 	subscriptionURI      rfclient.SubscriptionURI
 	eventService         *redfish.EventService
-	ConsumersList        *corev1.PodList
-	PrivilegedPods       map[string]*corev1.Pod
 	LocalNodeVendor      string
 	err                  error
 )
@@ -154,11 +151,11 @@ var _ = BeforeSuite(func() {
 	}
 
 	By("Check consumers exist")
-	ConsumersList, err = ranhelper.GetConsumers(parameters.BmerNamespace)
+	_, err = ranhelper.GetConsumers(parameters.BmerNamespace)
 	Expect(err).ShouldNot(HaveOccurred(), fmt.Sprintf("failed to check consumers exist due to: %v", err))
 
 	By("Creating privileged pods in order to query node vendor")
-	PrivilegedPods = helper.CreatePrivilegedPods("")
+	_ = helper.CreatePrivilegedPods("")
 
 	By("Query the node under test redfish vendor")
 	LocalNodeVendor, err = nodevendor.GetRedfishVendor(ranbmerparameters.Redfish.Session)

@@ -3,9 +3,7 @@ package ranbmerhelper
 import (
 	"context"
 	"crypto/tls"
-	"encoding/json"
 	"fmt"
-
 	"log"
 	"net/http"
 	"regexp"
@@ -16,7 +14,6 @@ import (
 	bmerv1alpha1 "github.com/redhat-cne/hw-event-proxy-operator/api/v1alpha1"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/bmer/ranbmerhelper/rfclient"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/bmer/ranbmerparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
@@ -40,101 +37,6 @@ import (
 // lower critical threshold.\",\"MessageArgs\":[\"fail-safe\"],\"Severity\":\"Critical\",\"MessageID\":\"AMP0301\",
 // \"MemberID\":\"32743\",\"EventType\":\"Alert\"}],\"ID\":\"a4a003fc-8a51-11ec-85d7-b07b25e354f8\",
 // \"Name\":\"Event Array\"}}]}}"
-
-// getMsgIDType1 parse dell version 1.0 events messages.
-func getMsgIDType1(eventJSON string) ([]timestampEventType, error) {
-	var (
-		events    []timestampEventType
-		eventType rfclient.EventType
-	)
-
-	eventUnquote := strings.ReplaceAll(eventJSON, "\\", "")
-	err := json.Unmarshal([]byte(eventUnquote), &eventType)
-
-	if err != nil {
-		log.Printf("Error when parsing message ID: %s", err)
-	} else if len(eventType.Data.Data.Events) > 0 {
-		events = append(events, timestampEventType{
-			eventType.Time, eventType.Data.Data.Events[0].MessageID})
-
-	}
-
-	return events, err
-}
-
-// IsEventJSON returns a json in case it is a valid json or empty string if not.
-func IsEventJSON(line string) string {
-	r := regexp.MustCompile(`[received event]\{(.*)\}`)
-
-	eventJSON := r.FindString(line)
-
-	if eventJSON == "" {
-		return ""
-	}
-
-	return eventJSON
-}
-
-// getMsgIDType15 parse dell version 1.5 events messages.
-func getMsgIDType15(eventJSON string) ([]timestampEventType, error) {
-	var (
-		e15    rfclient.EventType15
-		events []timestampEventType
-	)
-
-	eventUnquote := strings.ReplaceAll(eventJSON, "\\", "")
-	err := json.Unmarshal([]byte(eventUnquote), &e15)
-
-	if err != nil {
-		log.Printf("Error when parsing message ID: %s", err)
-
-		return events, err
-	}
-
-	for _, value := range e15.Data.Values {
-		for _, event := range value.Value.Events {
-			events = append(events, timestampEventType{event.EventTimestamp, event.MessageID})
-		}
-	}
-
-	return events, nil
-}
-
-// GetMsgID returns the message ID from the event that was received.
-func GetMsgID(eventJSON string) ([]timestampEventType, error) {
-	events, err := getMsgIDType1(eventJSON)
-	if err != nil || len(events) == 0 {
-		events, err = getMsgIDType15(eventJSON)
-	}
-
-	return events, err
-}
-
-// SanitizeMsgID remove the IDRAC info which added by IDRAC.2.8+ firmware from message ID.
-// Example IDRAC.2.8.TMP0101 => TMP0101.
-func SanitizeMsgID(messageID string) string {
-	msgIDParts := strings.Split(messageID, ".")
-	if len(msgIDParts) > 3 && msgIDParts[0] == "IDRAC" {
-		return strings.Join(msgIDParts[3:], ".")
-	}
-
-	return messageID
-}
-
-// Contains checks if a string appears in a array.
-func Contains(arr []string, str string) bool {
-	for _, a := range arr {
-		if a == str {
-			return true
-		}
-	}
-
-	return false
-}
-
-type timestampEventType struct {
-	EventTimestamp, MessageID string
-}
 
 // GetHTTPS retry GET on HTTPS target until OK is received.
 func GetHTTPS(url string) error {
@@ -224,35 +126,36 @@ func PurgePrivPodNamespace() error {
 // RestartPod deletes a pod marked by a given label
 // it then waits for a given timeout for the pod to resume running state.
 func RestartPod(label string, timeout time.Duration) error {
-	pod, err := GetPodByLabel(label)
+	podToRestart, err := GetPodByLabel(label)
 
 	if err != nil {
 		return err
 	}
 
-	podUID := pod.UID
-	log.Printf("Deleting pod %v ...", pod.Name)
-	err = helper.Apiclient.Pods(pod.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{})
+	podUID := podToRestart.UID
+	log.Printf("Deleting pod %v ...", podToRestart.Name)
+	err = helper.Apiclient.Pods(
+		podToRestart.Namespace).Delete(context.Background(), podToRestart.Name, metav1.DeleteOptions{})
 
 	if err != nil {
-		return fmt.Errorf("failed to delete pod named: %v due to: %w", pod.Name, err)
+		return fmt.Errorf("failed to delete pod named: %v due to: %w", podToRestart.Name, err)
 	}
 
 	err = wait.PollImmediate(5*time.Second, timeout, func() (bool, error) {
-		pod, err = GetPodByLabel(label)
+		podToRestart, err = GetPodByLabel(label)
 		if err != nil {
 			return false, nil
 		}
-		if pod.UID == podUID {
+		if podToRestart.UID == podUID {
 			return false, nil
 		}
-		if pod.Status.Phase == corev1.PodRunning {
-			for _, c := range pod.Status.ContainerStatuses {
+		if podToRestart.Status.Phase == corev1.PodRunning {
+			for _, c := range podToRestart.Status.ContainerStatuses {
 				if !c.Ready {
 					return false, nil
 				}
 			}
-			log.Printf("Pod %v recovered", pod.Name)
+			log.Printf("Pod %v recovered", podToRestart.Name)
 
 			return true, nil
 		}
@@ -261,7 +164,7 @@ func RestartPod(label string, timeout time.Duration) error {
 	})
 
 	if err != nil {
-		return fmt.Errorf("failed to restart pod named %v due to: %w", pod.Name, err)
+		return fmt.Errorf("failed to restart pod named %v due to: %w", podToRestart.Name, err)
 	}
 
 	return nil
@@ -270,7 +173,7 @@ func RestartPod(label string, timeout time.Duration) error {
 // RestartSidecar kills the sidecar container in hw-event-proxy pod
 // then waits for a given timeout for the container to be back to Ready.
 func RestartSidecar(label string, timeout time.Duration) error {
-	pod, err := GetPodByLabel(label)
+	podByLabel, err := GetPodByLabel(label)
 
 	if err != nil {
 		return err
@@ -278,7 +181,7 @@ func RestartSidecar(label string, timeout time.Duration) error {
 
 	var restartCount int32
 
-	for _, c := range pod.Status.ContainerStatuses {
+	for _, c := range podByLabel.Status.ContainerStatuses {
 		if ranhelper.IsCloudEventSidecar(c.Name) {
 			restartCount = c.RestartCount
 
@@ -286,13 +189,13 @@ func RestartSidecar(label string, timeout time.Duration) error {
 		}
 	}
 
-	for _, c := range pod.Spec.Containers {
+	for _, c := range podByLabel.Spec.Containers {
 		if ranhelper.IsCloudEventSidecar(c.Name) {
 			log.Printf("Killing container %v ...", c.Name)
-			buffer, err := podUtil.ExecCommand(helper.Apiclient, pod, []string{"/bin/sh", "-c", "kill 1"}, c.Name)
+			buffer, err := podUtil.ExecCommand(helper.Apiclient, podByLabel, []string{"/bin/sh", "-c", "kill 1"}, c.Name)
 
 			if err != nil {
-				return fmt.Errorf("fail to kill sidecar %w: %s", err, buffer.String())
+				return fmt.Errorf("fail to kill sidecar %w: %v", err, buffer)
 			}
 
 			break
@@ -300,12 +203,12 @@ func RestartSidecar(label string, timeout time.Duration) error {
 	}
 
 	err = wait.PollImmediate(5*time.Second, timeout, func() (bool, error) {
-		// repolling pod object to get the latest status
-		pod, err := GetPodByLabel(label)
+		// repolling podByLabel object to get the latest status
+		podByLabel, err = GetPodByLabel(label)
 		if err != nil {
 			return false, err
 		}
-		for _, c := range pod.Status.ContainerStatuses {
+		for _, c := range podByLabel.Status.ContainerStatuses {
 			if ranhelper.IsCloudEventSidecar(c.Name) {
 				if (c.RestartCount > restartCount) && c.Ready {
 					log.Printf("Container %v recovered, restart count %v -> %v", c.Name, restartCount, c.RestartCount)
@@ -321,7 +224,7 @@ func RestartSidecar(label string, timeout time.Duration) error {
 	})
 
 	if err != nil {
-		return fmt.Errorf("failed to restart container named %v due to: %w", pod.Name, err)
+		return fmt.Errorf("failed to restart container named %v due to: %w", podByLabel.Name, err)
 	}
 
 	return nil
@@ -415,4 +318,63 @@ func CheckCustomResourceDefinition() error {
 
 	return fmt.Errorf("failed to find custum resource definition: %v in cluster",
 		ranbmerparameters.CustomResourceDefinition)
+}
+
+// WaitForEvent waits for specified event to appear in ptp cloud event proxy log.
+func WaitForEvent(consumerPod *corev1.Pod, messageID string, startTime time.Time, timeout time.Duration) error {
+	interval := 10 * time.Second
+
+	return wait.PollImmediate(interval, timeout, func() (bool, error) {
+		logs, err := podUtil.GetLog(helper.Apiclient, consumerPod, time.Since(startTime)+time.Second,
+			ranbmerparameters.ConsumerContainerName)
+		if err != nil {
+			return false, nil
+		}
+
+		eventMsgs := getEvents(logs)
+		if containsEvent(eventMsgs, messageID) {
+			return true, nil
+		}
+
+		return false, nil
+	})
+}
+
+// getEvents parses consumer cloud event logs and returns list of events.
+func getEvents(eventLog string) []string {
+	var eventMsgs []string
+
+	eventLog = strings.ReplaceAll(eventLog, "\\n", "")
+	logsSlice := strings.Split(eventLog, "\n")
+	r := regexp.MustCompile(`[(received event|published hw event)]\{(.*)\}`)
+
+	for _, line := range logsSlice {
+		if r.MatchString(line) && strings.Contains(line, "redfish-event") {
+			line = strings.ReplaceAll(line, "\\", "")
+			eventMsgs = append(eventMsgs, line)
+		}
+	}
+
+	return eventMsgs
+}
+
+// containsEvent returns true when specified messageID is found in given event messages.
+func containsEvent(eventMsgs []string, messageID string) bool {
+	if len(eventMsgs) == 0 {
+		log.Println("No event is provided.")
+
+		return false
+	}
+
+	for _, event := range eventMsgs {
+		if strings.Contains(event, messageID) {
+			log.Printf("%s is found\n", messageID)
+
+			return true
+		}
+	}
+
+	log.Printf("Event %s is not found\n", messageID)
+
+	return false
 }
