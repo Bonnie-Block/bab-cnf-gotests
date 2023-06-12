@@ -16,6 +16,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/talm/rantalmparameters"
 	testClient "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
+	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
 	meta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -1992,6 +1993,62 @@ func DeleteClusterLabel(clusterName string, labelToBeDeleted string) error {
 	delete(managedCluster.Labels, labelToBeDeleted)
 
 	err = HubAPIClient.Update(context.Background(), managedCluster)
+
+	return err
+}
+
+// PrintCguSpecAndStatus Print CGU spec and status under given namespace.
+func PrintCguSpecAndStatus(client *testClient.ClientSet, namespace string) error {
+	cguList, err := client.ClustergroupupgradesoperatorV1alpha1Interface.ClusterGroupUpgrades(namespace).List(
+		GetTestContext(), metav1.ListOptions{})
+
+	if err != nil {
+		return err
+	}
+
+	for _, cgu := range cguList.Items {
+		cguSpec, err := yaml.Marshal(cgu.Spec)
+		if err != nil {
+			return err
+		}
+
+		fmt.Printf("--- Printing CGU spec - %s: %s :\n%v\n", cgu.Namespace, cgu.Name, string(cguSpec))
+
+		cguStatus, err := yaml.Marshal(cgu.Status)
+		if err != nil {
+			return err
+		}
+
+		fmt.Printf("--- Printing CGU status - %s: %s :\n%v\n", cgu.Namespace, cgu.Name, string(cguStatus))
+	}
+
+	return nil
+}
+
+// PrintPolicyStatus Print Policy status under given namespace.
+func PrintPolicyStatus(client *testClient.ClientSet, namespace string) error {
+	var policyList policiesv1.PolicyList
+
+	// Get a list of policies from the cluster
+	err := client.Client.List(
+		GetTestContext(),
+		&policyList,
+		&runtimeclient.ListOptions{
+			Namespace: namespace,
+		})
+
+	if err != nil {
+		return err
+	}
+
+	for _, policy := range policyList.Items {
+		policyStatus, err := yaml.Marshal(policy.Status)
+		if err != nil {
+			return err
+		}
+
+		log.Printf("--- Printing policy status - %s: %s :\n%v\n", policy.Namespace, policy.Name, string(policyStatus))
+	}
 
 	return err
 }

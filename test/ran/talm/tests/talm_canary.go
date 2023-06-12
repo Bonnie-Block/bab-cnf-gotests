@@ -61,6 +61,8 @@ var _ = Describe("Talm Canary Tests", Ordered, Label("talmcanary"), func() {
 	})
 
 	AfterEach(func() {
+		printCguAndPolicyOnFailure(rantalmhelper.Namespace)
+
 		// Cleanup everything
 		errList := rantalmhelper.CleanupTestResourcesOnClients(
 			clusterList,

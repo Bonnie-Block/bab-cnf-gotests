@@ -76,8 +76,13 @@ var _ = Describe("Talm precache one spoke", Label("talmprecache"), func() {
 		})
 
 		AfterEach(func() {
-			// Best effort print pod log in case pod in error
-			_ = checkPrecachePodLog(rantalmhelper.Spoke1APIClient)
+			if CurrentSpecReport().Failed() {
+				// Best effort print pod log in case pod in error
+				_ = checkPrecachePodLog(rantalmhelper.Spoke1APIClient)
+			}
+
+			// Best effort print CGU and precache pod log in case of test failure
+			printCguAndPolicyOnFailure(rantalmparameters.TalmTestNamespace)
 
 			// all generated policy and components
 			for _, curPolAndCo := range policyAndCoWithSub {
@@ -127,6 +132,8 @@ var _ = Describe("Talm precache one spoke", Label("talmprecache"), func() {
 		policyName := fmt.Sprintf("%s-%s", rantalmparameters.PolicyNameCommonName, curName)
 
 		AfterEach(func() {
+			printCguAndPolicyOnFailure(rantalmparameters.TalmTestNamespace)
+
 			// delete generated CRs
 			rantalmhelper.CleanupTestResourcesOnClient(
 				rantalmhelper.HubAPIClient,
@@ -206,6 +213,8 @@ var _ = Describe("Talm precache one spoke", Label("talmprecache"), func() {
 
 		})
 		AfterEach(func() {
+			printCguAndPolicyOnFailure(rantalmparameters.TalmTestNamespace)
+
 			// delete generated CRs
 			rantalmhelper.CleanupTestResourcesOnClient(
 				rantalmhelper.HubAPIClient,
@@ -512,6 +521,8 @@ var _ = Describe("TALM tests with multiple spokes where one turns off", Ordered,
 
 	Context("precaching with one managed cluster powered off and unavailable", func() {
 		AfterEach(func() {
+			printCguAndPolicyOnFailure(rantalmparameters.TalmTestNamespace)
+
 			// delete generated CRs
 			rantalmhelper.CleanupTestResourcesOnClient(
 				rantalmhelper.HubAPIClient,
@@ -673,11 +684,14 @@ var _ = Describe("TALM tests with multiple spokes where one turns off", Ordered,
 				talmCompleteLabel,
 			)
 			Expect(labelPresent).To(BeFalse())
+			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("is not found in managedcluster"))
 
 		})
 
 		AfterAll(func() {
+			printCguAndPolicyOnFailure(rantalmparameters.TalmTestNamespace)
+
 			// Delete temporary namespace on spoke cluster.
 			spoke2ClusterList := []*testClient.ClientSet{rantalmhelper.Spoke2APIClient}
 			spoke2CleanupErr := rantalmhelper.CleanupNamespace(spoke2ClusterList, rantalmhelper.TemporaryNamespaceName)
@@ -794,4 +808,13 @@ func checkPrecachePodLog(client *testClient.ClientSet) error {
 	}
 
 	return err
+}
+
+func printCguAndPolicyOnFailure(namespace string) {
+	if CurrentSpecReport().Failed() {
+		log.Println("Test failed - printing policy and CGU status with best effort")
+
+		_ = rantalmhelper.PrintPolicyStatus(rantalmhelper.HubAPIClient, namespace)
+		_ = rantalmhelper.PrintCguSpecAndStatus(rantalmhelper.HubAPIClient, namespace)
+	}
 }
