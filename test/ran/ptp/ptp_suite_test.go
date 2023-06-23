@@ -37,10 +37,8 @@ func TestPTP(t *testing.T) {
 var _ = BeforeSuite(func() {
 	Expect(helper.Apiclient).NotTo(BeNil())
 
-	for _, ns := range []string{parameters.PtpOperatorNamespace, parameters.AmqNamespace} {
-		if !namespaces.Exists(ns, helper.Apiclient) {
-			Skip(ns + " namespace does not exist")
-		}
+	if !namespaces.Exists(parameters.PtpOperatorNamespace, helper.Apiclient) {
+		Skip(parameters.PtpOperatorNamespace + " namespace does not exist")
 	}
 
 	ptpDaemonPods, err := helper.Apiclient.Pods(parameters.PtpOperatorNamespace).List(context.Background(),
