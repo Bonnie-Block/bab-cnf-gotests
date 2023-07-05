@@ -70,6 +70,9 @@ var _ = Describe("BMER", func() {
 		Expect(newPod.Name).NotTo(Equal(oldPod.Name), fmt.Sprintf(
 			"failed to restart pod %v", oldPod.Name))
 
+		By("Wait 20 seconds after new pod is ready")
+		time.Sleep(20 * time.Second)
+
 		By("Validate again consumer receives events")
 		VerifyEvents(ConsumersList, testEvents, eventService, LocalNodeVendor)
 
@@ -85,6 +88,9 @@ var _ = Describe("BMER", func() {
 		err = ranbmerhelper.RestartSidecar(ranbmerparameters.AppPodLabel, 5*time.Minute)
 		Expect(err).NotTo(HaveOccurred(), fmt.Sprintf(
 			"failed to restart sidecar on pod %v due to: %v", ranbmerparameters.AppPodLabel, err))
+
+		By("Wait 20 seconds after sidecar is recovered")
+		time.Sleep(20 * time.Second)
 
 		By("Validate again consumer receives events")
 		VerifyEvents(ConsumersList, testEvents, eventService, LocalNodeVendor)
@@ -140,6 +146,9 @@ var _ = Describe("BMER", func() {
 			err = ranhelper.WaitForClusterRecover(workerNode, []string{parameters.AmqNamespace, parameters.BmerNamespace})
 		}
 		Expect(err).NotTo(HaveOccurred())
+
+		By("Wait 20 seconds after bmer pods are ready")
+		time.Sleep(20 * time.Second)
 
 		By("Validate again consumer receives events")
 		VerifyEvents(ConsumersList, testEvents, eventService, LocalNodeVendor)

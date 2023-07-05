@@ -173,8 +173,8 @@ var _ = BeforeSuite(func() {
 	Expect(subscriptionURI).ToNot(Equal(nil), "failed to get subscription URI replay")
 
 	if ranparameters.TransportType == ranparameters.TransportHTTP {
-		log.Printf("Add 5 seconds delay for HTTP transport to be ready")
-		time.Sleep(5 * time.Second)
+		log.Printf("Add 20 seconds delay for HTTP transport to be ready")
+		time.Sleep(20 * time.Second)
 	}
 })
 
