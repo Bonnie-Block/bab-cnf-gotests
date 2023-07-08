@@ -85,13 +85,13 @@ func metricParser(ptpMetricsBuff bytes.Buffer) error {
 		return err
 	}
 
-	err = getInterfaceRoleValue()
+	err = getProcessStatusValue()
 	if nil != err {
 		return err
 	}
 
 	// openshift_ptp_process_status is added in 4.11
-	err = getProcessStatusValue()
+	err = getInterfaceRoleValue()
 
 	return err
 }

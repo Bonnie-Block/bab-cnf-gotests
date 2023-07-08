@@ -221,12 +221,20 @@ var _ = Describe("PTP Events and Metrics - interface down", func() {
 					ptpDaemonPod, err := ranptphelper.GetPtpDaemonPodFromNode(node)
 					Expect(err).NotTo(HaveOccurred())
 
-					By("Check openshift_ptp_clock_state should not appear in the metrics after interface modification")
+					By("Check openshift_ptp_clock_state or openshift_ptp_interface_role should not appear in " +
+						"the metrics after interface modification")
 					log.Println("GetPTPMetrics waits 3 mins and return an error if occurred")
 					Eventually(func() bool {
 						err = ranptphelper.GetPTPMetrics(*ptpDaemonPod)
 						if err == nil {
 							return false
+						}
+
+						// when only one OC ptp profile exits, using invalid interface can cause interface_role
+						// metric missing from metrics
+						if len(profiles) == 1 {
+							return strings.Contains(err.Error(), "openshift_ptp_clock_state") ||
+								strings.Contains(err.Error(), "openshift_ptp_interface_role")
 						}
 
 						return strings.Contains(err.Error(), "openshift_ptp_clock_state")
@@ -288,6 +296,13 @@ var _ = Describe("PTP Events and Metrics - interface down", func() {
 						err = ranptphelper.GetPTPMetrics(*ptpDaemonPod)
 						if err == nil {
 							return false
+						}
+
+						// when only one OC ptp profile exits, using invalid interface can cause interface_role
+						// metric missing from metrics
+						if len(profiles) == 1 {
+							return strings.Contains(err.Error(), "openshift_ptp_clock_state") ||
+								strings.Contains(err.Error(), "openshift_ptp_interface_role")
 						}
 
 						return strings.Contains(err.Error(), "openshift_ptp_clock_state")
