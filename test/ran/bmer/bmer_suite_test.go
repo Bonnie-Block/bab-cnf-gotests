@@ -187,9 +187,7 @@ var _ = AfterSuite(func() {
 	By("Remove consumer pods")
 	destroyErrors := ranhelper.DestroyConsumers(parameters.BmerNamespace)
 	teardownErrors = append(teardownErrors, destroyErrors...)
-	By("Remove Hw event secret")
-	teardownErrors = append(teardownErrors, ranbmerhelper.DeleteHwEventSecret(
-		parameters.BmerNamespace, ranbmerparameters.SecretName))
+
 	By("End redfish session.")
 	ranbmerparameters.Redfish.Session.Logout()
 	By("Purge privileged pods that were created for test")
