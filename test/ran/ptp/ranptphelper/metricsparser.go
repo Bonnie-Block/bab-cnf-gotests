@@ -2,6 +2,7 @@ package ranptphelper
 
 import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ptp/ranptpparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
@@ -22,7 +23,8 @@ import (
 // arguments:		"ptpPod"-	a given ptp pod for getting the metrics from.
 // return value:	an error if any occurred.
 func GetPTPMetrics(ptpPod corev1.Pod) error {
-	buff, err := pod.ExecCommand(helper.Apiclient, ptpPod, []string{"curl", "-s", "localhost:9091/metrics"})
+	buff, err := pod.ExecCommand(helper.Apiclient, ptpPod, []string{"curl", "-s", "localhost:9091/metrics"},
+		parameters.PtpContainerName)
 	if nil != err {
 		return err
 	}
@@ -35,7 +37,7 @@ func GetPTPMetrics(ptpPod corev1.Pod) error {
 			log.Printf("parsing failed with error %s, try again\n", errFromParser.Error())
 			buff, err = pod.ExecCommand(helper.Apiclient, ptpPod, []string{"curl", "-s", "localhost:9091/metrics"})
 			if err != nil {
-				return false, err
+				return false, nil
 			}
 
 			return false, nil
