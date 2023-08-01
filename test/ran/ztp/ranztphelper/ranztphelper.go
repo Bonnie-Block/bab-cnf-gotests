@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/kubernetes/pkg/kubelet/cm/cpuset"
 
+	assistedv1beta1 "github.com/openshift/assisted-service/api/v1beta1"
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	runtimeClient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -201,6 +202,8 @@ func DoesGitPathExist(gitURL, gitBranch, gitPath string) bool {
 			gitPath,
 		},
 	)
+
+	fmt.Println("URL from DoesGitPathExist = ", url)
 
 	// Log the url we are trying
 	log.Printf("Checking if git url '%s' exists\n", url)
@@ -603,4 +606,12 @@ func CheckNodeIsFunctionalAfterMCchanges(clientSet *testClient.ClientSet, mcpNam
 	}
 
 	return nil
+}
+
+// GetNmStateConfigList is used to get NmStateConfig list.
+func GetNmStateConfigList() (assistedv1beta1.NMStateConfigList, error) {
+	nmStateConfigList := assistedv1beta1.NMStateConfigList{}
+	err := HubAPIClient.Client.List(context.Background(), &nmStateConfigList, &runtimeClient.ListOptions{})
+
+	return nmStateConfigList, err
 }

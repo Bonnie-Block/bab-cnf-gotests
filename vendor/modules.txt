@@ -129,6 +129,9 @@ github.com/argoproj/pkg/exec
 github.com/argoproj/pkg/rand
 github.com/argoproj/pkg/sync
 github.com/argoproj/pkg/time
+# github.com/asaskevich/govalidator v0.0.0-20200907205600-7a23bdc65eef
+## explicit; go 1.13
+github.com/asaskevich/govalidator
 # github.com/beorn7/perks v1.0.1
 ## explicit; go 1.11
 github.com/beorn7/perks/quantile
@@ -602,6 +605,18 @@ github.com/go-logfmt/logfmt
 ## explicit; go 1.16
 github.com/go-logr/logr
 github.com/go-logr/logr/funcr
+# github.com/go-openapi/analysis v0.21.2
+## explicit; go 1.13
+github.com/go-openapi/analysis
+github.com/go-openapi/analysis/internal/debug
+github.com/go-openapi/analysis/internal/flatten/normalize
+github.com/go-openapi/analysis/internal/flatten/operations
+github.com/go-openapi/analysis/internal/flatten/replace
+github.com/go-openapi/analysis/internal/flatten/schutils
+github.com/go-openapi/analysis/internal/flatten/sortref
+# github.com/go-openapi/errors v0.20.2
+## explicit; go 1.14
+github.com/go-openapi/errors
 # github.com/go-openapi/jsonpointer v0.19.5
 ## explicit; go 1.13
 github.com/go-openapi/jsonpointer
@@ -609,9 +624,21 @@ github.com/go-openapi/jsonpointer
 ## explicit; go 1.13
 github.com/go-openapi/jsonreference
 github.com/go-openapi/jsonreference/internal
+# github.com/go-openapi/loads v0.21.1
+## explicit; go 1.13
+github.com/go-openapi/loads
+# github.com/go-openapi/spec v0.20.4
+## explicit; go 1.13
+github.com/go-openapi/spec
+# github.com/go-openapi/strfmt v0.21.2
+## explicit; go 1.13
+github.com/go-openapi/strfmt
 # github.com/go-openapi/swag v0.21.1
 ## explicit; go 1.11
 github.com/go-openapi/swag
+# github.com/go-openapi/validate v0.21.0
+## explicit; go 1.14
+github.com/go-openapi/validate
 # github.com/go-redis/cache/v8 v8.4.2
 ## explicit; go 1.13
 github.com/go-redis/cache/v8
@@ -625,6 +652,9 @@ github.com/go-redis/redis/v8/internal/pool
 github.com/go-redis/redis/v8/internal/proto
 github.com/go-redis/redis/v8/internal/rand
 github.com/go-redis/redis/v8/internal/util
+# github.com/go-stack/stack v1.8.0
+## explicit
+github.com/go-stack/stack
 # github.com/go-task/slim-sprig v0.0.0-20210107165309-348f09dbbbc0
 ## explicit; go 1.13
 github.com/go-task/slim-sprig
@@ -711,7 +741,6 @@ github.com/gorilla/mux
 github.com/gorilla/schema
 # github.com/gosnmp/gosnmp v1.35.0
 ## explicit; go 1.17
-github.com/gosnmp/gosnmp
 # github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79
 ## explicit
 github.com/gregjones/httpcache
@@ -749,6 +778,12 @@ github.com/ishidawataru/sctp
 # github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99
 ## explicit
 github.com/jbenet/go-context/io
+# github.com/jinzhu/inflection v1.0.0
+## explicit
+github.com/jinzhu/inflection
+# github.com/jinzhu/now v1.1.4
+## explicit; go 1.12
+github.com/jinzhu/now
 # github.com/jonboulle/clockwork v0.2.2
 ## explicit; go 1.13
 github.com/jonboulle/clockwork
@@ -867,6 +902,9 @@ github.com/mitchellh/go-homedir
 # github.com/mitchellh/go-wordwrap v1.0.0
 ## explicit
 github.com/mitchellh/go-wordwrap
+# github.com/mitchellh/mapstructure v1.4.3
+## explicit; go 1.14
+github.com/mitchellh/mapstructure
 # github.com/mitchellh/reflectwalk v1.0.2
 ## explicit
 github.com/mitchellh/reflectwalk
@@ -918,6 +956,9 @@ github.com/noirbizarre/gonja/nodes
 github.com/noirbizarre/gonja/parser
 github.com/noirbizarre/gonja/tokens
 github.com/noirbizarre/gonja/utils
+# github.com/oklog/ulid v1.3.1
+## explicit
+github.com/oklog/ulid
 # github.com/onsi/ginkgo/v2 v2.9.1
 ## explicit; go 1.18
 github.com/onsi/ginkgo/v2
@@ -996,6 +1037,13 @@ github.com/openshift/api/imageregistry/v1
 github.com/openshift/api/operator/v1
 github.com/openshift/api/operator/v1alpha1
 github.com/openshift/api/route/v1
+# github.com/openshift/assisted-service/api v0.0.0 => github.com/openshift/assisted-service/api v0.0.0-20220928142635-a40422bdea61
+## explicit; go 1.17
+github.com/openshift/assisted-service/api/common
+github.com/openshift/assisted-service/api/v1beta1
+# github.com/openshift/assisted-service/models v0.0.0 => github.com/openshift/assisted-service/models v0.0.0-20220928142635-a40422bdea61
+## explicit; go 1.17
+github.com/openshift/assisted-service/models
 # github.com/openshift/client-go v0.0.0-20220831193253-4950ae70c8ea => github.com/openshift/client-go v0.0.0-20210112165513-ebc401615f47
 ## explicit; go 1.13
 github.com/openshift/client-go/config/clientset/versioned
@@ -1028,7 +1076,7 @@ github.com/openshift/cluster-node-tuning-operator/pkg/apis/performanceprofile/v2
 github.com/openshift/cluster-node-tuning-operator/pkg/apis/tuned
 github.com/openshift/cluster-node-tuning-operator/pkg/apis/tuned/v1
 github.com/openshift/cluster-node-tuning-operator/pkg/performanceprofile/controller/performanceprofile/components
-# github.com/openshift/custom-resource-status v0.0.0-20200602122900-c002fd1547ca
+# github.com/openshift/custom-resource-status v1.1.1
 ## explicit; go 1.12
 github.com/openshift/custom-resource-status/conditions/v1
 # github.com/openshift/imagebuilder v1.1.8
@@ -1230,6 +1278,15 @@ github.com/ziutek/telnet
 # go.etcd.io/bbolt v1.3.6
 ## explicit; go 1.12
 go.etcd.io/bbolt
+# go.mongodb.org/mongo-driver v1.7.5
+## explicit; go 1.10
+go.mongodb.org/mongo-driver/bson
+go.mongodb.org/mongo-driver/bson/bsoncodec
+go.mongodb.org/mongo-driver/bson/bsonoptions
+go.mongodb.org/mongo-driver/bson/bsonrw
+go.mongodb.org/mongo-driver/bson/bsontype
+go.mongodb.org/mongo-driver/bson/primitive
+go.mongodb.org/mongo-driver/x/bsonx/bsoncore
 # go.mozilla.org/pkcs7 v0.0.0-20200128120323-432b2356ecb1
 ## explicit; go 1.11
 go.mozilla.org/pkcs7
@@ -1475,6 +1532,13 @@ gopkg.in/yaml.v2
 # gopkg.in/yaml.v3 v3.0.1
 ## explicit
 gopkg.in/yaml.v3
+# gorm.io/gorm v1.23.1
+## explicit; go 1.14
+gorm.io/gorm
+gorm.io/gorm/clause
+gorm.io/gorm/logger
+gorm.io/gorm/schema
+gorm.io/gorm/utils
 # k8s.io/api v0.26.3 => k8s.io/api v0.25.4
 ## explicit; go 1.19
 k8s.io/api/admission/v1
@@ -2204,6 +2268,8 @@ sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.3.0
 ## explicit; go 1.12
 sigs.k8s.io/yaml
+# github.com/openshift/assisted-service/api => github.com/openshift/assisted-service/api v0.0.0-20220928142635-a40422bdea61
+# github.com/openshift/assisted-service/models => github.com/openshift/assisted-service/models v0.0.0-20220928142635-a40422bdea61
 # k8s.io/api => k8s.io/api v0.25.4
 # k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.25.4
 # k8s.io/apimachinery => k8s.io/apimachinery v0.25.4

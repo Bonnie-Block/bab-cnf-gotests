@@ -99,6 +99,49 @@ var _ = Describe("ZTP Argocd clusters Tests", Ordered, Label("ztp-argocd-cluster
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})
+
+		It("Should not have nmstateconfig cr when nodeNetwork section does not exist on siteConfig", func() {
+			testGitPath := ranztphelper.JoinGitPaths(
+				[]string{
+					ranztphelper.ArgocdApps[ranztpparameters.ArgocdClustersAppName].Path,
+					"ztp-test/remove-nmstate",
+				},
+			)
+
+			By("Checking if the git path exists", func() {
+				if !ranztphelper.DoesGitPathExist(
+					ranztphelper.ArgocdApps[ranztpparameters.ArgocdClustersAppName].Repo,
+					ranztphelper.ArgocdApps[ranztpparameters.ArgocdClustersAppName].Branch,
+					testGitPath+"/kustomization.yaml",
+				) {
+					Skip(fmt.Sprintf("git path '%s' could not be found", testGitPath))
+				}
+			})
+
+			By("Check nmstateconfig cr exists", func() {
+				nmStateConfigList, err := ranztphelper.GetNmStateConfigList()
+				Expect(err).ToNot(HaveOccurred())
+				Expect(nmStateConfigList.Items).ToNot(BeEmpty(), "No NMstateconfig found before test begins")
+			})
+
+			By("Reconfigure clusters app to set the ztp directory to the ztp-tests/remove-nmstate dir", func() {
+				err := ranztphelper.SetGitDetailsInArcgocd(
+					ranztphelper.ArgocdApps[ranztpparameters.ArgocdClustersAppName].Repo,
+					ranztphelper.ArgocdApps[ranztpparameters.ArgocdClustersAppName].Branch,
+					testGitPath,
+					ranztpparameters.ArgocdClustersAppName,
+					true,
+					true,
+				)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			By("Check nmstate CR is gone under spoke cluster NS on hub", func() {
+				nmStateConfigList, err := ranztphelper.GetNmStateConfigList()
+				Expect(err).ToNot(HaveOccurred())
+				Expect(nmStateConfigList.Items).To(BeEmpty(), "NMstateconfig was found")
+			})
+		})
 	})
 
 	AfterEach(func() {

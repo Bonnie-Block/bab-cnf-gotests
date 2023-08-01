@@ -19,6 +19,7 @@ import (
 	nmstatev1 "github.com/nmstate/kubernetes-nmstate/api/v1"
 	cguv1alpha1 "github.com/openshift-kni/cluster-group-upgrades-operator/pkg/generated/clientset/versioned/typed/clustergroupupgradesoperator/v1alpha1"
 	operv1 "github.com/openshift/api/operator/v1"
+	assistedv1beta1 "github.com/openshift/assisted-service/api/v1beta1"
 	clientconfigv1 "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 	imageregistryv1 "github.com/openshift/client-go/imageregistry/clientset/versioned/typed/imageregistry/v1"
 	routev1 "github.com/openshift/client-go/route/clientset/versioned/typed/route/v1"
@@ -210,6 +211,10 @@ func New(kubeconfig string) *ClientSet {
 	}
 
 	if err := tunedv1.AddToScheme(crScheme); err != nil {
+		panic(err)
+	}
+
+	if err := assistedv1beta1.AddToScheme(crScheme); err != nil {
 		panic(err)
 	}
 
