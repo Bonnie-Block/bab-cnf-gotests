@@ -612,7 +612,7 @@ var _ = Describe("TALM tests with multiple spokes where one turns off", Ordered,
 				[]string{rantalmhelper.Spoke1Name, rantalmhelper.Spoke2Name},
 				[]string{},
 				[]string{fmt.Sprintf("%s-%s", rantalmparameters.PolicyNameCommonName, curName)},
-				rantalmparameters.TalmTestNamespace, 1, 9)
+				rantalmparameters.TalmTestNamespace, 1, 17)
 
 			// Apply CGU.
 			err := rantalmhelper.CreatePolicyAndCgu(
