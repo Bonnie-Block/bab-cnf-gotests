@@ -34,15 +34,16 @@ import (
 
 var _ = Describe("system metallb", func() {
 	var (
-		testSetupFail  = true
-		workerNodeList []k8sv1.Node
-		masterNodeList []k8sv1.Node
-		webServer      *k8sv1.Pod
-		serverPodIP    string
+		testSetupFail     = true
+		workerNodeList    []k8sv1.Node
+		masterNodeList    []k8sv1.Node
+		webServer         *k8sv1.Pod
+		serverPodIP       string
+		ipv4metalLBIPList []string
 	)
 
 	execute.BeforeAll(func() {
-
+		var err error
 		ipv4metalLBIPList, _, err = netmetallbhelper.GetMetalLBIPByFamily()
 		Expect(err).ToNot(HaveOccurred(), "An unexpected error occurred while determining the "+
 			"IP addresses from the METALLB_ADDR_LIST environment variable")
@@ -72,7 +73,7 @@ var _ = Describe("system metallb", func() {
 		netmetallbhelper.SetupMetalLB()
 
 		By("Creating an IPAddressPool")
-		err = helper.Apiclient.Create(context.Background(),
+		err := helper.Apiclient.Create(context.Background(),
 			netmetallbhelper.DefineMetalLBIPAddressPool(netmlbparameters.IPv4AddressesLBList, netparameters.IPV4Family,
 				netmlbparameters.AddressPoolName))
 		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("An unexpected error occurred while"+
@@ -370,12 +371,12 @@ var _ = Describe("system metallb", Ordered, func() {
 	AfterAll(func() {
 		// Remove Config
 		By("Delete privileged namespace")
-		err = namespaces.DeleteAndWait(helper.Apiclient, parameters.PrivPodNamespace,
+		err := namespaces.DeleteAndWait(helper.Apiclient, parameters.PrivPodNamespace,
 			netmlbparameters.Timeout)
 		Expect(err).ToNot(HaveOccurred())
 
 		nmStateInstalledPolicy := nmstatev1.NodeNetworkConfigurationPolicy{}
-		err := helper.Apiclient.Get(
+		err = helper.Apiclient.Get(
 			context.TODO(), goclient.ObjectKey{Name: netmlbparameters.NMStatePolicyName}, &nmStateInstalledPolicy)
 		if err == nil {
 			By("Remove NMState ip configuration from node")
@@ -429,7 +430,7 @@ var _ = Describe("system metallb", Ordered, func() {
 				generateConnections(clientPod, clientIP, dstSrvIP)
 
 				By("Check source ip and destination in http traffic capture file on client pod")
-				err = netmetallbhelper.SrcAndDestIPInHTTPTrafficCapture(clientPod, clientIP, dstSrvIP)
+				err := netmetallbhelper.SrcAndDestIPInHTTPTrafficCapture(clientPod, clientIP, dstSrvIP)
 				Expect(err).ToNot(HaveOccurred(), "required ips are not detected on client's traffic capture")
 
 				By("Check source ip and destination in http traffic capture file on node secondary vlan interface")
@@ -521,7 +522,7 @@ var _ = Describe("system metallb", Ordered, func() {
 })
 
 func metalLbIsRunningAndInLocalMode() {
-	_, err = helper.Apiclient.Deployments(netmlbparameters.TestNamespace).Get(
+	_, err := helper.Apiclient.Deployments(netmlbparameters.TestNamespace).Get(
 		context.TODO(), netmlbparameters.MetalLBOperatorDeploymentName, metav1.GetOptions{})
 	Expect(err).To(HaveOccurred(), "metallb operator deployment is not installed")
 
@@ -553,7 +554,7 @@ func generateConnections(srcPod *k8sv1.Pod, srcPodIP, dstIP string) {
 func waitUntilNMStatePolicyStable(policyName string) {
 	Eventually(func() bool {
 		nmstateInstalledPolicy := nmstatev1.NodeNetworkConfigurationPolicy{}
-		err = helper.Apiclient.Get(context.TODO(), goclient.ObjectKey{Name: policyName}, &nmstateInstalledPolicy)
+		_ = helper.Apiclient.Get(context.TODO(), goclient.ObjectKey{Name: policyName}, &nmstateInstalledPolicy)
 
 		for _, status := range nmstateInstalledPolicy.Status.Conditions {
 			if status.Type == nmstatev1Shared.NodeNetworkConfigurationPolicyConditionAvailable {

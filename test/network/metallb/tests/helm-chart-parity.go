@@ -38,7 +38,7 @@ var _ = Describe("MetalLB", func() {
 		createMetalLBHelmChartNoUpdate()
 
 		By("Verify Metallb has been updated")
-		err = validateHelmChartDeployment()
+		err := validateHelmChartDeployment()
 		Expect(err).ToNot(HaveOccurred())
 	})
 

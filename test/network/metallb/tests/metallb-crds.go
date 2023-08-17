@@ -78,7 +78,7 @@ var _ = Describe("MetalLb New CRDs", func() {
 			netmlbparameters.AppLabel1, []string{netmlbparameters.ArgCommandNGINX})
 
 		By("Creating an IPAddresspool and BGPAdvertisement")
-		err = helper.Apiclient.Create(context.Background(),
+		err := helper.Apiclient.Create(context.Background(),
 			netmetallbhelper.DefineMetalLBIPAddressPool(netmlbparameters.IPv4AddressesLBList, netparameters.IPV4Family,
 				netmlbparameters.AddressPoolName))
 		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("An unexpected error occurred while"+
@@ -125,7 +125,7 @@ var _ = Describe("MetalLb New CRDs", func() {
 
 	AfterEach(func() {
 		By("Deleting MetalLB configuration")
-		err = netmetallbhelper.DeleteAllBGPPeers()
+		err := netmetallbhelper.DeleteAllBGPPeers()
 		Expect(err).ToNot(HaveOccurred(), "Failed to delete all BGPPeers.")
 
 		err = netmetallbhelper.DeleteConfigMaps([]string{netparameters.MasterConfigMapName}, netmlbparameters.TestNamespace)
@@ -170,7 +170,7 @@ var _ = Describe("MetalLb New CRDs", func() {
 				netmlbparameters.AppLabel2, []string{netmlbparameters.ArgCommandNGINX})
 
 			By("Creating a Layer2 Addresspool for the new server nginx pod")
-			err = helper.Apiclient.Create(context.Background(),
+			err := helper.Apiclient.Create(context.Background(),
 				netmetallbhelper.DefineMetalLBAddressPool([]string{fmt.Sprintf(ipv4metalLBIPList[1] + "/32")},
 					netmlbparameters.Layer2,
 					netmlbparameters.AddressPoolL2))
@@ -178,7 +178,7 @@ var _ = Describe("MetalLb New CRDs", func() {
 		})
 
 		AfterEach(func() {
-			err = netmetallbhelper.DeleteAllLBServices(netmlbparameters.TestNamespace)
+			err := netmetallbhelper.DeleteAllLBServices(netmlbparameters.TestNamespace)
 			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Failed to delete all services in the namespace %s.",
 				netmlbparameters.TestNamespace))
 
@@ -189,7 +189,7 @@ var _ = Describe("MetalLb New CRDs", func() {
 		DescribeTable("should work together", polarion.ID("50060"),
 			func(externalTrafficPolicy k8sv1.ServiceExternalTrafficPolicyType) {
 				By("Creating 2 MetalLB services for L2 and L3 server nginx pods")
-				_, err = netmetallbhelper.DefineAndCreateLBService(
+				_, err := netmetallbhelper.DefineAndCreateLBService(
 					netmlbparameters.TestNamespace,
 					netparameters.IPV4Family,
 					netmlbparameters.AddressPoolName,
@@ -307,7 +307,7 @@ var _ = Describe("MetalLb New CRDs", func() {
 		})
 
 		AfterEach(func() {
-			err = netmetallbhelper.DeleteAllL2Advertisements()
+			err := netmetallbhelper.DeleteAllL2Advertisements()
 			Expect(err).ToNot(HaveOccurred(), "Failed to delete all L2Advertisements.")
 
 			outputString, err := netmetallbhelper.AddOrDeleteNodeSecIPAddViaSpeaker("del", workerNodeList[0].Name,
@@ -324,7 +324,7 @@ var _ = Describe("MetalLb New CRDs", func() {
 		// 50059
 		It("should work concurrently Layer 2 and Layer 3", polarion.ID("50059"), func() {
 			By("Creating MetalLB service")
-			_, err = netmetallbhelper.DefineAndCreateLBService(
+			_, err := netmetallbhelper.DefineAndCreateLBService(
 				netmlbparameters.TestNamespace,
 				netparameters.IPV4Family,
 				netmlbparameters.AddressPoolName,
