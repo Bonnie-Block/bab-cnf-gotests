@@ -42,13 +42,13 @@ var _ = Describe("ZTP Argocd policies Tests", Ordered, Label("ztp-argocd-policie
 		By("Checking the ZTP version", func() {
 			if !ranhelper.IsVersionStringInRange(
 				ranztphelper.ZtpVersion,
-				"4.11",
+				"4.10",
 				"",
 			) {
 				Skip(fmt.Sprintf(
 					"unable to run test on ztp version '%s' as it is less than minimum '%s",
 					ranztphelper.ZtpVersion,
-					"4.11",
+					"4.10",
 				))
 			}
 		})
