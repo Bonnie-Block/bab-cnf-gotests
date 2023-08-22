@@ -537,6 +537,7 @@ var _ = Describe("TALM tests with multiple spokes where one turns off", Ordered,
 			)
 		})
 
+		// ocp-54286
 		It("verifies precaching fails for one spoke and succeeds for the other", func() {
 			By("creating precache CGU with two spokes and OCP upgrade policy ")
 			cgu := getNewPrecacheCGU(cguName,
