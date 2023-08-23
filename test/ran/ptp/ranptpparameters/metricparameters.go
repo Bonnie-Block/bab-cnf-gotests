@@ -7,6 +7,7 @@ type Process int8
 type Status int
 type InterfaceState string
 type RoleMap map[string]string
+type ClockClass int64
 
 const (
 	FreeRunState  ClockState = 0
@@ -23,8 +24,11 @@ const (
 	Down ProcessStatus = 0
 	Up   ProcessStatus = 1
 
-	PTP4L   Process = 1
-	PHC2SYS Process = 2
+	PTP4L       Process = 1
+	PHC2SYS     Process = 2
+	GRANDMASTER Process = 3
+	DPLL        Process = 4
+	GNSS        Process = 5
 
 	Success Status = 0
 	Failed  Status = 1
@@ -37,6 +41,10 @@ const (
 	OpenshiftPtpProcessStatus = "openshift_ptp_process_status"
 	OpenshiftPtpInterfaceRole = "openshift_ptp_interface_role"
 	OpenshiftPtpThreshold     = "openshift_ptp_threshold"
+
+	ClockClassFreerun  ClockClass = 248
+	ClockClassHoldOver ClockClass = 7
+	ClockClassLocked   ClockClass = 6
 
 	HoldOverTimeout    = "HoldOverTimeout"
 	MaxOffsetThreshold = "MaxOffsetThreshold"
@@ -56,6 +64,9 @@ var (
 	ProcessMap = map[string]Process{
 		"ptp4l":   PTP4L,
 		"phc2sys": PHC2SYS,
+		"GM":      GRANDMASTER,
+		"dpll":    DPLL,
+		"gnss":    GNSS,
 		"":        -1,
 	}
 

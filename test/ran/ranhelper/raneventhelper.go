@@ -374,7 +374,7 @@ func WaitForDeploymentReady(client *client.ClientSet, namespace, deployment stri
 	return err
 }
 
-// It create various cloud event proxy cluster objects to allow application to start working.
+// ConfigEventProxyObjects creates various cloud event proxy cluster objects to allow application to start working.
 func ConfigEventProxyObjects(namespace string) error {
 	configDir := ranparameters.ConfigDirDict()(namespace)
 	_, err := os.Stat(configDir)

@@ -23,10 +23,11 @@ var _ = Describe("Basic PTP Configs", func() {
 	var (
 		errBeforeAll         error
 		originPtpConfigSpecs = map[string]ptpv1.PtpConfigSpec{}
+		ptpConfigCounts      []int
 	)
 
 	execute.BeforeAll(func() {
-		originPtpConfigSpecs, _, errBeforeAll = ptpPretestValidations()
+		originPtpConfigSpecs, ptpConfigCounts, errBeforeAll = ptpPretestValidations()
 	})
 
 	BeforeEach(func() {
@@ -55,6 +56,7 @@ var _ = Describe("Basic PTP Configs", func() {
 		// In the top level BeforeEach, since the  metric map is already updated when checking the ptp clock state,
 		// it does not need to be repeated in here.
 
+		// 66848
 		It("should have [LOCKED] clock state in PTP metrics", func() {
 			for _, clockValueState := range ranptpparameters.MetricMap[ranptpparameters.OpenshiftPtpClockState] {
 				if clockValueState.Interface != ranptpparameters.Master {
@@ -63,6 +65,7 @@ var _ = Describe("Basic PTP Configs", func() {
 			}
 		})
 
+		// 66848
 		It("should have the 'phc2sys' and 'ptp4l' processes in 'UP' state in PTP metrics", func() {
 			if !ranhelper.IsVersionStringInRange(ranptpparameters.PtpVersion, "4.11", "") {
 				Skip("ptp process metrics is not support in version " + ranptpparameters.PtpVersion)
@@ -76,6 +79,26 @@ var _ = Describe("Basic PTP Configs", func() {
 				if ranptpparameters.PHC2SYS == processState.Process {
 					Expect(processState.ProcessStatusValue).Should(Equal(ranptpparameters.Up),
 						"Unexpected phc2sys process_status_value for ptp config: "+processState.Config)
+				}
+			}
+		})
+
+		// 66848
+		It("verifies Clock Class value should match dpll/gnss clock state", func() {
+			if ptpConfigCounts[3] == 0 {
+				Skip("Test requires Grandmaster configuration")
+			}
+
+			for _, clockValueState := range ranptpparameters.MetricMap[ranptpparameters.OpenshiftPtpClockState] {
+				if clockValueState.Process == ranptpparameters.DPLL || clockValueState.Process == ranptpparameters.GNSS {
+					switch clockValueState.Value {
+					case int64(ranptpparameters.ClockClassFreerun):
+						Expect(clockValueState.ClockStateValue).Should(Equal(ranptpparameters.FreeRunState))
+					case int64(ranptpparameters.ClockClassHoldOver):
+						Expect(clockValueState.ClockStateValue).Should(Equal(ranptpparameters.HoldOverState))
+					case int64(ranptpparameters.ClockClassLocked):
+						Expect(clockValueState.ClockStateValue).Should(Equal(ranptpparameters.LockedState))
+					}
 				}
 			}
 		})
@@ -134,6 +157,7 @@ var _ = Describe("Basic PTP Configs", func() {
 			}
 		})
 
+		// 66848
 		It("should have the 'phc2sys' and 'ptp4l' processes 'UP' after ptp config change", func() {
 			for _, processState := range ranptpparameters.MetricMap[ranptpparameters.OpenshiftPtpProcessStatus] {
 				if ranptpparameters.PTP4L == processState.Process {
@@ -149,6 +173,13 @@ var _ = Describe("Basic PTP Configs", func() {
 	})
 })
 
+// getPtpConfigCounts counts ptpconfig types.
+// arguments:		"ptpConfigsList"-	a list of ptpconfigs.
+// return value:	an array of int index:
+// 0 - total number of configs.
+// 1 - OC configs.
+// 2 - BC configs.
+// 3 - GM configs.
 func getPtpConfigCounts(ptpConfigsList ptpv1.PtpConfigList) []int {
 	configCount, ocCount, bcCount, gmCount := 0, 0, 0, 0
 

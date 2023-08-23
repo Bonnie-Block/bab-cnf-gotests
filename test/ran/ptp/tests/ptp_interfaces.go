@@ -25,18 +25,14 @@ import (
 
 var _ = Describe("PTP Events and Metrics - interface down", func() {
 	var (
-		errBeforeAll  error
-		ocConfigCount int
-		bcConfigCount int
+		errBeforeAll error
 		// isOcConfigured  bool
 		originPtpConfigSpecs = map[string]ptpv1.PtpConfigSpec{}
+		ptpConfigCounts      []int
 	)
 
 	execute.BeforeAll(func() {
-		var ptpConfigCounts []int
 		originPtpConfigSpecs, ptpConfigCounts, errBeforeAll = ptpPretestValidations()
-		ocConfigCount = ptpConfigCounts[1]
-		bcConfigCount = ptpConfigCounts[2]
 	})
 
 	BeforeEach(func() {
@@ -103,7 +99,7 @@ var _ = Describe("PTP Events and Metrics - interface down", func() {
 
 	// 49734
 	It("should have no effect when Boundary Clock master interface goes down and up", func() {
-		if bcConfigCount == 0 {
+		if ptpConfigCounts[2] == 0 {
 			Skip("Test requires Boundary Clock configuration")
 		}
 
@@ -172,7 +168,7 @@ var _ = Describe("PTP Events and Metrics - interface down", func() {
 	// 59865
 	It("should fail when modify interface on ptpconfig", func() {
 
-		if ocConfigCount == 0 {
+		if ptpConfigCounts[1] == 0 {
 			Skip("Test requires Ordinary Clock configuration")
 		}
 
@@ -249,7 +245,7 @@ var _ = Describe("PTP Events and Metrics - interface down", func() {
 	// 59866
 	It("should fail when removing interface from ptpconfig", func() {
 
-		if ocConfigCount == 0 {
+		if ptpConfigCounts[1] == 0 {
 			Skip("Test requires Ordinary Clock configuration")
 		}
 
