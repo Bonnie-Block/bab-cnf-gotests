@@ -615,3 +615,38 @@ func GetNmStateConfigList() (assistedv1beta1.NMStateConfigList, error) {
 
 	return nmStateConfigList, err
 }
+
+// IsServiceAccountExist can be used to check if a Service Account CR exists.
+func IsServiceAccountExist(client *testClient.ClientSet, serviceAccountName string, namespace string) (bool, error) {
+	log.Printf("Checking for existence of service account '%s' in namespace '%s'\n", serviceAccountName, namespace)
+
+	_, err := client.CoreV1Interface.ServiceAccounts(namespace).Get(context.TODO(),
+		serviceAccountName, metav1.GetOptions{})
+
+	// Other system errors
+	filteredErr := rantalmhelper.FilterMissingResourceErrors(err)
+
+	// If a missing CR error is returned, then SA no longer exists
+	return err == nil, filteredErr
+}
+
+// DeleteServiceAccountAndWait can be used to delete a Service Account CR if it exists.
+func DeleteServiceAccountAndWait(client *testClient.ClientSet, serviceAccountName string, namespace string) error {
+	// Check if SA exists first then delete SA if it exists
+	serviceAccountExists, err := IsServiceAccountExist(client, serviceAccountName, namespace)
+	if serviceAccountExists {
+		err = client.CoreV1Interface.ServiceAccounts(namespace).Delete(context.TODO(),
+			serviceAccountName, metav1.DeleteOptions{})
+		if err != nil {
+			return err
+		}
+
+		// Wait until SA CR to be deleted
+		err = rantalmhelper.WaitUntilObjectDoesNotExist(client, serviceAccountName, namespace, IsServiceAccountExist)
+		if err != nil {
+			return err
+		}
+	}
+
+	return err
+}

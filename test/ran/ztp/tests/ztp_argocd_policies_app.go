@@ -3,12 +3,14 @@ package tests
 import (
 	"fmt"
 	"log"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	imageregistryv1 "github.com/openshift/api/imageregistry/v1"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/talm/rantalmhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ztp/ranztphelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ztp/ranztpparameters"
 	testClient "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
@@ -313,6 +315,132 @@ var _ = Describe("ZTP Argocd policies Tests", Ordered, Label("ztp-argocd-policie
 					"Ready",
 					"True",
 					ranztphelper.SpokeAPIClient)
+				Expect(err).ToNot(HaveOccurred())
+			})
+		})
+	})
+
+	Context("Apply and Validate custom source CRs on the du policies", Label("ztp-custom-source-crs"), func() {
+
+		var (
+			cguName                  = "custom-source-cr"
+			newCrName                = "test-custom-source-cr-sa"
+			newCrNamespace           = "default"
+			customSourceCrPolicyName = "custom-source-cr-policy-sa" // enforce policy
+		)
+
+		// 61978
+		It("should validate the custom source-crs directory and it's sub-directory exists", func() {
+			// The ztp test data is stored in a nested directory within the ztp repo
+			testGitPath := ranztphelper.JoinGitPaths(
+				[]string{
+					ranztphelper.ArgocdApps[ranztpparameters.ArgocdPoliciesAppName].Path,
+					"ztp-test/custom-source-crs/new-cr",
+				},
+			)
+
+			By("Checking if the git path exists", func() {
+				if !ranztphelper.DoesGitPathExist(
+					ranztphelper.ArgocdApps[ranztpparameters.ArgocdPoliciesAppName].Repo,
+					ranztphelper.ArgocdApps[ranztpparameters.ArgocdPoliciesAppName].Branch,
+					testGitPath+"/kustomization.yaml",
+				) {
+					Skip(fmt.Sprintf("git path '%s' could not be found", testGitPath))
+				}
+			})
+
+			By("Updating the Argocd app", func() {
+				// Update the Argo app to point to the new test kustomization
+				err := ranztphelper.SetGitDetailsInArcgocd(
+					ranztphelper.ArgocdApps[ranztpparameters.ArgocdPoliciesAppName].Repo,
+					ranztphelper.ArgocdApps[ranztpparameters.ArgocdPoliciesAppName].Branch,
+					testGitPath,
+					ranztpparameters.ArgocdPoliciesAppName,
+					true,
+					true,
+				)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			By("Waiting for policy to be created and exist", func() {
+				err := ranztphelper.WaitForPolicyToExist(
+					customSourceCrPolicyName,
+					ranztpparameters.ZtpTestNamespace,
+					ranztpparameters.ArgocdChangeTimeout,
+				)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			By("Validating the policy reaches NonCompliant status", func() {
+				err := ranztphelper.WaitForPolicyToHaveComplianceState(
+					customSourceCrPolicyName,
+					ranztpparameters.ZtpTestNamespace,
+					policiesv1.NonCompliant,
+					ranztpparameters.ArgocdChangeTimeout,
+				)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			By("Creating CGU CR in hub cluster to enforce the changes made in PGT", func() {
+				cgu := rantalmhelper.GetCguDefinition(
+					cguName,
+					[]string{ranztphelper.SpokeName}, []string{}, []string{customSourceCrPolicyName},
+					ranztpparameters.ZtpTestNamespace,
+					1,
+					10,
+				)
+
+				// Create the cgu
+				err := rantalmhelper.CreateCguAndWait(
+					ranztphelper.HubAPIClient,
+					cgu,
+				)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			By("Waiting for the CGU CR to finish successfully", func() {
+				err := rantalmhelper.WaitForCguToFinishSuccessfully(cguName, ranztpparameters.ZtpTestNamespace, 10*time.Minute)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			By("Waiting for the policy to be in the Compliant state", func() {
+				err := ranztphelper.WaitForPolicyToHaveComplianceState(
+					customSourceCrPolicyName,
+					ranztpparameters.ZtpTestNamespace,
+					policiesv1.Compliant,
+					ranztpparameters.ArgocdChangeTimeout,
+				)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			By("Checking new custom Service Account CR created and applied to spoke", func() {
+				newCrExists, err := ranztphelper.IsServiceAccountExist(ranztphelper.SpokeAPIClient, newCrName, newCrNamespace)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(newCrExists).To(BeTrue())
+			})
+		})
+
+		AfterEach(func() {
+			// Deleting the policy created for custom source-cr test
+			By("Deleting the policy if it exists", func() {
+				err := rantalmhelper.DeletePolicyAndWait(ranztphelper.SpokeAPIClient, customSourceCrPolicyName,
+					ranztpparameters.ZtpTestNamespace)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			// Removing the CGU created for custom source-crs test if it exists
+			By("Removing the cgu if it exists", func() {
+				err := rantalmhelper.DeleteCguAndWait(
+					ranztphelper.HubAPIClient,
+					cguName,
+					ranztpparameters.ZtpTestNamespace,
+				)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			// Delete leftovers from the custom source-crs test
+			By("Deleting created Service Account CR from spoke if exists", func() {
+				err := ranztphelper.DeleteServiceAccountAndWait(ranztphelper.SpokeAPIClient, newCrName, newCrNamespace)
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})
