@@ -339,6 +339,82 @@ var _ = Describe("Talm precache one spoke", Label("talmprecache"), func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(precachedImages).Should(BeEmpty())
 		})
+
+		// ocp-64746
+		It("tests custom image precaching using a PreCachingConfig CR", func() {
+			if !ranhelper.IsVersionStringInRange(
+				rantalmhelper.TalmHubVersion,
+				"4.14",
+				"",
+			) {
+				Skip("Skipping Custom Image Precaching if TALM is older than 4.14")
+			}
+
+			// This test uses a PTP image as the custom image to precache since it is available in the disconnected env.
+			log.Println("Get PTP image used by spoke and delete from podman images from spoke node if exists")
+			ptpDaemonPods, err := helper.Apiclient.Pods(parameters.PtpOperatorNamespace).List(context.Background(),
+				metav1.ListOptions{LabelSelector: parameters.PtpDaemonsetLabelSelector})
+			Expect(err).To(BeNil())
+			targetPrecacheImage := ptpDaemonPods.Items[0].Spec.Containers[0].Image
+
+			// Command to delete PTP Image from spoke.
+			ptpImageDeleteCmd := fmt.Sprintf("podman rmi %s", targetPrecacheImage)
+
+			// Remove PTP image from spoke prior to test.
+			status, _ := helper.ExecCommandOnNodeWithHostBinaries(spoke1Master,
+				[]string{"bash", "-c", ptpImageDeleteCmd})
+			log.Println("Return from <ptpImageDeleteCommand>", status)
+
+			By("defining a PreCachingConfig CR")
+			precacheConfig := rantalmhelper.GetPreCachingConfigDefinition(
+				fmt.Sprintf("%s-precacheconfig", curName),
+				rantalmparameters.TalmTestNamespace,
+				"10 GiB",
+				[]string{""},
+				[]string{targetPrecacheImage},
+			)
+
+			By("creating the preCacheConfig CR on hubcluster")
+			err = rantalmhelper.HubAPIClient.Client.Create(context.Background(), &precacheConfig)
+			Expect(err).To(BeNil())
+
+			By("creating a CGU with a preCachingConfig Specified")
+			cgu := getNewPrecacheCGU(cguName, []string{fmt.Sprintf("%s-%s",
+				rantalmparameters.PolicyNameCommonName, curName)},
+				[]string{rantalmhelper.Spoke1Name})
+			// Set CGU PreCachingConfig parameters
+			cgu.Spec.PreCachingConfigRef.Name = fmt.Sprintf("%s-precacheconfig", curName)
+			cgu.Spec.PreCachingConfigRef.Namespace = rantalmparameters.TalmTestNamespace
+
+			clusterVersion, err := rantalmhelper.GetClusterVersionDefinition("Image",
+				rantalmhelper.Spoke1APIClient)
+			Expect(err).To(BeNil())
+
+			err = rantalmhelper.CreatePolicyAndCgu(
+				rantalmhelper.HubAPIClient,
+				clusterVersion,
+				configurationPolicyv1.MustHave,
+				configurationPolicyv1.Inform,
+				fmt.Sprintf("%s-%s", rantalmparameters.PolicyNameCommonName, curName),
+				fmt.Sprintf("%s-%s", rantalmparameters.PolicySetNameCommonName, curName),
+				fmt.Sprintf("%s-%s", rantalmparameters.PlacementBindingCommonName, curName),
+				fmt.Sprintf("%s-%s", rantalmparameters.PlacementRuleCommonName, curName),
+				rantalmparameters.TalmTestNamespace,
+				metav1.LabelSelector{},
+				cgu,
+			)
+			Expect(err).To(BeNil())
+
+			By("waiting until CGU Succeeded")
+			assertPrecacheStatus(cgu.Name, rantalmhelper.Spoke1Name, "Succeeded")
+
+			spokeImageListCmd := fmt.Sprintf(`podman images  --noheading --filter reference=%s`, targetPrecacheImage)
+			By("Checking images list on spoke for targetImage")
+			precachedImages, err := helper.ExecCommandOnNodeWithHostBinaries(spoke1Master,
+				[]string{"bash", "-c", spokeImageListCmd})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(precachedImages).ToNot(BeEmpty())
+		})
 	})
 })
 

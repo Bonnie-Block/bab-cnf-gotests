@@ -183,6 +183,32 @@ func GetCguDefinition(
 	return customResource
 }
 
+// GetPreCachingConfigDefinition defines and returns a PreCachingConfig struct.
+func GetPreCachingConfigDefinition(
+	configName string,
+	namespace string,
+	spaceRequired string,
+	excludedImagePatterns []string,
+	additionalImages []string) v1alpha1.PreCachingConfig {
+	precacheConfig := v1alpha1.PreCachingConfig{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "PreCachingConfig",
+			APIVersion: v1alpha1.SchemeGroupVersion.Version,
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      configName,
+			Namespace: namespace,
+		},
+		Spec: v1alpha1.PreCachingConfigSpec{
+			SpaceRequired:           spaceRequired,
+			ExcludePrecachePatterns: excludedImagePatterns,
+			AdditionalImages:        additionalImages,
+		},
+	}
+
+	return precacheConfig
+}
+
 // GetCgu is used to get the specified Cgu object from the cluster.
 func GetCgu(client *testClient.ClientSet, cguName string, namespace string) (v1alpha1.ClusterGroupUpgrade, error) {
 	// Validate inputs first
