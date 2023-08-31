@@ -270,6 +270,7 @@ var _ = Describe("MetalLb New CRDs", func() {
 			secInterfaces []*sriovv1.InterfaceExt
 		)
 		BeforeEach(func() {
+			Fail("Concurrent Layer2 and Layer3 blocked due to: https://issues.redhat.com/browse/OCPBUGS-18378")
 			localGWMode := netmetallbhelper.GetGWMode()
 			// if false - share GW, if true - local GW
 			if !localGWMode {

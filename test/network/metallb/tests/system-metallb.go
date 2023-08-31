@@ -43,6 +43,7 @@ var _ = Describe("system metallb", func() {
 	)
 
 	execute.BeforeAll(func() {
+		Fail("System metallb blocked due to: https://issues.redhat.com/browse/OCPBUGS-18378")
 		var err error
 		ipv4metalLBIPList, _, err = netmetallbhelper.GetMetalLBIPByFamily()
 		Expect(err).ToNot(HaveOccurred(), "An unexpected error occurred while determining the "+
@@ -204,7 +205,7 @@ var _ = Describe("system metallb", Ordered, func() {
 	)
 
 	BeforeAll(func() {
-
+		Fail("System metallb blocked due to: https://issues.redhat.com/browse/OCPBUGS-18378")
 		By("Create privileged namespace")
 		err := namespaces.Create(parameters.PrivPodNamespace, helper.Apiclient)
 		Expect(err).ToNot(HaveOccurred())
