@@ -88,6 +88,11 @@ func getKernelPids(node *corev1.Node) []int {
 	return getPids(node, "ps --no-headers --ppid 2 -p 2 -o pid")
 }
 
+// getFecPids returns list of "/sriov_workdir/pf_bb_config" process ids used by FEC.
+func getFecPids(node *corev1.Node) []int {
+	return getPids(node, "pgrep pf_bb_config")
+}
+
 // getAllPids returns list of all process ids.
 func getAllPids(node *corev1.Node) []int {
 	return getPids(node, "ps --no-headers -e -o pid")
@@ -245,6 +250,7 @@ func GetMgmtContainersInfo(containersInfo []ContainerInfo) []ContainerInfo {
 // non nil error and a map of key:pids,value:cpus for those processes not matching the specified cpus.
 func CheckCPUAffinityOnNonKernelPids(node *corev1.Node, cpus cpuset.CPUSet) (map[int]string, error) {
 	pidsToExclude := getKernelPids(node)
+	pidsToExclude = append(getFecPids(node), pidsToExclude...)
 	allPids := getAllPids(node)
 	containersInfo := GetContainersInfo(node)
 
