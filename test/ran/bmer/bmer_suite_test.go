@@ -179,6 +179,11 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = AfterSuite(func() {
+	err = ranbmerhelper.CheckCustomResourceDefinition()
+	if err != nil {
+		Skip(fmt.Sprintf("Got this error when query feature custom resource definition: %v , skip testing", err))
+	}
+
 	var teardownErrors []error
 	if eventService != nil {
 		By("Unsubscribe events")
