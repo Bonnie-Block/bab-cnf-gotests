@@ -399,6 +399,10 @@ func WaitForPodsHealthy(pods []*k8sv1.Pod, timeout time.Duration) {
 				// Ignore failed pod with restart policy never. This could happen in image pruner or installer
 				// pods that will never restart after completed. And could stuck in error in various conditions
 				// after initial completion.
+
+				// Print the pod's current conditions so its easier to see why it is not healthy.
+				log.Printf("Pod '%s' conditions: %s\n", tempPod.Name, tempPod.Status.Conditions)
+
 				return err
 			}
 		}
