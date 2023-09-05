@@ -9,19 +9,20 @@ import (
 	"testing"
 	"time"
 
-	k8sErr "k8s.io/apimachinery/pkg/api/errors"
-
 	. "github.com/onsi/ginkgo/v2"
 	"github.com/onsi/ginkgo/v2/types"
 	. "github.com/onsi/gomega"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/talm/rantalmhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/talm/rantalmparameters"
 	_ "gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/talm/tests"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/polarion"
 	testutils "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/utils"
 	corev1 "k8s.io/api/core/v1"
+	k8sErr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -75,6 +76,11 @@ var _ = AfterSuite(func() {
 
 var _ = ReportAfterEach(func(report types.SpecReport) {
 	testutils.ReportIfFailed(report, currentFile, rantalmparameters.TalmNamespaces, rantalmparameters.TalmCrds)
+})
+
+var _ = ReportAfterSuite("", func(report Report) {
+	polarion.CreateReport(
+		report, helper.Config.GetPolarionReportPath(currentFile), parameters.PolarionTCPrefix)
 })
 
 // VerifyTalmIsInstalled checks that talm pod+container is present and that CGUs can be fetched.

@@ -12,6 +12,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/polarion"
 	testutils "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -100,4 +101,9 @@ var _ = AfterSuite(func() {
 var _ = ReportAfterEach(func(report types.SpecReport) {
 	testutils.ReportIfFailed(report, currentFile, ranptpparameters.ReporterNamespacesToDump,
 		ranptpparameters.ReporterCrds)
+})
+
+var _ = ReportAfterSuite("", func(report Report) {
+	polarion.CreateReport(
+		report, helper.Config.GetPolarionReportPath(currentFile), parameters.PolarionTCPrefix)
 })

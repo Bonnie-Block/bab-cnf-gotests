@@ -6,11 +6,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/onsi/ginkgo/v2/types"
-	"github.com/onsi/gomega/format"
-
 	. "github.com/onsi/ginkgo/v2"
+	"github.com/onsi/ginkgo/v2/types"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/format"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran"
@@ -18,6 +18,7 @@ import (
 	_ "gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/cpu/tests"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/polarion"
 	testutils "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/utils"
 )
 
@@ -64,4 +65,9 @@ var _ = AfterSuite(func() {
 
 var _ = ReportAfterEach(func(report types.SpecReport) {
 	testutils.ReportIfFailed(report, currentFile, rancpuparameters.ReporterNamespacesToDump, rancpuparameters.ReporterCrds)
+})
+
+var _ = ReportAfterSuite("", func(report Report) {
+	polarion.CreateReport(
+		report, helper.Config.GetPolarionReportPath(currentFile), parameters.PolarionTCPrefix)
 })

@@ -8,12 +8,13 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran"
 	_ "gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/powersave/tests"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/polarion"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -57,4 +58,9 @@ var _ = AfterSuite(func() {
 		err := namespaces.DeleteAndWait(helper.Apiclient, ran.NamespaceTesting, timeout)
 		Expect(err).ToNot(HaveOccurred())
 	}
+})
+
+var _ = ReportAfterSuite("", func(report Report) {
+	polarion.CreateReport(
+		report, helper.Config.GetPolarionReportPath(currentFile), parameters.PolarionTCPrefix)
 })

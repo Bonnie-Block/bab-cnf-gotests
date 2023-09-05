@@ -12,11 +12,13 @@ import (
 	. "github.com/onsi/gomega"
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/workloadpartitioning/ranwpparameters"
 	_ "gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/workloadpartitioning/tests"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/polarion"
 	testutils "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/utils"
 )
 
@@ -50,4 +52,9 @@ var _ = AfterSuite(func() {
 
 var _ = ReportAfterEach(func(report types.SpecReport) {
 	testutils.ReportIfFailed(report, currentFile, ranwpparameters.ReporterNamespacesToDump, ranwpparameters.ReporterCrds)
+})
+
+var _ = ReportAfterSuite("", func(report Report) {
+	polarion.CreateReport(
+		report, helper.Config.GetPolarionReportPath(currentFile), parameters.PolarionTCPrefix)
 })

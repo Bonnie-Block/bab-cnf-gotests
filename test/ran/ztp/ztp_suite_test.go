@@ -19,6 +19,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ztp/ranztpparameters"
 	_ "gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ztp/tests"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/polarion"
 	testutils "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/utils"
 )
 
@@ -74,6 +75,11 @@ var _ = AfterSuite(func() {
 
 var _ = ReportAfterEach(func(report types.SpecReport) {
 	testutils.ReportIfFailed(report, currentFile, ranztpparameters.ZtpNamespaces, ranztpparameters.ZtpCrds)
+})
+
+var _ = ReportAfterSuite("", func(report Report) {
+	polarion.CreateReport(
+		report, helper.Config.GetPolarionReportPath(currentFile), parameters.PolarionTCPrefix)
 })
 
 // GetArgocdAppGitDetails is used to check the environment variables for any ztp test configuration.

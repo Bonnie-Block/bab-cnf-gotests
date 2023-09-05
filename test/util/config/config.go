@@ -136,14 +136,20 @@ func (c *Config) GetReportPath(file string) string {
 }
 
 // GetPolarionReportPath returns full path to the polarion report file.
-func (c *Config) GetPolarionReportPath() string {
-	reportFileName := strings.TrimSuffix(filepath.Base("report"), filepath.Ext(filepath.Base("report")))
+func (c *Config) GetPolarionReportPath(reportName ...string) string {
+	var baseName string
+
+	if len(reportName) > 0 {
+		baseName = strings.TrimSuffix(filepath.Base(reportName[0]), filepath.Ext(reportName[0]))
+	} else {
+		baseName = "report"
+	}
 
 	if !c.General.PolarionReport {
 		return ""
 	}
 
-	return fmt.Sprintf("%s_polarion.xml", filepath.Join(c.General.ReportDirAbsPath, reportFileName))
+	return fmt.Sprintf("%s_polarion.xml", filepath.Join(c.General.ReportDirAbsPath, baseName))
 }
 
 // GetCnfInterfaces returns list of requested interfaces.
