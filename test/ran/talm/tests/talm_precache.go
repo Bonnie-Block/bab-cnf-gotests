@@ -415,6 +415,66 @@ var _ = Describe("Talm precache one spoke", Label("talmprecache"), func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(precachedImages).ToNot(BeEmpty())
 		})
+
+		// ocp-64745
+		It("tests custom image precaching using an invalid image", func() {
+			if !ranhelper.IsVersionStringInRange(
+				rantalmhelper.TalmHubVersion,
+				"4.14",
+				"",
+			) {
+				Skip("Skipping Custom Image Precaching if TALM is older than 4.14")
+			}
+
+			// Define a nonexistent image to use with this test
+			invalidPrecacheImage := `quay.io/openshift-release-dev/ocp-v4.0-art-dev@` +
+				`sha256:0000000000000000000000000000000000000000000000000000000000000000`
+
+			By("defining a PreCachingConfig CR")
+			precacheConfig := rantalmhelper.GetPreCachingConfigDefinition(
+				fmt.Sprintf("%s-precacheconfig", curName),
+				rantalmparameters.TalmTestNamespace,
+				"10 GiB",
+				[]string{""},
+				[]string{invalidPrecacheImage},
+			)
+
+			By("creating the preCacheConfig CR on hubcluster")
+			err := rantalmhelper.HubAPIClient.Client.Create(context.Background(), &precacheConfig)
+			Expect(err).To(BeNil())
+
+			By("creating a CGU with a preCachingConfig Specified")
+			cgu := getNewPrecacheCGU(cguName, []string{fmt.Sprintf("%s-%s",
+				rantalmparameters.PolicyNameCommonName, curName)},
+				[]string{rantalmhelper.Spoke1Name})
+			// Set CGU PreCachingConfig parameters
+			cgu.Spec.PreCachingConfigRef.Name = fmt.Sprintf("%s-precacheconfig", curName)
+			cgu.Spec.PreCachingConfigRef.Namespace = rantalmparameters.TalmTestNamespace
+
+			clusterVersion, err := rantalmhelper.GetClusterVersionDefinition("Image",
+				rantalmhelper.Spoke1APIClient)
+			Expect(err).To(BeNil())
+
+			err = rantalmhelper.CreatePolicyAndCgu(
+				rantalmhelper.HubAPIClient,
+				clusterVersion,
+				configurationPolicyv1.MustHave,
+				configurationPolicyv1.Inform,
+				fmt.Sprintf("%s-%s", rantalmparameters.PolicyNameCommonName, curName),
+				fmt.Sprintf("%s-%s", rantalmparameters.PolicySetNameCommonName, curName),
+				fmt.Sprintf("%s-%s", rantalmparameters.PlacementBindingCommonName, curName),
+				fmt.Sprintf("%s-%s", rantalmparameters.PlacementRuleCommonName, curName),
+				rantalmparameters.TalmTestNamespace,
+				metav1.LabelSelector{},
+				cgu,
+			)
+			Expect(err).To(BeNil())
+
+			By("verifying CGU reports spoke1 failed with UnrecoverableError in precache status")
+			assertPrecacheStatus(cgu.Name, rantalmhelper.Spoke1Name, "UnrecoverableError")
+
+			Expect(err).ToNot(HaveOccurred())
+		})
 	})
 })
 
