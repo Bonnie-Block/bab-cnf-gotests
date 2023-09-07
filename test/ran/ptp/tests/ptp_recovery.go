@@ -77,12 +77,12 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 				Expect(err).NotTo(HaveOccurred())
 				log.Printf("phc2sys PID %s killed", oldPID)
 
-				By(fmt.Sprintf("Validate new phc2sys process is started on node %s", nodeName))
+				By(fmt.Sprintf("validate new phc2sys process is started on node %s", nodeName))
 				newPID, err := ranptphelper.WaitForProcess(&ptpDaemonPod, "phc2sys")
 				Expect(err).NotTo(HaveOccurred())
 				Expect(newPID).ShouldNot(Equal(oldPID))
 
-				By("Validate all ptp clocks are in LOCKED state in ptp metrics")
+				By("validate all ptp clocks are in LOCKED state in ptp metrics")
 				err = ranptphelper.WaitForPtpClockStateMetric(ptpDaemonPod, ranptpparameters.LockedState,
 					"", 1*time.Minute, 10*time.Second)
 				Expect(err).NotTo(HaveOccurred())
@@ -119,17 +119,17 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				time.Sleep(1 * time.Second)
-				By("Validate the phc2sys process is not affected by killing the ptp4l process")
+				By("validate the phc2sys process is not affected by killing the ptp4l process")
 				newPhc2sysPid, err := ranptphelper.WaitForProcess(&ptpDaemonPod, "phc2sys")
 				Expect(err).NotTo(HaveOccurred())
 				Expect(newPhc2sysPid).Should(Equal(oldPhc2sysPid))
 
-				By("Validate a new ptp4l process is started")
+				By("validate a new ptp4l process is started")
 				newPtp4lPids, err := ranptphelper.GetPtp4lPids(&ptpDaemonPod, "phc2sys", false)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(newPtp4lPids).ShouldNot(ContainElement(oldPtp4lPid))
 
-				By("Validate all ptp clocks are in LOCKED state in ptp metrics")
+				By("validate all ptp clocks are in LOCKED state in ptp metrics")
 				err = ranptphelper.WaitForPtpClockStateMetric(ptpDaemonPod, ranptpparameters.LockedState,
 					"", 1*time.Minute, 10*time.Second)
 				Expect(err).NotTo(HaveOccurred())
@@ -169,7 +169,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 				err = ranptphelper.KillProcess(&ptpDaemonPod, oldPtp4lPids[0])
 				Expect(err).NotTo(HaveOccurred())
 
-				By("Validate new ptp4l processes are started")
+				By("validate new ptp4l processes are started")
 				// the new ptp4l that is not related to the phc2sys process
 				newPtp4lPhc2sys, err := ranptphelper.GetPtp4lPids(&ptpDaemonPod, "phc2sys", true)
 				Expect(err).NotTo(HaveOccurred())
@@ -180,7 +180,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 				Expect(newPtp4lPhc2sys[0]).ShouldNot(Equal(oldPtp4lPidPhc2sys[0]))
 				Expect(newPtp4lPids).ShouldNot(ContainElement(oldPtp4lPids[0]))
 
-				By("Validate all ptp clocks are in LOCKED state in ptp metrics")
+				By("validate all ptp clocks are in LOCKED state in ptp metrics")
 				err = ranptphelper.WaitForPtpClockStateMetric(ptpDaemonPod, ranptpparameters.LockedState,
 					"", 1*time.Minute, 10*time.Second)
 				Expect(err).NotTo(HaveOccurred())
@@ -206,18 +206,18 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 				err = ranptphelper.KillProcess(&ptpDaemonPod, oldPtp4lPidsPhc2sys[0])
 				Expect(err).NotTo(HaveOccurred())
 
-				By("Validate phc2sys process is not affected")
+				By("validate phc2sys process is not affected")
 				time.Sleep(5 * time.Second)
 				newPhc2sysPid, err := ranptphelper.WaitForProcess(&ptpDaemonPod, "phc2sys")
 				Expect(err).NotTo(HaveOccurred())
 				Expect(newPhc2sysPid).To(Equal(oldPhc2sysPid))
 
-				By("Validate a new ptp4l process is started")
+				By("validate a new ptp4l process is started")
 				newPtl4lPidsPhc2sys, err := ranptphelper.GetPtp4lPids(&ptpDaemonPod, "phc2sys", true)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(newPtl4lPidsPhc2sys[0]).ShouldNot(Equal(oldPtp4lPidsPhc2sys[0]))
 
-				By("Validate all ptp clocks are in LOCKED state in ptp metrics")
+				By("validate all ptp clocks are in LOCKED state in ptp metrics")
 				err = ranptphelper.WaitForPtpClockStateMetric(ptpDaemonPod, ranptpparameters.LockedState,
 					"", 1*time.Minute, 10*time.Second)
 				Expect(err).NotTo(HaveOccurred())
@@ -247,13 +247,13 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 				err = ranptphelper.KillProcess(&ptpDaemonPod, pid)
 				Expect(err).NotTo(HaveOccurred())
 
-				By("Validate a new ts2phc process is started")
+				By("validate a new ts2phc process is started")
 				log.Println("get new ts2phc PID")
 				newPid, err := ranptphelper.GetProcessPID(&ptpDaemonPod, "ts2phc")
 				Expect(err).NotTo(HaveOccurred())
 				Expect(pid).ShouldNot(Equal(newPid))
 
-				By("Validate all ptp clocks are in LOCKED state in ptp metrics")
+				By("validate all ptp clocks are in LOCKED state in ptp metrics")
 				err = ranptphelper.WaitForPtpClockStateMetric(ptpDaemonPod, ranptpparameters.LockedState,
 					"", 1*time.Minute, 10*time.Second)
 				Expect(err).NotTo(HaveOccurred())
@@ -281,17 +281,51 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 				err = ranptphelper.KillProcess(&ptpDaemonPod, pid[0])
 				Expect(err).NotTo(HaveOccurred())
 
-				By("Validate a new ptp4l process is started")
+				By("validate a new ptp4l process is started")
 				log.Println("new get ptp4l PID")
 				newPid, err := ranptphelper.GetPtp4lPids(&ptpDaemonPod, "ts2phc", true)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(pid).ShouldNot(Equal(newPid))
 
-				By("Validate all ptp clocks are in LOCKED state in ptp metrics")
+				By("validate all ptp clocks are in LOCKED state in ptp metrics")
 				err = ranptphelper.WaitForPtpClockStateMetric(ptpDaemonPod, ranptpparameters.LockedState,
 					"", 1*time.Minute, 10*time.Second)
 				Expect(err).NotTo(HaveOccurred())
 
+			}
+		})
+
+		// 64777
+		It("should recover gpsd process after killing it on node ", func() {
+			if grandMasterConfigsNum == 0 {
+				Skip("Test requires grand master configuration")
+			}
+
+			nodeToPtpDaemonPod, err := ranptphelper.NodesToPtpDaemonPods()
+			Expect(err).NotTo(HaveOccurred())
+
+			for nodeName, ptpDaemonPod := range nodeToPtpDaemonPod {
+				workerNode, err := ranhelper.GetNodeByName(nodeName)
+				Expect(err).NotTo(HaveOccurred())
+
+				log.Println("get gpsd PID")
+				pid, err := ranptphelper.GetProcessPID(&ptpDaemonPod, "gpsd")
+				Expect(err).NotTo(HaveOccurred())
+
+				By(fmt.Sprintf("Kill a gpsd process on node %s", workerNode.Name))
+				err = ranptphelper.KillProcess(&ptpDaemonPod, pid)
+				Expect(err).NotTo(HaveOccurred())
+
+				By("validate a new gpsd process is started")
+				log.Println("get new gpsd PID")
+				newPid, err := ranptphelper.GetProcessPID(&ptpDaemonPod, "gpsd")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(pid).ShouldNot(Equal(newPid))
+
+				By("validate all ptp clocks are in LOCKED state in ptp metrics")
+				err = ranptphelper.WaitForPtpClockStateMetric(ptpDaemonPod, ranptpparameters.LockedState,
+					"", 1*time.Minute, 10*time.Second)
+				Expect(err).NotTo(HaveOccurred())
 			}
 		})
 	})
@@ -308,7 +342,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		// kill ptp pod.
-		By("Validate event [LOCKED] after killing the publisher pod")
+		By("validate event [LOCKED] after killing the publisher pod")
 		err = helper.Apiclient.Pods(parameters.PtpOperatorNamespace).Delete(context.Background(),
 			ptpDaemonPod.Name,
 			metav1.DeleteOptions{})
@@ -320,7 +354,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 		ptpDaemonPod, err = ranptphelper.GetPtpDaemonPodFromNode(ptpNode)
 		Expect(err).NotTo(HaveOccurred())
 
-		By("Validate all ptp clocks are in LOCKED state in ptp metrics")
+		By("validate all ptp clocks are in LOCKED state in ptp metrics")
 		err = ranptphelper.WaitForPtpClockStateMetric(*ptpDaemonPod, ranptpparameters.LockedState,
 			"", 1*time.Minute, 10*time.Second)
 		Expect(err).NotTo(HaveOccurred())
@@ -410,7 +444,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 			err = ranhelper.WaitForClusterRecover(ptpNode, []string{parameters.PtpOperatorNamespace})
 			Expect(err).NotTo(HaveOccurred())
 
-			By(fmt.Sprintf("Validate ptp clocks are [LOCKED] after node %s recovered", ptpNode.Name))
+			By(fmt.Sprintf("validate ptp clocks are [LOCKED] after node %s recovered", ptpNode.Name))
 			ptpDaemonPod, err := ranptphelper.GetPtpDaemonPodFromNode(ptpNode)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -427,7 +461,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 		})
 
 		// 59995
-		It("Validate PTP consumer events after ptp node reboot", func() {
+		It("validates PTP consumer events after ptp node reboot", func() {
 			By("Workaround for OCPBUGS-12954 - sleep for 5 minutes after reboot.")
 			time.Sleep(5 * time.Minute)
 
