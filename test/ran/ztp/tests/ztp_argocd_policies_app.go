@@ -471,6 +471,70 @@ var _ = Describe("ZTP Argocd policies Tests", Ordered, Label("ztp-argocd-policie
 			})
 		})
 
+		// 63516
+		// Test_Title: Reference non-existence source CR yaml file
+		It("verifies a proper error is returned in ArgoCD app when a non-existence source-cr is used in PGT", func() {
+			// Check for minimum ztp version to run this test case
+			By("Checking the ZTP version", func() {
+				if !ranhelper.IsVersionStringInRange(
+					ranztphelper.ZtpVersion,
+					"4.14",
+					"",
+				) {
+					Skip(fmt.Sprintf(
+						"unable to run test on ztp version '%s' as it is less than minimum '%s",
+						ranztphelper.ZtpVersion,
+						"4.14",
+					))
+				}
+			})
+
+			// The ztp test data is stored in a nested directory within the ztp repo
+			testGitPath := ranztphelper.JoinGitPaths(
+				[]string{
+					ranztphelper.ArgocdApps[ranztpparameters.ArgocdPoliciesAppName].Path,
+					"ztp-test/custom-source-crs/no-cr-file",
+				},
+			)
+
+			By("Checking if the git path exists", func() {
+				if !ranztphelper.DoesGitPathExist(
+					ranztphelper.ArgocdApps[ranztpparameters.ArgocdPoliciesAppName].Repo,
+					ranztphelper.ArgocdApps[ranztpparameters.ArgocdPoliciesAppName].Branch,
+					testGitPath+"/kustomization.yaml",
+				) {
+					Skip(fmt.Sprintf("git path '%s' could not be found", testGitPath))
+				}
+			})
+
+			By("Updating the ArgoCD app", func() {
+				// Adding 30s sleep to avoid race condition before updating policies app within short time
+				time.Sleep(30 * time.Second)
+				// Update the Argo app to point to the new test kustomization
+				err := ranztphelper.SetGitDetailsInArcgocd(
+					ranztphelper.ArgocdApps[ranztpparameters.ArgocdPoliciesAppName].Repo,
+					ranztphelper.ArgocdApps[ranztpparameters.ArgocdPoliciesAppName].Branch,
+					testGitPath,
+					ranztpparameters.ArgocdPoliciesAppName,
+					true,
+					false,
+				)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			By("Checking the ArgoCD policies app condition for the expected error", func() {
+				// Get the condition from the ArgoCD policies app
+				expectedMessage := "test/NoCustomCr.yaml is not found"
+				err := ranztphelper.WaitForConditionInArgocdApp(
+					ranztphelper.HubAPIClient,
+					ranztpparameters.ArgocdPoliciesAppName,
+					ranztpparameters.OpenshiftGitops,
+					expectedMessage, ranztpparameters.ArgocdChangeTimeout,
+				)
+				Expect(err).ToNot(HaveOccurred())
+			})
+		})
+
 		AfterEach(func() {
 			// Deleting the policy created for custom source-cr test
 			By("Deleting the policy if it exists", func() {
