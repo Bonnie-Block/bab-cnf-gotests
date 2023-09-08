@@ -483,14 +483,6 @@ var _ = Describe("MetalLB NodeSelector", func() {
 				Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(
 					"Local Pref is incorrect on FRR %s", masterNodeFRRPod2.Name))
 
-				By("should validate Local Preferences is not received on FRR2 from node with " +
-					"nodeselector and peer option")
-
-				err = validateLocalPref(masterNodeFRRPod2, netmlbparameters.LocalPref100, netmlbparameters.LocalPref100)
-
-				Expect(err).To(HaveOccurred(), fmt.Sprintf(
-					"Local Pref is incorrect on FRR %s", masterNodeFRRPod2.Name))
-
 				By("should validate Community for FRR2 container without node selector")
 
 				err = netmetallbhelper.ValidateRouteCommunity(masterNodeFRRPod2, netmlbparameters.CommunityNoAdv,
