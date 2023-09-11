@@ -13,6 +13,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ztp/ranztphelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ztp/ranztpparameters"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/polarion"
 	"gopkg.in/yaml.v3"
 )
 
@@ -66,8 +67,9 @@ var _ = Describe("ZTP Generator Tests", Label("ztp-generator"), func() {
 		})
 	})
 
+	// 54355
 	Context("using the site generator image", func() {
-		It("generate install time crs, manifests, and policies and verify they are present", func() {
+		It("generate install time crs, manifests, and policies and verify they are present", polarion.ID("54355"), func() {
 			// https://issues.redhat.com/browse/CNF-6302
 
 			// This will be used to store the tag of the ztp site generate container

@@ -10,6 +10,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ptp/ranptpparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/polarion"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -57,7 +58,7 @@ var _ = Describe("Basic PTP Configs", func() {
 		// it does not need to be repeated in here.
 
 		// 66848
-		It("should have [LOCKED] clock state in PTP metrics", func() {
+		It("should have [LOCKED] clock state in PTP metrics", polarion.ID("66848"), func() {
 			for _, clockValueState := range ranptpparameters.MetricMap[ranptpparameters.OpenshiftPtpClockState] {
 				if clockValueState.Interface != ranptpparameters.Master {
 					Expect(clockValueState.ClockStateValue).Should(Equal(ranptpparameters.LockedState))
@@ -66,7 +67,7 @@ var _ = Describe("Basic PTP Configs", func() {
 		})
 
 		// 66848
-		It("should have the 'phc2sys' and 'ptp4l' processes in 'UP' state in PTP metrics", func() {
+		It("should have the 'phc2sys' and 'ptp4l' processes in 'UP' state in PTP metrics", polarion.ID("66848"), func() {
 			if !ranhelper.IsVersionStringInRange(ranptpparameters.PtpVersion, "4.11", "") {
 				Skip("ptp process metrics is not support in version " + ranptpparameters.PtpVersion)
 			}
@@ -84,7 +85,7 @@ var _ = Describe("Basic PTP Configs", func() {
 		})
 
 		// 66848
-		It("verifies Clock Class value should match dpll/gnss clock state", func() {
+		It("verifies Clock Class value should match dpll/gnss clock state", polarion.ID("66848"), func() {
 			if ptpConfigCounts[3] == 0 {
 				Skip("Test requires Grandmaster configuration")
 			}
@@ -106,7 +107,7 @@ var _ = Describe("Basic PTP Configs", func() {
 
 	Context("change PTP offset thresholds", Ordered, func() {
 		// 49741
-		It("should change the slave clock state to free run after modify the offset threshold", func() {
+		It("should change the slave clock state to free run after modify the offset threshold", polarion.ID("49741"), func() {
 			nodeToPtpDaemonPod, err := ranptphelper.NodesToPtpDaemonPods()
 			Expect(err).NotTo(HaveOccurred())
 
@@ -158,7 +159,7 @@ var _ = Describe("Basic PTP Configs", func() {
 		})
 
 		// 66848
-		It("should have the 'phc2sys' and 'ptp4l' processes 'UP' after ptp config change", func() {
+		It("should have the 'phc2sys' and 'ptp4l' processes 'UP' after ptp config change", polarion.ID("66848"), func() {
 			for _, processState := range ranptpparameters.MetricMap[ranptpparameters.OpenshiftPtpProcessStatus] {
 				if ranptpparameters.PTP4L == processState.Process {
 					Expect(processState.ProcessStatusValue).Should(Equal(ranptpparameters.Up),

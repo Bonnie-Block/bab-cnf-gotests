@@ -11,6 +11,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ztp/ranztphelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ztp/ranztpparameters"
 	testClient "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/polarion"
 
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -147,8 +148,9 @@ var _ = Describe("ZTP Argocd ACM CR Tests", Ordered, Label("ztp-argocd-acm-crs")
 		})
 	})
 
+	// 54236
 	Context("should use ACM CRs to template a policy", func() {
-		It("should deploy the policy and validate it was successful", func() {
+		It("should deploy the policy and validate it was successful", polarion.ID("54236"), func() {
 			// https://issues.redhat.com/browse/CNF-6297
 
 			// The ztp test data is stored in a nested directory within the ztp repo

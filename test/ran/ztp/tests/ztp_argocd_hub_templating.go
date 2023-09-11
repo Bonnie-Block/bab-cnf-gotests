@@ -16,6 +16,7 @@ import (
 	testClient "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/polarion"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -61,7 +62,7 @@ var _ = Describe("ZTP Argocd Hub templating Tests", Ordered, Label("ztp-hub-temp
 
 	Context("using hub side acm templating", func() {
 		// 54240
-		It("should report an error for using printf function where not allowed", func() {
+		It("should report an error for using printf function where not allowed", polarion.ID("54240"), func() {
 			// https://issues.redhat.com/browse/CNF-6304
 
 			// The ztp test data is stored in a nested directory within the ztp repo
@@ -80,7 +81,7 @@ var _ = Describe("ZTP Argocd Hub templating Tests", Ordered, Label("ztp-hub-temp
 		})
 
 		// 54240
-		It("should report an error for using fromsecret function where not allowed", func() {
+		It("should report an error for using fromsecret function where not allowed", polarion.ID("54240"), func() {
 			// https://issues.redhat.com/browse/CNF-6304
 
 			// The ztp test data is stored in a nested directory within the ztp repo
@@ -133,7 +134,7 @@ var _ = Describe("ZTP Argocd Hub templating Tests", Ordered, Label("ztp-hub-temp
 		})
 
 		// 54240
-		It("should report an error for using autoindent function where not allowed", func() {
+		It("should report an error for using autoindent function where not allowed", polarion.ID("54240"), func() {
 			// https://issues.redhat.com/browse/CNF-6304
 
 			// The ztp test data is stored in a nested directory within the ztp repo
@@ -199,7 +200,7 @@ var _ = Describe("ZTP Argocd Hub templating Tests", Ordered, Label("ztp-hub-temp
 		})
 
 		// 54240
-		It("should create the policy successfully with a valid template", func() {
+		It("should create the policy successfully with a valid template", polarion.ID("54240"), func() {
 
 			testGitRepo := "ztp-test/hub-templating-valid_4.11"
 			if ranhelper.IsVersionStringInRange(

@@ -19,6 +19,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ztp/ranztphelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ztp/ranztpparameters"
 	testClient "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/polarion"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/kubernetes/pkg/kubelet/cm/cpuset"
@@ -236,7 +237,7 @@ var _ = Describe("ZTP workload partitioning tests", Ordered, Label("ztp-workload
 
 		wpPolicyName := "cpu-partitioning-policy-config" // inform policy
 
-		It("should update cpu partitioning with the new reserved cpus on spoke", func() {
+		It("should update cpu partitioning with the new reserved cpus on spoke", polarion.ID("54235"), func() {
 
 			// The ztp test data is stored in a nested directory within the ztp repo
 			testGitPath := ranztphelper.ArgocdApps[ranztpparameters.ArgocdPoliciesAppName].Path +

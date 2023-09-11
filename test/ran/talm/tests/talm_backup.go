@@ -13,6 +13,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/talm/rantalmhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/talm/rantalmparameters"
 	testClient "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/polarion"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	configurationPolicyv1 "open-cluster-management.io/config-policy-controller/api/v1"
 )
@@ -63,7 +64,7 @@ var _ = Describe("Talm Backup Tests with single spoke", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("should have a failed cgu for single spoke", func() {
+		It("should have a failed cgu for single spoke", polarion.ID("50835"), func() {
 			By("applying all the required CRs for backup")
 			// prep cgu
 			cgu := rantalmhelper.GetCguDefinition(
@@ -123,7 +124,7 @@ var _ = Describe("Talm Backup Tests with single spoke", func() {
 
 		})
 		// ocp-54294, ocp-54295
-		It("verifies backup begins and succeeds after CGU is enabled", func() {
+		It("verifies backup begins and succeeds after CGU is enabled", polarion.ID("54294"), func() {
 
 			if !ranhelper.IsVersionStringInRange(
 				rantalmhelper.TalmHubVersion,

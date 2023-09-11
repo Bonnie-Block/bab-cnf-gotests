@@ -20,6 +20,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/reboot/ranrebootparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/polarion"
 )
 
 var _ = Describe("SNO Reboot", Ordered, func() {
@@ -62,7 +63,7 @@ var _ = Describe("SNO Reboot", Ordered, func() {
 
 	Context("soft reboot with workloads running", func() {
 		// 40896
-		It("cluster and workload pods should be recovered after reboot", func() {
+		It("cluster and workload pods should be recovered after reboot", polarion.ID("40896"), func() {
 			startTime := time.Now()
 			// Trigger soft reboot and wait for cluster and workload pods to recover.
 			helper.SoftRebootNodeAndWaitForDisconnect(node)
@@ -96,13 +97,13 @@ var _ = Describe("SNO Reboot", Ordered, func() {
 			}
 		})
 		// 40814
-		It("cluster and workload pods should be recovered after power comes back", func() {
+		It("cluster and workload pods should be recovered after power comes back", polarion.ID("40814"), func() {
 			powerOnTime := ranhelper.PowerOffAndOnSno()
 			waitForClusterRecoverAndLogTime(powerOnTime, node, ranrebootparameters.RanMetricPowerCycle)
 		})
 
 		// ocp-63531
-		It("crio images should not be wiped after reboot", func() {
+		It("crio images should not be wiped after reboot", polarion.ID("63531"), func() {
 			if originTimeStampLatestImage == "" {
 				Skip("Skipping if ztp versionis lower than 4.13")
 			}

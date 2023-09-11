@@ -14,6 +14,7 @@ import (
 	testClient "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/polarion"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	configurationPolicyv1 "open-cluster-management.io/config-policy-controller/api/v1"
 )
@@ -60,7 +61,7 @@ var _ = Describe("Talm Batching Tests", Label("talmbatching"), func() {
 
 	Context("with a single spoke that is missing", Label("talmmissingspoke"), func() {
 		// 47949
-		It("should report the missing spoke", func() {
+		It("should report the missing spoke", polarion.ID("47949"), func() {
 			By("validating the talm version meets the test minimum", func() {
 				// TALM 4.11 does not set any conditions for a non managed cluster error
 				// We are unable to verify the state in 4.11 therefore we cannot run this test
@@ -106,7 +107,7 @@ var _ = Describe("Talm Batching Tests", Label("talmbatching"), func() {
 
 	Context("with a missing policy", Label("talmmissingpolicy"), func() {
 		// 49755
-		It("should report the missing policy", func() {
+		It("should report the missing policy", polarion.ID("49755"), func() {
 			By("create and enable a cgu with a managed policy that does not exist", func() {
 
 				cgu := rantalmhelper.GetCguDefinition(
@@ -156,7 +157,8 @@ var _ = Describe("Talm Batching Tests", Label("talmbatching"), func() {
 
 	Context("using a catalog source", Label("talmcatalogsource"), func() {
 		// 47952
-		It("should abort the CGU when the first batch fails with the Abort batch timeout action", func() {
+		It("should abort the CGU when the first batch fails "+
+			"with the Abort batch timeout action", polarion.ID("47952"), func() {
 			if !ranhelper.IsVersionStringInRange(
 				rantalmhelper.TalmHubVersion,
 				"4.12",
@@ -329,8 +331,9 @@ var _ = Describe("Talm Batching Tests", Label("talmbatching"), func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})
+
 		// 47952
-		It("should report the failed spoke when one spoke in a batch times out", func() {
+		It("should report the failed spoke when one spoke in a batch times out", polarion.ID("47952"), func() {
 			By("creating the temporary namespace on spoke1 only", func() {
 				err := namespaces.Create(rantalmhelper.TemporaryNamespaceName, rantalmhelper.Spoke1APIClient)
 				Expect(err).ToNot(HaveOccurred())
@@ -547,7 +550,8 @@ var _ = Describe("Talm Batching Tests", Label("talmbatching"), func() {
 			})
 		})
 		// 54926
-		It("should continue the CGU when the second batch fails with the Continue batch timeout action", func() {
+		It("should continue the CGU when the second batch fails "+
+			"with the Continue batch timeout action", polarion.ID("54926"), func() {
 			expectedTimeout := 16
 
 			By("creating the temporary namespace on spoke1 only", func() {
@@ -675,7 +679,7 @@ var _ = Describe("Talm Batching Tests", Label("talmbatching"), func() {
 
 	Context("using a temporary namespace", Label("talmtempnamespace"), func() {
 		// 47954, 54292
-		It("should report the timeout value when one cluster is in a batch and it times out", func() {
+		It("should report the timeout value when one cluster is in a batch and it times out", polarion.ID("47954"), func() {
 			// We will be verifying that the actual timeout is close to this value
 			expectedTimeout := 8
 
@@ -806,7 +810,7 @@ var _ = Describe("Talm Batching Tests", Label("talmbatching"), func() {
 		})
 
 		// 47947, 54288, 54289, 54559, 54292
-		It("should complete the CGU when two clusters are successful in a single batch", func() {
+		It("should complete the CGU when two clusters are successful in a single batch", polarion.ID("47947"), func() {
 			By("creating the cgu and associated resources", func() {
 				cgu := rantalmhelper.GetCguDefinition(
 					rantalmhelper.CguName,

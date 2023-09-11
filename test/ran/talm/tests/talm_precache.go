@@ -21,6 +21,7 @@ import (
 	testClient "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/polarion"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -275,7 +276,7 @@ var _ = Describe("Talm precache one spoke", Label("talmprecache"), func() {
 		})
 
 		// ocp-59948
-		It("tests precache image filtering", func() {
+		It("tests precache image filtering", polarion.ID("59948"), func() {
 			if !ranhelper.IsVersionStringInRange(
 				rantalmhelper.TalmHubVersion,
 				"4.13",
@@ -674,7 +675,7 @@ var _ = Describe("TALM tests with multiple spokes where one turns off", Ordered,
 		})
 
 		// ocp-54286
-		It("verifies precaching fails for one spoke and succeeds for the other", func() {
+		It("verifies precaching fails for one spoke and succeeds for the other", polarion.ID("54286"), func() {
 			By("creating precache CGU with two spokes and OCP upgrade policy ")
 			cgu := getNewPrecacheCGU(cguName,
 				[]string{fmt.Sprintf("%s-%s", rantalmparameters.PolicyNameCommonName, curName)},
@@ -781,7 +782,8 @@ var _ = Describe("TALM tests with multiple spokes where one turns off", Ordered,
 
 		})
 		// ocp-54854
-		It("Verifies CGU fails on 'down' spoke in first batch and succeeds for the 'up' spoke in second batch", func() {
+		It("Verifies CGU fails on 'down' spoke in first batch "+
+			"and succeeds for the 'up' spoke in second batch", polarion.ID("54854"), func() {
 			By("creating CGU with two spokes, one of which is unavailable")
 			err := rantalmhelper.WaitForClusterSuccessInCgu(
 				rantalmhelper.HubAPIClient,
@@ -798,8 +800,8 @@ var _ = Describe("TALM tests with multiple spokes where one turns off", Ordered,
 
 		})
 		// ocp-59946
-		It("Verifies that CGU afterCompletion action executes on spoke2 when spoke1 is offline", func() {
-
+		It("Verifies that CGU afterCompletion action executes "+
+			"on spoke2 when spoke1 is offline", polarion.ID("59946"), func() {
 			By("waiting for the cgu to timeout")
 			err := rantalmhelper.WaitForCguToTimeout(cguName, rantalmparameters.TalmTestNamespace, 5*time.Minute)
 			Expect(err).ToNot(HaveOccurred())

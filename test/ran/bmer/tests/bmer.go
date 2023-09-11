@@ -17,6 +17,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/polarion"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -42,14 +43,14 @@ var _ = Describe("BMER", func() {
 	})
 
 	// OCP-47124
-	It("delivers Redfish events", func() {
+	It("delivers Redfish events", polarion.ID("47124"), func() {
 		By("Request test events from BMC Redfish API and verify events are received in consumer")
 		VerifyEvents(ConsumersList, testEvents, eventService, LocalNodeVendor)
 		By("Wait 20 seconds for all events to be completed")
 		time.Sleep(20 * time.Second)
 	})
 	// OCP-47125
-	It("recovers from hw-event-proxy app restart", func() {
+	It("recovers from hw-event-proxy app restart", polarion.ID("47125"), func() {
 		By("Validate consumer receive events")
 		VerifyEvents(ConsumersList, testEvents[:1], eventService, LocalNodeVendor)
 
@@ -80,7 +81,7 @@ var _ = Describe("BMER", func() {
 		time.Sleep(20 * time.Second)
 	})
 	// OCP-47129
-	It("recovers from producer cloud-event-sidecar crash", func() {
+	It("recovers from producer cloud-event-sidecar crash", polarion.ID("47129"), func() {
 		By("Validate consumer receive events")
 		VerifyEvents(ConsumersList, testEvents[:1], eventService, LocalNodeVendor)
 
@@ -99,7 +100,7 @@ var _ = Describe("BMER", func() {
 		time.Sleep(20 * time.Second)
 	})
 	// OCP-47130
-	It("recovers from consumer app restart", func() {
+	It("recovers from consumer app restart", polarion.ID("47130"), func() {
 		By("Validate consumer receive events")
 		VerifyEvents(ConsumersList, testEvents[:1], eventService, LocalNodeVendor)
 
@@ -131,7 +132,7 @@ var _ = Describe("BMER", func() {
 		time.Sleep(20 * time.Second)
 	})
 	// OCP-47128
-	It("recovers from node restart", func() {
+	It("recovers from node restart", polarion.ID("47128"), func() {
 		By("Validate consumer receive events")
 		VerifyEvents(ConsumersList, testEvents[:1], eventService, LocalNodeVendor)
 

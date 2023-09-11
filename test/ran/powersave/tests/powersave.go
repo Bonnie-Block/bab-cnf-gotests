@@ -24,6 +24,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranpower/ranpowerhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/polarion"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -66,8 +67,8 @@ var _ = Describe("Per-Core Runtime Tuning of power states - CRI-O", Ordered, fun
 	})
 
 	// OCP-54571 - Install SNO node with standard DU profile that does not include WorkloadHints
-	It("verifies expected kernel parameters with no workload hints specified in PerformanceProfile", func() {
-
+	It("verifies expected kernel parameters "+
+		"with no workload hints specified in PerformanceProfile", polarion.ID("54571"), func() {
 		// Verify no workload hints in performanceprofile
 		workloadHints = perfProfile.Spec.WorkloadHints
 		// By(fmt.Sprintf("DEBUG WorkloadHints = %v\n\n%+v", workloadHints, workloadHints))
@@ -96,11 +97,10 @@ var _ = Describe("Per-Core Runtime Tuning of power states - CRI-O", Ordered, fun
 			Expect(rePattern.FindStringIndex(output)).
 				ToNot(BeNil(), fmt.Sprintf("Kernel parameter %s is missing from cmdline", parameter))
 		}
-
 	})
 
 	// OCP-54572 - Enable powersave at node level and then enable performance at node level
-	It("Enable powersave at node level and then enable performance at node level", func() {
+	It("Enable powersave at node level and then enable performance at node level", polarion.ID("54572"), func() {
 		By("Patching the performance profile with the workload hints")
 		err := setPowerMode(perfProfile, snoNode.Name, true, false, true)
 		Expect(err).ToNot(HaveOccurred(), "Unable to set power mode")
@@ -112,14 +112,14 @@ var _ = Describe("Per-Core Runtime Tuning of power states - CRI-O", Ordered, fun
 	})
 
 	// OCP-54573 - Enable per pod powersave and start high performance pods and powersave pods
-	PIt("Enable per pod powersave and start high performance pods and powersave pods", func() {
+	PIt("Enable per pod powersave and start high performance pods and powersave pods", polarion.ID("54573"), func() {
 
 	})
 
 	// OCP-54574 - Telco_Case: Enable powersave at node level and then enable high performance
 	// at node level, check power consumption with no workload pods.
 	It("Enable powersave, and then enable high performance at node level, "+
-		"check power consumption with no workload pods.", func() {
+		"check power consumption with no workload pods.", polarion.ID("54574"), func() {
 
 		testPodAnnotations := map[string]string{
 			"cpu-load-balancing.crio.io": "disable",

@@ -12,6 +12,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/talm/rantalmparameters"
 	testClient "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/polarion"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	configurationPolicyv1 "open-cluster-management.io/config-policy-controller/api/v1"
 )
@@ -82,7 +83,7 @@ var _ = Describe("Talm Canary Tests", Ordered, Label("talmcanary"), func() {
 
 	Context("where first canary fails", func() {
 		// 47954
-		It("should stop the CGU", func() {
+		It("should stop the CGU", polarion.ID("47954"), func() {
 			By("verifying the temporary namespace does not exist", func() {
 				result := namespaces.Exists(rantalmhelper.TemporaryNamespaceName, rantalmhelper.Spoke1APIClient)
 				Expect(result).To(BeFalse())
@@ -199,7 +200,7 @@ var _ = Describe("Talm Canary Tests", Ordered, Label("talmcanary"), func() {
 
 	Context("where all the canaries are successful", func() {
 		// 47947
-		It("should complete the CGU", func() {
+		It("should complete the CGU", polarion.ID("47947"), func() {
 
 			By("creating the cgu and associated resources", func() {
 				cgu := rantalmhelper.GetCguDefinition(

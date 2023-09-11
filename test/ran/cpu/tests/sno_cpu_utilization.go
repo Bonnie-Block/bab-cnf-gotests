@@ -24,6 +24,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/polarion"
 )
 
 const (
@@ -123,7 +124,8 @@ var _ = Describe("SNO core reduction", func() {
 		})
 
 		// 40809
-		It(fmt.Sprintf("should use less than %d core(s) during and post pod launch", ran.SnoMgmtCoreLimit), func() {
+		It(fmt.Sprintf("should use less than %d "+
+			"core(s) during and post pod launch", ran.SnoMgmtCoreLimit), polarion.ID("40809"), func() {
 			postLaunchDuration := 15 * time.Minute
 			log.Printf("Wait for %s with workload pods running...\n", postLaunchDuration.String())
 			time.Sleep(postLaunchDuration)
@@ -139,7 +141,7 @@ var _ = Describe("SNO core reduction", func() {
 			})
 
 			// 40816
-			It(fmt.Sprintf("should use less than %d core(s)", ran.SnoMgmtCoreLimit), func() {
+			It(fmt.Sprintf("should use less than %d core(s)", ran.SnoMgmtCoreLimit), polarion.ID("40816"), func() {
 				startTime := time.Now().UTC()
 				// Sleep for 10s to account for the time between each query.
 				time.Sleep(10 * time.Second)
@@ -157,7 +159,7 @@ var _ = Describe("SNO core reduction", func() {
 
 		Context("with Prometheus queries running", func() {
 			// 40815
-			It(fmt.Sprintf("should use less than %d core(s)", ran.SnoMgmtCoreLimit), func() {
+			It(fmt.Sprintf("should use less than %d core(s)", ran.SnoMgmtCoreLimit), polarion.ID("40815"), func() {
 				duration := 10 * time.Minute
 				startTime, _ := repeatPromQuery(duration)
 				time.Sleep(31 * time.Second)
@@ -168,7 +170,7 @@ var _ = Describe("SNO core reduction", func() {
 		workloadDuration := rancpuhelper.GetEnv(ran.EnvWorkloadDuration, "8h")
 		Context(fmt.Sprintf("with workload running for %s", workloadDuration), func() {
 			// 40810
-			It(fmt.Sprintf("should use less than %d core(s)", ran.SnoMgmtCoreLimit), func() {
+			It(fmt.Sprintf("should use less than %d core(s)", ran.SnoMgmtCoreLimit), polarion.ID("40810"), func() {
 				duration, err := time.ParseDuration(workloadDuration)
 				Expect(err).ToNot(HaveOccurred())
 

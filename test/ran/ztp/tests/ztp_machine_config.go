@@ -10,6 +10,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ztp/ranztphelper"
 	testClient "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/polarion"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -49,7 +50,8 @@ var _ = Describe("ZTP Machine Config Tests", Ordered, Label("ztp-machine-config"
 		})
 	})
 
-	Context("should check machine config for ztp annotation", func() {
+	// 54239
+	Context("should check machine config for ztp annotation", polarion.ID("54239"), func() {
 		// https://issues.redhat.com/browse/CNF-6300
 		It("should find the annotation present in the machine configs", func() {
 

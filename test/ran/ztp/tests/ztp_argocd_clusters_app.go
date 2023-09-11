@@ -9,6 +9,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ztp/ranztphelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ztp/ranztpparameters"
 	testClient "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/polarion"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
@@ -44,8 +45,9 @@ var _ = Describe("ZTP Argocd clusters Tests", Ordered, Label("ztp-argocd-cluster
 		})
 	})
 
+	// 54238
 	Context("override the klusterlet addon configuration", Label("ztp-klusterlet"), func() {
-		It("should override the klusterlet addon configuration and verify the change", func() {
+		It("should override the klusterlet addon configuration and verify the change", polarion.ID("54238"), func() {
 			// https://issues.redhat.com/browse/CNF-6299
 			// The ztp test data is stored in a nested directory within the ztp repo
 			testGitPath := ranztphelper.JoinGitPaths(

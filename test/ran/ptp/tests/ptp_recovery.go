@@ -11,6 +11,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/polarion"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -61,7 +62,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 
 	Context("ptp process restart", func() {
 		// 49850
-		It("should recover the phc2sys process after killing it", func() {
+		It("should recover the phc2sys process after killing it", polarion.ID("49850"), func() {
 			nodeToPtpDaemonPod, err := ranptphelper.NodesToPtpDaemonPods()
 			Expect(err).NotTo(HaveOccurred())
 
@@ -94,7 +95,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 
 		// 57197
 		It("should create a new ptp4l process after killing a ptp4l process that is not related to the "+
-			"phc2sy process", func() {
+			"phc2sy process", polarion.ID("57197"), func() {
 			if ptpConfigCount < 2 {
 				Skip("Test requires at least two PTP configs")
 			}
@@ -140,7 +141,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 		})
 
 		// 49736
-		It("should restart both ptp4l processes after killing them", func() {
+		It("should restart both ptp4l processes after killing them", polarion.ID("49736"), func() {
 			if ptpConfigCount < 2 {
 				Skip("Test requires at least two PTP configs")
 			}
@@ -188,7 +189,8 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 		})
 
 		// 49737
-		It("should recover the ptp4l process after the killing a ptp4l process that is related to phc2sys process", func() {
+		It("should recover the ptp4l process after the killing "+
+			"a ptp4l process that is related to phc2sys process", polarion.ID("49737"), func() {
 			nodeToPtpDaemonPod, err := ranptphelper.NodesToPtpDaemonPods()
 			Expect(err).NotTo(HaveOccurred())
 
@@ -227,7 +229,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 			}
 		})
 		// 59863
-		It("should recover the ts2phc process after the killing a ts2phc process", func() {
+		It("should recover the ts2phc process after the killing a ts2phc process", polarion.ID("59863"), func() {
 			if grandMasterConfigsNum == 0 {
 				Skip("Test requires grand master configuration")
 			}
@@ -261,7 +263,8 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 		})
 
 		// 59863
-		It("should recover the ptp4l process after the killing a ptp4l process that is related to ts2phc process", func() {
+		It("should recover the ptp4l process after the killing a "+
+			"ptp4l process that is related to ts2phc process", polarion.ID("59863"), func() {
 			if grandMasterConfigsNum == 0 {
 				Skip("Test requires grand master configuration")
 			}
@@ -296,7 +299,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 		})
 
 		// 64777
-		It("should recover gpsd process after killing it on node ", func() {
+		It("should recover gpsd process after killing it on node ", polarion.ID("64777"), func() {
 			if grandMasterConfigsNum == 0 {
 				Skip("Test requires grand master configuration")
 			}
@@ -331,7 +334,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 	})
 
 	// 49738
-	It("should recover to stable state after delete PTP daemon pod", func() {
+	It("should recover to stable state after delete PTP daemon pod", polarion.ID("49738"), func() {
 		var ptpNode *corev1.Node
 		ptpDaemonPods, err := helper.Apiclient.Pods(parameters.PtpOperatorNamespace).List(context.Background(),
 			metav1.ListOptions{LabelSelector: parameters.PtpDaemonsetLabelSelector})
@@ -386,13 +389,13 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 		})
 
 		// 59992
-		It("validates HTTP PTP events via consumer", func() {
+		It("validates HTTP PTP events via consumer", polarion.ID("59992"), func() {
 			// Verify communication between publisher to consumer
 			verifyConsumerEvents(consumerNode, consumerPod)
 		})
 
 		// 59996
-		It("validates the system is fully functional after removing consumer", func() {
+		It("validates the system is fully functional after removing consumer", polarion.ID("59996"), func() {
 			// Remove the consumer.
 			By("Remove the consumer")
 			destroyErrors := ranhelper.DestroyConsumers(parameters.CloudEventNamespace)
@@ -429,7 +432,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 
 	Context("ptp node reboot", Ordered, func() {
 		// 49743
-		It("should return to same stable status after ptp node soft reboot", func() {
+		It("should return to same stable status after ptp node soft reboot", polarion.ID("49743"), func() {
 
 			ptpDaemonPods, err := helper.Apiclient.Pods(parameters.PtpOperatorNamespace).List(context.Background(),
 				metav1.ListOptions{LabelSelector: parameters.PtpDaemonsetLabelSelector})
@@ -461,7 +464,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 		})
 
 		// 59995
-		It("validates PTP consumer events after ptp node reboot", func() {
+		It("validates PTP consumer events after ptp node reboot", polarion.ID("59995"), func() {
 			By("Workaround for OCPBUGS-12954 - sleep for 5 minutes after reboot.")
 			time.Sleep(5 * time.Minute)
 

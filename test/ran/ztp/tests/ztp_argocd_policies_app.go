@@ -15,6 +15,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ztp/ranztpparameters"
 	testClient "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/polarion"
 	corev1 "k8s.io/api/core/v1"
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 )
@@ -57,8 +58,9 @@ var _ = Describe("ZTP Argocd policies Tests", Ordered, Label("ztp-argocd-policie
 		})
 	})
 
+	// 54241
 	Context("override the PGT policy's compliance and non-compliance intervals", Label("ztp-pgt-interval"), func() {
-		It("should specify new intervals and verify they were applied", func() {
+		It("should specify new intervals and verify they were applied", polarion.ID("54241"), func() {
 			// https://issues.redhat.com/browse/CNF-6305
 
 			// The ztp test data is stored in a nested directory within the ztp repo
@@ -135,7 +137,9 @@ var _ = Describe("ZTP Argocd policies Tests", Ordered, Label("ztp-argocd-policie
 				Expect(overrideNonComplianceInterval == "2m")
 			})
 		})
-		It("should specify an invalid interval format and verify the app error", func() {
+
+		// 54242
+		It("should specify an invalid interval format and verify the app error", polarion.ID("54242"), func() {
 			// https://issues.redhat.com/browse/CNF-6306
 			// The ztp test data is stored in a nested directory within the ztp repo
 			testGitPath := ranztphelper.JoinGitPaths(
@@ -244,7 +248,8 @@ var _ = Describe("ZTP Argocd policies Tests", Ordered, Label("ztp-argocd-policie
 			})
 		})
 
-		It("should validate the image registry exists", func() {
+		// 54354
+		It("should validate the image registry exists", polarion.ID("54354"), func() {
 			// https://issues.redhat.com/browse/CNF-6301
 
 			// The ztp test data is stored in a nested directory within the ztp repo
@@ -331,7 +336,8 @@ var _ = Describe("ZTP Argocd policies Tests", Ordered, Label("ztp-argocd-policie
 		)
 
 		// 61978
-		It("verifies new CR kind that does not exist in ztp container image can be created via custom source-cr", func() {
+		It("verifies new CR kind that does not exist in ztp "+
+			"container image can be created via custom source-cr", polarion.ID("61978"), func() {
 			// The ztp test data is stored in a nested directory within the ztp repo
 			testGitPath := ranztphelper.JoinGitPaths(
 				[]string{

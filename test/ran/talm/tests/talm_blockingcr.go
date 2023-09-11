@@ -6,18 +6,18 @@ import (
 	"time"
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/polarion"
 
 	"k8s.io/apimachinery/pkg/runtime"
-
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/talm/rantalmparameters"
-	configurationPolicyv1 "open-cluster-management.io/config-policy-controller/api/v1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/openshift-kni/cluster-group-upgrades-operator/api/v1alpha1"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/talm/rantalmhelper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/talm/rantalmparameters"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	configurationPolicyv1 "open-cluster-management.io/config-policy-controller/api/v1"
 )
 
 const (
@@ -46,7 +46,7 @@ var _ = Describe("Talm Blocking CRs Tests", Label("talmblockingcr"), func() {
 			deleteGeneratedNs(blockingBPass)
 		})
 
-		It("verifies CGU succeeded with blocking CR", func() {
+		It("verifies CGU succeeded with blocking CR", polarion.ID("47948"), func() {
 			By("creating two sets of CRs where b will be blocked until a is done")
 			// cguA
 			cguA = getNewBlockingCGU(blockingAPass, 10)
@@ -145,7 +145,7 @@ var _ = Describe("Talm Blocking CRs Tests", Label("talmblockingcr"), func() {
 			cleanUpGeneratedBlockingCrs(blockingBFail)
 		})
 
-		It("verifies CGU fails with blocking CR", func() {
+		It("verifies CGU fails with blocking CR", polarion.ID("47948"), func() {
 			// cguA using a small timeout value to simulate A failed
 			cguA = getNewBlockingCGU(blockingAFail, 2)
 			// cguB
@@ -243,7 +243,7 @@ var _ = Describe("Talm Blocking CRs Tests", Label("talmblockingcr"), func() {
 			deleteGeneratedNs(blockingBMissing)
 		})
 
-		It("verifies CGU is blocked until blocking CR created and succeeded", func() {
+		It("verifies CGU is blocked until blocking CR created and succeeded", polarion.ID("47948"), func() {
 			// cguA using a small timeout value to simulate A failed
 			cguA = getNewBlockingCGU(blockingAMissing, 10)
 			// cguB

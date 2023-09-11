@@ -17,6 +17,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ptp/ranptpparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/polarion"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -60,7 +61,7 @@ var _ = Describe("PTP Events and Metrics - interface down", func() {
 	})
 
 	// 49743
-	It("should generate events when slave interface goes down and up", func() {
+	It("should generate events when slave interface goes down and up", polarion.ID("49743"), func() {
 		nodeToPtpDaemonPod, err := ranptphelper.NodesToPtpDaemonPods()
 		Expect(err).NotTo(HaveOccurred())
 
@@ -98,7 +99,7 @@ var _ = Describe("PTP Events and Metrics - interface down", func() {
 	})
 
 	// 49734
-	It("should have no effect when Boundary Clock master interface goes down and up", func() {
+	It("should have no effect when Boundary Clock master interface goes down and up", polarion.ID("49734"), func() {
 		if ptpConfigCounts[2] == 0 {
 			Skip("Test requires Boundary Clock configuration")
 		}
@@ -166,7 +167,7 @@ var _ = Describe("PTP Events and Metrics - interface down", func() {
 	})
 
 	// 59865
-	It("should fail when modify interface on ptpconfig", func() {
+	It("should fail when modify interface on ptpconfig", polarion.ID("59865"), func() {
 
 		if ptpConfigCounts[1] == 0 {
 			Skip("Test requires Ordinary Clock configuration")
@@ -243,7 +244,7 @@ var _ = Describe("PTP Events and Metrics - interface down", func() {
 	})
 
 	// 59866
-	It("should fail when removing interface from ptpconfig", func() {
+	It("should fail when removing interface from ptpconfig", polarion.ID("59866"), func() {
 
 		if ptpConfigCounts[1] == 0 {
 			Skip("Test requires Ordinary Clock configuration")

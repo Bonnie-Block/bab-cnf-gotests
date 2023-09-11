@@ -25,6 +25,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/polarion"
 )
 
 var _ = Describe("SNO management workload partitioning", func() {
@@ -65,7 +66,7 @@ var _ = Describe("SNO management workload partitioning", func() {
 	})
 
 	// 41236
-	It("should have management workload cpu resource added to node", func() {
+	It("should have management workload cpu resource added to node", polarion.ID("41236"), func() {
 		By("Checking node capacity and allocatable resources", func() {
 			cpuCapacity := node.Status.Capacity["cpu"]
 			wpCapacity := node.Status.Capacity[ranwpparameters.AnnotationWpResource]
@@ -81,7 +82,7 @@ var _ = Describe("SNO management workload partitioning", func() {
 	})
 
 	// 41230
-	It("should have management pods pinned to reserved cpus", func() {
+	It("should have management pods pinned to reserved cpus", polarion.ID("41230"), func() {
 		By("Checking cpuset for all running containers via crictl inspect on container host", func() {
 			containersInfo := ranwphelper.GetContainersInfo(node)
 			ranwphelper.CheckPodsAffinity(ranwphelper.GetMgmtContainersInfo(containersInfo), mgmtCPUSet)
@@ -89,7 +90,7 @@ var _ = Describe("SNO management workload partitioning", func() {
 	})
 
 	// 41232,41238,41229
-	It("should have the correct cpushares for management pods in crio", func() {
+	It("should have the correct cpushares for management pods in crio", polarion.ID("41232"), func() {
 		By("Comparing container cpu shares in crio and pod annotation", func() {
 			containersInfo := ranwphelper.GetContainersInfo(node)
 			checkCPUShares(containersInfo)
@@ -97,7 +98,7 @@ var _ = Describe("SNO management workload partitioning", func() {
 	})
 
 	// 41233
-	It("should mutate burstable pod with cpu and memory requests", func() {
+	It("should mutate burstable pod with cpu and memory requests", polarion.ID("41233"), func() {
 		createsTestMgmtNamespace()
 		By("Creating a wp annotated burtable pod under test management namespace", func() {
 			pod = ranwphelper.DefineQoSTestPod(node.Name, ran.NamespaceTesting, "1", "", "100M", "")
@@ -142,7 +143,7 @@ var _ = Describe("SNO management workload partitioning", func() {
 	})
 
 	// 41536
-	It("should mutate best effort pod", func() {
+	It("should mutate best effort pod", polarion.ID("41536"), func() {
 		createsTestMgmtNamespace()
 		By("Creating a wp annotated best effort pod under test management namespace", func() {
 			pod = ranwphelper.DefineQoSTestPod(node.Name, ran.NamespaceTesting, "", "", "", "")
@@ -258,7 +259,7 @@ var _ = Describe("SNO management workload partitioning", func() {
 	})
 
 	// 41269
-	It("should not mutate burstable pod if mutation changes pod QoS class", func() {
+	It("should not mutate burstable pod if mutation changes pod QoS class", polarion.ID("41269"), func() {
 		createsTestMgmtNamespace()
 		By("Creating a burstable pod under test management namespace with only cpu request", func() {
 			pod = ranwphelper.DefineQoSTestPod(node.Name, ran.NamespaceTesting, "1", "", "", "")
@@ -293,7 +294,7 @@ var _ = Describe("SNO management workload partitioning", func() {
 	})
 
 	// 41541
-	It("should not mutate guaranteed pod", func() {
+	It("should not mutate guaranteed pod", polarion.ID("41541"), func() {
 		createsTestMgmtNamespace()
 		By("Creating a guaranteed test pod under test management namespace", func() {
 			pod = ranwphelper.DefineQoSTestPod(node.Name, ran.NamespaceTesting, "1", "1", "100M", "100M")
