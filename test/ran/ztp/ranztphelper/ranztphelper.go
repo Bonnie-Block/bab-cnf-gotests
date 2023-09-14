@@ -307,7 +307,7 @@ func SetGitDetailsInArcgocd(gitRepo, gitBranch, gitPath, argocdApp string, waitF
 	return nil
 }
 
-// SetGitDetailsInArgocd is used to get the current git repo, branch, and path in the Argocd app.
+// GetGitDetailsFromArgocd is used to get the current git repo, branch, and path in the Argocd app.
 func GetGitDetailsFromArgocd(appName, namespace string) (string, string, string, error) {
 	app, err := GetArgocdApp(appName, namespace)
 	if err != nil {
