@@ -105,7 +105,8 @@ The list of available features:
 * `SWITCH_PASS` - the switch password where the LAG will be created.
 * `SWITCH_IP` - the switch IP where the LAG will be created.
 * `SWITCH_INTERFACES` - the slave LAG interfaces on the switch
-
+* `NETWORK_SWITCH_LAG_NAMES` - the test LAG names on the switch. Require 2 names. (default `ae0,ae1`)
+* 
 ##### CPU suite environment variables:
 * `RAN_WORKLOAD_DURATION` - duration for RAN CPU workload test. e.g., 10m, 12h
 

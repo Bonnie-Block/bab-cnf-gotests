@@ -42,6 +42,7 @@ type Config struct {
 		SwitchPass              string `envconfig:"SWITCH_PASS"`
 		SwitchIP                string `envconfig:"SWITCH_IP"`
 		SwitchInterfaces        string `envconfig:"SWITCH_INTERFACES"`
+		SwitchLagNames          string `yaml:"switch_lag_names" envconfig:"NETWORK_SWITCH_LAG_NAMES"`
 	} `yaml:"network"`
 	Ran struct {
 		CnfTestImage              string   `yaml:"cnf_test_image" envconfig:"CNF_TEST_IMAGE"`
@@ -287,6 +288,21 @@ func (c *Config) GetMetalLbVlanIds() ([]uint16, error) {
 	}
 
 	return vlanIds, nil
+}
+
+func (c *Config) GetSwitchLagNames() ([]string, error) {
+	envValue := strings.Split(c.Network.SwitchLagNames, ",")
+	if len(envValue) != 2 {
+		return nil, fmt.Errorf("check NETWORK_SWITCH_LAG_NAMES env var: it reuires two LAG names")
+	}
+	// LAG name ae2 is reserved
+	for _, name := range envValue {
+		if name == "ae2" {
+			return nil, fmt.Errorf("check NETWORK_SWITCH_LAG_NAMES env var: LAG name ae2 is reserved")
+		}
+	}
+
+	return envValue, nil
 }
 
 // GetSwitchInterfaces  checks the environmental variable and returns the value in []string.

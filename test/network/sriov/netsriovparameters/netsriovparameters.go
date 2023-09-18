@@ -91,8 +91,6 @@ const (
 	ScaleVFsNumber                                = 64
 	BondModeRR                                    = "balance-rr"
 	BondModeXOR                                   = "balance-xor"
-	LAGInterface1                                 = "ae0"
-	LAGInterface2                                 = "ae1"
 )
 
 var (

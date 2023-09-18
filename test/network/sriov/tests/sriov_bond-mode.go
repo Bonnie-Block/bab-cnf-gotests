@@ -261,12 +261,14 @@ func recoverSwitchConfiguration() {
 	Expect(err).ToNot(HaveOccurred())
 	switchInterfaces, err := Config.GetSwitchInterfaces()
 	Expect(err).ToNot(HaveOccurred())
+	switchLagNames, err := Config.GetSwitchLagNames()
+	Expect(err).ToNot(HaveOccurred())
 
 	err = netsriovhelper.RestoreSwitchInterfacesConfiguration(switchCredentials, switchInterfaces)
 	Expect(err).ToNot(HaveOccurred())
 
 	err = netsriovhelper.DeleteNonLACPLAGsOnJunos(switchCredentials,
-		[]string{netsriovparameters.LAGInterface1, netsriovparameters.LAGInterface2})
+		[]string{switchLagNames[0], switchLagNames[1]})
 	Expect(err).ToNot(HaveOccurred())
 }
 

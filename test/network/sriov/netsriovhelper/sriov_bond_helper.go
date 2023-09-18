@@ -122,6 +122,11 @@ func TestActiveActiveBondScenario(
 		Skip(fmt.Sprintf("Failed to get switch interfaces: %s", err))
 	}
 
+	switchLagNames, err := Config.GetSwitchLagNames()
+	if err != nil {
+		Skip(fmt.Sprintf("Failed to get switch LAG names: %s", err))
+	}
+
 	bondActiveActiveParameters, err := netsriovparameters.NewBondActiveActive(mtu,
 		bondMode, protocol)
 	Expect(err).ToNot(HaveOccurred())
@@ -137,7 +142,7 @@ func TestActiveActiveBondScenario(
 	Expect(err).ToNot(HaveOccurred())
 
 	By("Configure LAGs on a switch")
-	configureLAGsOnSwitch(switchCredentials, switchInterfaces)
+	configureLAGsOnSwitch(switchCredentials, switchInterfaces, switchLagNames)
 
 	By(fmt.Sprintf("Creating Bond interface - %s", bondMode))
 	nadBond, err := DefineBondNad(netsriovparameters.BondNadName, bondMode, mtu, 2, netsriovparameters.IpamStatic)
@@ -189,7 +194,7 @@ func TestActiveActiveBondScenario(
 	Expect(err).ToNot(HaveOccurred())
 
 	Eventually(func() bool {
-		isBondInterfaceUp, err := isSwitchInterfaceUp(switchCredentials, netsriovparameters.LAGInterface1)
+		isBondInterfaceUp, err := isSwitchInterfaceUp(switchCredentials, switchLagNames[0])
 		Expect(err).ToNot(HaveOccurred())
 
 		return isBondInterfaceUp
@@ -364,17 +369,17 @@ func createTestPods(sriovInfos *cluster.EnabledNodes, slaveNetworks []string, mt
 	return clientPod
 }
 
-func configureLAGsOnSwitch(switchCredentials *nethelper.SwitchCredentials, switchInterfaces []string) {
+func configureLAGsOnSwitch(switchCredentials *nethelper.SwitchCredentials, switchInterfaces []string,
+	lagInterfaceNames []string) {
 	err := setNonLACPLAGOnJunos(switchCredentials, []string{switchInterfaces[0], switchInterfaces[1]},
-		netsriovparameters.LAGInterface1)
+		lagInterfaceNames[0])
 	Expect(err).ToNot(HaveOccurred())
 
 	err = setNonLACPLAGOnJunos(switchCredentials, []string{switchInterfaces[2], switchInterfaces[3]},
-		netsriovparameters.LAGInterface2)
+		lagInterfaceNames[1])
 	Expect(err).ToNot(HaveOccurred())
 
-	err = configureMTUOnSwitchInterfaces(switchCredentials, []string{netsriovparameters.LAGInterface1,
-		netsriovparameters.LAGInterface2}, "9216")
+	err = configureMTUOnSwitchInterfaces(switchCredentials, []string{lagInterfaceNames[0], lagInterfaceNames[1]}, "9216")
 	Expect(err).ToNot(HaveOccurred())
 }
 
