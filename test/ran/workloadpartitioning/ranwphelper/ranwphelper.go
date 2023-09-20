@@ -119,9 +119,14 @@ func getPids(node *corev1.Node, command string) []int {
 		}
 	}
 
-	pidStrings := strings.Split(output, "\r\n")
-
 	var pids []int
+
+	if len(strings.TrimSpace(output)) == 0 {
+		// empty pid list
+		return pids
+	}
+
+	pidStrings := strings.Split(output, "\r\n")
 
 	for _, pidString := range pidStrings {
 		pidString = strings.TrimSpace(pidString)
