@@ -329,10 +329,10 @@ var _ = Describe("ZTP Argocd policies Tests", Ordered, Label("ztp-argocd-policie
 	Context("Apply and Validate custom source CRs on the du policies", Label("ztp-custom-source-crs"), func() {
 
 		var (
-			cguName                  = "custom-source-cr"
 			customSourceCrPolicyName = "custom-source-cr-policy-config" // enforce policy
 			testCrName               = "custom-source-cr"
 			testNs                   = "default"
+			storageClassName         = "example-storage-class"
 		)
 
 		// 61978
@@ -541,21 +541,106 @@ var _ = Describe("ZTP Argocd policies Tests", Ordered, Label("ztp-argocd-policie
 			})
 		})
 
+		// 64407
+		// Test_Description: Verify the source CR search path implemented on a per source file name.
+		It("should validate the source CR search path implemented on a per source file name", func() {
+			// Check for minimum ztp version to run this test case
+			By("Checking the ZTP version", func() {
+				if !ranhelper.IsVersionStringInRange(
+					ranztphelper.ZtpVersion,
+					"4.14",
+					"",
+				) {
+					Skip(fmt.Sprintf(
+						"unable to run test on ztp version '%s' as it is less than minimum '%s",
+						ranztphelper.ZtpVersion,
+						"4.14",
+					))
+				}
+			})
+
+			// The ztp test data is stored in a nested directory within the ztp repo
+			testGitPath := ranztphelper.JoinGitPaths(
+				[]string{
+					ranztphelper.ArgocdApps[ranztpparameters.ArgocdPoliciesAppName].Path,
+					"ztp-test/custom-source-crs/search-path",
+				},
+			)
+
+			By("Checking if the git path exists", func() {
+				if !ranztphelper.DoesGitPathExist(
+					ranztphelper.ArgocdApps[ranztpparameters.ArgocdPoliciesAppName].Repo,
+					ranztphelper.ArgocdApps[ranztpparameters.ArgocdPoliciesAppName].Branch,
+					testGitPath+"/kustomization.yaml",
+				) {
+					Skip(fmt.Sprintf("git path '%s' could not be found", testGitPath))
+				}
+			})
+
+			By("Checking Service Account does NOT exist on spoke", func() {
+				SAExists, err := ranztphelper.IsServiceAccountExist(ranztphelper.SpokeAPIClient, testCrName, testNs)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(SAExists).To(BeFalse())
+			})
+
+			By("Checking Storage Class does NOT exist on spoke", func() {
+				SCExists, err := ranztphelper.DoesStorageClassExist(storageClassName, ranztphelper.SpokeAPIClient)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(SCExists).To(BeFalse())
+			})
+
+			By("Updating the Argocd app", func() {
+				// Adding 30s sleep to avoid race condition before updating policies app within short time
+				time.Sleep(30 * time.Second)
+				// Update the Argo app to point to the new test kustomization
+				err := ranztphelper.SetGitDetailsInArcgocd(
+					ranztphelper.ArgocdApps[ranztpparameters.ArgocdPoliciesAppName].Repo,
+					ranztphelper.ArgocdApps[ranztpparameters.ArgocdPoliciesAppName].Branch,
+					testGitPath,
+					ranztpparameters.ArgocdPoliciesAppName,
+					true,
+					true,
+				)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			By("Waiting for policy to be created and exist", func() {
+				err := ranztphelper.WaitForPolicyToExist(
+					customSourceCrPolicyName,
+					ranztpparameters.ZtpTestNamespace,
+					ranztpparameters.ArgocdChangeTimeout,
+				)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			By("Waiting for the policy to be in a Compliant state", func() {
+				err := ranztphelper.WaitForPolicyToHaveComplianceState(
+					customSourceCrPolicyName,
+					ranztpparameters.ZtpTestNamespace,
+					policiesv1.Compliant,
+					ranztpparameters.ArgocdChangeTimeout,
+				)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			By("Checking new custom Service Account created and applied on spoke", func() {
+				newCrExists, err := ranztphelper.IsServiceAccountExist(ranztphelper.SpokeAPIClient, testCrName, testNs)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(newCrExists).To(BeTrue())
+			})
+
+			By("Checking Storage Class created from built-in ZTP container reference and applied on spoke", func() {
+				SCExists, err := ranztphelper.DoesStorageClassExist(storageClassName, ranztphelper.SpokeAPIClient)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(SCExists).To(BeTrue())
+			})
+		})
+
 		AfterEach(func() {
 			// Deleting the policy created for custom source-cr test
 			By("Deleting the policy if it exists", func() {
 				err := rantalmhelper.DeletePolicyAndWait(ranztphelper.SpokeAPIClient, customSourceCrPolicyName,
 					ranztpparameters.ZtpTestNamespace)
-				Expect(err).ToNot(HaveOccurred())
-			})
-
-			// Removing the CGU created for the test if it exists
-			By("Removing the cgu if it exists", func() {
-				err := rantalmhelper.DeleteCguAndWait(
-					ranztphelper.HubAPIClient,
-					cguName,
-					ranztpparameters.ZtpTestNamespace,
-				)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
@@ -571,6 +656,12 @@ var _ = Describe("ZTP Argocd policies Tests", Ordered, Label("ztp-argocd-policie
 					err := namespaces.DeleteAndWait(ranztphelper.SpokeAPIClient, testCrName, 3*time.Minute)
 					Expect(err).ToNot(HaveOccurred())
 				}
+			})
+
+			// Delete leftovers from the search path test
+			By("Deleting created Storage Class from spoke if exists", func() {
+				err := ranztphelper.DeleteAndWaitStorageClass(storageClassName, 3*time.Minute, ranztphelper.SpokeAPIClient)
+				Expect(err).ToNot(HaveOccurred())
 			})
 		})
 	})
