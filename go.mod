@@ -41,7 +41,7 @@ require (
 	gopkg.in/k8snetworkplumbingwg/multus-cni.v3 v3.7.2
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
-	k8s.io/api v0.26.3
+	k8s.io/api v0.27.1
 	k8s.io/apiextensions-apiserver v0.26.1
 	k8s.io/apimachinery v0.27.4
 	k8s.io/client-go v12.0.0+incompatible
@@ -331,7 +331,7 @@ replace (
 	github.com/metallb/metallb-operator => github.com/openshift/metallb-operator v0.0.0-20221021081446-400e85464d4a
 	github.com/open-ness/openshift-operator => github.com/otcshare/openshift-operator v0.0.0-20210318084613-47ff60d3afe3 // master
 	github.com/openshift-kni/performance-addon-operators => github.com/openshift-kni/performance-addon-operators v0.0.41002-0.20220421170057-29733f5d3dd6 // release-4.10
-	github.com/openshift/api => github.com/openshift/api v0.0.0-20220525145417-ee5b62754c68 // release-4.11
+	github.com/openshift/api => github.com/openshift/api v0.0.0-20230918105526-6488b1202507 // release-4.14
 	github.com/openshift/client-go => github.com/openshift/client-go v0.0.0-20210112165513-ebc401615f47 // release-4.7
 	github.com/openshift/cluster-node-tuning-operator => github.com/openshift/cluster-node-tuning-operator v0.0.0-20221129071003-b4e363fcebf5 //release-4.12
 	github.com/openshift/library-go => github.com/openshift/library-go v0.0.0-20200421122923-c1de486c7d47 // fix bitbucket dependency https://github.com/openshift/library-go/pull/776
