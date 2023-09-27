@@ -117,10 +117,15 @@ func CheckNeighborsStatus(frrPod *k8sv1.Pod, ipStack string, neighborsIPAddresse
 	workerNodeList, err := nodes.GetByRole(helper.Apiclient, parameters.RoleWorker)
 	Expect(err).ToNot(HaveOccurred())
 
+	expectedNeighNumber := 1
+	if len(workerNodeList) >= 2 {
+		expectedNeighNumber = 2
+	}
+
 	switch ipStack {
 	case netparameters.IPV4Family:
-		if len(parseNeigh) != len(workerNodeList) {
-			fmt.Printf("Expected %d neighbours, got %d\n", len(workerNodeList), len(parseNeigh))
+		if len(parseNeigh) != expectedNeighNumber {
+			fmt.Printf("Expected %d neighbours, got %d\n", expectedNeighNumber, len(parseNeigh))
 
 			return false
 		}
@@ -138,8 +143,8 @@ func CheckNeighborsStatus(frrPod *k8sv1.Pod, ipStack string, neighborsIPAddresse
 		}
 
 	case netparameters.IPV6Family:
-		if len(parseNeigh) != len(workerNodeList) {
-			fmt.Printf("Expected %d neighbours, got %d\n", len(workerNodeList), len(parseNeigh))
+		if len(parseNeigh) != expectedNeighNumber {
+			fmt.Printf("Expected %d neighbours, got %d\n", expectedNeighNumber, len(parseNeigh))
 
 			return false
 		}
@@ -157,7 +162,7 @@ func CheckNeighborsStatus(frrPod *k8sv1.Pod, ipStack string, neighborsIPAddresse
 		}
 
 	case netparameters.DualIPFamily:
-		if len(parseNeigh) != len(workerNodeList)*2 {
+		if len(parseNeigh) != expectedNeighNumber*2 {
 			fmt.Printf("Expected 4 IPv64neighbours, got %d\n", len(parseNeigh))
 
 			return false

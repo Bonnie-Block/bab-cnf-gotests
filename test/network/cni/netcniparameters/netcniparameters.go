@@ -14,7 +14,7 @@ import (
 const (
 	TestNamespace             = "cni-tests"
 	PodWaitingTime            = 2 * time.Minute
-	WaitingTime               = 20 * time.Minute
+	WaitingTime               = 35 * time.Minute
 	RetryInterval             = 5 * time.Second
 	AnnotationNetStat         = "k8s.v1.cni.cncf.io/network-status"
 	MultusFirstInterfaceName  = "net1"

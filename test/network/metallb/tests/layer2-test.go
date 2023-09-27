@@ -250,7 +250,7 @@ var _ = Describe("CNF MetalLB", func() {
 				metav1.ListOptions{LabelSelector: netmlbparameters.SpeakersLabelSelector},
 			)
 
-			return len(speakerPodList.Items) == 1
+			return len(speakerPodList.Items) == len(workerNodeList)-1
 		}, 1*time.Minute, 1*time.Second).Should(BeTrue())
 
 		By("should have new MetalLB announcing node during failure of announcing speaker")

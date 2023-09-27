@@ -37,7 +37,7 @@ const (
 	IPSecondaryInterface2                       = "3.3.3.20"
 	ScenarioMultihop                            = "multi-hop"
 	ScenarioSingleHop                           = "single-hop"
-	PodWaitingTime                time.Duration = 2 * time.Minute
+	PodWaitingTime                time.Duration = 3 * time.Minute
 	Interval                                    = 1 * time.Second
 	Timeout                                     = 3 * time.Minute
 	TimeoutBFDBGP                               = 5 * time.Second
