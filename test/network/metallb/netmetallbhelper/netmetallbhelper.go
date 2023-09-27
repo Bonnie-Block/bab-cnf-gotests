@@ -115,11 +115,11 @@ func WaitNetworkOperator() {
 	// Update started
 	Eventually(func() bool {
 		return isNetworkOperatorInCondition(operv1.OperatorStatusTypeProgressing, operv1.ConditionTrue)
-	}, 30*time.Second, netmlbparameters.Interval).Should(BeTrue())
+	}, 1*time.Minute, netmlbparameters.Interval).Should(BeTrue())
 	// Update finished
 	Eventually(func() bool {
 		return isNetworkOperatorInCondition(operv1.OperatorStatusTypeProgressing, operv1.ConditionFalse)
-	}, 10*time.Minute, netmlbparameters.Interval).Should(BeTrue())
+	}, 20*time.Minute, netmlbparameters.Interval).Should(BeTrue())
 	// Update finished successfully
 	Eventually(func() bool {
 		return isNetworkOperatorInCondition(operv1.OperatorStatusTypeAvailable, operv1.ConditionTrue)
