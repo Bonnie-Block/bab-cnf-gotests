@@ -49,13 +49,13 @@ var _ = Describe("Per-Core Runtime Tuning of power states - CRI-O", Ordered, fun
 		// Get nodes for connection host
 		nodeList, err = helper.Apiclient.Nodes().List(context.Background(), metav1.ListOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		isSNO, _ = nodes.IsSingleNodeCluster(helper.Apiclient)
+		isSNO, err = nodes.IsSingleNodeCluster(helper.Apiclient)
+		Expect(err).ToNot(HaveOccurred())
 		Expect(isSNO).Should(BeTrue(), "Currently only SNO nodes are supported by this test")
 		perfProfile, err = rancpuhelper.GetPerformanceProfileWithCPUSet(nil)
 		Expect(err).ToNot(HaveOccurred())
 		snoNode = nodeList.Items[0]
 		originPerformanceProfileSpec = perfProfile.Spec
-		Expect(err).ToNot(HaveOccurred())
 	})
 
 	AfterAll(func() {
