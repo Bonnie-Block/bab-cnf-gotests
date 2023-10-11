@@ -371,6 +371,7 @@ func validatePublisherService(nodeName string) {
 func verifyEventsAndMetricsSlaveInterfaceDownUp(node *corev1.Node, ptpPod *corev1.Pod, pod *corev1.Pod,
 	container string, ifaces []string, skipMetricCheck bool) {
 	startTime := time.Now()
+	time.Sleep(5 * time.Second) // sleep for 5 seconds to reduce chance of race condition.
 
 	By(fmt.Sprintf("Bring down ptp slave interfaces %v on node %s\n", ifaces, node.Name))
 
@@ -381,7 +382,6 @@ func verifyEventsAndMetricsSlaveInterfaceDownUp(node *corev1.Node, ptpPod *corev
 	}
 
 	slaveInterface := ifaces[0]
-
 	By(fmt.Sprintf("Wait for ptp [HOLDOVER] state change event after salve interfaces %v goes down", slaveInterface))
 	err := ranptphelper.WaitForEvent(pod, container,
 		"event.sync.ptp-status.ptp-state-change",
