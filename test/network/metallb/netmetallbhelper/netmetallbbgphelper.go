@@ -304,7 +304,7 @@ func CheckBGPRoutesSingleNode(frrPod *k8sv1.Pod, neighborsIPAddresses, routeList
 	}
 
 	ips := make([]net.IP, 0)
-	err = checkRoutePrefix(routeList[0], neighborsIPAddresses[0], iPFamily, routes)
+	err = checkRoutePrefix(routeList[0], neighborsIPAddresses[0], routes)
 
 	if err != nil {
 		return err
@@ -361,10 +361,8 @@ func bgpStateOutput(frrPod *k8sv1.Pod, iPFamily string) (map[string]netmlbparame
 }
 
 // checkRoutePrefix validates the route and prefix from a single BGPPeer Node.
-func checkRoutePrefix(routeList, neighborsIPAddresses, iPFamily string,
+func checkRoutePrefix(routeList, neighborsIPAddresses string,
 	routes map[string]netmlbparameters.Route) error {
-	var err error
-
 	ips := make([]net.IP, 0)
 	ipRoutes, routePrefix := routes[routeList]
 	ips = append(ips, ipRoutes.NextHops...)
@@ -373,19 +371,13 @@ func checkRoutePrefix(routeList, neighborsIPAddresses, iPFamily string,
 		return fmt.Errorf("route %s not found", routeList)
 	}
 
-	if iPFamily == netparameters.IPV4Family {
-		if !ips[0].Equal(net.ParseIP(neighborsIPAddresses)) {
-			return fmt.Errorf("neighbour ip not matching")
+	for _, ipAddress := range ips {
+		if ipAddress.Equal(net.ParseIP(neighborsIPAddresses)) {
+			return nil
 		}
 	}
 
-	if iPFamily == netparameters.IPV6Family {
-		if !ips[0].Equal(net.ParseIP(neighborsIPAddresses)) {
-			return fmt.Errorf("neighbour ip not matching")
-		}
-	}
-
-	return err
+	return fmt.Errorf("neighbour ip %s not matching with %v", neighborsIPAddresses, ips)
 }
 
 // parseRoutes takes the result of a show bgp neighbor
