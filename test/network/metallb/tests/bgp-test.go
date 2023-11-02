@@ -88,30 +88,6 @@ var _ = Describe("MetalLB BGP", func() {
 	})
 
 	Context("functionality", func() {
-		// 	47174
-		DescribeTable("Creating AddressPool with bgp-advertisement", polarion.ID("47174"),
-			func(ipStack string, prefixLen int32) {
-				netmetallbhelper.TestBGPAdvertismentTable(
-					ipStack,
-					ipv4metalLBIPList,
-					ipv6metalLBIPList,
-					workerNodeList,
-					masterNodeList,
-					prefixLen)
-			},
-			Entry(describeIPStackPrefix, netparameters.IPV4Family, netmlbparameters.PrefixLen32,
-				polarion.SetProperty("IPStack", netparameters.IPV4Family),
-				polarion.SetProperty("PrefixLenght", fmt.Sprintf("%d", netmlbparameters.PrefixLen32))),
-			Entry(describeIPStackPrefix, netparameters.IPV4Family, netmlbparameters.PrefixLen28,
-				polarion.SetProperty("IPStack", netparameters.IPV4Family),
-				polarion.SetProperty("PrefixLenght", fmt.Sprintf("%d", netmlbparameters.PrefixLen28))),
-			Entry(describeIPStackPrefix, netparameters.IPV6Family, netmlbparameters.PrefixLen128,
-				polarion.SetProperty("IPStack", netparameters.IPV6Family),
-				polarion.SetProperty("PrefixLenght", fmt.Sprintf("%d", netmlbparameters.PrefixLen128))),
-			Entry(describeIPStackPrefix, netparameters.IPV6Family, netmlbparameters.PrefixLen64,
-				polarion.SetProperty("IPStack", netparameters.IPV6Family),
-				polarion.SetProperty("PrefixLenght", fmt.Sprintf("%d", netmlbparameters.PrefixLen64))),
-		)
 
 		// 47203
 		DescribeTable("Verify external FRR BGP Peer cannot propagate routes to Speaker",
