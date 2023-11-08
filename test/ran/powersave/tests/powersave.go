@@ -42,6 +42,7 @@ var _ = Describe("Per-Core Runtime Tuning of power states - CRI-O", Ordered, fun
 		workloadHints                *performancev2.WorkloadHints
 		output                       string
 		originPerformanceProfileSpec performancev2.PerformanceProfileSpec
+		profileChanged               bool
 	)
 
 	BeforeAll(func() {
@@ -59,11 +60,17 @@ var _ = Describe("Per-Core Runtime Tuning of power states - CRI-O", Ordered, fun
 	})
 
 	AfterAll(func() {
-		// Restore performance profile to original spec after each test
+		// Restore performance profile to original spec after suite
 		log.Println("Restore performance profile to original specs")
-		err = updatePerformanceProfileSpecs(perfProfile, originPerformanceProfileSpec)
+		perfProfile, err = rancpuhelper.GetPerformanceProfileWithCPUSet(nil)
 		Expect(err).ToNot(HaveOccurred())
-		err = ranhelper.WaitForSnoRebootAndMcpUpdated(&snoNode)
+		profileChanged, err = updatePerformanceProfileSpecs(perfProfile, originPerformanceProfileSpec)
+		Expect(err).ToNot(HaveOccurred())
+
+		if profileChanged {
+			err = ranhelper.WaitForSnoRebootAndMcpUpdated(&snoNode)
+			Expect(err).ToNot(HaveOccurred())
+		}
 	})
 
 	// OCP-54571 - Install SNO node with standard DU profile that does not include WorkloadHints
@@ -101,7 +108,7 @@ var _ = Describe("Per-Core Runtime Tuning of power states - CRI-O", Ordered, fun
 
 	// OCP-54572 - Enable powersave at node level and then enable performance at node level
 	It("Enable powersave at node level and then enable performance at node level", polarion.ID("54572"), func() {
-		By("Patching the performance profile with the workload hints")
+		By("Patching the performance profile with the workload hints to powersave mode")
 		err := setPowerMode(perfProfile, snoNode.Name, true, false, true)
 		Expect(err).ToNot(HaveOccurred(), "Unable to set power mode")
 
@@ -131,8 +138,9 @@ var _ = Describe("Per-Core Runtime Tuning of power states - CRI-O", Ordered, fun
 
 		cpuLimit := resource.MustParse("2")
 		memLimit := resource.MustParse("100Mi")
+		podRunning := false
 
-		By("Patching the performance profile with the workload hints")
+		By("Patching the performance profile with the workload hints to powersave mode")
 		err := setPowerMode(perfProfile, snoNode.Name, true, false, true)
 		Expect(err).ToNot(HaveOccurred(), "Unable to set power mode")
 
@@ -145,18 +153,21 @@ var _ = Describe("Per-Core Runtime Tuning of power states - CRI-O", Ordered, fun
 
 		By("Create test pod")
 		testpod = helper.WaitUntilPodCreatedAndRunning(testpod, 10*time.Minute)
+		podRunning = true
 		Expect(testpod.Status.QOSClass).To(Equal(corev1.PodQOSGuaranteed), "Test pod does not have QoS class of Guaranteed")
 
 		defer func() {
 			// delete the pod only if the tc had failed and the pod still exists
-			By("Delete pod in case of a failure")
-			podExists, err := helper.Apiclient.Pods(testpod.Namespace).Get(context.Background(),
-				testpod.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			if podExists != nil {
-				err = pod.DeletePodAndWait(helper.Apiclient, testpod)
+			if podRunning {
+				By("Delete pod in case of a failure")
+				podExists, err := helper.Apiclient.Pods(testpod.Namespace).Get(context.Background(),
+					testpod.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
+
+				if podExists != nil {
+					err = pod.DeletePodAndWait(helper.Apiclient, testpod)
+					Expect(err).ToNot(HaveOccurred())
+				}
 			}
 		}()
 
@@ -184,7 +195,9 @@ var _ = Describe("Per-Core Runtime Tuning of power states - CRI-O", Ordered, fun
 
 		By("Delete the pod")
 		err = pod.DeletePodAndWait(helper.Apiclient, testpod)
+		time.Sleep(1 * time.Second)
 		Expect(err).ToNot(HaveOccurred())
+		podRunning = false
 
 		By("Verify after pod was deleted cpus assigned to container have default powersave settings")
 		err = checkCPUGovernorsAndResumeLatency(targetCpus, &snoNode, "0", "performance")
@@ -194,7 +207,7 @@ var _ = Describe("Per-Core Runtime Tuning of power states - CRI-O", Ordered, fun
 
 	Context("Collect power usage metrics", func() {
 
-		When("ipmitool exists", func() {
+		When("ipmitool exists and BMC_HOSTS set", func() {
 
 			var (
 				samplingInterval time.Duration
@@ -202,8 +215,30 @@ var _ = Describe("Per-Core Runtime Tuning of power states - CRI-O", Ordered, fun
 			)
 
 			BeforeAll(func() {
+
 				if !ranhelper.IsIpmitoolExist() {
 					Skip("ipmitool is not installed on test executor. Skip retrieving power metrics.")
+				}
+
+				if len(helper.Config.Ran.BmcHosts) == 0 {
+					Skip("BMC_HOSTS not set")
+				}
+			})
+
+			AfterAll(func() {
+				// Restore performance profile to original spec after test suite
+				// note: This is a fallback AfterAll call to avoid a corner case where if
+				// certain tests are skipped, the main AfterAll function does not execute and the node
+				// performance profile is not reverted to the original state.
+				log.Println("Restore performance profile to original specs")
+				perfProfile, err = rancpuhelper.GetPerformanceProfileWithCPUSet(nil)
+				Expect(err).ToNot(HaveOccurred())
+				profileChanged, err = updatePerformanceProfileSpecs(perfProfile, originPerformanceProfileSpec)
+				Expect(err).ToNot(HaveOccurred())
+
+				if profileChanged {
+					err = ranhelper.WaitForSnoRebootAndMcpUpdated(&snoNode)
+					Expect(err).ToNot(HaveOccurred())
 				}
 			})
 
@@ -253,13 +288,21 @@ var _ = Describe("Per-Core Runtime Tuning of power states - CRI-O", Ordered, fun
 // setPowerMode updates the performance profile with the given workload hints, and waits for the mcp update.
 func setPowerMode(perfProfile *performancev2.PerformanceProfile,
 	nodeName string, perPodPowerManagement, highPowerConsumption, realTime bool) error {
-	log.Println("Set powersave mode on performance profile")
-
-	perfProfile.Spec.WorkloadHints = &performancev2.WorkloadHints{
+	newWorkLoadHints := &performancev2.WorkloadHints{
 		PerPodPowerManagement: pointer.Bool(perPodPowerManagement),
 		HighPowerConsumption:  pointer.Bool(highPowerConsumption),
 		RealTime:              pointer.Bool(realTime),
 	}
+
+	if reflect.DeepEqual(perfProfile.Spec.WorkloadHints, newWorkLoadHints) {
+		log.Println("Performance profile already set")
+
+		return nil
+	}
+
+	log.Println("Set powersave mode on performance profile")
+
+	perfProfile.Spec.WorkloadHints = newWorkLoadHints
 
 	err := helper.Apiclient.Update(context.TODO(), perfProfile)
 	if err != nil {
@@ -278,40 +321,60 @@ func setPowerMode(perfProfile *performancev2.PerformanceProfile,
 
 // updatePerformanceProfileSpecs updates given performance profiles with a given spec.
 func updatePerformanceProfileSpecs(perfProfile *performancev2.PerformanceProfile,
-	newSpec performancev2.PerformanceProfileSpec) error {
+	newSpec performancev2.PerformanceProfileSpec) (bool, error) {
 	if reflect.DeepEqual(perfProfile.Spec, newSpec) {
 		log.Println("No change was made to the performance profile")
 
-		return nil
+		return false, nil
 	}
 
 	perfProfile.Spec = newSpec
 
-	return helper.Apiclient.Update(context.TODO(), perfProfile)
+	return true, helper.Apiclient.Update(context.TODO(), perfProfile)
 }
 
 // checkCPUGovernorsAndResumeLatency  Checks power and latency settings of the cpus.
 func checkCPUGovernorsAndResumeLatency(cpus []int, targetNode *corev1.Node, pmQos string, governor string) error {
 	for _, cpu := range cpus {
-		cmd := []string{"/bin/bash", "-c", fmt.Sprintf(
-			"cat /sys/devices/system/cpu/cpu%d/power/pm_qos_resume_latency_us", cpu)}
+		var (
+			output string
+			value  string
+			err    error
+		)
 
-		output, err := helper.ExecCommandOnNode(targetNode, cmd)
-		if err != nil {
-			return err
+		cmd := []string{"/bin/bash", "-c", fmt.Sprintf(
+			"sleep 0.01 ; cat /sys/devices/system/cpu/cpu%d/power/pm_qos_resume_latency_us | cat -", cpu)}
+
+		for i := 0; i < 3; {
+			output, err = helper.ExecCommandOnNode(targetNode, cmd)
+			if err != nil {
+				return err
+			}
+
+			value = strings.Trim(output, "\r")
+			if len(value) != 0 {
+				break
+			}
 		}
 
-		Expect(strings.Trim(output, "\r")).To(Equal(pmQos))
+		Expect(value).To(Equal(pmQos))
 
 		cmd = []string{"/bin/bash", "-c", fmt.Sprintf(
-			"cat /sys/devices/system/cpu/cpu%d/cpufreq/scaling_governor", cpu)}
+			"sleep 0.01 ; cat /sys/devices/system/cpu/cpu%d/cpufreq/scaling_governor | cat -", cpu)}
 
-		output, err = helper.ExecCommandOnNode(targetNode, cmd)
-		if err != nil {
-			return err
+		for i := 0; i < 3; {
+			output, err = helper.ExecCommandOnNode(targetNode, cmd)
+			if err != nil {
+				return err
+			}
+
+			value = strings.Trim(output, "\r")
+			if len(value) != 0 {
+				break
+			}
 		}
 
-		Expect(strings.Trim(output, "\r")).To(Equal(governor))
+		Expect(value).To(Equal(governor))
 	}
 
 	return nil
