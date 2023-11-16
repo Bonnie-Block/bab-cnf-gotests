@@ -35,7 +35,8 @@ func GetPTPMetrics(ptpPod corev1.Pod) error {
 		errFromParser = metricParser(buff)
 		if errFromParser != nil {
 			log.Printf("parsing failed with error %s, try again\n", errFromParser.Error())
-			buff, err = pod.ExecCommand(helper.Apiclient, ptpPod, []string{"curl", "-s", "localhost:9091/metrics"})
+			buff, err = pod.ExecCommand(helper.Apiclient, ptpPod, []string{"curl", "-s", "localhost:9091/metrics"},
+				parameters.PtpContainerName)
 			if err != nil {
 				return false, nil
 			}

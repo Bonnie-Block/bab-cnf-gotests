@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -86,7 +87,8 @@ func getProcessInfo(ptpPod *corev1.Pod, command string) (bytes.Buffer, error) {
 	)
 
 	timeoutErr := wait.PollImmediate(3*time.Second, 30*time.Second, func() (done bool, err error) {
-		cmdOutput, errActual = pod.ExecCommand(helper.Apiclient, *ptpPod, []string{"bash", "-c", command})
+		cmdOutput, errActual = pod.ExecCommand(helper.Apiclient, *ptpPod, []string{"bash", "-c", command},
+			parameters.PtpContainerName)
 		if errActual != nil {
 
 			return false, nil

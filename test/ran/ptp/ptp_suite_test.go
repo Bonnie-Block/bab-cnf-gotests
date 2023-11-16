@@ -4,6 +4,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	"github.com/onsi/ginkgo/v2/types"
 	. "github.com/onsi/gomega"
+	ptpv1 "github.com/openshift/ptp-operator/api/v1"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ptp/ranptphelper"
@@ -24,6 +25,8 @@ import (
 )
 
 var _, currentFile, _, _ = runtime.Caller(0)
+
+var originPtpConfigSpecs = map[string]ptpv1.PtpConfigSpec{}
 
 func TestPTP(t *testing.T) {
 	_, reporterConfig := GinkgoConfiguration()
@@ -51,6 +54,18 @@ var _ = BeforeSuite(func() {
 		Skip("PTP linux Daemon pod does not exist")
 	}
 
+	originPtpConfigList, err := helper.Apiclient.PtpConfigs(parameters.PtpOperatorNamespace).
+		List(context.Background(), metav1.ListOptions{})
+	Expect(err).ToNot(HaveOccurred())
+
+	if len(originPtpConfigList.Items) == 0 {
+		Skip("PTP config does not exist")
+	}
+
+	for _, ptpconf := range originPtpConfigList.Items {
+		originPtpConfigSpecs[ptpconf.Name] = ptpconf.Spec
+	}
+
 	for _, ptpDaemonPod := range ptpDaemonPods.Items {
 		err = helper.IsPodHealthy(&ptpDaemonPod)
 		Expect(err).NotTo(HaveOccurred())
@@ -59,6 +74,9 @@ var _ = BeforeSuite(func() {
 		if !ranhelper.IsContainerExistInPod(ptpDaemonPod, ranptpparameters.CloudEventContainer) {
 			Skip(fmt.Sprintf("cannot run test if %s is not exists in the pod", ranptpparameters.CloudEventContainer))
 		}
+
+		err = ranptphelper.IncreaseMaxOffsetThresholdMlx(ptpDaemonPod)
+		Expect(err).ToNot(HaveOccurred())
 	}
 
 	_, err = ranptphelper.GetOcpInterface(ptpDaemonPods.Items[0], parameters.PtpContainerName)
@@ -88,6 +106,16 @@ var _ = BeforeSuite(func() {
 
 var _ = AfterSuite(func() {
 	var teardownErrors []error
+
+	if len(originPtpConfigSpecs) != 0 {
+		log.Println("Restore PTP Configs.")
+		err := ranptphelper.UpdatePtpConfigSpecs(originPtpConfigSpecs)
+		teardownErrors = append(teardownErrors, err)
+	}
+
+	err := ranptphelper.UpdatePtpConfigSpecs(originPtpConfigSpecs)
+	teardownErrors = append(teardownErrors, err)
+
 	By("Remove consumer pods")
 	destroyErrors := ranhelper.DestroyConsumers(parameters.CloudEventNamespace)
 	teardownErrors = append(teardownErrors, destroyErrors...)

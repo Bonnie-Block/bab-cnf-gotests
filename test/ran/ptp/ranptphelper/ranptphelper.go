@@ -12,6 +12,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ptp/ranptpparameters"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -219,4 +220,81 @@ func IsGrandmasterProfile(profile ptpv1.PtpProfile) bool {
 	}
 
 	return false
+}
+
+// IncreaseMaxOffsetThresholdMlx sets OffsetThresholds to 200 for Mellanox NICs to workaround performance issue.
+func IncreaseMaxOffsetThresholdMlx(ptpPod corev1.Pod) error {
+	ptpConfigsList, err := helper.Apiclient.PtpConfigs(parameters.PtpOperatorNamespace).
+		List(context.Background(), metav1.ListOptions{})
+
+	if err != nil {
+		return err
+	}
+
+	for _, ptpConfig := range ptpConfigsList.Items {
+		ptpProfilePerNode, err := GetPtpProfilesPerNode(ptpConfig)
+		if err != nil {
+			return err
+		}
+
+		// Get list of ptp profiles that applied to the node where the ptpPod is running on. This is necessary to
+		// get the desired interface driver on the right node in the case of multi-node cluster.
+		ptpProfilesOnNode := ptpProfilePerNode[ptpPod.Spec.NodeName]
+
+		updated := false
+
+		for index, profile := range ptpConfig.Spec.Profile {
+			// Only change offsetThresholds if ptp profile is applied to target node and if it is configured as
+			// ordinary clock using Mellanox NIC. As of OCP 4.15, only ordinary clock config is supported using
+			// Mellanox cards. BC and GM are not.
+			if isProfileInList(profile, ptpProfilesOnNode) && IsOrdinaryClockProfile(profile) {
+				driver, err := GetNicDriver(ptpPod, *profile.Interface)
+				if err != nil {
+					return err
+				}
+
+				if strings.HasPrefix(driver, "mlx") {
+					log.Println("Set maxOffsetThreshold in ptp profile to 200 for MLX interface " + *profile.Interface)
+					profile.PtpClockThreshold = &ranptpparameters.MlxThresholdsValues
+					updated = true
+				}
+			}
+
+			// Compose the profile field for ptp configs to prepare for ptpConfig update
+			ptpConfig.Spec.Profile[index] = profile
+		}
+
+		if updated {
+			_, err = helper.Apiclient.PtpConfigs(parameters.PtpOperatorNamespace).Update(context.Background(),
+				&ptpConfig, metav1.UpdateOptions{})
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+// isProfileInList checks if a PTP profile is included in give list.
+func isProfileInList(profile ptpv1.PtpProfile, profileList []ptpv1.PtpProfile) bool {
+	for _, item := range profileList {
+		if profile.Name == item.Name {
+			return true
+		}
+	}
+
+	return false
+}
+
+// GetNicDriver gets the driver for a given interface by running cmd via a PTP pod.
+func GetNicDriver(ptpPod corev1.Pod, ifName string) (string, error) {
+	cmd := fmt.Sprintf("ethtool -i %s | grep --color=no driver | awk '{print $2}'", ifName)
+	out, err := pod.ExecCommand(helper.Apiclient, ptpPod, []string{"/bin/bash", "-c", cmd}, parameters.PtpContainerName)
+
+	if nil != err {
+		return "", err
+	}
+
+	return strings.Trim(out.String(), "\n"), nil
 }

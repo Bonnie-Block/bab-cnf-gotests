@@ -9,3 +9,8 @@ var ModifiedThresholdsValues = ptpoperatorv1.PtpClockThreshold{
 	MaxOffsetThreshold: 1,
 	MinOffsetThreshold: -1,
 }
+
+var MlxThresholdsValues = ptpoperatorv1.PtpClockThreshold{
+	MaxOffsetThreshold: 200,
+	MinOffsetThreshold: -200,
+}
