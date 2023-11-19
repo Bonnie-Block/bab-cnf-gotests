@@ -73,11 +73,11 @@ var _ = Describe("Basic PTP Configs", func() {
 			}
 
 			for _, processState := range ranptpparameters.MetricMap[ranptpparameters.OpenshiftPtpProcessStatus] {
-				if ranptpparameters.PTP4L == processState.Process {
+				if ranptpparameters.ProcessPTP4L == processState.Process {
 					Expect(processState.ProcessStatusValue).Should(Equal(ranptpparameters.Up),
 						"Unexpected ptp4l process_status_value for ptp config: "+processState.Config)
 				}
-				if ranptpparameters.PHC2SYS == processState.Process {
+				if ranptpparameters.ProcessPHC2SYS == processState.Process {
 					Expect(processState.ProcessStatusValue).Should(Equal(ranptpparameters.Up),
 						"Unexpected phc2sys process_status_value for ptp config: "+processState.Config)
 				}
@@ -91,7 +91,8 @@ var _ = Describe("Basic PTP Configs", func() {
 			}
 
 			for _, clockValueState := range ranptpparameters.MetricMap[ranptpparameters.OpenshiftPtpClockState] {
-				if clockValueState.Process == ranptpparameters.DPLL || clockValueState.Process == ranptpparameters.GNSS {
+				if clockValueState.Process == ranptpparameters.ProcessDPLL ||
+					clockValueState.Process == ranptpparameters.ProcessGNSS {
 					switch clockValueState.Value {
 					case int64(ranptpparameters.ClockClassFreerun):
 						Expect(clockValueState.ClockStateValue).Should(Equal(ranptpparameters.FreeRunState))
@@ -161,11 +162,11 @@ var _ = Describe("Basic PTP Configs", func() {
 		// 66848
 		It("should have the 'phc2sys' and 'ptp4l' processes 'UP' after ptp config change", polarion.ID("66848"), func() {
 			for _, processState := range ranptpparameters.MetricMap[ranptpparameters.OpenshiftPtpProcessStatus] {
-				if ranptpparameters.PTP4L == processState.Process {
+				if ranptpparameters.ProcessPTP4L == processState.Process {
 					Expect(processState.ProcessStatusValue).Should(Equal(ranptpparameters.Up),
 						"Unexpected ptp4l process_status_value for ptp config: "+processState.Config)
 				}
-				if ranptpparameters.PHC2SYS == processState.Process {
+				if ranptpparameters.ProcessPHC2SYS == processState.Process {
 					Expect(processState.ProcessStatusValue).Should(Equal(ranptpparameters.Up),
 						"Unexpected phc2sys process_status_value for ptp config: "+processState.Config)
 				}
@@ -304,10 +305,36 @@ func verifyEventsAndMetricsModifyThresholds(ptpDaemonPod *corev1.Pod, pod *corev
 	Expect(err).NotTo(HaveOccurred())
 
 	if !skipMetricCheck {
-		By("Validate slave clock state changed to [FREERUN] in ptp metrics")
+		var excludedProcees []string
+
+		if containsGMProfile(configsList) {
+			// If GM is configured and forced to FREERUN,the clock class changes to 248 while downstream slaves'
+			// clock_class_threshold set to 7 - This causes slave ports to stuck in Listening without clock_state
+			// updates in ptp metric. Thus, when GM is configured, ptp4l clock state check for downstream slaves
+			// should be ignored.
+			// dpll and ts2phc offsets usually stays at 0, thus offsetThreshold change would not force those
+			// clock_states to FREERUN.
+			excludedProcees = []string{ranptpparameters.ProcessPTP4L, ranptpparameters.ProcessDPLL,
+				ranptpparameters.ProcessTS2PHC}
+		}
+
+		By("Validate clock state changed to [FREERUN] in ptp metrics")
 
 		err = ranptphelper.WaitForPtpClockStateMetric(*ptpDaemonPod, ranptpparameters.FreeRunState, "",
-			timeout, 0)
+			timeout, 0, excludedProcees...)
 		Expect(err).NotTo(HaveOccurred())
 	}
+}
+
+// containsGMProfile returns whether GM is configured.
+func containsGMProfile(ptpConfigList *ptpv1.PtpConfigList) bool {
+	for _, ptpConfig := range ptpConfigList.Items {
+		for _, profile := range ptpConfig.Spec.Profile {
+			if ranptphelper.IsGrandmasterProfile(profile) {
+				return true
+			}
+		}
+	}
+
+	return false
 }

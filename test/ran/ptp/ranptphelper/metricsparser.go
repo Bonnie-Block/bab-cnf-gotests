@@ -12,6 +12,7 @@ import (
 	"bytes"
 	"fmt"
 	"log"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -34,7 +35,7 @@ func GetPTPMetrics(ptpPod corev1.Pod) error {
 	err = wait.Poll(5*time.Second, 3*time.Minute, func() (bool, error) {
 		errFromParser = metricParser(buff)
 		if errFromParser != nil {
-			log.Printf("parsing failed with error %s, try again\n", errFromParser.Error())
+			log.Println(errFromParser.Error())
 			buff, err = pod.ExecCommand(helper.Apiclient, ptpPod, []string{"curl", "-s", "localhost:9091/metrics"},
 				parameters.PtpContainerName)
 			if err != nil {
@@ -59,7 +60,7 @@ func GetPTPMetrics(ptpPod corev1.Pod) error {
 // return value:	an error if any occurred.
 func metricParser(ptpMetricsBuff bytes.Buffer) error {
 	if ptpMetricsBuff.Len() == 0 {
-		return fmt.Errorf("buffer is empty, nothing to pasing")
+		return fmt.Errorf("buffer is empty, nothing to parse")
 	}
 
 	ranptpparameters.MetricMap = make(map[string][]ranptpparameters.MetricDetails)
@@ -67,19 +68,19 @@ func metricParser(ptpMetricsBuff bytes.Buffer) error {
 	for _, singleMetric := range removeHashSigns(ptpMetricsBuff) {
 		var metric ranptpparameters.MetricDetails
 
-		if singleMetric != "" {
-			name, err := getMetricName(singleMetric)
-			if nil != err {
-				return err
-			}
-
-			metric, err = getDetails(singleMetric, metric)
-
-			if nil != err {
-				return err
-			}
-			ranptpparameters.MetricMap[name] = append(ranptpparameters.MetricMap[name], metric)
+		singleMetric = strings.Trim(singleMetric, "\r\n")
+		if !strings.Contains(singleMetric, "}") {
+			// Ignore lines without curly brackets
+			continue
 		}
+
+		name := getMetricName(singleMetric)
+		metric, err := getDetails(singleMetric, metric)
+
+		if nil != err {
+			return err
+		}
+		ranptpparameters.MetricMap[name] = append(ranptpparameters.MetricMap[name], metric)
 	}
 
 	// get more special details for specific metrics keys.
@@ -87,13 +88,12 @@ func metricParser(ptpMetricsBuff bytes.Buffer) error {
 	if nil != err {
 		return err
 	}
-
+	// openshift_ptp_process_status is added in 4.11
 	err = getProcessStatusValue()
 	if nil != err {
 		return err
 	}
 
-	// openshift_ptp_process_status is added in 4.11
 	err = getInterfaceRoleValue()
 
 	return err
@@ -125,7 +125,6 @@ func removeHashSigns(ptpMetricsBuff bytes.Buffer) []string {
 func getDetails(singleMetric string, metric ranptpparameters.MetricDetails) (ranptpparameters.MetricDetails, error) {
 	var err error
 
-	metric.Status = getStatus(singleMetric)
 	metric.Value, err = getValue(singleMetric)
 
 	if nil != err {
@@ -135,10 +134,11 @@ func getDetails(singleMetric string, metric ranptpparameters.MetricDetails) (ran
 	metric.Address = getSpecificDetail(singleMetric, "address")
 	metric.Type = getSpecificDetail(singleMetric, "type")
 	metric.Node = getSpecificDetail(singleMetric, "node")
-	metric.Process = getProcess(singleMetric)
+	metric.Process = getSpecificDetail(singleMetric, "process")
 	metric.Interface = getSpecificDetail(singleMetric, "iface")
 	metric.From = getSpecificDetail(singleMetric, "from")
 	metric.Config = getSpecificDetail(singleMetric, "config")
+	metric.Status = getSpecificDetail(singleMetric, "status")
 	metric.Code, err = getCode(singleMetric)
 
 	if nil != err {
@@ -153,40 +153,14 @@ func getDetails(singleMetric string, metric ranptpparameters.MetricDetails) (ran
 // getMetricName gets the metric name of a single metric.
 // arguments:		"metricDetails"-	a single metrics string.
 // return values:	the metric name as a string.
-//
-//	an error if any occurred.
-func getMetricName(metricDetails string) (string, error) {
-	if strings.Contains(metricDetails, "promhttp_metric_handler_requests_in_flight") ||
-		strings.Contains(metricDetails, "cne_amqp_connection_reset") {
-		return strings.Split(metricDetails, " ")[1], nil
-	}
-
-	if !strings.Contains(metricDetails, "{") {
-		return "", fmt.Errorf("metrics didn't get correctly")
-	}
-
+func getMetricName(metricDetails string) string {
 	endName := strings.Index(metricDetails, "{")
 
 	if endName == -1 {
-		return strings.Split(metricDetails, " ")[0], nil
+		return strings.Split(metricDetails, " ")[0]
 	}
 
-	return metricDetails[:endName], nil
-}
-
-// getStatus gets the status of a single metric.
-// arguments:		"metricDetails"-	a single metrics string.
-// return value:	the status of the single metric if exists as a ranptpparameters.Status type.
-func getStatus(metricDetails string) ranptpparameters.Status {
-	const statusStr = "status="
-	if strings.Contains(metricDetails, statusStr) {
-		statusStrPos := strings.Index(metricDetails, statusStr)
-		statusStart := metricDetails[statusStrPos+len(statusStr)+1:]
-
-		return ranptpparameters.StatusMap[strings.Split(statusStart, "\"")[0]]
-	}
-
-	return ranptpparameters.StatusMap[""]
+	return metricDetails[:endName]
 }
 
 // getValue gets the value of a single metric.
@@ -199,35 +173,14 @@ func getValue(metricDetails string) (int64, error) {
 		return 0, nil
 	}
 
-	var value int64
+	r := regexp.MustCompile(`.*{.*}\s+(-*\d+)`)
+	valueStr := r.FindStringSubmatch(metricDetails)
 
-	metricDetailsArr := strings.Split(metricDetails, " ")
-	valueStr := metricDetailsArr[len(metricDetailsArr)-1]
-	valueStr = valueStr[:len(valueStr)-1]
-	bigFloat, err := strconv.ParseFloat(valueStr, 64)
-
-	if nil != err {
-		return value, err
+	if len(valueStr) < 2 {
+		return 0, fmt.Errorf("no match found in metricDetails: %s", metricDetails)
 	}
 
-	value = int64(bigFloat)
-
-	return value, nil
-}
-
-// getProcess gets the metric process of a single metric.
-// arguments:		"metricDetails"-	a single metrics string.
-// return values:	the process of the single metric if exists as a ranptpparameters.Process.
-func getProcess(metricDetails string) ranptpparameters.Process {
-	const processStr = "process="
-	if strings.Contains(metricDetails, processStr) {
-		procStrPos := strings.Index(metricDetails, processStr)
-		processStart := metricDetails[procStrPos+len(processStr)+1:]
-
-		return ranptpparameters.ProcessMap[strings.Split(processStart, "\"")[0]]
-	}
-
-	return ranptpparameters.ProcessMap[""]
+	return strconv.ParseInt(valueStr[1], 0, 64)
 }
 
 // getCode gets the metric code of a single metric.
@@ -236,14 +189,11 @@ func getProcess(metricDetails string) ranptpparameters.Process {
 //
 //	an error if any occurred.
 func getCode(metricDetails string) (int, error) {
-	const codeStr = "code="
-	if strings.Contains(metricDetails, codeStr) {
-		codeStrPos := strings.Index(metricDetails, codeStr)
-		codeStart := metricDetails[codeStrPos+len(codeStr)+1:]
-		code := strings.Split(codeStart, "\"")[0]
-		codeInt, err := strconv.Atoi(code)
+	r := regexp.MustCompile(`code="(\d+)"`)
+	matches := r.FindStringSubmatch(metricDetails)
 
-		return codeInt, err
+	if len(matches) > 1 {
+		return strconv.Atoi(matches[1])
 	}
 
 	return -1, nil
@@ -257,16 +207,11 @@ func getCode(metricDetails string) (int, error) {
 //
 // return value:	the specific detail of the single metric if exists as a string.
 func getSpecificDetail(metricDetails string, detail string) string {
-	var retDetail string
+	r := regexp.MustCompile(fmt.Sprintf("%s=\"([A-Za-z0-9_-]*)\"", detail))
+	matches := r.FindStringSubmatch(metricDetails)
 
-	detail += "="
-
-	if strings.Contains(metricDetails, detail) {
-		detailStrPos := strings.Index(metricDetails, detail)
-		typeStart := metricDetails[detailStrPos+len(detail)+1:]
-		retDetail = strings.Split(typeStart, "\"")[0]
-
-		return retDetail
+	if len(matches) > 1 {
+		return matches[1]
 	}
 
 	return ""

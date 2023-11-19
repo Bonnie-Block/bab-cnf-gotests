@@ -16,6 +16,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/utils/strings/slices"
 )
 
 // NodesToPtpDaemonPods gets a list of nodes "nodesList" and a list of ptp daemon pods "podsList".
@@ -134,8 +135,11 @@ func UpdatePtpConfigSpecs(ptpConfigSpecs map[string]ptpv1.PtpConfigSpec) error {
 
 // WaitForPtpClockStateMetric waits for given ptp clock state to reach expected value for a period of time.
 func WaitForPtpClockStateMetric(ptpDaemonPod corev1.Pod, state ranptpparameters.ClockState, iface string,
-	timeout time.Duration, stableDuration time.Duration) error {
-	var err error
+	timeout time.Duration, stableDuration time.Duration, excludedProcess ...string) error {
+	var (
+		err           error
+		clockStateMsg string
+	)
 
 	if iface != "" && !strings.HasSuffix(iface, "x") {
 		iface = iface[:len(iface)-1] + "x"
@@ -154,6 +158,7 @@ func WaitForPtpClockStateMetric(ptpDaemonPod corev1.Pod, state ranptpparameters.
 	}
 
 	errTimeout := wait.PollImmediate(interval, timeout, func() (bool, error) {
+		clockStateMsg = ""
 		err = GetPTPMetrics(ptpDaemonPod)
 		if err != nil {
 			startTime = time.Now()
@@ -165,10 +170,18 @@ func WaitForPtpClockStateMetric(ptpDaemonPod corev1.Pod, state ranptpparameters.
 			if actualVal.Interface == ranptpparameters.Master {
 				continue
 			}
+			if slices.Contains(excludedProcess, actualVal.Process) {
+				continue
+			}
+
+			clockStateMsg += fmt.Sprintf("ptp_clock_state is %v for iface %s and process %v\n",
+				actualVal.ClockStateValue, actualVal.Interface, actualVal.Process)
+
 			if iface == "" || actualVal.Interface == iface {
 				if actualVal.ClockStateValue != state {
-					err = fmt.Errorf("%s has value %v for %s, that is different than expected: %v",
-						ranptpparameters.OpenshiftPtpClockState, actualVal.ClockStateValue, actualVal.Interface, state)
+					err = fmt.Errorf("%s has value %v for %s %s, that is different than expected: %v",
+						ranptpparameters.OpenshiftPtpClockState, actualVal.ClockStateValue, actualVal.Interface,
+						actualVal.Process, state)
 					startTime = time.Now()
 
 					return false, nil
@@ -185,14 +198,16 @@ func WaitForPtpClockStateMetric(ptpDaemonPod corev1.Pod, state ranptpparameters.
 			}
 		}
 
-		log.Println(successMsg)
-
 		return true, nil
 	})
 
 	if errTimeout != nil {
+		log.Println("PTP clock states metrics:\n" + clockStateMsg)
+
 		return err
 	}
+
+	log.Println(successMsg)
 
 	return nil
 }
