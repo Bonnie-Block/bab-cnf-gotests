@@ -10,6 +10,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ptp/ranptpparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/polarion"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -45,6 +46,11 @@ var _ = Describe("Basic PTP Configs", func() {
 	})
 
 	AfterEach(func() {
+		if CurrentSpecReport().Failed() {
+			// Best effort print PTP container logs and metrics
+			printPTPInfo()
+		}
+
 		// Always restore ptpconfigs to original values after each test
 		log.Println("Restore ptpconfigs to original specs")
 		restorePtpConfigs(originPtpConfigSpecs)
@@ -337,4 +343,35 @@ func containsGMProfile(ptpConfigList *ptpv1.PtpConfigList) bool {
 	}
 
 	return false
+}
+
+// printPTPInfo prints ptp container logs and metrics with best effort.
+func printPTPInfo() {
+	var duration time.Duration
+
+	ptpDaemonPods, err := helper.Apiclient.Pods(parameters.PtpOperatorNamespace).List(context.Background(),
+		metav1.ListOptions{LabelSelector: parameters.PtpDaemonsetLabelSelector})
+
+	if err != nil {
+		log.Println(err.Error())
+	}
+
+	for _, ptpDaemonPod := range ptpDaemonPods.Items {
+		// print ptp container logs
+		for _, container := range ptpDaemonPod.Spec.Containers {
+			duration = 1 * time.Minute
+			if container.Name == parameters.PtpContainerName {
+				duration = 1 * time.Second
+			}
+
+			ptpContainerLog, err := pod.GetLog(helper.Apiclient, &ptpDaemonPod, duration, container.Name)
+			if err == nil {
+				log.Printf("Logs from last %s for pod %s container %s:\n%s",
+					duration.String(), ptpDaemonPod.Name, container.Name, ptpContainerLog)
+			}
+		}
+
+		// print ptp metrics
+		_ = ranptphelper.GetPTPMetrics(ptpDaemonPod, true)
+	}
 }

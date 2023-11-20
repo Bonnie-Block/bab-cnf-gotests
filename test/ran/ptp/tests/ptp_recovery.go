@@ -51,6 +51,11 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 	})
 
 	AfterEach(func() {
+		if CurrentSpecReport().Failed() {
+			// Best effort print PTP container logs and metrics
+			printPTPInfo()
+		}
+
 		restorePtpInterfaces()
 		// Always restore ptpconfigs to original values after each test
 		log.Println("Restore ptpconfigs to original specs")

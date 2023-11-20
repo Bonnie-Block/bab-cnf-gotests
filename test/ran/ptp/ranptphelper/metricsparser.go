@@ -21,10 +21,17 @@ import (
 // GetPTPMetrics gets the metrics and checks if the all the metrics got correctly if not it will try again
 // up to 15 minutes.
 // when the metrics are correctly collected, the function will call to a parser function.
-// arguments:		"ptpPod"-	a given ptp pod for getting the metrics from.
+// arguments:
+// "ptpPod"-	a given ptp pod for getting the metrics from.
+// "optionalArgs":	first element (bool): whether to print out ptp metrics
 // return value:	an error if any occurred.
-func GetPTPMetrics(ptpPod corev1.Pod) error {
-	buff, err := pod.ExecCommand(helper.Apiclient, ptpPod, []string{"curl", "-s", "localhost:9091/metrics"},
+func GetPTPMetrics(ptpPod corev1.Pod, optionalArgs ...interface{}) error {
+	var (
+		buff bytes.Buffer
+		err  error
+	)
+
+	buff, err = pod.ExecCommand(helper.Apiclient, ptpPod, []string{"bash", "-c", ranptpparameters.PtpMetricsCmd},
 		parameters.PtpContainerName)
 	if nil != err {
 		return err
@@ -36,7 +43,7 @@ func GetPTPMetrics(ptpPod corev1.Pod) error {
 		errFromParser = metricParser(buff)
 		if errFromParser != nil {
 			log.Println(errFromParser.Error())
-			buff, err = pod.ExecCommand(helper.Apiclient, ptpPod, []string{"curl", "-s", "localhost:9091/metrics"},
+			buff, err = pod.ExecCommand(helper.Apiclient, ptpPod, []string{"bash", "-c", ranptpparameters.PtpMetricsCmd},
 				parameters.PtpContainerName)
 			if err != nil {
 				return false, nil
@@ -47,6 +54,13 @@ func GetPTPMetrics(ptpPod corev1.Pod) error {
 
 		return true, nil
 	})
+
+	if len(optionalArgs) > 0 {
+		printLog, _ := optionalArgs[0].(bool)
+		if printLog {
+			log.Println("PTP metrics: \n" + buff.String())
+		}
+	}
 
 	if errFromParser != nil {
 		return errFromParser
@@ -59,6 +73,11 @@ func GetPTPMetrics(ptpPod corev1.Pod) error {
 // arguments:		"ptpMetricsBuff"-	a metrics buffer.
 // return value:	an error if any occurred.
 func metricParser(ptpMetricsBuff bytes.Buffer) error {
+	var (
+		metric ranptpparameters.MetricDetails
+		err    error
+	)
+
 	if ptpMetricsBuff.Len() == 0 {
 		return fmt.Errorf("buffer is empty, nothing to parse")
 	}
@@ -66,8 +85,6 @@ func metricParser(ptpMetricsBuff bytes.Buffer) error {
 	ranptpparameters.MetricMap = make(map[string][]ranptpparameters.MetricDetails)
 
 	for _, singleMetric := range removeHashSigns(ptpMetricsBuff) {
-		var metric ranptpparameters.MetricDetails
-
 		singleMetric = strings.Trim(singleMetric, "\r\n")
 		if !strings.Contains(singleMetric, "}") {
 			// Ignore lines without curly brackets
@@ -75,7 +92,7 @@ func metricParser(ptpMetricsBuff bytes.Buffer) error {
 		}
 
 		name := getMetricName(singleMetric)
-		metric, err := getDetails(singleMetric, metric)
+		metric, err = getDetails(singleMetric, metric)
 
 		if nil != err {
 			return err
@@ -84,7 +101,7 @@ func metricParser(ptpMetricsBuff bytes.Buffer) error {
 	}
 
 	// get more special details for specific metrics keys.
-	err := getClockState()
+	err = getClockState()
 	if nil != err {
 		return err
 	}
@@ -207,7 +224,8 @@ func getCode(metricDetails string) (int, error) {
 //
 // return value:	the specific detail of the single metric if exists as a string.
 func getSpecificDetail(metricDetails string, detail string) string {
-	r := regexp.MustCompile(fmt.Sprintf("%s=\"([A-Za-z0-9_-]*)\"", detail))
+	// match anything in between quotation marks, except comma or curly brackets
+	r := regexp.MustCompile(fmt.Sprintf("%s=\"([^,{}]*)\"", detail))
 	matches := r.FindStringSubmatch(metricDetails)
 
 	if len(matches) > 1 {

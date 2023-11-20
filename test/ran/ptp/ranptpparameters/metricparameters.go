@@ -45,6 +45,10 @@ const (
 	HoldOverTimeout    = "HoldOverTimeout"
 	MaxOffsetThreshold = "MaxOffsetThreshold"
 	MinOffsetThreshold = "MinOffsetThreshold"
+
+	// PtpMetricsCmd cmd to collect ptp Metrics via ptp pod.
+	// sleep 0.1 is needed to workaround buffer/stream handling issue, which often returns incomplete stdout.
+	PtpMetricsCmd = "curl -s localhost:9091/metrics; sleep 0.1"
 )
 
 var (
