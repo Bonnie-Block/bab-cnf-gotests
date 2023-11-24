@@ -29,8 +29,9 @@ func WaitForSRIOVStable(operatorNamespace string, waitingTime time.Duration, sno
 	// "TODO: find a better way to handle this scenario"
 	time.Sleep(time.Duration(10+int32(snoTimeoutMultiplier)*10) * time.Second)
 	Eventually(func() bool {
-		res, err := cluster.SriovStable(operatorNamespace, Apiclient)
-		Expect(err).ToNot(HaveOccurred())
+		// ignoring the error. This can eventually be executed against a single node cluster,
+		// and if a reconfiguration triggers a reboot then the api calls will return an error
+		res, _ := cluster.SriovStable(operatorNamespace, Apiclient)
 
 		return res
 	}, waitingTime, 1*time.Second).Should(BeTrue())
