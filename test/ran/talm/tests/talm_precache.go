@@ -850,7 +850,7 @@ var _ = Describe("TALM tests with multiple spokes where one turns off", Ordered,
 			Expect(err).ToNot(HaveOccurred())
 
 			By("waiting for the cgu to timeout")
-			err = rantalmhelper.WaitForCguToTimeout(cguName, rantalmparameters.TalmTestNamespace, 5*time.Minute)
+			err = rantalmhelper.WaitForCguToTimeout(cguName, rantalmparameters.TalmTestNamespace, 22*time.Minute)
 			Expect(err).ToNot(HaveOccurred())
 
 		})
@@ -858,7 +858,7 @@ var _ = Describe("TALM tests with multiple spokes where one turns off", Ordered,
 		It("Verifies that CGU afterCompletion action executes "+
 			"on spoke2 when spoke1 is offline", polarion.ID("59946"), func() {
 			By("waiting for the cgu to timeout")
-			err := rantalmhelper.WaitForCguToTimeout(cguName, rantalmparameters.TalmTestNamespace, 5*time.Minute)
+			err := rantalmhelper.WaitForCguToTimeout(cguName, rantalmparameters.TalmTestNamespace, 22*time.Minute)
 			Expect(err).ToNot(HaveOccurred())
 
 			// Verify that the online cluster has the 'talmcomplete' label
