@@ -204,17 +204,17 @@ func CheckReadyGeneration(
 			return true, nil
 		}
 
-		// I0612 03:38:09.469903    6090 daemon.go:336] nodeStateChangeHandler(): new generation is 6
-		// I0612 03:38:09.474546    6090 daemon.go:361] nodeStateChangeHandler(): Interface not changed
-		if strings.Contains(log, fmt.Sprintf("new generation is %d", state.Generation)) &&
+		// 2023-12-11T20:56:01.492756313Z	INFO	daemon/daemon.go:358	nodeStateSyncHandler(): new generation	{"generation": 196}
+		// 2023-12-11T20:56:01.51768364Z	INFO	daemon/daemon.go:358	nodeStateSyncHandler(): Interface not changed
+		if strings.Contains(log, fmt.Sprintf("new generation\t{\"generation\": %d}", state.Generation)) &&
 			strings.Contains(logsList[idx+1], "Interface not changed") {
 			return true, nil
 		}
 
-		// I0912 11:37:51.930227   18563 daemon.go:400] nodeStateSyncHandler(): new generation is 1
+		// I0912 11:37:51.930227   INFO	daemon/daemon.go:358	nodeStateSyncHandler(): new generation	{"generation": 1}
 		// I0912 11:37:51.937262   18563 daemon.go:425] nodeStateSyncHandler(): Name: helix09.lab.eng.tlv2.redhat.com,
 		// Interface policy spec not yet set by controller
-		if strings.Contains(log, fmt.Sprintf("new generation is %d", state.Generation)) &&
+		if strings.Contains(log, fmt.Sprintf("new generation\t{\"generation\": %d}", state.Generation)) &&
 			state.Generation == 1 &&
 			strings.Contains(logsList[idx+1], "Interface policy spec not yet set by controller") {
 			return true, nil
