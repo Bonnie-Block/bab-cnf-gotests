@@ -9,8 +9,8 @@ network:
   switch_lag_names: "ae0,ae1"
 ran:
   cnf_test_image: quay.io/openshift-kni/cnf-tests:4.8
-  stressng_test_image: quay.io/ocp-edge-qe/stress-ng:2.0
-  oslat_test_image: quay.io/ocp-edge-qe/oslat:latest
+  stressng_test_image: quay.io/container-perf-tools/stress-ng:latest
+  oslat_test_image: quay.io/container-perf-tools/oslat:latest
   process_exporter_image: quay.io/ocp-edge-qe/process-exporter:ppid-2
   process_exporter_resources: test/ran/resources/process-exporter/
   consumer_image: quay.io/redhat-cne/cloud-event-consumer:latest

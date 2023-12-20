@@ -171,9 +171,9 @@ Below is an e2e flow example for RAN cpu test:
 
 2. Set default test image - `export CNF_TEST_IMAGE=quay.io/ocp-edge-qe/cnf-gotests-client:latest`
 
-3. Set stress-ng test image - `STRESSNG_TEST_IMAGE=quay.io/ocp-edge-qe/stress-ng:2.0`
+3. Set stress-ng test image - `STRESSNG_TEST_IMAGE=quay.io/container-perf-tools/stress-ng:latest`
 
-4. Set oslat test image - `export OSLAT_TEST_IMAGE=quay.io/ocp-edge-qe/oslat:latest`
+4. Set oslat test image - `export OSLAT_TEST_IMAGE=quay.io/container-perf-tools/oslat:latest`
 
 5. Set process-exporter image - `export PROCESS_EXPORTER_IMAGE=quay.io/ocp-edge-qe/process-exporter:ppid-2`
 
