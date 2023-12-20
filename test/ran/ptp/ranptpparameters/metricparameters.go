@@ -28,7 +28,9 @@ const (
 	ProcessDPLL    = "dpll"
 	ProcessGNSS    = "gnss"
 	ProcessTS2PHC  = "ts2phc"
-	ProcessGM      = "ProcessGM"
+
+	Available   = 1
+	Unavailable = 0
 
 	Off InterfaceState = "down"
 	On  InterfaceState = "up"
@@ -37,14 +39,17 @@ const (
 	OpenshiftPtpProcessStatus = "openshift_ptp_process_status"
 	OpenshiftPtpInterfaceRole = "openshift_ptp_interface_role"
 	OpenshiftPtpThreshold     = "openshift_ptp_threshold"
+	OpenshiftPtpNmeaStatus    = "openshift_ptp_nmea_status"
+
+	ClockStateValueField = "clock_state_value"
+	ValueField           = "value"
 
 	ClockClassFreerun  ClockClass = 248
 	ClockClassHoldOver ClockClass = 7
 	ClockClassLocked   ClockClass = 6
-
-	HoldOverTimeout    = "HoldOverTimeout"
-	MaxOffsetThreshold = "MaxOffsetThreshold"
-	MinOffsetThreshold = "MinOffsetThreshold"
+	HoldOverTimeout               = "HoldOverTimeout"
+	MaxOffsetThreshold            = "MaxOffsetThreshold"
+	MinOffsetThreshold            = "MinOffsetThreshold"
 
 	// PtpMetricsCmd cmd to collect ptp Metrics via ptp pod.
 	// sleep 0.1 is needed to workaround buffer/stream handling issue, which often returns incomplete stdout.

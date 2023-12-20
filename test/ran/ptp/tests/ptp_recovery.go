@@ -28,6 +28,12 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 		ptpConfigCounts      []int
 		originPtpConfigSpecs = map[string]ptpv1.PtpConfigSpec{}
 	)
+	const (
+		configsIndx         = 0
+		bcConfigIndx        = 2
+		gmOneCardConfigIndx = 3
+		gmTwoCardConfigIndx = 4
+	)
 
 	execute.BeforeAll(func() {
 		originPtpConfigSpecs, ptpConfigCounts, errBeforeAll = ptpPretestValidations()
@@ -85,8 +91,8 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 				Expect(newPID).ShouldNot(Equal(oldPID))
 
 				By("validate all ptp clocks are in LOCKED state in ptp metrics")
-				err = ranptphelper.WaitForPtpClockStateMetric(ptpDaemonPod, ranptpparameters.LockedState,
-					"", 1*time.Minute, 10*time.Second)
+				err = ranptphelper.WaitForPtpClockStateMetric(ptpDaemonPod, ranptpparameters.LockedState, "", 1*time.Minute,
+					10*time.Second)
 				Expect(err).NotTo(HaveOccurred())
 
 				// test on one node only
@@ -97,7 +103,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 		// 57197
 		It("should create a new ptp4l process after killing a ptp4l process that is not related to the "+
 			"phc2sy process", polarion.ID("57197"), func() {
-			if ptpConfigCounts[0] < 2 {
+			if ptpConfigCounts[configsIndx] < 2 {
 				Skip("Test requires at least two PTP configs")
 			}
 
@@ -132,8 +138,8 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 				Expect(newPtp4lPids).ShouldNot(ContainElement(oldPtp4lPid))
 
 				By("validate all ptp clocks are in LOCKED state in ptp metrics")
-				err = ranptphelper.WaitForPtpClockStateMetric(ptpDaemonPod, ranptpparameters.LockedState,
-					"", 1*time.Minute, 10*time.Second)
+				err = ranptphelper.WaitForPtpClockStateMetric(ptpDaemonPod, ranptpparameters.LockedState, "", 1*time.Minute,
+					10*time.Second)
 				Expect(err).NotTo(HaveOccurred())
 
 				// test on one node only
@@ -143,8 +149,8 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 
 		// 49736
 		It("should restart both ptp4l processes after killing them", polarion.ID("49736"), func() {
-			if ptpConfigCounts[0] < 2 {
-				Skip("Test requires at least two PTP configs")
+			if ptpConfigCounts[configsIndx] < 2 || ptpConfigCounts[bcConfigIndx] == 0 {
+				Skip("Test requires at least two PTP configs with BC configuration")
 			}
 
 			nodeToPtpDaemonPod, err := ranptphelper.NodesToPtpDaemonPods()
@@ -183,8 +189,8 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 				Expect(newPtp4lPids).ShouldNot(ContainElement(oldPtp4lPids[0]))
 
 				By("validate all ptp clocks are in LOCKED state in ptp metrics")
-				err = ranptphelper.WaitForPtpClockStateMetric(ptpDaemonPod, ranptpparameters.LockedState,
-					"", 1*time.Minute, 10*time.Second)
+				err = ranptphelper.WaitForPtpClockStateMetric(ptpDaemonPod, ranptpparameters.LockedState, "", 1*time.Minute,
+					10*time.Second)
 				Expect(err).NotTo(HaveOccurred())
 			}
 		})
@@ -221,8 +227,8 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 				Expect(newPtl4lPidsPhc2sys[0]).ShouldNot(Equal(oldPtp4lPidsPhc2sys[0]))
 
 				By("validate all ptp clocks are in LOCKED state in ptp metrics")
-				err = ranptphelper.WaitForPtpClockStateMetric(ptpDaemonPod, ranptpparameters.LockedState,
-					"", 1*time.Minute, 10*time.Second)
+				err = ranptphelper.WaitForPtpClockStateMetric(ptpDaemonPod, ranptpparameters.LockedState, "", 1*time.Minute,
+					10*time.Second)
 				Expect(err).NotTo(HaveOccurred())
 
 				// test on one node only
@@ -231,7 +237,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 		})
 		// 59863
 		It("should recover the ts2phc process after the killing a ts2phc process", polarion.ID("59863"), func() {
-			if ptpConfigCounts[3] == 0 {
+			if ptpConfigCounts[gmOneCardConfigIndx] == 0 && ptpConfigCounts[gmTwoCardConfigIndx] == 0 {
 				Skip("Test requires grand master configuration")
 			}
 
@@ -257,8 +263,8 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 				Expect(pid).ShouldNot(Equal(newPid))
 
 				By("validate all ptp clocks are in LOCKED state in ptp metrics")
-				err = ranptphelper.WaitForPtpClockStateMetric(ptpDaemonPod, ranptpparameters.LockedState,
-					"", 1*time.Minute, 10*time.Second)
+				err = ranptphelper.WaitForPtpClockStateMetric(ptpDaemonPod, ranptpparameters.LockedState, "", 1*time.Minute,
+					10*time.Second)
 				Expect(err).NotTo(HaveOccurred())
 			}
 		})
@@ -266,7 +272,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 		// 59863
 		It("should recover the ptp4l process after the killing a "+
 			"ptp4l process that is related to ts2phc process", polarion.ID("59863"), func() {
-			if ptpConfigCounts[3] == 0 {
+			if ptpConfigCounts[gmOneCardConfigIndx] == 0 && ptpConfigCounts[gmTwoCardConfigIndx] == 0 {
 				Skip("Test requires grand master configuration")
 			}
 
@@ -292,8 +298,8 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 				Expect(pid).ShouldNot(Equal(newPid))
 
 				By("validate all ptp clocks are in LOCKED state in ptp metrics")
-				err = ranptphelper.WaitForPtpClockStateMetric(ptpDaemonPod, ranptpparameters.LockedState,
-					"", 1*time.Minute, 10*time.Second)
+				err = ranptphelper.WaitForPtpClockStateMetric(ptpDaemonPod, ranptpparameters.LockedState, "", 1*time.Minute,
+					10*time.Second)
 				Expect(err).NotTo(HaveOccurred())
 
 			}
@@ -301,7 +307,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 
 		// 64777
 		It("should recover gpsd process after killing it on node ", polarion.ID("64777"), func() {
-			if ptpConfigCounts[3] == 0 {
+			if ptpConfigCounts[gmOneCardConfigIndx] == 0 && ptpConfigCounts[gmTwoCardConfigIndx] == 0 {
 				Skip("Test requires grand master configuration")
 			}
 
@@ -327,8 +333,8 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 				Expect(pid).ShouldNot(Equal(newPid))
 
 				By("validate all ptp clocks are in LOCKED state in ptp metrics")
-				err = ranptphelper.WaitForPtpClockStateMetric(ptpDaemonPod, ranptpparameters.LockedState,
-					"", 1*time.Minute, 10*time.Second)
+				err = ranptphelper.WaitForPtpClockStateMetric(ptpDaemonPod, ranptpparameters.LockedState, "", 1*time.Minute,
+					10*time.Second)
 				Expect(err).NotTo(HaveOccurred())
 			}
 		})
@@ -359,8 +365,8 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		By("validate all ptp clocks are in LOCKED state in ptp metrics")
-		err = ranptphelper.WaitForPtpClockStateMetric(*ptpDaemonPod, ranptpparameters.LockedState,
-			"", 1*time.Minute, 10*time.Second)
+		err = ranptphelper.WaitForPtpClockStateMetric(*ptpDaemonPod, ranptpparameters.LockedState, "", 1*time.Minute,
+			10*time.Second)
 		Expect(err).NotTo(HaveOccurred())
 	})
 
@@ -397,7 +403,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 
 		// 59996
 		It("validates the system is fully functional after removing consumer", polarion.ID("59996"), func() {
-			// Remove the consumer.
+
 			By("Remove the consumer")
 			destroyErrors := ranhelper.DestroyConsumers(parameters.CloudEventNamespace)
 			for _, err := range destroyErrors {
@@ -453,8 +459,8 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Wait for all ptp clocks in LOCKED state in ptp metrics")
-			err = ranptphelper.WaitForPtpClockStateMetric(*ptpDaemonPod, ranptpparameters.LockedState,
-				"", 10*time.Minute, 10*time.Second)
+			err = ranptphelper.WaitForPtpClockStateMetric(*ptpDaemonPod, ranptpparameters.LockedState, "", 1*time.Minute,
+				10*time.Second)
 			Expect(err).NotTo(HaveOccurred())
 
 			By(fmt.Sprintf("Wait for ptp events [LOCKED] for all PTP clocks after node %s recovered", ptpNode.Name))
@@ -473,6 +479,63 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 			// Verify communication between publisher to consumer
 			consumerNode, consumerPod := getConsumerNodeAndPod(parameters.CloudEventNamespace)
 			verifyConsumerEvents(consumerNode, consumerPod)
+		})
+	})
+
+	Context("restart GM", func() {
+		It("should make nmea lost after GPS cold reboot", polarion.ID("70111"), func() {
+			ptpDaemonPods, err := helper.Apiclient.Pods(parameters.PtpOperatorNamespace).List(context.Background(),
+				metav1.ListOptions{LabelSelector: parameters.PtpDaemonsetLabelSelector})
+			Expect(err).NotTo(HaveOccurred())
+
+			ptpDaemonPod := &ptpDaemonPods.Items[0]
+
+			By("checkin the nmea metrics is in an available state")
+			err = ranptphelper.WaitForMetricValueStatus(*ptpDaemonPod, ranptpparameters.OpenshiftPtpNmeaStatus,
+				ranptpparameters.Available, 1*time.Minute, 10*time.Second)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("GPS cold boot on pod:" + ptpDaemonPod.Name)
+			err = ranptphelper.GpsColdReboot(ptpDaemonPod)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("checking holdover state is tarted on linuxptp-daemon in " + parameters.PtpContainerName +
+				"log on pod: " + ptpDaemonPod.Name)
+			err = ranptphelper.WaitForLog(ptpDaemonPod, parameters.PtpContainerName,
+				"nmea sentence: GPTXT,01,01,02,Starting GNSS",
+				1*time.Minute, 10*time.Second)
+			Expect(err).NotTo(HaveOccurred())
+			err = ranptphelper.WaitForLog(ptpDaemonPod, parameters.PtpContainerName, "nmea string lost",
+				1*time.Minute, 10*time.Second)
+			Expect(err).NotTo(HaveOccurred())
+			// wait for log to show "nmea string lost".
+			// wait for log show "nmea sentence: GPTXT,01,01,02,Starting GNSS".
+
+			By("checking nmea metrics value on pod: " + ptpDaemonPod.Name)
+			err = ranptphelper.WaitForMetricValueStatus(*ptpDaemonPod, ranptpparameters.OpenshiftPtpNmeaStatus,
+				ranptpparameters.Unavailable, 1*time.Minute, 10*time.Second)
+			Expect(err).NotTo(HaveOccurred())
+			// wait for openshift_ptp_nmea_status metrics to become unavailable.
+			// wait for openshift_ptp_pps_status metrics for interface ens7fx to became unavailable.
+
+			By("wait for GPS to recover")
+			err = ranptphelper.WaitForLog(ptpDaemonPod, parameters.PtpContainerName,
+				"holdover was closed",
+				1*time.Second, 30*time.Second)
+			Expect(err).NotTo(HaveOccurred())
+			err = ranptphelper.WaitForLog(ptpDaemonPod, parameters.PtpContainerName,
+				"dpll is locked",
+				1*time.Second, 30*time.Second)
+			Expect(err).NotTo(HaveOccurred())
+			// wait for log to show "holdover was closed".
+			// wait fot log to show "dpll is locked"
+
+			By("checking nmea metrics value after recover on pod: " + ptpDaemonPod.Name)
+			// wait for openshift_ptp_nmea_status metrics to become available.
+			// wait for openshift_ptp_pps_status metrics for interface ens7fx to became available.
+			err = ranptphelper.WaitForMetricValueStatus(*ptpDaemonPod, ranptpparameters.OpenshiftPtpNmeaStatus,
+				ranptpparameters.Available, 1*time.Minute, 10*time.Second)
+			Expect(err).NotTo(HaveOccurred())
 		})
 	})
 })

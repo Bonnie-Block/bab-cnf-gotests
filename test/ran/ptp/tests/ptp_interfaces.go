@@ -32,6 +32,13 @@ var _ = Describe("PTP Events and Metrics - interface down", func() {
 		ptpConfigCounts      []int
 	)
 
+	const (
+		ocConfigIndx        = 1
+		bcConfigIndx        = 2
+		gmOneCardConfigIndx = 3
+		gmTwoCardConfigIndx = 4
+	)
+
 	execute.BeforeAll(func() {
 		originPtpConfigSpecs, ptpConfigCounts, errBeforeAll = ptpPretestValidations()
 	})
@@ -105,7 +112,7 @@ var _ = Describe("PTP Events and Metrics - interface down", func() {
 
 	// 49734
 	It("should have no effect when Boundary Clock master interface goes down and up", polarion.ID("49734"), func() {
-		if ptpConfigCounts[2] == 0 {
+		if ptpConfigCounts[bcConfigIndx] == 0 {
 			Skip("Test requires Boundary Clock configuration")
 		}
 
@@ -174,7 +181,8 @@ var _ = Describe("PTP Events and Metrics - interface down", func() {
 	// 59865
 	It("should fail when modify interface on ptpconfig", polarion.ID("59865"), func() {
 
-		if ptpConfigCounts[1] == 0 || ptpConfigCounts[3] != 0 {
+		if ptpConfigCounts[ocConfigIndx] == 0 || ptpConfigCounts[gmOneCardConfigIndx] != 0 ||
+			ptpConfigCounts[gmTwoCardConfigIndx] != 0 {
 			Skip("Test requires Ordinary Clock configuration without GM config on same cluster")
 		}
 
@@ -251,7 +259,8 @@ var _ = Describe("PTP Events and Metrics - interface down", func() {
 	// 59866
 	It("should fail when removing interface from ptpconfig", polarion.ID("59866"), func() {
 
-		if ptpConfigCounts[1] == 0 || ptpConfigCounts[3] != 0 {
+		if ptpConfigCounts[ocConfigIndx] == 0 || ptpConfigCounts[gmOneCardConfigIndx] != 0 ||
+			ptpConfigCounts[gmTwoCardConfigIndx] != 0 {
 			Skip("Test requires Ordinary Clock configuration without GM config on same cluster")
 		}
 

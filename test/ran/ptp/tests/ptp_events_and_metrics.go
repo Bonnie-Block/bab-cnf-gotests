@@ -28,6 +28,10 @@ var _ = Describe("Basic PTP Configs", func() {
 		ptpConfigCounts      []int
 	)
 
+	const (
+		gmOneCardConfigIndx = 3
+		gmTwoCardConfigIndx = 4
+	)
 	execute.BeforeAll(func() {
 		originPtpConfigSpecs, ptpConfigCounts, errBeforeAll = ptpPretestValidations()
 	})
@@ -92,7 +96,7 @@ var _ = Describe("Basic PTP Configs", func() {
 
 		// 66848
 		It("verifies Clock Class value should match dpll/gnss clock state", polarion.ID("66848"), func() {
-			if ptpConfigCounts[3] == 0 {
+			if ptpConfigCounts[gmOneCardConfigIndx] == 0 && ptpConfigCounts[gmTwoCardConfigIndx] == 0 {
 				Skip("Test requires Grandmaster configuration")
 			}
 
@@ -189,14 +193,20 @@ var _ = Describe("Basic PTP Configs", func() {
 // 2 - BC configs.
 // 3 - GM configs.
 func getPtpConfigCounts(ptpConfigsList ptpv1.PtpConfigList) []int {
-	configCount, ocCount, bcCount, gmCount := 0, 0, 0, 0
+	configCount, ocCount, bcCount, gmOneCount, gmTwoCount := 0, 0, 0, 0, 0
 
 	for _, ptpconfig := range ptpConfigsList.Items {
 		for _, profile := range ptpconfig.Spec.Profile {
 			configCount++
 
-			if ranptphelper.IsGrandmasterProfile(profile) {
-				gmCount++
+			if ranptphelper.IsGmOneCardProfile(profile) {
+				gmOneCount++
+
+				continue
+			}
+
+			if ranptphelper.IsGmTwoCardProfile(profile) {
+				gmTwoCount++
 
 				continue
 			}
@@ -215,7 +225,7 @@ func getPtpConfigCounts(ptpConfigsList ptpv1.PtpConfigList) []int {
 		}
 	}
 
-	return []int{configCount, ocCount, bcCount, gmCount}
+	return []int{configCount, ocCount, bcCount, gmOneCount, gmTwoCount}
 }
 
 // restore ptp configs on system to original configs.
@@ -311,8 +321,7 @@ func verifyEventsAndMetricsModifyThresholds(ptpDaemonPod *corev1.Pod, pod *corev
 	Expect(err).NotTo(HaveOccurred())
 
 	if !skipMetricCheck {
-		var excludedProcees []string
-
+		var excludedProcess []string
 		if containsGMProfile(configsList) {
 			// If GM is configured and forced to FREERUN,the clock class changes to 248 while downstream slaves'
 			// clock_class_threshold set to 7 - This causes slave ports to stuck in Listening without clock_state
@@ -320,14 +329,14 @@ func verifyEventsAndMetricsModifyThresholds(ptpDaemonPod *corev1.Pod, pod *corev
 			// should be ignored.
 			// dpll and ts2phc offsets usually stays at 0, thus offsetThreshold change would not force those
 			// clock_states to FREERUN.
-			excludedProcees = []string{ranptpparameters.ProcessPTP4L, ranptpparameters.ProcessDPLL,
+			excludedProcess = []string{ranptpparameters.ProcessPTP4L, ranptpparameters.ProcessDPLL,
 				ranptpparameters.ProcessTS2PHC}
 		}
 
 		By("Validate clock state changed to [FREERUN] in ptp metrics")
 
 		err = ranptphelper.WaitForPtpClockStateMetric(*ptpDaemonPod, ranptpparameters.FreeRunState, "",
-			timeout, 0, excludedProcees...)
+			timeout, 0, excludedProcess...)
 		Expect(err).NotTo(HaveOccurred())
 	}
 }
@@ -336,7 +345,7 @@ func verifyEventsAndMetricsModifyThresholds(ptpDaemonPod *corev1.Pod, pod *corev
 func containsGMProfile(ptpConfigList *ptpv1.PtpConfigList) bool {
 	for _, ptpConfig := range ptpConfigList.Items {
 		for _, profile := range ptpConfig.Spec.Profile {
-			if ranptphelper.IsGrandmasterProfile(profile) {
+			if ranptphelper.IsGmOneCardProfile(profile) || ranptphelper.IsGmTwoCardProfile(profile) {
 				return true
 			}
 		}
