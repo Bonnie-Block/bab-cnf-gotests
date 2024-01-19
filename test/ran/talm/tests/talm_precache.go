@@ -356,7 +356,17 @@ var _ = Describe("Talm precache one spoke", Label("talmprecache"), func() {
 			ptpDaemonPods, err := helper.Apiclient.Pods(parameters.PtpOperatorNamespace).List(context.Background(),
 				metav1.ListOptions{LabelSelector: parameters.PtpDaemonsetLabelSelector})
 			Expect(err).To(BeNil())
-			targetPrecacheImage := ptpDaemonPods.Items[0].Spec.Containers[0].Image
+
+			// Range over PTP pod container list to find the linuxptp-daemon-container. Get container image.
+			var targetPrecacheImage string
+			for _, container := range ptpDaemonPods.Items[0].Spec.Containers {
+				if container.Name == "linuxptp-daemon-container" {
+					targetPrecacheImage = container.Image
+
+					break
+				}
+			}
+			Expect(targetPrecacheImage).ToNot(BeEmpty())
 
 			// Command to delete PTP Image from spoke.
 			ptpImageDeleteCmd := fmt.Sprintf("podman rmi %s", targetPrecacheImage)
