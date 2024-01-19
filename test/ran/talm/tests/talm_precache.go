@@ -190,13 +190,13 @@ var _ = Describe("Talm precache one spoke", Label("talmprecache"), func() {
 		curName := "precache-ocp"
 		cguName := fmt.Sprintf("%s-%s", rantalmparameters.CguCommonName, curName)
 		policyName := fmt.Sprintf("%s-%s", rantalmparameters.PolicyNameCommonName, curName)
-		excludedPrecacheImage := "openshift/ose-vsphere-problem-detector"
+		excludedPrecacheImage := "openshift/ose-prometheus"
 		// Command to generate a list of cached images on the spoke cluster
 		spokeImageListCmd := fmt.Sprintf(`podman images  --noheading --filter "label=name=%s"`, excludedPrecacheImage)
 
 		// Command to delete excludedPrecacheimage
 		spokeImageDeleteCmd := fmt.Sprintf(`podman images --noheading  --filter "label=name=%s" --format {{.ID}}|`+
-			`xargs podman rmi`, excludedPrecacheImage)
+			`xargs podman rmi --force`, excludedPrecacheImage)
 
 		var spoke1Master *k8sv1.Node
 
@@ -295,7 +295,7 @@ var _ = Describe("Talm precache one spoke", Label("talmprecache"), func() {
 					Name:      "cluster-group-upgrade-overrides",
 					Namespace: rantalmparameters.TalmTestNamespace,
 				},
-				Data: map[string]string{"excludePrecachePatterns": "vsphere"},
+				Data: map[string]string{"excludePrecachePatterns": "prometheus"},
 			}
 
 			By("creating the configmap on hubcluster")
