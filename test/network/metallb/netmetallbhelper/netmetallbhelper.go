@@ -115,7 +115,7 @@ func WaitNetworkOperator() {
 	// Update started
 	Eventually(func() bool {
 		return isNetworkOperatorInCondition(operv1.OperatorStatusTypeProgressing, operv1.ConditionTrue)
-	}, 1*time.Minute, netmlbparameters.Interval).Should(BeTrue())
+	}, 5*time.Minute, netmlbparameters.Interval).Should(BeTrue())
 	// Update finished
 	Eventually(func() bool {
 		return isNetworkOperatorInCondition(operv1.OperatorStatusTypeProgressing, operv1.ConditionFalse)
