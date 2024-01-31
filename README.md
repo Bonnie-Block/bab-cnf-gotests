@@ -66,6 +66,7 @@ The list of available features:
 * `FEATURES` - select the feature you are going to test
 * `REPORT_DIR_NAME` - path to general report (default `report/`)
 * `REPORTER_ERROR_OUTPUT` - path to test failure report for troubleshooting (default `failed_tests.logs.txt`)
+* `FLAKE_ATTEMPTS` - Restart failed test case given number of times if error occurs (default empty, example `export FLAKE_ATTEMPTS=2`)
 
 ##### Common network environment variables
 * `NETWORK_TEST_CONTAINER_IMAGE` - path where to download the container image
