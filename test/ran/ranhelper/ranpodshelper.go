@@ -231,7 +231,7 @@ func DeployWorkloadPods(rtProfile *performancev2.PerformanceProfile, node *corev
 	isolatedCPUSet := cpuset.MustParse(string(*rtProfile.Spec.CPU.Isolated))
 	// 2 cpu will be used by other consumer pods, such as process-exporter, cnfgotestpriv
 	// Limiting workload to 85% CPU Count to allow must-gather pods to finish
-	workloadCPUCount := (isolatedCPUSet.Size() - 2) * 850/1000
+	workloadCPUCount := (isolatedCPUSet.Size() - 2) * 850 / 1000
 	oslatCPUCount := workloadCPUCount * 100 / 300
 	stressNgCPUCount := workloadCPUCount - oslatCPUCount
 	oslatMaxPodCount, stressngMaxPodCount := 2, 40
