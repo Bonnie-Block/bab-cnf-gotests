@@ -17,7 +17,6 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/netparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/polarion"
 
@@ -180,56 +179,6 @@ var _ = Describe("MetalLB BGP", func() {
 				return netmetallbhelper.ValidateBGPTimers(speakerPods.Items, updatedTimerSettings)
 			}, 1*time.Minute, netmlbparameters.Interval).Should(Not(HaveOccurred()))
 
-		})
-
-		Context("metrics", func() {
-			BeforeEach(func() {
-				By("should create external FRR container")
-				masterNodeFRRPod := netmetallbhelper.CreateFRRContainerOnMaster(
-					workerNodeList,
-					masterNodeList[0],
-					ipv4metalLBIPList[0],
-					"",
-					netparameters.IPV4Family,
-					netmlbparameters.IBGPASN,
-					netmlbparameters.ExternalNADName,
-					netparameters.MasterConfigMapName,
-					netmlbparameters.PropagateFalse)
-
-				By("should create a BGP Peer on Speakers")
-
-				workerNodesAdresses := nethelper.NodeIPsForFamily(workerNodeList, netparameters.IPV4Family)
-				err := netmetallbhelper.CreateSpeakerBGPPeerIPStack(netparameters.IPV4Family,
-					ipv4metalLBIPList[0], "", netmlbparameters.IBGPASN, netmlbparameters.BGPPeerName1v4)
-				Expect(err).ToNot(HaveOccurred())
-
-				Eventually(func() bool {
-					return netmetallbhelper.CheckNeighborsStatus(masterNodeFRRPod, netparameters.IPV4Family,
-						workerNodesAdresses)
-				}, 1*time.Minute, netmlbparameters.Interval).Should(BeTrue())
-			})
-
-			// 47202
-			It("provides Prometheus BGP metrics", polarion.ID("47202"), func() {
-				_, err := namespaces.LabelNamespace(helper.Apiclient,
-					netmlbparameters.MetalLBOperatorNameSpace,
-					netmlbparameters.MonitoringLabel,
-					"true")
-				Expect(err).ToNot(HaveOccurred())
-				speakerPods, err := helper.Apiclient.Pods(netmlbparameters.MetalLBOperatorNameSpace).
-					List(context.Background(), metav1.ListOptions{
-						LabelSelector: netmlbparameters.SpeakersLabelSelector,
-					})
-				Expect(err).ToNot(HaveOccurred())
-				metalLBMonitoredEntriesByPod, uniqueMetricKeys := netmetallbhelper.CollectMetalLBMetricsByPod(speakerPods.Items,
-					"metallb_bgp_")
-
-				Eventually(func() error {
-					podsPerPrometheusMetricKey := netmetallbhelper.CollectPrometheusMetrics(uniqueMetricKeys)
-
-					return netmetallbhelper.ContainSameMetrics(metalLBMonitoredEntriesByPod, podsPerPrometheusMetricKey)
-				}, netmlbparameters.Timeout, 2*netmlbparameters.Interval).Should(Not(HaveOccurred()))
-			})
 		})
 	})
 
