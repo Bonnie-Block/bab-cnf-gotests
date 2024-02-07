@@ -24,17 +24,13 @@ import (
 
 var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 	var (
-		errBeforeAll          error
-		ptpConfigCount        int
-		grandMasterConfigsNum int
-		originPtpConfigSpecs  = map[string]ptpv1.PtpConfigSpec{}
+		errBeforeAll         error
+		ptpConfigCounts      []int
+		originPtpConfigSpecs = map[string]ptpv1.PtpConfigSpec{}
 	)
 
 	execute.BeforeAll(func() {
-		var ptpConfigCounts []int
 		originPtpConfigSpecs, ptpConfigCounts, errBeforeAll = ptpPretestValidations()
-		ptpConfigCount = ptpConfigCounts[0]
-		grandMasterConfigsNum = ptpConfigCounts[3]
 	})
 
 	BeforeEach(func() {
@@ -101,7 +97,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 		// 57197
 		It("should create a new ptp4l process after killing a ptp4l process that is not related to the "+
 			"phc2sy process", polarion.ID("57197"), func() {
-			if ptpConfigCount < 2 {
+			if ptpConfigCounts[0] < 2 {
 				Skip("Test requires at least two PTP configs")
 			}
 
@@ -147,7 +143,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 
 		// 49736
 		It("should restart both ptp4l processes after killing them", polarion.ID("49736"), func() {
-			if ptpConfigCount < 2 {
+			if ptpConfigCounts[0] < 2 {
 				Skip("Test requires at least two PTP configs")
 			}
 
@@ -235,7 +231,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 		})
 		// 59863
 		It("should recover the ts2phc process after the killing a ts2phc process", polarion.ID("59863"), func() {
-			if grandMasterConfigsNum == 0 {
+			if ptpConfigCounts[3] == 0 {
 				Skip("Test requires grand master configuration")
 			}
 
@@ -270,7 +266,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 		// 59863
 		It("should recover the ptp4l process after the killing a "+
 			"ptp4l process that is related to ts2phc process", polarion.ID("59863"), func() {
-			if grandMasterConfigsNum == 0 {
+			if ptpConfigCounts[3] == 0 {
 				Skip("Test requires grand master configuration")
 			}
 
@@ -305,7 +301,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 
 		// 64777
 		It("should recover gpsd process after killing it on node ", polarion.ID("64777"), func() {
-			if grandMasterConfigsNum == 0 {
+			if ptpConfigCounts[3] == 0 {
 				Skip("Test requires grand master configuration")
 			}
 

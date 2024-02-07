@@ -174,8 +174,8 @@ var _ = Describe("PTP Events and Metrics - interface down", func() {
 	// 59865
 	It("should fail when modify interface on ptpconfig", polarion.ID("59865"), func() {
 
-		if ptpConfigCounts[1] == 0 {
-			Skip("Test requires Ordinary Clock configuration")
+		if ptpConfigCounts[1] == 0 || ptpConfigCounts[3] != 0 {
+			Skip("Test requires Ordinary Clock configuration without GM config on same cluster")
 		}
 
 		type patchInterfaceValue struct {
@@ -251,8 +251,8 @@ var _ = Describe("PTP Events and Metrics - interface down", func() {
 	// 59866
 	It("should fail when removing interface from ptpconfig", polarion.ID("59866"), func() {
 
-		if ptpConfigCounts[1] == 0 {
-			Skip("Test requires Ordinary Clock configuration")
+		if ptpConfigCounts[1] == 0 || ptpConfigCounts[3] != 0 {
+			Skip("Test requires Ordinary Clock configuration without GM config on same cluster")
 		}
 
 		type patchInterfaceValue struct {
