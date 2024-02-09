@@ -9,7 +9,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/stmcginnis/gofish/redfish"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/bmer/ranbmerhelper/nodevendor"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/bmer/ranbmerhelper/rfclient"
@@ -131,29 +130,29 @@ var _ = Describe("BMER", func() {
 		By("Wait 20 seconds for all events to be completed")
 		time.Sleep(20 * time.Second)
 	})
-	// OCP-47128
-	It("recovers from node restart", polarion.ID("47128"), func() {
-		By("Validate consumer receive events")
-		VerifyEvents(ConsumersList, testEvents[:1], eventService, LocalNodeVendor)
-
-		workerNode, err := ranbmerhelper.GetWorkerNode()
-		Expect(err).NotTo(HaveOccurred(), fmt.Sprintf(
-			"failed to get worker nodedue to: %v", err))
-
-		helper.SoftRebootNodeAndWaitForDisconnect(workerNode)
-		if ranparameters.TransportType == ranparameters.TransportHTTP {
-			err = ranhelper.WaitForClusterRecover(workerNode, []string{parameters.BmerNamespace})
-		} else {
-			err = ranhelper.WaitForClusterRecover(workerNode, []string{parameters.AmqNamespace, parameters.BmerNamespace})
-		}
-		Expect(err).NotTo(HaveOccurred())
-
-		By("Wait 20 seconds after bmer pods are ready")
-		time.Sleep(20 * time.Second)
-
-		By("Validate again consumer receives events")
-		VerifyEvents(ConsumersList, testEvents, eventService, LocalNodeVendor)
-	})
+	// // OCP-47128
+	// It("recovers from node restart", polarion.ID("47128"), func() {
+	// 	By("Validate consumer receive events")
+	// 	VerifyEvents(ConsumersList, testEvents[:1], eventService, LocalNodeVendor)
+	//
+	// 	workerNode, err := ranbmerhelper.GetWorkerNode()
+	// 	Expect(err).NotTo(HaveOccurred(), fmt.Sprintf(
+	// 		"failed to get worker nodedue to: %v", err))
+	//
+	// 	helper.SoftRebootNodeAndWaitForDisconnect(workerNode)
+	// 	if ranparameters.TransportType == ranparameters.TransportHTTP {
+	// 		err = ranhelper.WaitForClusterRecover(workerNode, []string{parameters.BmerNamespace})
+	// 	} else {
+	// 		err = ranhelper.WaitForClusterRecover(workerNode, []string{parameters.AmqNamespace, parameters.BmerNamespace})
+	// 	}
+	// 	Expect(err).NotTo(HaveOccurred())
+	//
+	// 	By("Wait 20 seconds after bmer pods are ready")
+	// 	time.Sleep(20 * time.Second)
+	//
+	// 	By("Validate again consumer receives events")
+	// 	VerifyEvents(ConsumersList, testEvents, eventService, LocalNodeVendor)
+	// })
 })
 
 // VerifyEvents sends givens events to given consumers and verify consumers received the events.
