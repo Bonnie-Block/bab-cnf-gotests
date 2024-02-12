@@ -512,15 +512,11 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 			err = ranptphelper.WaitForLog(ptpDaemonPod, parameters.PtpContainerName, "nmea string lost",
 				1*time.Minute, 10*time.Second)
 			Expect(err).NotTo(HaveOccurred())
-			// wait for log to show "nmea string lost".
-			// wait for log show "nmea sentence: GPTXT,01,01,02,Starting GNSS".
 
 			By("checking nmea metrics value on pod: " + ptpDaemonPod.Name)
 			err = ranptphelper.WaitForMetricValueStatus(*ptpDaemonPod, ranptpparameters.OpenshiftPtpNmeaStatus,
 				ranptpparameters.Unavailable, 1*time.Minute, 10*time.Second)
 			Expect(err).NotTo(HaveOccurred())
-			// wait for openshift_ptp_nmea_status metrics to become unavailable.
-			// wait for openshift_ptp_pps_status metrics for interface ens7fx to became unavailable.
 
 			By("wait for GPS to recover")
 			err = ranptphelper.WaitForLog(ptpDaemonPod, parameters.PtpContainerName,
@@ -538,6 +534,76 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 			// wait for openshift_ptp_nmea_status metrics to become available.
 			// wait for openshift_ptp_pps_status metrics for interface ens7fx to became available.
 			err = ranptphelper.WaitForMetricValueStatus(*ptpDaemonPod, ranptpparameters.OpenshiftPtpNmeaStatus,
+				ranptpparameters.Available, 1*time.Minute, 10*time.Second)
+			Expect(err).NotTo(HaveOccurred())
+		})
+	})
+	Context("disable SMA connection between the two cards", func() {
+		var (
+			rxInterface  string
+			ptpDaemonPod *corev1.Pod
+			ptpConfigs   *ptpv1.PtpConfigList
+		)
+
+		BeforeEach(func() {
+			ptpDaemonPods, err := helper.Apiclient.Pods(parameters.PtpOperatorNamespace).List(context.Background(),
+				metav1.ListOptions{LabelSelector: parameters.PtpDaemonsetLabelSelector})
+			Expect(err).NotTo(HaveOccurred())
+			ptpDaemonPod = &ptpDaemonPods.Items[0]
+			log.Printf("get ptpconfig")
+			ptpConfigs, err = helper.Apiclient.PtpConfigs(parameters.PtpOperatorNamespace).List(context.Background(),
+				metav1.ListOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			rxInterface, err = ranptphelper.GetRxIface(ptpConfigs.Items[2])
+			Expect(err).NotTo(HaveOccurred())
+			log.Printf("RX interface plugin %s", rxInterface)
+		})
+
+		AfterEach(func() {
+			// make sure sma connection is up.
+			rxSma, err := ranptphelper.GetSma(ptpDaemonPod, rxInterface)
+			Expect(err).NotTo(HaveOccurred())
+			if rxSma != "1 1" {
+				err = ranptphelper.SetSma(ptpDaemonPod, rxInterface, "1 1")
+				Expect(err).NotTo(HaveOccurred())
+			}
+		})
+
+		It("checks FREERUN status are generated for dpll process for RX interface and GM process for TX "+
+			"interface", polarion.ID("70114"), func() {
+
+			txInterface, err := ranptphelper.GetTxIface(ptpConfigs.Items[2])
+			Expect(err).NotTo(HaveOccurred())
+
+			By(fmt.Sprintf("modify SMA1 value for interface %s, in pod  %s to 0 1", rxInterface,
+				ptpDaemonPod.Name))
+			err = ranptphelper.SetSma(ptpDaemonPod, rxInterface, "0 1")
+			Expect(err).NotTo(HaveOccurred())
+
+			readSMA, err := ranptphelper.GetSma(ptpDaemonPod, rxInterface)
+			Expect(err).NotTo(HaveOccurred())
+			log.Printf("interface %s has sma1 value of: %s, expected result 0 1", rxInterface, readSMA)
+
+			By(fmt.Sprintf("Wait for FREERUN states for dpll process for RX interface %s", rxInterface))
+			err = ranptphelper.WaitForPtpClockStateMetric(*ptpDaemonPod, ranptpparameters.FreeRunState, rxInterface,
+				1*time.Minute, 5*time.Second, "ts2phc")
+			Expect(err).NotTo(HaveOccurred())
+			log.Printf("FREERUN state found for RX interface %s in pod %s", rxInterface, ptpDaemonPod.Name)
+
+			By(fmt.Sprintf("Wait for FREERUN states for GM process for TX interface %s", txInterface))
+			err = ranptphelper.WaitForPtpClockStateMetric(*ptpDaemonPod, ranptpparameters.FreeRunState, txInterface,
+				1*time.Minute, 5*time.Second, "dpll", "gnss", "ts2phc")
+			Expect(err).NotTo(HaveOccurred())
+
+			By(fmt.Sprintf("modify SMA1 value for RX interface %s, in pod  %s to 1 1", rxInterface,
+				ptpDaemonPod.Name))
+			err = ranptphelper.SetSma(ptpDaemonPod, rxInterface, "1 1")
+			Expect(err).NotTo(HaveOccurred())
+			readSMA, err = ranptphelper.GetSma(ptpDaemonPod, rxInterface)
+			Expect(err).NotTo(HaveOccurred())
+			log.Printf("interface %s has sma1 value of: %s, expected result 1 1", rxInterface, readSMA)
+
+			err = ranptphelper.WaitForMetricValueStatus(*ptpDaemonPod, ranptpparameters.OpenshiftPtpPpsStatus,
 				ranptpparameters.Available, 1*time.Minute, 10*time.Second)
 			Expect(err).NotTo(HaveOccurred())
 		})

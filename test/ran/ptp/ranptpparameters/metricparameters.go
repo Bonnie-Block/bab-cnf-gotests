@@ -41,8 +41,9 @@ const (
 	OpenshiftPtpThreshold     = "openshift_ptp_threshold"
 	OpenshiftPtpNmeaStatus    = "openshift_ptp_nmea_status"
 
-	ClockStateValueField = "clock_state_value"
-	ValueField           = "value"
+	ClockStateValueField  = "clock_state_value"
+	ValueField            = "value"
+	OpenshiftPtpPpsStatus = "openshift_ptp_pps_status"
 
 	ClockClassFreerun  ClockClass = 248
 	ClockClassHoldOver ClockClass = 7

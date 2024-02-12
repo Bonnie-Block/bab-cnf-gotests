@@ -3,6 +3,7 @@ package ranptphelper
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"strings"
@@ -212,7 +213,7 @@ func WaitForPtpClockStateMetric(ptpDaemonPod corev1.Pod, state ranptpparameters.
 	return nil
 }
 
-// WaitForMetricState waits for given metrics type state to reach expected value for a period of time.
+// WaitForMetricValueStatus waits for given metrics type state to reach expected value for a period of time.
 func WaitForMetricValueStatus(ptpDaemonPod corev1.Pod, metricsName string, state interface{},
 	timeout time.Duration, stableDuration time.Duration) error {
 	var (
@@ -239,9 +240,6 @@ func WaitForMetricValueStatus(ptpDaemonPod corev1.Pod, metricsName string, state
 		}
 
 		for _, actualVal := range ranptpparameters.MetricMap[metricsName] {
-			if actualVal.Interface == ranptpparameters.Master {
-				continue
-			}
 
 			stateMsg = stateMessage(stateMsg, metricsName, actualVal)
 
@@ -455,4 +453,133 @@ func WaitForLog(ptpPod *corev1.Pod, container string, wantedLog string, since ti
 
 		return false, nil
 	})
+}
+
+// SetSma sets the SMA1 values.
+// smaVal should be on format 'x y'. e.g. '1 2'.
+func SetSma(ptpPod *corev1.Pod, iface string, smaVal string) error {
+	cmd := fmt.Sprintf("echo %s > /sys/class/net/%s/device/ptp/*/pins/SMA1", smaVal, iface)
+	_, err := pod.ExecCommand(helper.Apiclient, *ptpPod, []string{"/bin/bash", "-c", cmd}, parameters.PtpContainerName)
+
+	return err
+}
+
+// GetSma gets the SMA1 values.
+// smaVal should be on format 'x y'. e.g. '1 2'.
+func GetSma(ptpPod *corev1.Pod, iface string) (string, error) {
+	cmd := fmt.Sprintf("cat /sys/class/net/%s/device/ptp/*/pins/SMA1", iface)
+	smaVal, err := pod.ExecCommand(helper.Apiclient, *ptpPod, []string{"/bin/bash", "-c", cmd},
+		parameters.PtpContainerName)
+
+	return smaVal.String(), err
+}
+
+// GetRxIface gets the RX interface.
+func GetRxIface(ptpConfig ptpv1.PtpConfig) (string, error) {
+	ifaces, ifaceJSON, err := getJSONInterface(ptpConfig)
+	if err != nil {
+		return "", err
+	}
+
+	for _, iface := range ifaces {
+		ifaceStr, err := json.Marshal(ifaceJSON[iface])
+		if err != nil {
+			return "", err
+		}
+
+		var sma1Json map[string]interface{}
+		err = json.Unmarshal(ifaceStr, &sma1Json)
+
+		if err != nil {
+			return "", err
+		}
+
+		sma1Str, err := json.Marshal(sma1Json["SMA1"])
+
+		if err != nil {
+			return "", err
+		}
+
+		if string(sma1Str) == "\"1 1\"" {
+			log.Printf("found interface %s with value 1 1", iface)
+
+			return iface, nil
+		}
+	}
+
+	return "", nil
+}
+
+func GetTxIface(ptpConfig ptpv1.PtpConfig) (string, error) {
+	ifaces, ifaceJSON, err := getJSONInterface(ptpConfig)
+	if err != nil {
+		return "", err
+	}
+
+	for _, iface := range ifaces {
+		ifaceStr, err := json.Marshal(ifaceJSON[iface])
+
+		if err != nil {
+			return "", err
+		}
+
+		var sma1Json map[string]interface{}
+		err = json.Unmarshal(ifaceStr, &sma1Json)
+
+		if err != nil {
+			return "", err
+		}
+
+		sma1Str, err := json.Marshal(sma1Json["SMA1"])
+		if err != nil {
+			return "", err
+		}
+
+		if string(sma1Str) == "\"2 1\"" {
+			log.Printf("found interface %s with value 2 1", iface)
+
+			return iface, nil
+		}
+	}
+
+	return "", nil
+}
+
+func getJSONInterface(ptpConfig ptpv1.PtpConfig) ([]string, map[string]interface{}, error) {
+	pluginJSONStr, err := json.Marshal(ptpConfig.Spec.Profile[0].Plugins["e810"])
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var gmPlugin map[string]interface{}
+	err = json.Unmarshal(pluginJSONStr, &gmPlugin)
+
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// find interfaces in JSON
+	pinsIfaces, ok := gmPlugin["pins"].(map[string]interface{})
+	if !ok {
+		return nil, nil, fmt.Errorf("failed to casting to map[string]interface{}")
+	}
+
+	var ifaces []string
+	for i := range pinsIfaces {
+		ifaces = append(ifaces, i)
+	}
+
+	pinsJSONStr, err := json.Marshal(gmPlugin["pins"])
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var ifaceJSON map[string]interface{}
+	err = json.Unmarshal(pinsJSONStr, &ifaceJSON)
+
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return ifaces, ifaceJSON, nil
 }
