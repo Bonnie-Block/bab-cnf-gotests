@@ -216,6 +216,20 @@ var _ = Describe("Talm precache one spoke", Label("talmprecache"), func() {
 		AfterEach(func() {
 			printCguAndPolicyOnFailure(rantalmparameters.TalmTestNamespace)
 
+			precachingConfig := &v1alpha1.PreCachingConfig{}
+			// Check if the previous test left a precachingConfig CR on the hub cluster
+			err := rantalmhelper.HubAPIClient.Get(context.Background(),
+				runtimeclient.ObjectKey{Name: fmt.Sprintf("%s-precacheconfig", curName),
+					Namespace: rantalmparameters.TalmTestNamespace},
+				precachingConfig)
+
+			// Remove precachingConfig CR from hub if it exists
+			if err == nil {
+				By("Delete the preCacheConfig CR on hubcluster")
+				err := rantalmhelper.HubAPIClient.Client.Delete(context.Background(), precachingConfig)
+				Expect(err).To(BeNil())
+			}
+
 			// delete generated CRs
 			rantalmhelper.CleanupTestResourcesOnClient(
 				rantalmhelper.HubAPIClient,
@@ -539,7 +553,6 @@ var _ = Describe("Talm precache one spoke", Label("talmprecache"), func() {
 
 			By("verifying CGU reports spoke1 failed with UnrecoverableError in precache status")
 			assertPrecacheStatus(cgu.Name, rantalmhelper.Spoke1Name, "UnrecoverableError")
-
 		})
 	})
 })
