@@ -484,6 +484,10 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 
 	Context("restart GM", func() {
 		It("should make nmea lost after GPS cold reboot", polarion.ID("70111"), func() {
+			if ptpConfigCounts[gmOneCardConfigIndx] == 0 && ptpConfigCounts[gmTwoCardConfigIndx] == 0 {
+				Skip("Test requires Grandmaster configuration")
+			}
+
 			ptpDaemonPods, err := helper.Apiclient.Pods(parameters.PtpOperatorNamespace).List(context.Background(),
 				metav1.ListOptions{LabelSelector: parameters.PtpDaemonsetLabelSelector})
 			Expect(err).NotTo(HaveOccurred())
