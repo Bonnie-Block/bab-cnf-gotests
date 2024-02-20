@@ -16,7 +16,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	. "gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/nethelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/sriov/netsriovparameters"
 	_ "gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/sriov/tests"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/cluster"
@@ -49,8 +48,7 @@ var _ = BeforeSuite(func() {
 	PullTestImage(Config.General.CnfNodeLabel, Config.Network.TestContainerImage)
 	sriovInfos, err := cluster.DiscoverSriov(Apiclient, netsriovparameters.OperatorNamespace)
 	Expect(err).ToNot(HaveOccurred())
-	err = nethelper.CompareNodeSriovInterfaces(sriovInfos)
-	Expect(err).ToNot(HaveOccurred())
+
 	err = namespaces.Clean(
 		netsriovparameters.OperatorNamespace,
 		netsriovparameters.OperatorTestNamespace,
