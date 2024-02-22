@@ -304,7 +304,7 @@ func DeleteHwEventSecret(namespace, secretName string) error {
 // CheckCustomResourceDefinition validates the CostumeResourceDefinition of the feature exist.
 func CheckCustomResourceDefinition() error {
 	hwEventList := &bmerv1alpha1.HardwareEventList{}
-	err := helper.Apiclient.List(context.TODO(), hwEventList)
+	err := helper.Apiclient.List(context.Background(), hwEventList)
 
 	if err != nil {
 		return fmt.Errorf("failed to list hw event proxy custom resource definition due to: %w", err)

@@ -90,7 +90,7 @@ var _ = Describe("CNF SRIOV", Ordered, func() {
 		It("Operator re-installation. Verify SR-IOV operator control plane is operational before removal",
 			polarion.ID("46528"), func() {
 				sriovPolicies, err := helper.Apiclient.SriovNetworkNodePolicies(parameters.SriovOperatorNamespace).List(
-					context.TODO(), metav1.ListOptions{})
+					context.Background(), metav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(len(sriovPolicies.Items)).Should(BeNumerically(">", 1))
 				sriovPolicyInstalled := false
@@ -102,7 +102,7 @@ var _ = Describe("CNF SRIOV", Ordered, func() {
 				Expect(sriovPolicyInstalled).To(BeTrue())
 
 				sriovNetworks, err := helper.Apiclient.SriovNetworks(
-					parameters.SriovOperatorNamespace).List(context.TODO(), metav1.ListOptions{})
+					parameters.SriovOperatorNamespace).List(context.Background(), metav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				sriovNetworkInstalled := false
 				for _, sriovNetwork := range sriovNetworks.Items {
@@ -150,11 +150,11 @@ var _ = Describe("CNF SRIOV", Ordered, func() {
 
 				By("Remove sriov subscription")
 				err = helper.Apiclient.Subscriptions(
-					parameters.SriovOperatorNamespace).Delete(context.TODO(), sriovSubscription.Name, metav1.DeleteOptions{})
+					parameters.SriovOperatorNamespace).Delete(context.Background(), sriovSubscription.Name, metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				By("Remove SR-IOV CSV")
 				csvs, err := helper.Apiclient.ClusterServiceVersions(
-					parameters.SriovOperatorNamespace).List(context.TODO(), metav1.ListOptions{})
+					parameters.SriovOperatorNamespace).List(context.Background(), metav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				var sriovCsv string
 				for _, csv := range csvs.Items {
@@ -166,42 +166,42 @@ var _ = Describe("CNF SRIOV", Ordered, func() {
 
 				By("Remove SR-IOV CSV")
 				err = helper.Apiclient.ClusterServiceVersions(
-					parameters.SriovOperatorNamespace).Delete(context.TODO(), sriovCsv, metav1.DeleteOptions{})
+					parameters.SriovOperatorNamespace).Delete(context.Background(), sriovCsv, metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Remove SR-IOV CRDs")
 				for _, crdName := range netsriovparameters.SriovCrds {
 					crd := &v1.CustomResourceDefinition{}
-					err = helper.Apiclient.Get(context.TODO(), goclient.ObjectKey{Name: crdName}, crd)
+					err = helper.Apiclient.Get(context.Background(), goclient.ObjectKey{Name: crdName}, crd)
 					Expect(err).ToNot(HaveOccurred())
 					sriovCrdsList = append(sriovCrdsList, crd)
 				}
 
 				for _, crds := range sriovCrdsList {
-					err := helper.Apiclient.Delete(context.TODO(), crds)
+					err := helper.Apiclient.Delete(context.Background(), crds)
 					Expect(err).ToNot(HaveOccurred())
 				}
 				By("Validate and remove webhooks")
 				mutationWebHookList := admregv1.MutatingWebhookConfigurationList{}
-				err = helper.Apiclient.List(context.TODO(), &mutationWebHookList)
+				err = helper.Apiclient.List(context.Background(), &mutationWebHookList)
 				Expect(err).ToNot(HaveOccurred())
 				for _, mutationWebHook := range mutationWebHookList.Items {
 					if elementInList(netsriovparameters.SriovMutationWebhooks, mutationWebHook.Name) {
 						// Remove comment below once BZ:https://bugzilla.redhat.com/show_bug.cgi?id=2033440 is fixed
 						// Expect(*each.Webhooks[0].FailurePolicy).To(BeIdenticalTo("Ignore"))
-						err = helper.Apiclient.Delete(context.TODO(), &mutationWebHook)
+						err = helper.Apiclient.Delete(context.Background(), &mutationWebHook)
 						Expect(err).ToNot(HaveOccurred())
 					}
 				}
 
 				validationWebhookConfigList := admregv1.ValidatingWebhookConfigurationList{}
-				err = helper.Apiclient.List(context.TODO(), &validationWebhookConfigList)
+				err = helper.Apiclient.List(context.Background(), &validationWebhookConfigList)
 				Expect(err).ToNot(HaveOccurred())
 				for _, validationWebhookConfig := range validationWebhookConfigList.Items {
 					if validationWebhookConfig.Name == netsriovparameters.SriovValidationWebhook {
 						// Remove comment below once BZ:https://bugzilla.redhat.com/show_bug.cgi?id=2033440 is fixed
 						// Expect(*each.Webhooks[0].FailurePolicy).To(BeIdenticalTo("Ignore"))
-						err = helper.Apiclient.Delete(context.TODO(), &validationWebhookConfig)
+						err = helper.Apiclient.Delete(context.Background(), &validationWebhookConfig)
 						Expect(err).ToNot(HaveOccurred())
 					}
 				}
@@ -218,7 +218,7 @@ var _ = Describe("CNF SRIOV", Ordered, func() {
 
 				By("Validate that SR-IOV operator namespace was removed")
 				_, err := helper.Apiclient.Namespaces().Get(
-					context.TODO(), parameters.SriovOperatorNamespace, metav1.GetOptions{})
+					context.Background(), parameters.SriovOperatorNamespace, metav1.GetOptions{})
 				Expect(err).To(HaveOccurred())
 
 				By("Validate that SR-IOV api doesn't work")
@@ -226,12 +226,12 @@ var _ = Describe("CNF SRIOV", Ordered, func() {
 					"test-policy", parameters.SriovOperatorNamespace, sriovInterfaces[0], 5,
 					"0-1", 1500, "testresourceusual", "netdevice")
 				_, err = helper.Apiclient.SriovNetworkNodePolicies(parameters.SriovOperatorNamespace).Create(
-					context.TODO(),
+					context.Background(),
 					tmpSriovPolicy,
 					metav1.CreateOptions{})
 				Expect(err).To(HaveOccurred())
 				_, err = helper.Apiclient.SriovNetworks(netsriovparameters.OperatorTestNamespace).Create(
-					context.TODO(),
+					context.Background(),
 					netsriovhelper.DefineSriovNetwork("test-network", "testresourceusual"),
 					metav1.CreateOptions{},
 				)
@@ -263,7 +263,7 @@ var _ = Describe("CNF SRIOV", Ordered, func() {
 					netsriovparameters.SriovOperatorDeploymentRetry).ShouldNot(HaveOccurred())
 
 				mutationWebHook := admregv1.MutatingWebhookConfigurationList{}
-				err = helper.Apiclient.List(context.TODO(), &mutationWebHook)
+				err = helper.Apiclient.List(context.Background(), &mutationWebHook)
 				Expect(err).ToNot(HaveOccurred())
 				isWebhookResourceInjectorPolicyIgnore := false
 				isSriovMutationWebhooksPolicyFail := false
@@ -284,7 +284,7 @@ var _ = Describe("CNF SRIOV", Ordered, func() {
 
 				isValidationWebhookConfigFail := false
 				validationWebhookConfig := admregv1.ValidatingWebhookConfigurationList{}
-				err = helper.Apiclient.List(context.TODO(), &validationWebhookConfig)
+				err = helper.Apiclient.List(context.Background(), &validationWebhookConfig)
 				for _, each := range validationWebhookConfig.Items {
 					if each.Name == netsriovparameters.SriovValidationWebhook {
 						Expect(*each.Webhooks[0].FailurePolicy).To(BeIdenticalTo(admregv1.FailurePolicyType("Fail")))

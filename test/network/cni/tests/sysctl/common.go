@@ -44,7 +44,7 @@ func createSysctlTuningSriovNetwork(
 	By("Wait until NAD is available")
 	Eventually(func() error {
 		_, err = helper.Apiclient.NetworkAttachmentDefinitions(netcniparameters.TestNamespace).Get(
-			context.TODO(), sriovNetworkName, v1.GetOptions{})
+			context.Background(), sriovNetworkName, v1.GetOptions{})
 
 		return err
 	}, 60*time.Second, netcniparameters.RetryInterval).ShouldNot(HaveOccurred())

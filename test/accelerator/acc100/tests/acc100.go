@@ -119,7 +119,7 @@ var _ = Describe("Intel ACC100", func() {
 		It("configuration", polarion.ID("41073"), func() {
 			Eventually(func() int64 {
 				testedNode, err := helper.Apiclient.CoreV1Interface.Nodes().Get(
-					context.TODO(),
+					context.Background(),
 					fecConfig.Spec.NodeSelector["kubernetes.io/hostname"],
 					metav1.GetOptions{},
 				)
@@ -135,7 +135,7 @@ var _ = Describe("Intel ACC100", func() {
 			By("Waiting for resource to reported in the node")
 			Eventually(func() int64 {
 				testedNode, err := helper.Apiclient.CoreV1Interface.Nodes().Get(
-					context.TODO(),
+					context.Background(),
 					fecConfig.Spec.NodeSelector["kubernetes.io/hostname"],
 					metav1.GetOptions{},
 				)

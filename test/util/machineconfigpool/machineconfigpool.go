@@ -69,7 +69,7 @@ func GetByLabel(clientSet *testclient.ClientSet, key, value string) ([]mcov1.Mac
 	selector = selector.Add(*req)
 	mcps := &mcov1.MachineConfigPoolList{}
 
-	if err := clientSet.List(context.TODO(), mcps, &client.ListOptions{LabelSelector: selector}); err != nil {
+	if err := clientSet.List(context.Background(), mcps, &client.ListOptions{LabelSelector: selector}); err != nil {
 		return nil, err
 	}
 
@@ -79,7 +79,7 @@ func GetByLabel(clientSet *testclient.ClientSet, key, value string) ([]mcov1.Mac
 	// fallback to look for a mcp with the same nodeselector.
 	// key value may come from a node selector, so looking for a mcp
 	// that targets the same nodes is legit
-	if err := clientSet.List(context.TODO(), mcps); err != nil {
+	if err := clientSet.List(context.Background(), mcps); err != nil {
 		return nil, err
 	}
 
@@ -118,7 +118,7 @@ func GetByProfile(
 // WaitForMcpUpdate waits for a mcp to be updating and then updated.
 func WaitForMcpUpdate(clientSet *testclient.ClientSet, nodeLabel string) error {
 	mcp := &mcov1.MachineConfigPool{}
-	err := clientSet.Get(context.TODO(), client.ObjectKey{Name: nodeLabel}, mcp)
+	err := clientSet.Get(context.Background(), client.ObjectKey{Name: nodeLabel}, mcp)
 
 	if err != nil {
 		return err

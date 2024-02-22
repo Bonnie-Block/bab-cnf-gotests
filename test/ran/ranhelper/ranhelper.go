@@ -229,7 +229,7 @@ func GetOperatorVersionFromCSV(client *testclient.ClientSet, operatorName, opera
 
 	// Get the CSV objects
 	csvs, err := client.ClusterServiceVersions(operatorNamespace).
-		List(context.TODO(), metav1.ListOptions{})
+		List(context.Background(), metav1.ListOptions{})
 
 	// Check for any error getting the CSVs
 	if err != nil {
@@ -277,9 +277,9 @@ func modifyObjects(mode string, resDir string) error {
 	for _, obj := range objs {
 		switch mode {
 		case createMode:
-			err = helper.Apiclient.Client.Create(context.TODO(), obj)
+			err = helper.Apiclient.Client.Create(context.Background(), obj)
 		case deleteMode:
-			err = helper.Apiclient.Client.Delete(context.TODO(), obj)
+			err = helper.Apiclient.Client.Delete(context.Background(), obj)
 		case updateMode:
 			err = updateObject(obj)
 		}
@@ -307,7 +307,7 @@ func updateObject(obj *unstructured.Unstructured) error {
 	existing := &unstructured.Unstructured{}
 	existing.SetGroupVersionKind(gvk)
 	err := helper.Apiclient.Client.Get(
-		context.TODO(),
+		context.Background(),
 		types.NamespacedName{Name: obj.GetName(), Namespace: obj.GetNamespace()},
 		existing)
 
@@ -322,7 +322,7 @@ func updateObject(obj *unstructured.Unstructured) error {
 	obj.SetManagedFields(existing.GetManagedFields())
 	obj.SetFinalizers(existing.GetFinalizers())
 
-	return helper.Apiclient.Client.Update(context.TODO(), obj)
+	return helper.Apiclient.Client.Update(context.Background(), obj)
 }
 
 // IsContainerExistInPod check if a given contained, 'containerName', exists in a given pod, 'pod'.

@@ -38,13 +38,13 @@ func CreatePerformanceProfile(performanceProfileName string, mcpPoolName string)
 		},
 	}
 
-	return Apiclient.Client.Create(context.TODO(), performanceProfile)
+	return Apiclient.Client.Create(context.Background(), performanceProfile)
 }
 
 // CleanAllPerformanceProfile removes all PerformanceProfile from cluster.
 func CleanAllPerformanceProfile(cnfNodeLabel string, snoTimeoutMultiplier time.Duration) error {
 	performanceProfileList := &v2.PerformanceProfileList{}
-	err := Apiclient.Client.List(context.TODO(), performanceProfileList)
+	err := Apiclient.Client.List(context.Background(), performanceProfileList)
 
 	if err != nil {
 		return err
@@ -53,7 +53,7 @@ func CleanAllPerformanceProfile(cnfNodeLabel string, snoTimeoutMultiplier time.D
 	if len(performanceProfileList.Items) > 0 {
 		for _, performanceProfile := range performanceProfileList.Items {
 			err := Apiclient.Client.Delete(
-				context.TODO(),
+				context.Background(),
 				&performanceProfile)
 			if err != nil {
 				return err

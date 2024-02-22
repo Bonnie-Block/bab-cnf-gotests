@@ -620,7 +620,7 @@ func GetNmStateConfigList() (assistedv1beta1.NMStateConfigList, error) {
 func IsServiceAccountExist(client *testClient.ClientSet, serviceAccountName string, namespace string) (bool, error) {
 	log.Printf("Checking for existence of service account '%s' in namespace '%s'\n", serviceAccountName, namespace)
 
-	_, err := client.CoreV1Interface.ServiceAccounts(namespace).Get(context.TODO(),
+	_, err := client.CoreV1Interface.ServiceAccounts(namespace).Get(context.Background(),
 		serviceAccountName, metav1.GetOptions{})
 
 	// Other system errors
@@ -635,7 +635,7 @@ func DeleteServiceAccountAndWait(client *testClient.ClientSet, serviceAccountNam
 	// Check if SA exists first then delete SA if it exists
 	serviceAccountExists, err := IsServiceAccountExist(client, serviceAccountName, namespace)
 	if serviceAccountExists {
-		err = client.CoreV1Interface.ServiceAccounts(namespace).Delete(context.TODO(),
+		err = client.CoreV1Interface.ServiceAccounts(namespace).Delete(context.Background(),
 			serviceAccountName, metav1.DeleteOptions{})
 		if err != nil {
 			return err

@@ -45,14 +45,14 @@ var _ = Describe("Test configurations applied via ZTP", Ordered, Label("ztp-spok
 			// 60904
 			It("verifies list of pods in "+ran.NamespaceNetdiag+" namespace on spoke", polarion.ID("60904"), func() {
 				By("checking pods do not exist in " + ran.NamespaceNetdiag)
-				networkDiagPods, err := helper.Apiclient.Pods(ran.NamespaceNetdiag).List(context.TODO(), metav1.ListOptions{})
+				networkDiagPods, err := helper.Apiclient.Pods(ran.NamespaceNetdiag).List(context.Background(), metav1.ListOptions{})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(networkDiagPods.Items).To(BeEmpty(), "Pods exist in ", ran.NamespaceNetdiag)
 			})
 			// 60905
 			It("verifies list of pods in "+ran.NamespaceConsole+" namespace on spoke", polarion.ID("60905"), func() {
 				By("checking pods do not exist in " + ran.NamespaceConsole)
-				consolePods, err := helper.Apiclient.Pods(ran.NamespaceConsole).List(context.TODO(), metav1.ListOptions{})
+				consolePods, err := helper.Apiclient.Pods(ran.NamespaceConsole).List(context.Background(), metav1.ListOptions{})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(consolePods.Items).To(BeEmpty(), "Pods exist in ", ran.NamespaceConsole)
 			})

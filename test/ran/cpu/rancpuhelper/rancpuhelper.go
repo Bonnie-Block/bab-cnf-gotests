@@ -57,7 +57,7 @@ type SelectorFunc func(profile *performancev2.PerformanceProfile) bool
 // a selector (callback) is provided, the profile will need to match specific data additionally.
 func GetPerformanceProfileWithCPUSet(selector SelectorFunc) (*performancev2.PerformanceProfile, error) {
 	profiles := &performancev2.PerformanceProfileList{}
-	if err := helper.Apiclient.List(context.TODO(), profiles); err != nil {
+	if err := helper.Apiclient.List(context.Background(), profiles); err != nil {
 		return nil, err
 	}
 
@@ -92,7 +92,7 @@ func GetNodesFromPerformanceProfile(profile *performancev2.PerformanceProfile) (
 	if mcp != nil {
 		mcpNodeSelector := mcp.Spec.NodeSelector.String()
 		mcpNodes, mcpNodesErr = helper.Apiclient.Nodes().List(
-			context.TODO(),
+			context.Background(),
 			metav1.ListOptions{LabelSelector: mcpNodeSelector},
 		)
 
@@ -112,7 +112,7 @@ func GetNodesFromPerformanceProfile(profile *performancev2.PerformanceProfile) (
 
 	if profileNodeSelector != nil {
 		key, value := components.GetFirstKeyAndValue(profileNodeSelector)
-		profileNodes, profileNodesErr = helper.Apiclient.Nodes().List(context.TODO(),
+		profileNodes, profileNodesErr = helper.Apiclient.Nodes().List(context.Background(),
 			metav1.ListOptions{LabelSelector: fmt.Sprintf("%s=%s", key, value)})
 
 		if profileNodes == nil {
@@ -188,7 +188,7 @@ func DeleteMustGathers(mustGatherExecDir string) error {
 // Execute a command in Prometheus pod and returns output and error.
 func execCommandInPromPod(command []string, logCommand bool) ([]byte, error) {
 	promPod, err := helper.Apiclient.Pods(parameters.PromNamespace).
-		Get(context.TODO(), ran.PromPodName, metav1.GetOptions{})
+		Get(context.Background(), ran.PromPodName, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}

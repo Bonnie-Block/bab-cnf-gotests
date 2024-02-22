@@ -210,7 +210,7 @@ func CreateClientOnMaster(bgpProtocol string,
 		netparameters.MasterConfigMapName,
 		netmlbparameters.IBGPASN, bgpProtocol)
 	_, err := helper.Apiclient.ConfigMaps(netmlbparameters.TestNamespace).Create(
-		context.TODO(),
+		context.Background(),
 		masterConfigMap,
 		metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())

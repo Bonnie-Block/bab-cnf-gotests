@@ -304,7 +304,7 @@ func setPowerMode(perfProfile *performancev2.PerformanceProfile,
 
 	perfProfile.Spec.WorkloadHints = newWorkLoadHints
 
-	err := helper.Apiclient.Update(context.TODO(), perfProfile)
+	err := helper.Apiclient.Update(context.Background(), perfProfile)
 	if err != nil {
 		return err
 	}
@@ -330,7 +330,7 @@ func updatePerformanceProfileSpecs(perfProfile *performancev2.PerformanceProfile
 
 	perfProfile.Spec = newSpec
 
-	return true, helper.Apiclient.Update(context.TODO(), perfProfile)
+	return true, helper.Apiclient.Update(context.Background(), perfProfile)
 }
 
 // checkCPUGovernorsAndResumeLatency  Checks power and latency settings of the cpus.

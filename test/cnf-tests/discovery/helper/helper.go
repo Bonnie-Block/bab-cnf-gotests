@@ -92,7 +92,7 @@ func DeployMC(machineConfig string) error {
 		return err
 	}
 
-	err = Apiclient.Client.Create(context.TODO(), mc)
+	err = Apiclient.Client.Create(context.Background(), mc)
 
 	if err != nil {
 		return err
@@ -122,7 +122,7 @@ func DecodeMCYaml(mcyaml string) (*mcov1.MachineConfig, error) {
 // CleanAllSriovPolicy removes all SriovNetworkNodePolicyList except default.
 func CleanAllSriovPolicy(snoTimeoutMultiplier time.Duration) error {
 	sriovNodePolicyList := &sriovv1.SriovNetworkNodePolicyList{}
-	err := Apiclient.Client.List(context.TODO(), sriovNodePolicyList)
+	err := Apiclient.Client.List(context.Background(), sriovNodePolicyList)
 
 	if err != nil {
 		return err
@@ -132,7 +132,7 @@ func CleanAllSriovPolicy(snoTimeoutMultiplier time.Duration) error {
 		for _, sriovNodePolicy := range sriovNodePolicyList.Items {
 			if sriovNodePolicy.Name != "default" {
 				err := Apiclient.Client.Delete(
-					context.TODO(),
+					context.Background(),
 					&sriovNodePolicy)
 				if err != nil {
 					return err
@@ -264,7 +264,7 @@ spec:
 }
 
 func DeleteOVSQOSMCs(cnfNodeLabel string) error {
-	mcList, err := Apiclient.MachineConfigs().List(context.TODO(), metav1.ListOptions{})
+	mcList, err := Apiclient.MachineConfigs().List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		return err
 	}

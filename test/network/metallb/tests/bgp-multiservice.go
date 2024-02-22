@@ -165,7 +165,7 @@ var _ = Describe("MetalLB BGP", func() {
 			netmlbparameters.IBGPASN,
 			netmlbparameters.PropagateFalse)
 		_, err = helper.Apiclient.ConfigMaps(netmlbparameters.TestNamespace).Create(
-			context.TODO(),
+			context.Background(),
 			masterConfigMap,
 			metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())

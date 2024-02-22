@@ -191,7 +191,7 @@ func (b *NetworkAttachmentDefinitionBuilder) Create(clientSet *client.ClientSet)
 		return fmt.Errorf(b.errorMsg)
 	}
 
-	err := clientSet.Create(context.TODO(), &b.Definition)
+	err := clientSet.Create(context.Background(), &b.Definition)
 	if err != nil {
 		return fmt.Errorf("fail to create NAD object due to: %w", err)
 	}

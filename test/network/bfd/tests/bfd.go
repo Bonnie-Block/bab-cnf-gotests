@@ -42,14 +42,14 @@ var _ = Describe("BFD", func() {
 		By("Creating configmaps")
 		workerConfigMap := netbfdhelper.DefineBFDConfigMap(masterNodesAddresses, netbfdparameters.WorkerConfigMapName)
 		_, err = helper.Apiclient.ConfigMaps(netbfdparameters.TestNamespace).Create(
-			context.TODO(),
+			context.Background(),
 			workerConfigMap,
 			metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		masterConfigMap := netbfdhelper.DefineBFDConfigMap(workerNodesAddresses, netparameters.MasterConfigMapName)
 		_, err = helper.Apiclient.ConfigMaps(netbfdparameters.TestNamespace).Create(
-			context.TODO(),
+			context.Background(),
 			masterConfigMap,
 			metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
@@ -57,7 +57,7 @@ var _ = Describe("BFD", func() {
 		By("Creating a role")
 		role := netbfdhelper.DefineBFDRole()
 		_, err = helper.Apiclient.Roles(netbfdparameters.TestNamespace).Create(
-			context.TODO(),
+			context.Background(),
 			role,
 			metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
@@ -65,7 +65,7 @@ var _ = Describe("BFD", func() {
 		By("Creating a role binding")
 		roleBinding := netbfdhelper.DefineBFDRoleBinding()
 		_, err = helper.Apiclient.RoleBindings(netbfdparameters.TestNamespace).Create(
-			context.TODO(),
+			context.Background(),
 			roleBinding,
 			metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
@@ -73,7 +73,7 @@ var _ = Describe("BFD", func() {
 		By("Creating a daemonset")
 		daemonset := netbfdhelper.DefineBFDDaemonset()
 		_, err = helper.Apiclient.DaemonSets(netbfdparameters.TestNamespace).Create(
-			context.TODO(),
+			context.Background(),
 			daemonset,
 			metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())

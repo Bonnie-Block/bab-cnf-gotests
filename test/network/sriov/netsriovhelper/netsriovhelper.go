@@ -973,7 +973,7 @@ func disableDrainState() {
 
 func IsSriovPreConfigured() bool {
 	sriovPolicies, err := Apiclient.SriovNetworkNodePolicies(generalParameters.SriovOperatorNamespace).List(
-		context.TODO(), metav1.ListOptions{})
+		context.Background(), metav1.ListOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
 	if len(sriovPolicies.Items) < 2 {
@@ -981,7 +981,7 @@ func IsSriovPreConfigured() bool {
 	}
 
 	sriovNetworks, err := Apiclient.SriovNetworks(
-		generalParameters.SriovOperatorNamespace).List(context.TODO(), metav1.ListOptions{})
+		generalParameters.SriovOperatorNamespace).List(context.Background(), metav1.ListOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
 	return len(sriovNetworks.Items) >= 2

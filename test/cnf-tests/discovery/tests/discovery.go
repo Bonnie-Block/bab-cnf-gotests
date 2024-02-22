@@ -85,7 +85,7 @@ var _ = Describe("Discovery mode with all ", func() {
 		}
 
 		By("Validate Machine Configs Installed")
-		mcList, err := Apiclient.MachineConfigs().List(context.TODO(), metav1.ListOptions{})
+		mcList, err := Apiclient.MachineConfigs().List(context.Background(), metav1.ListOptions{})
 		if err != nil {
 			testFail = fmt.Sprintf("Error to collect machine config list: %s", err)
 			Expect(err).ToNot(HaveOccurred(), testFail)

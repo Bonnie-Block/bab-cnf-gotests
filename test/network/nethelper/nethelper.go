@@ -420,12 +420,12 @@ func defineSriovNetworkMetaPlugins(pluginConfig string) func(network *sriovv1.Sr
 
 func WaitUntilIPPoolIsEmpty(ipPoolName string) {
 	_, err := helper.Apiclient.IPPools(netparameters.MultusNamespace).Get(
-		context.TODO(), ipPoolName, metav1.GetOptions{})
+		context.Background(), ipPoolName, metav1.GetOptions{})
 
 	if err == nil {
 		gomega.Eventually(func() bool {
 			IPPool, err := helper.Apiclient.IPPools(netparameters.MultusNamespace).Get(
-				context.TODO(), ipPoolName, metav1.GetOptions{})
+				context.Background(), ipPoolName, metav1.GetOptions{})
 			if err != nil {
 				return false
 			}

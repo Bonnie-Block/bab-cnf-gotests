@@ -74,7 +74,7 @@ func RestoreNodeGWMode() {
 func GetGWMode() bool {
 	networkOperatorConfg := &operv1.Network{}
 	err := helper.Apiclient.Get(
-		context.TODO(), runtimeclient.ObjectKey{Name: netparameters.NetworkOperatorConfigName}, networkOperatorConfg)
+		context.Background(), runtimeclient.ObjectKey{Name: netparameters.NetworkOperatorConfigName}, networkOperatorConfg)
 	Expect(err).ToNot(HaveOccurred())
 
 	return networkOperatorConfg.Spec.DefaultNetwork.OVNKubernetesConfig.GatewayConfig.RoutingViaHost
@@ -84,7 +84,7 @@ func GetGWMode() bool {
 func SetLocalGWMode(state bool) {
 	networkOperatorConfg := &operv1.Network{}
 	err := helper.Apiclient.Get(
-		context.TODO(), runtimeclient.ObjectKey{Name: netparameters.NetworkOperatorConfigName}, networkOperatorConfg)
+		context.Background(), runtimeclient.ObjectKey{Name: netparameters.NetworkOperatorConfigName}, networkOperatorConfg)
 	Expect(err).ToNot(HaveOccurred())
 
 	networkOperatorConfg.Spec.DefaultNetwork.OVNKubernetesConfig.GatewayConfig.RoutingViaHost = state
@@ -98,7 +98,7 @@ func SetLocalGWMode(state bool) {
 func isNetworkOperatorInCondition(condition string, status operv1.ConditionStatus) bool {
 	networkOperatorConfg := &operv1.Network{}
 	err := helper.Apiclient.Get(
-		context.TODO(), runtimeclient.ObjectKey{Name: netparameters.NetworkOperatorConfigName}, networkOperatorConfg)
+		context.Background(), runtimeclient.ObjectKey{Name: netparameters.NetworkOperatorConfigName}, networkOperatorConfg)
 	Expect(err).ToNot(HaveOccurred())
 
 	for _, c := range networkOperatorConfg.Status.OperatorStatus.Conditions {
@@ -1095,7 +1095,7 @@ func SetLogLevel(logLevel metallboperatorv1beta1.MetalLBLogLevel) error {
 	}
 
 	metallb.Spec.LogLevel = logLevel
-	err = helper.Apiclient.Update(context.TODO(), metallb)
+	err = helper.Apiclient.Update(context.Background(), metallb)
 
 	if err != nil {
 		return fmt.Errorf("error unable to update log level, %s: %w", logLevel, err)

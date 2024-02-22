@@ -297,7 +297,7 @@ func FindAndValidateOrOverridePerformanceProfile(
 		machineConfigPoolName = strings.Split(nodeLabel, "/")[1]
 	)
 
-	err := clientSet.Get(context.TODO(), k8s.ObjectKey{Name: PerformanceProfileName}, performanceProfile)
+	err := clientSet.Get(context.Background(), k8s.ObjectKey{Name: PerformanceProfileName}, performanceProfile)
 	if err != nil {
 		if !errors.IsNotFound(err) {
 			Expect(err).ToNot(HaveOccurred())

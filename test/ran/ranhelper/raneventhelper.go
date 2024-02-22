@@ -63,7 +63,7 @@ func GetDeployImages(namespace string) (map[string]string, error) {
 	var images = make(map[string]string)
 
 	csvs, err := helper.Apiclient.ClusterServiceVersions(namespace).List(
-		context.TODO(), metav1.ListOptions{})
+		context.Background(), metav1.ListOptions{})
 	if err != nil {
 		return images, fmt.Errorf("failed to query ClusterServiceVersions at namespace: %v named: %v due to: %w",
 			namespace, ranparameters.CsvDict()(namespace), err)
@@ -302,7 +302,7 @@ func deployConsumerPod(mirroredImages map[string]string, transportType string, n
 		return fmt.Errorf("failed deployConsumerPod() during decoding manifest payload, due to: %w", err)
 	}
 
-	err = helper.Apiclient.Client.Create(context.TODO(), &manifestPayload)
+	err = helper.Apiclient.Client.Create(context.Background(), &manifestPayload)
 
 	if err != nil {
 		log.Printf("failed to create consumer deployment due to: %v manifest used is below:\n", err)
@@ -321,7 +321,7 @@ func DestroyConsumers(namespace string) (destroyErrors []error) {
 		context.Background(), ranparameters.ConsumerDeploymentDict()(namespace), metav1.GetOptions{})
 
 	if err == nil {
-		err = helper.Apiclient.Client.Delete(context.TODO(), deployment)
+		err = helper.Apiclient.Client.Delete(context.Background(), deployment)
 		if err != nil {
 			destroyErrors = append(destroyErrors,
 				fmt.Errorf("failed to delete consumer deployment: %v due to: %w", deployment, err))

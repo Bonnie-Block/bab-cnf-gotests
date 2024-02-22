@@ -38,7 +38,7 @@ func init() {
 
 	log.Print("Collect info about installed sriov operator")
 
-	err := helper.Apiclient.Get(context.TODO(),
+	err := helper.Apiclient.Get(context.Background(),
 		goclient.ObjectKey{Name: netsriovparameters.SriovOperatorGroupName, Namespace: parameters.SriovOperatorNamespace},
 		&operatorGroup)
 
@@ -47,14 +47,14 @@ func init() {
 	}
 
 	sriovSubscription, err = helper.Apiclient.Subscriptions(parameters.SriovOperatorNamespace).Get(
-		context.TODO(), netsriovparameters.SriovOperatorSubscriptionName, metav1.GetOptions{})
+		context.Background(), netsriovparameters.SriovOperatorSubscriptionName, metav1.GetOptions{})
 
 	if err != nil {
 		log.Fatalf("error to collect sriov Subscription resource %s", err)
 	}
 
 	namespace, err = helper.Apiclient.Namespaces().Get(
-		context.TODO(), parameters.SriovOperatorNamespace, metav1.GetOptions{})
+		context.Background(), parameters.SriovOperatorNamespace, metav1.GetOptions{})
 
 	if err != nil {
 		log.Fatalf("error to collect sriov namespace resource %s", err)

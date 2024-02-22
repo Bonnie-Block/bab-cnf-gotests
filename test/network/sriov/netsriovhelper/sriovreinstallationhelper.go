@@ -23,7 +23,7 @@ import (
 // DeploySriovOperator deploys SR-IOV operator on given cluster.
 func DeploySriovOperator(namespace *corev1.Namespace, operatorGroup *olmv1.OperatorGroup,
 	sriovSubscription *v1alpha1.Subscription) error {
-	err := helper.Apiclient.Create(context.TODO(),
+	err := helper.Apiclient.Create(context.Background(),
 		&corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        namespace.Name,
@@ -36,7 +36,7 @@ func DeploySriovOperator(namespace *corev1.Namespace, operatorGroup *olmv1.Opera
 		return fmt.Errorf("can not deploy operator namespace %w", err)
 	}
 
-	err = helper.Apiclient.Create(context.TODO(),
+	err = helper.Apiclient.Create(context.Background(),
 		&olmv1.OperatorGroup{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        operatorGroup.Name,
@@ -51,7 +51,7 @@ func DeploySriovOperator(namespace *corev1.Namespace, operatorGroup *olmv1.Opera
 		return fmt.Errorf("can not deploy operatorGroup %w", err)
 	}
 
-	err = helper.Apiclient.Create(context.TODO(),
+	err = helper.Apiclient.Create(context.Background(),
 		&v1alpha1.Subscription{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        sriovSubscription.Name,
@@ -107,7 +107,7 @@ func IsSriovOperatorInstalled() error {
 
 	for _, crdName := range netsriovparameters.SriovCrds {
 		crd := &v1.CustomResourceDefinition{}
-		err = helper.Apiclient.Get(context.TODO(), goclient.ObjectKey{Name: crdName}, crd)
+		err = helper.Apiclient.Get(context.Background(), goclient.ObjectKey{Name: crdName}, crd)
 
 		if err != nil {
 			return err
@@ -115,7 +115,7 @@ func IsSriovOperatorInstalled() error {
 	}
 
 	webhook := &admregv1.ValidatingWebhookConfiguration{}
-	err = helper.Apiclient.Get(context.TODO(),
+	err = helper.Apiclient.Get(context.Background(),
 		goclient.ObjectKey{Name: netsriovparameters.SriovValidationWebhook,
 			Namespace: parameters.SriovOperatorNamespace}, webhook)
 

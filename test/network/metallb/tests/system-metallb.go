@@ -289,7 +289,7 @@ var _ = Describe("system metallb", Ordered, func() {
 			masterConfigMap := netmetallbhelper.DefineFRRBGPConfigMap(
 				[]string{bgpPeerIP}, confMapName, netparameters.IPV4Family, bgpFRRLocalASN, netmlbparameters.IBGPASN)
 			_, err = helper.Apiclient.ConfigMaps(netmlbparameters.TestNamespace).Create(
-				context.TODO(), masterConfigMap, metav1.CreateOptions{})
+				context.Background(), masterConfigMap, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By(fmt.Sprintf("Create worker FRR router on vlan %d", vlanID))
@@ -376,17 +376,17 @@ var _ = Describe("system metallb", Ordered, func() {
 
 		nmStateInstalledPolicy := nmstatev1.NodeNetworkConfigurationPolicy{}
 		err = helper.Apiclient.Get(
-			context.TODO(), goclient.ObjectKey{Name: netmlbparameters.NMStatePolicyName}, &nmStateInstalledPolicy)
+			context.Background(), goclient.ObjectKey{Name: netmlbparameters.NMStatePolicyName}, &nmStateInstalledPolicy)
 		if err == nil {
 			By("Remove NMState ip configuration from node")
 			updatedNMStatePolicy, err := netmetallbhelper.RemoveNmStateConfig(nmStateInstalledPolicy)
 			Expect(err).ToNot(HaveOccurred())
-			err = helper.Apiclient.Update(context.TODO(), updatedNMStatePolicy)
+			err = helper.Apiclient.Update(context.Background(), updatedNMStatePolicy)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Delete NMState policy from node")
 			waitUntilNMStatePolicyStable(nmStateInstalledPolicy.Name)
-			err = helper.Apiclient.Delete(context.TODO(), updatedNMStatePolicy)
+			err = helper.Apiclient.Delete(context.Background(), updatedNMStatePolicy)
 			Expect(err).ToNot(HaveOccurred())
 		}
 
@@ -522,7 +522,7 @@ var _ = Describe("system metallb", Ordered, func() {
 
 func metalLbIsRunningAndInLocalMode() {
 	_, err := helper.Apiclient.Deployments(netmlbparameters.TestNamespace).Get(
-		context.TODO(), netmlbparameters.MetalLBOperatorDeploymentName, metav1.GetOptions{})
+		context.Background(), netmlbparameters.MetalLBOperatorDeploymentName, metav1.GetOptions{})
 	Expect(err).To(HaveOccurred(), "metallb operator deployment is not installed")
 
 	localGWMode := netmetallbhelper.GetGWMode()
@@ -553,7 +553,7 @@ func generateConnections(srcPod *k8sv1.Pod, srcPodIP, dstIP string) {
 func waitUntilNMStatePolicyStable(policyName string) {
 	Eventually(func() bool {
 		nmstateInstalledPolicy := nmstatev1.NodeNetworkConfigurationPolicy{}
-		_ = helper.Apiclient.Get(context.TODO(), goclient.ObjectKey{Name: policyName}, &nmstateInstalledPolicy)
+		_ = helper.Apiclient.Get(context.Background(), goclient.ObjectKey{Name: policyName}, &nmstateInstalledPolicy)
 
 		for _, status := range nmstateInstalledPolicy.Status.Conditions {
 			if status.Type == nmstatev1Shared.NodeNetworkConfigurationPolicyConditionAvailable {
@@ -651,14 +651,14 @@ func defineAndCreateNMStatePolicy(
 		[]netmlbparameters.NMStateRoute{*nmStatePrimaryIntRoute, *nmStateSecondaryIntRoute})
 	Expect(err).ToNot(HaveOccurred())
 
-	err = helper.Apiclient.Create(context.TODO(), nmStatePolicy)
+	err = helper.Apiclient.Create(context.Background(), nmStatePolicy)
 	Expect(err).ToNot(HaveOccurred())
 
 	waitUntilNMStatePolicyStable(netmlbparameters.NMStatePolicyName)
 
 	var nmStateInstalledPolicy nmstatev1.NodeNetworkConfigurationPolicy
 	err = helper.Apiclient.Get(
-		context.TODO(), goclient.ObjectKey{Name: netmlbparameters.NMStatePolicyName}, &nmStateInstalledPolicy)
+		context.Background(), goclient.ObjectKey{Name: netmlbparameters.NMStatePolicyName}, &nmStateInstalledPolicy)
 	Expect(err).ToNot(HaveOccurred())
 
 	return nmStateInstalledPolicy

@@ -180,7 +180,7 @@ func IsDaemonsetReady(cs *client.ClientSet, operatorNamespace string, daemonsetN
 func WaitForClusterToBeStable(machineConfigPoolName string, snoTimeoutMultiplier time.Duration) error {
 	mcp := &v1.MachineConfigPool{}
 
-	err := Apiclient.Client.Get(context.TODO(), sigClient.ObjectKey{Name: machineConfigPoolName}, mcp)
+	err := Apiclient.Client.Get(context.Background(), sigClient.ObjectKey{Name: machineConfigPoolName}, mcp)
 	if err != nil {
 		return err
 	}
@@ -226,7 +226,7 @@ func ExecAndLogCommand(logCommand bool, timeout time.Duration, name string, arg 
 		timeout = 2 * time.Minute
 	}
 
-	ctx, cancel := context.WithTimeout(context.TODO(), timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 
 	defer cancel() // The cancel should be deferred so resources are cleaned up
 

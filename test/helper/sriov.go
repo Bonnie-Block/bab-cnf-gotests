@@ -101,7 +101,7 @@ func validateSriovVFsNodeAllocatedResources(
 func GetNodeDrainState(operatorNamespace string) bool {
 	sriovOperatorConfg := &sriovv1.SriovOperatorConfig{}
 	err := Apiclient.Get(
-		context.TODO(), runtimeclient.ObjectKey{Name: "default", Namespace: operatorNamespace}, sriovOperatorConfg)
+		context.Background(), runtimeclient.ObjectKey{Name: "default", Namespace: operatorNamespace}, sriovOperatorConfg)
 	Expect(err).ToNot(HaveOccurred())
 
 	return sriovOperatorConfg.Spec.DisableDrain
@@ -110,10 +110,10 @@ func GetNodeDrainState(operatorNamespace string) bool {
 func SetDisableNodeDrainState(state bool, operatorNamespace string) {
 	sriovOperatorConfg := &sriovv1.SriovOperatorConfig{}
 	err := Apiclient.Get(
-		context.TODO(), runtimeclient.ObjectKey{Name: "default", Namespace: operatorNamespace}, sriovOperatorConfg)
+		context.Background(), runtimeclient.ObjectKey{Name: "default", Namespace: operatorNamespace}, sriovOperatorConfg)
 	Expect(err).ToNot(HaveOccurred())
 
 	sriovOperatorConfg.Spec.DisableDrain = state
-	err = Apiclient.Update(context.TODO(), sriovOperatorConfg)
+	err = Apiclient.Update(context.Background(), sriovOperatorConfg)
 	Expect(err).ToNot(HaveOccurred())
 }
