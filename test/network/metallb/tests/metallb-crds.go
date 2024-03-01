@@ -31,7 +31,6 @@ import (
 var _ = Describe("MetalLb New CRDs", func() {
 	var (
 		firstMasterNode   k8sv1.Node
-		secondMasterNode  k8sv1.Node
 		l3Client          *k8sv1.Pod
 		workerNodeList    []k8sv1.Node
 		ipv4metalLBIPList []string
@@ -45,7 +44,6 @@ var _ = Describe("MetalLb New CRDs", func() {
 		Expect(len(masterNodeList)).To(BeNumerically(">", 0),
 			"Master node list is empty")
 		firstMasterNode = masterNodeList[0]
-		secondMasterNode = masterNodeList[1]
 		workerNodeList, err = nodes.GetByRole(helper.Apiclient, parameters.RoleWorker)
 		Expect(err).ToNot(HaveOccurred(), "An unexpected error occurred while getting worker nodes.")
 		Expect(len(workerNodeList)).To(BeNumerically(">", 1),
@@ -156,115 +154,6 @@ var _ = Describe("MetalLb New CRDs", func() {
 		metallbutils.Delete(metallb)
 	})
 
-	Context("two advertisement modes", func() {
-		describe := netmetallbhelper.DescribeMetalLBCRDParameters
-
-		BeforeEach(func() {
-			if len(ipv4metalLBIPList) < 3 {
-				Skip("There are not enough IPv4 addresses (3) configured in env variables METALLB_ADDR_LIST")
-			}
-
-			By("Create an additional server nginx test pod for second service")
-			netmetallbhelper.DefineAndRunMlbClientPod(workerNodeList[1].Name,
-				helper.Config.Network.TestContainerImage,
-				netmlbparameters.AppLabel2, []string{netmlbparameters.ArgCommandNGINX})
-
-			By("Creating a Layer2 Addresspool for the new server nginx pod")
-			err := helper.Apiclient.Create(context.Background(),
-				netmetallbhelper.DefineMetalLBAddressPool([]string{fmt.Sprintf(ipv4metalLBIPList[1] + "/32")},
-					netmlbparameters.Layer2,
-					netmlbparameters.AddressPoolL2))
-			Expect(err).ToNot(HaveOccurred(), "An unexpected error occurred during Layer-2 Addresspool creation.")
-		})
-
-		AfterEach(func() {
-			err := netmetallbhelper.DeleteAllLBServices(netmlbparameters.TestNamespace)
-			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Failed to delete all services in the namespace %s.",
-				netmlbparameters.TestNamespace))
-
-			netmetallbhelper.DeleteAllAddressPools()
-		})
-
-		// OCP-50060
-		DescribeTable("should work together", polarion.ID("50060"),
-			func(externalTrafficPolicy k8sv1.ServiceExternalTrafficPolicyType) {
-				By("Creating 2 MetalLB services for L2 and L3 server nginx pods")
-				_, err := netmetallbhelper.DefineAndCreateLBService(
-					netmlbparameters.TestNamespace,
-					netparameters.IPV4Family,
-					netmlbparameters.AddressPoolName,
-					netmlbparameters.AppLabel1,
-					netmlbparameters.ProtocolTCP,
-					externalTrafficPolicy)
-				Expect(err).ToNot(HaveOccurred(),
-					fmt.Sprintf("An unexpected error occurred during service %s creation.",
-						netmlbparameters.AddressPoolName))
-
-				_, err = netmetallbhelper.DefineAndCreateLBService(
-					netmlbparameters.TestNamespace,
-					netparameters.IPV4Family,
-					netmlbparameters.AddressPoolL2,
-					netmlbparameters.AppLabel2,
-					netmlbparameters.ProtocolTCP,
-					externalTrafficPolicy)
-				Expect(err).ToNot(HaveOccurred(),
-					fmt.Sprintf("An unexpected error occurred during service %s creation.",
-						netmlbparameters.AddressPoolL2))
-
-				By("Creating L2 client")
-				l2ClientDefinition, err := netmetallbhelper.DefineMlbPodWithNetwork(secondMasterNode.Name,
-					netmlbparameters.TestNamespace,
-					helper.Config.Network.TestContainerImage,
-					netmlbparameters.ExternalNADName,
-					ipv4metalLBIPList[2])
-				Expect(err).ToNot(HaveOccurred(), "An unexpected error occurred during l2 client definition.")
-				l2Client := helper.WaitUntilPodCreatedAndRunning(l2ClientDefinition, netmlbparameters.PodWaitingTime)
-
-				By("Validating that L3 client can curl both LB IP addresses")
-				httpOutput, err := netmetallbhelper.HTTPMlbPod(l3Client, ipv4metalLBIPList[0],
-					netmlbparameters.IPv4AddressesLBList[0],
-					netparameters.IPV4Family, netmlbparameters.TestContainerName, netmlbparameters.BGP)
-				Expect(err).ToNot(HaveOccurred(),
-					fmt.Sprintf("Failed to curl LB address %s from l3Client %s.: %s",
-						netmlbparameters.IPv4AddressesLBList[0], l3Client.Name, httpOutput))
-
-				Eventually(func() error {
-					httpOutput, err = netmetallbhelper.HTTPMlbPod(l3Client, ipv4metalLBIPList[0],
-						ipv4metalLBIPList[1],
-						netparameters.IPV4Family, netmlbparameters.TestContainerName, netmlbparameters.Layer2)
-
-					return err
-				}, 1*time.Minute, 2*time.Second).ShouldNot(HaveOccurred(),
-					fmt.Sprintf("L3client %s can not curl LB IP address %s: %s",
-						l3Client.Name, ipv4metalLBIPList[1], httpOutput))
-
-				By("Validating that L2 client can curl L2 LB IP address")
-				Eventually(func() error {
-					httpOutput, err = netmetallbhelper.HTTPMlbPod(l2Client, ipv4metalLBIPList[2], ipv4metalLBIPList[1],
-						netparameters.IPV4Family, parameters.MainContainerName, netmlbparameters.Layer2)
-
-					return err
-				}, 1*time.Minute, 2*time.Second).ShouldNot(HaveOccurred(),
-					fmt.Sprintf("L2client %s can not curl LB IP address %s: %s",
-						l2Client.Name, ipv4metalLBIPList[1], httpOutput))
-
-				By("Validating that L2 client cannot curl L3 LB IP address")
-				Eventually(func() error {
-					httpOutput, err = netmetallbhelper.HTTPMlbPod(l2Client,
-						ipv4metalLBIPList[2], netmlbparameters.IPv4AddressesLBList[0],
-						netparameters.IPV4Family, parameters.MainContainerName, netmlbparameters.Layer2)
-
-					return err
-				}, 1*time.Minute, 2*time.Second).Should(HaveOccurred(),
-					fmt.Sprintf("L2client %s can curl LB IP address %s which is not expected: %s",
-						l2Client.Name, netmlbparameters.IPv4AddressesLBList[0], httpOutput))
-			},
-			Entry(describe, k8sv1.ServiceExternalTrafficPolicyTypeCluster,
-				polarion.SetProperty("TrafficPolicy", netmlbparameters.ExtTrafPolCluster)),
-			Entry(describe, k8sv1.ServiceExternalTrafficPolicyTypeLocal,
-				polarion.SetProperty("TrafficPolicy", netmlbparameters.ExtTrafPolLocal)),
-		)
-	})
 	Context("Concurrent Layer2 and Layer3", func() {
 		var (
 			secInterfaces []*sriovv1.InterfaceExt

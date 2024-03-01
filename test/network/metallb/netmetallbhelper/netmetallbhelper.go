@@ -758,19 +758,6 @@ func DeleteAllIPAddressPools() {
 	}
 }
 
-// DeleteAllAddressPools removes all addresspools in metallb-system.
-func DeleteAllAddressPools() {
-	apList := metallbv1beta1.AddressPoolList{}
-	err := helper.Apiclient.List(context.Background(), &apList,
-		runtimeclient.InNamespace(netmlbparameters.MetalLBOperatorNameSpace))
-	Expect(err).ToNot(HaveOccurred())
-
-	for _, ap := range apList.Items {
-		err = helper.Apiclient.Delete(context.Background(), &ap)
-		Expect(err).ToNot(HaveOccurred())
-	}
-}
-
 // DeleteAllL2Advertisements removes all L2Advertisements in metallb-system.
 func DeleteAllL2Advertisements() error {
 	l2AdvertisementList := metallbv1beta1.L2AdvertisementList{}

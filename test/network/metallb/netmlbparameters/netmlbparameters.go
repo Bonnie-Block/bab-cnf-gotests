@@ -140,7 +140,6 @@ var (
 		{Cr: &metallbv1beta1.IPAddressPoolList{}},
 		{Cr: &metallbv1beta1.BGPAdvertisementList{}},
 		{Cr: &metallbv1beta1.L2AdvertisementList{}},
-		{Cr: &metallbv1beta1.AddressPoolList{}},
 		{Cr: &metallbv1beta1.BFDProfileList{}},
 		{Cr: &metallbv1beta1.BGPPeerList{}},
 		{Cr: &metallboperatorv1beta1.MetalLBList{}},
