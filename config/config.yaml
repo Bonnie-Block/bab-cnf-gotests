@@ -4,7 +4,7 @@ general:
   cnf_worker_label: "node-role.kubernetes.io/worker-cnf"
   failed_tests_logs: "failed_tests_logs.txt"
 network:
-  test_container_image: quay.io/ocp-edge-qe/cnf-gotests-client:v4.14
+  test_container_image: quay.io/ocp-edge-qe/cnf-gotests-client:v4.15
   frr_image: quay.io/ocp-edge-qe/frr:stable_7.5
   switch_lag_names: "ae0,ae1"
 ran:
