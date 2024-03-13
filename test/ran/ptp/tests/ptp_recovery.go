@@ -571,6 +571,9 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 
 		It("checks FREERUN status are generated for dpll process for RX interface and GM process for TX "+
 			"interface", polarion.ID("70114"), func() {
+			if ptpConfigCounts[gmOneCardConfigIndx] == 0 && ptpConfigCounts[gmTwoCardConfigIndx] == 0 {
+				Skip("Test requires Grandmaster configuration")
+			}
 
 			txInterface, err := ranptphelper.GetTxIface(ptpConfigs.Items[2])
 			Expect(err).NotTo(HaveOccurred())
