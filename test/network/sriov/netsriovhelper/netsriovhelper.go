@@ -484,6 +484,22 @@ func DefineTestCommandParameters(
 	return testCommand, nil
 }
 
+func DefineOperatorConfig() *sriovv1.SriovOperatorConfig {
+	trueValue := true
+
+	return &sriovv1.SriovOperatorConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "default",
+			Namespace: netsriovparameters.OperatorNamespace,
+		},
+		Spec: sriovv1.SriovOperatorConfigSpec{
+			EnableInjector:        &trueValue,
+			EnableOperatorWebhook: &trueValue,
+			LogLevel:              2,
+			DisableDrain:          false,
+		}}
+}
+
 func defineServerNetworkName(mtu, vlan int, ipam, ipFamily string) string {
 	return defineNetworkNameWithIpam(mtu, vlan, ipam, ipFamily)
 }

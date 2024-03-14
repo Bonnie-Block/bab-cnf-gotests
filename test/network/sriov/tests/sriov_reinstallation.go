@@ -2,6 +2,7 @@ package tests
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -148,6 +149,17 @@ var _ = Describe("CNF SRIOV", Ordered, func() {
 				By("Wait until SR-IOV cluster is stable ")
 				helper.WaitForSRIOVStable(parameters.SriovOperatorNamespace, netsriovparameters.WaitingTime, snoTimeoutMultiplier)
 
+				By("Disable webhooks")
+				falseValue := false
+				sriovOperatorConfig, err := helper.Apiclient.SriovOperatorConfigs(parameters.SriovOperatorNamespace).
+					Get(context.Background(), "default", metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred(), "Failed to get SriovOperatorConfig")
+				sriovOperatorConfig.Spec.EnableOperatorWebhook = &falseValue
+				sriovOperatorConfig.Spec.EnableInjector = &falseValue
+				_, err = helper.Apiclient.SriovOperatorConfigs(parameters.SriovOperatorNamespace).
+					Update(context.Background(), sriovOperatorConfig, metav1.UpdateOptions{})
+				Expect(err).ToNot(HaveOccurred(), "Failed to update SriovOperatorConfig")
+
 				By("Remove sriov subscription")
 				err = helper.Apiclient.Subscriptions(
 					parameters.SriovOperatorNamespace).Delete(context.Background(), sriovSubscription.Name, metav1.DeleteOptions{})
@@ -164,7 +176,6 @@ var _ = Describe("CNF SRIOV", Ordered, func() {
 				}
 				Expect(sriovCsv).ToNot(BeEmpty())
 
-				By("Remove SR-IOV CSV")
 				err = helper.Apiclient.ClusterServiceVersions(
 					parameters.SriovOperatorNamespace).Delete(context.Background(), sriovCsv, metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -180,30 +191,6 @@ var _ = Describe("CNF SRIOV", Ordered, func() {
 				for _, crds := range sriovCrdsList {
 					err := helper.Apiclient.Delete(context.Background(), crds)
 					Expect(err).ToNot(HaveOccurred())
-				}
-				By("Validate and remove webhooks")
-				mutationWebHookList := admregv1.MutatingWebhookConfigurationList{}
-				err = helper.Apiclient.List(context.Background(), &mutationWebHookList)
-				Expect(err).ToNot(HaveOccurred())
-				for _, mutationWebHook := range mutationWebHookList.Items {
-					if elementInList(netsriovparameters.SriovMutationWebhooks, mutationWebHook.Name) {
-						// Remove comment below once BZ:https://bugzilla.redhat.com/show_bug.cgi?id=2033440 is fixed
-						// Expect(*each.Webhooks[0].FailurePolicy).To(BeIdenticalTo("Ignore"))
-						err = helper.Apiclient.Delete(context.Background(), &mutationWebHook)
-						Expect(err).ToNot(HaveOccurred())
-					}
-				}
-
-				validationWebhookConfigList := admregv1.ValidatingWebhookConfigurationList{}
-				err = helper.Apiclient.List(context.Background(), &validationWebhookConfigList)
-				Expect(err).ToNot(HaveOccurred())
-				for _, validationWebhookConfig := range validationWebhookConfigList.Items {
-					if validationWebhookConfig.Name == netsriovparameters.SriovValidationWebhook {
-						// Remove comment below once BZ:https://bugzilla.redhat.com/show_bug.cgi?id=2033440 is fixed
-						// Expect(*each.Webhooks[0].FailurePolicy).To(BeIdenticalTo("Ignore"))
-						err = helper.Apiclient.Delete(context.Background(), &validationWebhookConfig)
-						Expect(err).ToNot(HaveOccurred())
-					}
 				}
 
 				By("Remove SR-IOV namespace")
@@ -249,6 +236,19 @@ var _ = Describe("CNF SRIOV", Ordered, func() {
 				By("Deploy SR-IOV operator")
 				err := netsriovhelper.DeploySriovOperator(namespace, &operatorGroup, sriovSubscription)
 				Expect(err).ToNot(HaveOccurred())
+
+				By("Deploy SR-IOV operator config")
+				Eventually(func() error {
+					_, err := helper.IsDeploymentInstalled(
+						helper.Apiclient, parameters.SriovOperatorNamespace, netsriovparameters.SriovOperatorDeploymentName)
+
+					return err
+				}, netsriovparameters.SriovOperatorDeploymentTime, netsriovparameters.SriovOperatorDeploymentRetry).
+					ShouldNot(HaveOccurred(), fmt.Sprintf("sriov deployment %s is not ready",
+						netsriovparameters.SriovOperatorDeploymentName))
+
+				err = helper.Apiclient.Create(context.Background(), netsriovhelper.DefineOperatorConfig())
+				Expect(err).ToNot(HaveOccurred(), "Failed to apply sriov operator config")
 
 				By("Validate that SR-IOV operator installed with all the components")
 				Eventually(
