@@ -11,6 +11,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	corev1Typed "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
@@ -269,6 +270,81 @@ func IsSingleNodeCluster(clientSet *client.ClientSet) (bool, error) {
 	return true, nil
 }
 
+func IsSNOPlusOneWorkerCluster(clientSet *client.ClientSet) bool {
+	// Check if cluster contains one master and one worker node.
+	masters, err := GetByRole(clientSet, parameters.RoleMaster)
+	if err != nil || len(masters) != 1 {
+		return false
+	}
+
+	log.Println("Master node found")
+
+	filteredWorkers := make([]corev1.Node, 0)
+
+	workers, err := GetByRole(clientSet, parameters.RoleWorker)
+	if err != nil {
+		return false
+	}
+
+	for _, worker := range workers {
+		isMaster, err := IsNodeMaster(&worker, clientSet.Nodes())
+		if err != nil {
+			log.Println("Error in checking if node is master: ", err)
+		}
+
+		if !isMaster {
+			filteredWorkers = append(filteredWorkers, worker)
+		}
+	}
+
+	if len(filteredWorkers) != 1 {
+		return false
+	}
+
+	log.Println("Valid worker node found")
+	log.Println("Total number of nodes found: ", len(filteredWorkers)+len(masters))
+
+	return true
+}
+
+func IsNodeMaster(node *corev1.Node, client corev1Typed.NodeInterface) (bool, error) {
+	masterLabels := []string{"node-role.kubernetes.io/master", "node-role.kubernetes.io/control-plane"}
+
+	for _, label := range masterLabels {
+		if _, exists := node.Labels[label]; exists {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+func GetPlusOneWorkerNodeName(clientSet *client.ClientSet) string {
+	workers, _ := GetByRole(clientSet, parameters.RoleWorker)
+
+	log.Println("Total number of worker nodes found: ", len(workers))
+
+	workerNonControlPlane := make([]corev1.Node, 0)
+
+	for _, worker := range workers {
+		isMaster, err := IsNodeMaster(&worker, clientSet.Nodes())
+
+		if err != nil {
+			log.Println("Error in checking if node is master: ", err)
+		}
+
+		if !isMaster {
+			workerNonControlPlane = append(workerNonControlPlane, worker)
+		}
+	}
+
+	if len(workerNonControlPlane) != 1 {
+		return ""
+	}
+
+	return workerNonControlPlane[0].Name
+}
+
 // WaitForNodesReady waits for all nodes become ready.
 func WaitForNodesReady(clientSet *client.ClientSet, timeout, interval time.Duration) error {
 	return wait.PollImmediate(interval, timeout, func() (bool, error) {
@@ -276,11 +352,13 @@ func WaitForNodesReady(clientSet *client.ClientSet, timeout, interval time.Durat
 		if err != nil {
 			return false, nil
 		}
+
 		for _, node := range nodesList.Items {
 			if !IsNodeInCondition(&node, corev1.NodeReady) {
 				return false, nil
 			}
 		}
+
 		log.Println("All nodes are Ready")
 
 		return true, nil
@@ -296,4 +374,22 @@ func IsNodeInCondition(node *corev1.Node, condition corev1.NodeConditionType) bo
 	}
 
 	return false
+}
+
+// WaitForNumberOfNodes waits for the number of nodes to be equal to the expected number.
+func WaitForNumberOfNodes(clientSet *client.ClientSet, expected int, timeout time.Duration) error {
+	return wait.PollImmediate(time.Second*5, timeout, func() (bool, error) {
+		nodes, err := clientSet.Nodes().List(context.Background(), metav1.ListOptions{})
+		if err != nil {
+			return false, nil
+		}
+
+		if len(nodes.Items) == expected {
+			return true, nil
+		}
+
+		log.Printf("Expected number of nodes: %d, actual number of nodes: %d", expected, len(nodes.Items))
+
+		return false, nil
+	})
 }

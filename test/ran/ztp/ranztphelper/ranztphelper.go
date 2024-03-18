@@ -23,9 +23,14 @@ import (
 	mcp "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/machineconfigpool"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	types "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/dynamic"
+	corev1typed "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/kubernetes/pkg/kubelet/cm/cpuset"
 
 	assistedv1beta1 "github.com/openshift/assisted-service/api/v1beta1"
@@ -56,6 +61,11 @@ func GetAllTestClients() []*testClient.ClientSet {
 		HubAPIClient,
 		SpokeAPIClient,
 	}
+}
+
+// GetSpokeClient is used to get the spoke client.
+func GetSpokeClient() *testClient.ClientSet {
+	return SpokeAPIClient
 }
 
 // GetNode is used to get a node object from a test client.
@@ -487,7 +497,6 @@ func WaitForConditionInArgocdApp(
 
 			// Loop over all the conditions
 			for _, condition := range app.Status.Conditions {
-
 				// If we found a matching condition then return immediately
 				if strings.Contains(condition.Message, expectedMessage) {
 					println("Found matching condition")
@@ -500,7 +509,6 @@ func WaitForConditionInArgocdApp(
 
 			// If we didn't find a matching condition then we'll try again on the next loop
 			return false, nil
-
 		},
 	)
 
@@ -616,6 +624,16 @@ func GetNmStateConfigList() (assistedv1beta1.NMStateConfigList, error) {
 	return nmStateConfigList, err
 }
 
+// GetWorkerAnnotation is used to get the annotations applied to the worker node.
+func GetWorkerAnnotation(nodeName string) (map[string]string, error) {
+	node, err := SpokeAPIClient.CoreV1Interface.Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	return node.Annotations, nil
+}
+
 // IsServiceAccountExist can be used to check if a Service Account CR exists.
 func IsServiceAccountExist(client *testClient.ClientSet, serviceAccountName string, namespace string) (bool, error) {
 	log.Printf("Checking for existence of service account '%s' in namespace '%s'\n", serviceAccountName, namespace)
@@ -649,4 +667,244 @@ func DeleteServiceAccountAndWait(client *testClient.ClientSet, serviceAccountNam
 	}
 
 	return err
+}
+
+// GetBmhNamespace is used to get the namespace of a BareMetalHost.
+func GetBmhNamespace(bmhName string) (string, error) {
+	dynamicClient := dynamic.NewForConfigOrDie(HubAPIClient.Config)
+	runtimeObjects, err := getResourcesDynamically(
+		dynamicClient, context.TODO(), "metal3.io", "v1alpha1", "baremetalhosts", "")
+
+	if err != nil {
+		return "", err
+	}
+
+	for _, obj := range runtimeObjects {
+		if obj.GetName() == bmhName {
+			return obj.GetNamespace(), nil
+		}
+	}
+
+	return "", fmt.Errorf("BareMetalHost %s not found", bmhName)
+}
+
+// WaitForNodeDeletion waits for a node to be deleted from the cluster.
+func WaitForNodeDeletion(nodeName string, duration time.Duration) error {
+	return wait.PollImmediate(
+		ranztpparameters.ArgocdChangeInterval,
+		duration,
+		func() (bool, error) {
+			_, err := HubAPIClient.CoreV1Interface.Nodes().Get(context.TODO(),
+				nodeName, metav1.GetOptions{})
+			if k8serrors.IsNotFound(err) {
+				return true, nil
+			}
+
+			return false, nil
+		},
+	)
+}
+
+// WaitForWorkerAnnotation waits for a worker node to have a specific annotation.
+func WaitForWorkerAnnotation(nodeName, desiredAnnotation string, duration time.Duration) error {
+	return wait.PollImmediate(
+		ranztpparameters.ArgocdChangeInterval,
+		duration,
+		func() (bool, error) {
+			annotations, err := GetWorkerAnnotations(nodeName)
+			if err != nil {
+				return false, err
+			}
+
+			if _, ok := annotations[desiredAnnotation]; !ok {
+				return false, nil
+			}
+
+			return true, nil
+		},
+	)
+}
+
+// GetWorkerAnnotations is used to get the annotations of a worker node.
+func GetWorkerAnnotations(nodeName string) (map[string]string, error) {
+	return getWorkerAnnotations(HubAPIClient.CoreV1Interface, nodeName)
+}
+
+func getWorkerAnnotations(client corev1typed.CoreV1Interface,
+	nodeName string) (map[string]string, error) {
+	node, err := client.Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	return node.Annotations, nil
+}
+
+// GetBareMetalHostAnnotations is used to get the annotations of a BareMetalHost.
+func GetBareMetalHostAnnotations(bmhName,
+	namespace string) (map[string]string, error) {
+	return getBareMetalHostAnnotations(dynamic.NewForConfigOrDie(HubAPIClient.Config),
+		bmhName, namespace)
+}
+
+func getBareMetalHostAnnotations(dynamic dynamic.Interface,
+	bmhName, namespace string) (map[string]string, error) {
+	runtimeObjects, err := getResourcesDynamically(dynamic, context.TODO(),
+		"metal3.io", "v1alpha1", "baremetalhosts", namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, obj := range runtimeObjects {
+		if obj.GetName() == bmhName {
+			return obj.GetAnnotations(), nil
+		}
+	}
+
+	return nil, fmt.Errorf("BareMetalHost %s not found in namespace %s", bmhName, namespace)
+}
+
+// WaitForBareMetalHostAnnotation waits for a BareMetalHost to have a specific annotation.
+func WaitForBareMetalHostAnnotation(bmhName, namespace,
+	desiredAnnotation string, duration time.Duration) error {
+	return wait.PollImmediate(
+		ranztpparameters.ArgocdChangeInterval,
+		duration,
+		func() (bool, error) {
+			log.Printf("Getting annotations for BareMetalHost %s in namespace %s\n", bmhName, namespace)
+			annotations, err := GetBareMetalHostAnnotations(bmhName, namespace)
+
+			if err != nil {
+				return false, err
+			}
+
+			if _, ok := annotations[desiredAnnotation]; !ok {
+				return false, nil
+			}
+
+			log.Printf("Annotation %s found in BareMetalHost %s in namespace %s\n",
+				desiredAnnotation, bmhName, namespace)
+
+			return true, nil
+		},
+	)
+}
+
+// WaitForNodeAddition waits for a node to be added to the cluster.
+func WaitForNodeAddition(nodeName string, duration time.Duration) error {
+	return wait.PollImmediate(
+		ranztpparameters.ArgocdChangeInterval,
+		duration,
+		func() (bool, error) {
+			_, err := HubAPIClient.CoreV1Interface.Nodes().Get(context.TODO(),
+				nodeName, metav1.GetOptions{})
+			if err != nil {
+				return false, err
+			}
+
+			return true, nil
+		},
+	)
+}
+
+// WaitForBareMetalHostDeprovisioning waits for a BareMetalHost to be deprovisioned.
+func WaitForBareMetalHostDeprovisioning(bmhName, namespace string, duration time.Duration) error {
+	return waitForBareMetalHostDeprovisioning(bmhName, namespace,
+		dynamic.NewForConfigOrDie(HubAPIClient.Config), duration)
+}
+
+func waitForBareMetalHostDeprovisioning(bmhName, namespace string,
+	dynamic dynamic.Interface, duration time.Duration) error {
+	return wait.PollImmediate(
+		ranztpparameters.ArgocdChangeInterval,
+		duration,
+		func() (bool, error) {
+			log.Printf("Checking if BareMetalHost %s in namespace %s is deprovisioned\n", bmhName, namespace)
+			bmhExists, err := bareMetalHostExists(dynamic, bmhName, namespace)
+
+			if err != nil {
+				return false, err
+			}
+
+			if !bmhExists {
+				log.Printf("BareMetalHost %s in namespace %s is deprovisioned\n", bmhName, namespace)
+			} else {
+				log.Printf("BareMetalHost %s in namespace %s is not deprovisioned yet\n", bmhName, namespace)
+			}
+
+			log.Printf("Checking if Agent %s in namespace %s is deprovisioned\n", bmhName, namespace)
+			agentExists, err := agentExists(dynamic, bmhName, namespace)
+
+			if err != nil {
+				return false, err
+			}
+
+			if !agentExists {
+				log.Printf("Agent %s in namespace %s is deprovisioned\n", bmhName, namespace)
+			} else {
+				log.Printf("Agent %s in namespace %s is not deprovisioned yet\n", bmhName, namespace)
+			}
+
+			// Both the BMH and Agent objects are removed as part of the deprovisioning process
+			if !bmhExists && !agentExists {
+				log.Printf("BareMetalHost %s and Agent %s in namespace %s are deprovisioned\n",
+					bmhName, bmhName, namespace)
+
+				return true, nil
+			}
+
+			return false, nil
+		},
+	)
+}
+
+func bareMetalHostExists(dynamic dynamic.Interface, bmhName, namespace string) (bool, error) {
+	runtimeObjects, err := getResourcesDynamically(dynamic,
+		context.TODO(), "metal3.io", "v1alpha1", "baremetalhosts", namespace)
+	if err != nil {
+		return false, err
+	}
+
+	for _, obj := range runtimeObjects {
+		if obj.GetName() == bmhName {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+func agentExists(dynamic dynamic.Interface, agentName, namespace string) (bool, error) {
+	runtimeObjects, err := getResourcesDynamically(dynamic,
+		context.TODO(), "agent-install.openshift.io", "v1beta1", "agents", namespace)
+	if err != nil {
+		return false, err
+	}
+
+	for _, obj := range runtimeObjects {
+		labels := obj.GetLabels()
+		if labels["agent-install.openshift.io/bmh"] == agentName {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+func getResourcesDynamically(dynamic dynamic.Interface, ctx context.Context,
+	group string, version string, resource string, namespace string) (
+	[]unstructured.Unstructured, error) {
+	resourceID := schema.GroupVersionResource{
+		Group:    group,
+		Version:  version,
+		Resource: resource,
+	}
+	list, err := dynamic.Resource(resourceID).Namespace(namespace).
+		List(ctx, metav1.ListOptions{})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return list.Items, nil
 }

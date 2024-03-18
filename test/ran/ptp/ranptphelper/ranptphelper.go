@@ -160,6 +160,7 @@ func WaitForPtpClockStateMetric(ptpDaemonPod corev1.Pod, state ranptpparameters.
 
 	errTimeout := wait.PollImmediate(interval, timeout, func() (bool, error) {
 		clockStateMsg = ""
+
 		err = GetPTPMetrics(ptpDaemonPod)
 		if err != nil {
 			startTime = time.Now()
@@ -171,6 +172,7 @@ func WaitForPtpClockStateMetric(ptpDaemonPod corev1.Pod, state ranptpparameters.
 			if actualVal.Interface == ranptpparameters.Master {
 				continue
 			}
+
 			if slices.Contains(excludedProcess, actualVal.Process) {
 				continue
 			}
@@ -232,6 +234,7 @@ func WaitForMetricValueStatus(ptpDaemonPod corev1.Pod, metricsName string, state
 
 	errTimeout := wait.PollImmediate(interval, timeout, func() (bool, error) {
 		stateMsg = ""
+
 		err = GetPTPMetrics(ptpDaemonPod)
 		if err != nil {
 			startTime = time.Now()
@@ -240,7 +243,6 @@ func WaitForMetricValueStatus(ptpDaemonPod corev1.Pod, metricsName string, state
 		}
 
 		for _, actualVal := range ranptpparameters.MetricMap[metricsName] {
-
 			stateMsg = stateMessage(stateMsg, metricsName, actualVal)
 
 			if !stateCheck(actualVal, state) {
@@ -439,6 +441,7 @@ func WaitForLog(ptpPod *corev1.Pod, container string, wantedLog string, since ti
 
 	return wait.PollImmediate(interval, timeout, func() (bool, error) {
 		time.Sleep(interval)
+
 		logs, err = pod.GetLog(helper.Apiclient, ptpPod, time.Since(startTime)+time.Second,
 			container)
 		if err != nil {

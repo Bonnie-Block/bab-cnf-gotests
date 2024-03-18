@@ -1008,6 +1008,7 @@ func checkPrecachePodLog(client *testClient.ClientSet) error {
 		}
 
 		p := podList.Items[0]
+
 		plog, err = pod.GetLog(client, &p, 1*time.Hour, PreCacheContainerName)
 		if err != nil {
 			return false, nil

@@ -239,9 +239,11 @@ func DeployConsumers(mirroredImages map[string]string, transportType string, nam
 				deployment,
 				metav1.UpdateOptions{},
 			)
+
 			if err != nil {
 				return false, err
 			}
+
 			log.Printf("image updated,"+
 				" from %v -> %v retrieve updated deployment in next round\n",
 				deployment.Spec.Template.Spec.Containers[0].Image,

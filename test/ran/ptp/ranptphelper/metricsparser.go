@@ -43,6 +43,7 @@ func GetPTPMetrics(ptpPod corev1.Pod, optionalArgs ...interface{}) error {
 		errFromParser = metricParser(buff)
 		if errFromParser != nil {
 			log.Println(errFromParser.Error())
+
 			buff, err = pod.ExecCommand(helper.Apiclient, ptpPod, []string{"bash", "-c", ranptpparameters.PtpMetricsCmd},
 				parameters.PtpContainerName)
 			if err != nil {

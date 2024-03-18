@@ -90,7 +90,6 @@ func getProcessInfo(ptpPod *corev1.Pod, command string) (bytes.Buffer, error) {
 		cmdOutput, errActual = pod.ExecCommand(helper.Apiclient, *ptpPod, []string{"bash", "-c", command},
 			parameters.PtpContainerName)
 		if errActual != nil {
-
 			return false, nil
 		}
 

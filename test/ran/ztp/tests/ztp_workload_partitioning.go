@@ -36,7 +36,6 @@ func validateWorkloadPartition(snoNode *corev1.Node, selector rancpuhelper.Selec
 	log.Printf("reservedCPUSet on Performance profile: %s\n", reservedCPUSet)
 
 	By("Checking kubeletconfig reservedSystemCPUs on SNO", func() {
-
 		// oc get kubeletconfigs.machineconfiguration.openshift.io performance-openshift-node-performance-profile
 		kubeletconfig := mcv1.KubeletConfig{}
 		err := ranztphelper.SpokeAPIClient.Get(context.Background(),

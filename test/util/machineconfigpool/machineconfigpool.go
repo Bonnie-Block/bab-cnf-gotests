@@ -143,6 +143,24 @@ func WaitForMcpUpdate(clientSet *testclient.ClientSet, nodeLabel string) error {
 	return err
 }
 
+// IsMcpReady checks if the given MCP is ready.
+func IsMcpReady(clientSet *testclient.ClientSet, mcpName string) (bool, error) {
+	mcp := &mcov1.MachineConfigPool{}
+	err := clientSet.Get(context.TODO(), client.ObjectKey{Name: mcpName}, mcp)
+
+	if err != nil {
+		return false, err
+	}
+
+	log.Printf("MCP %s has %d ready machines", mcpName, mcp.Status.ReadyMachineCount)
+
+	if mcp.Status.ReadyMachineCount > 0 {
+		return true, nil
+	}
+
+	return false, nil
+}
+
 // WaitForClusterStable waits for all machine config pools to stay in updated state for given stableDuration
 // Set stableDuration to 0 to return immediately when all mcps are updated.
 func WaitForClusterStable(cs *testclient.ClientSet, timeout, interval, stableDuration time.Duration) error {

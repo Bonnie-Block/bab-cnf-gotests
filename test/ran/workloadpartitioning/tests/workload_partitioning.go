@@ -375,6 +375,7 @@ func checkCPUShares(containersInfo []ranwphelper.ContainerInfo) {
 				metav1.GetOptions{},
 			)
 			Expect(err).ToNot(HaveOccurred())
+
 			annotationExpectations := getMgmtCPUShareAnnotationExpectations(*pod)
 			Expect(annotationExpectations[searchKey]).To(BeFalse(), "cpu share annotation is not found for %s", searchKey)
 			Expect(containerInfo.Shares).To(BeEquivalentTo(2), "cpu share in crio is not 2 for %s", searchKey)

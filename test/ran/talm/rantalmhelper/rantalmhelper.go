@@ -1959,7 +1959,6 @@ func WaitUntilObjectDoesNotExist(
 
 			// Assume it still exists
 			return false, nil
-
 		},
 	)
 

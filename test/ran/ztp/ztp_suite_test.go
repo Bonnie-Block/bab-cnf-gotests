@@ -243,7 +243,6 @@ func DeleteNamespace(allowNotExists bool) error {
 			}
 		} else if !allowNotExists {
 			// If we expected the namespace to exist but it wasn't then return an error
-
 			return fmt.Errorf(
 				"Namespace '%s' does not exist when it should on node '%s'",
 				ranztpparameters.ZtpTestNamespace,

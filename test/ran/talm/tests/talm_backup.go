@@ -342,13 +342,11 @@ func diskFullEnvCleanup(nodeName, nodeUser, curName, currentlyUsingLoopDevicePat
 				log.Printf("partition detected for %s, "+
 					"will not attempt to delete the folder (only the content if any)", backupPath)
 			} else if deviceType == "loop" {
-
 				if currentlyUsingLoopDevicePath == devicePath {
 					// unmount and detach the loop device
 					_, err = ranhelper.ExecSSHCommand(nodeName, nodeUser,
 						[]string{fmt.Sprintf("sudo umount --detach-loop %s", backupPath)})
 					Expect(err).To(BeNil())
-
 				} else {
 					safeToDeleteBackupDir = false
 					log.Print("WARNING: most likely cleanup didnt complete during the previous run. ")

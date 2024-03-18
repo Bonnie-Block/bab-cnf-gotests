@@ -35,6 +35,7 @@ require (
 	github.com/smart-edge-open/sriov-fec-operator/sriov-fec v0.0.0-20220421094756-1803088bf003
 	github.com/stmcginnis/gofish v0.13.0
 	github.com/stolostron/klusterlet-addon-controller v0.0.0-20230125024035-c724f5abe19c
+	github.com/stretchr/testify v1.9.0
 	github.com/tidwall/gjson v1.14.4
 	go.universe.tf/metallb v0.13.7
 	golang.org/x/net v0.13.0
@@ -215,6 +216,7 @@ require (
 	github.com/ostreedev/ostree-go v0.0.0-20190702140239-759a8c1ac913 // indirect
 	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/pquerna/ffjson v0.0.0-20190813045741-dac163c6c0a9 // indirect
 	github.com/prometheus/client_golang v1.14.0 // indirect
 	github.com/prometheus/client_model v0.3.0 // indirect
