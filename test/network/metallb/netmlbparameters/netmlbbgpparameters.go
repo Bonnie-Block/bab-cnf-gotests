@@ -21,8 +21,6 @@ var (
 )
 
 const (
-	// BGPConfigFile contains the BGP router configuration file.
-	BGPConfigFile = "bgpd.conf"
 	// DaemonsConfigFile contains the frr daemons configuration file.
 	DaemonsConfigFile = "daemons"
 	DaemonsFile       = `
@@ -338,35 +336,6 @@ func NewMetallbTestParameters(ipStack string, bgpASN int, trafficPolicy string) 
 	BGPTestParameters.BGPASN = bgpASN
 
 	return BGPTestParameters, nil
-}
-
-// NewMetallbBFDTestParameters constructor for MetallbBFDTestParameters.
-func NewMetallbBFDTestParameters(bgpPeer string,
-	ipStack string, externalTrafficPolicy k8sv1.ServiceExternalTrafficPolicyType) (*MetallbBFDTestParameters, error) {
-	BFDTestParameters := new(MetallbBFDTestParameters)
-	err := nethelper.StrParamInListOfParams(ipStack, IPStackParameters)
-
-	if err != nil {
-		return nil, err
-	}
-
-	BFDTestParameters.IPStack = ipStack
-	err = nethelper.StrParamInListOfParams(bgpPeer, BGPPeers)
-
-	if err != nil {
-		return nil, err
-	}
-
-	BFDTestParameters.BGPPeer = bgpPeer
-	err = nethelper.StrParamInListOfParams(string(externalTrafficPolicy), TrafficPolicies)
-
-	if err != nil {
-		return nil, err
-	}
-
-	BFDTestParameters.TrafficPolicy = externalTrafficPolicy
-
-	return BFDTestParameters, nil
 }
 
 // NewMetallbCRDTestParameters constructor for MetallbCRDTestParameters.

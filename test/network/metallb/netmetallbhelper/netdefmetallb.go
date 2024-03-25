@@ -99,27 +99,6 @@ func defineSpeakerBGPPeer(externalAddress string,
 	return bgpPeer
 }
 
-// DefineRouterPod returns router pod definition for multihop scenario.
-func DefineRouterPod(nodeName string,
-	serviceIP string,
-	speakerIP string,
-	externalNetworkName string,
-	internalNetworkName string,
-	externalIP string,
-	internalIP string) *k8sv1.Pod {
-	routerPodDefinition := pod.RedefineWithCommand(pod.DefinePodOnNode(netmlbparameters.TestNamespace,
-		helper.Config.Network.FrrImage, nodeName),
-		[]string{"/bin/bash", "-c"},
-		[]string{fmt.Sprintf("ip route add %s via %s && sleep INF", serviceIP, speakerIP)})
-
-	_, subnet, _ := nethelper.DefineIPFamily(speakerIP)
-
-	return pod.RedefinePodWithNetwork(pod.RedefineOnMaster(pod.RedefineAsPrivileged(routerPodDefinition)),
-		fmt.Sprintf(`[{"name": "%s","ips": ["%s/%s"]},{"name": "%s","ips": ["%s/%s"]}]`,
-			externalNetworkName, externalIP, subnet,
-			internalNetworkName, internalIP, subnet))
-}
-
 // defineFRRPodWithNetworkAndIP returns frr pod definition with network and IP.
 func defineFRRPodWithNetworkAndIP(masterNodeName, ipAddress, networkName string) *k8sv1.Pod {
 	frrPod := DefineFrrPodWithTestContainer(masterNodeName, netmlbparameters.TestNamespace)
@@ -143,19 +122,6 @@ func DefineMacVlanNAD(nadName string, masterInterface string) *netattdefv1.Netwo
 	"master": "%s",
 	"mode": "bridge",
 	"ipam": {"type": "static"}}`, nadName, masterInterface),
-		}}
-}
-
-// DefineBridgeNAD returns bridge Network Attachment Definition.
-func DefineBridgeNAD() *netattdefv1.NetworkAttachmentDefinition {
-	return &netattdefv1.NetworkAttachmentDefinition{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      netmlbparameters.InternalNADName,
-			Namespace: netmlbparameters.TestNamespace,
-		},
-		Spec: netattdefv1.NetworkAttachmentDefinitionSpec{
-			Config: `{"cniVersion": "0.3.1", "name": "internalnad", "type": "bridge", "bridge": "br0",
-"ipam": {"type": "static"}}`,
 		}}
 }
 

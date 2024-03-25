@@ -16,10 +16,8 @@ import (
 	. "github.com/onsi/gomega"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/metallb/netmlbparameters"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/nethelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/switchcmd"
 	"gopkg.in/yaml.v2"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -191,33 +189,6 @@ func GetNodeOvnRouterIP(workerNode *k8sv1.Node) (string, error) {
 	}
 
 	return routerIPAddress[0], nil
-}
-
-// SetInterfaceTrunk configures switch in the middle and sets given ports to trunk with a list of allowed VLANs.
-func SetInterfaceTrunk(credentials *nethelper.SwitchCredentials, intFace, action string, vlanList []uint16) error {
-	if action != "set" && action != "delete" {
-		return fmt.Errorf("unknown action %s", action)
-	}
-
-	jnpr, err := switchcmd.NewSession(credentials.SwitchIP, credentials.User, credentials.Password)
-	if err != nil {
-		return err
-	}
-	defer jnpr.Close()
-
-	swCMDs := []string{
-		fmt.Sprintf("%s interfaces %s unit 0 family ethernet-switching interface-mode trunk", action, intFace),
-	}
-	vlanTrunkCommand := fmt.Sprintf("set interfaces %s unit 0 family ethernet-switching vlan", intFace)
-
-	for _, vlanNumber := range vlanList {
-		vlanTrunkCommand += fmt.Sprintf(" members vlan%d", vlanNumber)
-	}
-
-	swCMDs = append(swCMDs, vlanTrunkCommand)
-	err = jnpr.Config(swCMDs)
-
-	return err
 }
 
 // RedefineOnNode mutation function which redefines pods on specific node.

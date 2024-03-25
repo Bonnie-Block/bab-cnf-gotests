@@ -22,21 +22,16 @@ import (
 const (
 	TestNamespace                               = "metallb-test"
 	AddressPoolName                             = "address-pool"
-	AddressPoolL2                               = "layer2-pool"
 	Layer2                                      = "layer2"
 	BGP                                         = "bgp"
 	EBGPProtocol                                = "eBGP"
 	IBPGPProtocol                               = "iBGP"
-	ClientIpv4IP                                = "172.16.0.1"
-	InternalRouter1IPv4                         = "172.16.0.253"
 	InternalRouter2IPv4                         = "172.16.0.254"
 	InternalRouterSecondNetIPv4                 = "172.16.1.254"
 	InternalClient1IPv4                         = "172.16.0.1"
 	InternalClient2IPv4                         = "172.16.1.1"
 	IPSecondaryInterface1                       = "3.3.3.10"
 	IPSecondaryInterface2                       = "3.3.3.20"
-	ScenarioMultihop                            = "multi-hop"
-	ScenarioSingleHop                           = "single-hop"
 	PodWaitingTime                time.Duration = 3 * time.Minute
 	Interval                                    = 1 * time.Second
 	Timeout                                     = 3 * time.Minute

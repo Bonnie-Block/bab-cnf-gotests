@@ -5,9 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net"
-	"reflect"
 	"regexp"
 	"sort"
 	"strings"
@@ -40,19 +38,6 @@ import (
 	"k8s.io/utils/pointer"
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
-
-type queryOutput struct {
-	Data data
-}
-type data struct {
-	Result []result
-}
-type result struct {
-	Metric metric
-}
-type metric struct {
-	Pod string
-}
 
 type BGPDescription struct {
 	BGPState string `json:"bgpState"`
@@ -278,26 +263,6 @@ func sortServiceTimeStamp(serviceEvents *k8sv1.EventList) []k8sv1.Event {
 	return res
 }
 
-// GetNodeIndex retrieves a list of annoucing and non-annoucing node indexes.
-func GetNodeIndex() map[string]int {
-	workerNodeList := helper.GetNodeListStringByLabel(parameters.RoleWorker)
-	announcingNodeName := GetLBServiceAnnouncingNodeName()
-
-	res := map[string]int{"announcerNodeIndex": 0, "nonannouncerNodeIndex": 0}
-
-	for nodeIndex, workerName := range workerNodeList {
-		if workerName == announcingNodeName && nodeIndex == 0 {
-			res["nonannouncerNodeIndex"] = 1
-		}
-
-		if workerName == announcingNodeName && nodeIndex == 1 {
-			res["announcerNodeIndex"] = 1
-		}
-	}
-
-	return res
-}
-
 // SpeakerNodeMac locates the MAC address of the node interface br-ex found in func GetLBServiceNodeName()
 // {"mode":"shared","interface-id":"br-ex_helix13.lab.eng.tlv2.redhat.com","mac-address":"34:48:ed:f3:88:c4",
 // "ip-addresses":["10.46.56.13/24"],"ip-address":"10.46.56.13/24","next-hops":["10.46.56.254"],"next-hop":
@@ -383,32 +348,6 @@ func DefineMlbPodWithNetwork(node string,
 		nadName, ipAddress, subnet)), nil
 }
 
-// Arping verifies only one node replies to arping and that the service node br-ex mac matches the output.
-func Arping(client *k8sv1.Pod, destIPAddr string, node string) error {
-	arpStatus, err := pod.ExecCommand(helper.Apiclient, *client, []string{"bash", "-c", fmt.Sprint("arping -I net1 ",
-		destIPAddr, " -c3")})
-	Expect(err).ToNot(HaveOccurred())
-
-	macs := arpStatus.String()
-	output := strings.Split(macs, "\n")
-	lineCount := 0
-
-	for _, reply := range output {
-		if strings.Contains(reply, "Unicast") {
-			lineCount++
-		}
-	}
-	// When using the NAD interface the mac address of eth0 is included in the arp replies adding an extra line count.
-	Expect(lineCount).To(Equal(3), "An incorrect number of arp replies were received")
-	// Verifies the output mac addresses matches the annoucing node mac address
-	nodeMac, err := SpeakerNodeMac(node)
-	Expect(strings.Join(output, "\n")).Should(ContainSubstring(strings.ToUpper(nodeMac)),
-		"ARP request was not received from the announcing node")
-	Expect(err).ToNot(HaveOccurred())
-
-	return err
-}
-
 // HTTPMlbPod verifies that nginx web service is available via the external service IP.
 func HTTPMlbPod(
 	client *k8sv1.Pod,
@@ -484,26 +423,6 @@ func IsBGPNeighborshipHasState(frrPod *k8sv1.Pod, neighborIPAddress string, stat
 	return result[neighborIPAddress].BGPState == state
 }
 
-// updateSpeakerNodeSelector updates SpeakerNodeSelector in Metallb CR.
-func updateSpeakerNodeSelector(namespace string, nodeSelector map[string]string) error {
-	metallb := &metallboperatorv1beta1.MetalLB{}
-
-	err := helper.Apiclient.Get(context.Background(),
-		types.NamespacedName{Name: netmlbparameters.MetalLBCRName, Namespace: namespace}, metallb)
-	if err != nil {
-		return err
-	}
-
-	metallb.Spec.SpeakerNodeSelector = nodeSelector
-
-	err = helper.Apiclient.Update(context.Background(), metallb)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 // DeleteAllBFDProfiles removes all BFDProfile CRs.
 func DeleteAllBFDProfiles() error {
 	bfdProfileList := metallbv1beta1.BFDProfileList{}
@@ -516,29 +435,6 @@ func DeleteAllBFDProfiles() error {
 
 	for _, bfdProfile := range bfdProfileList.Items {
 		err = helper.Apiclient.Delete(context.Background(), &bfdProfile)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-// UpdateToDefaultSpeakerNodeSelector updates a Metallb CR to the default SpeakerNodeSelector.
-func UpdateToDefaultSpeakerNodeSelector() error {
-	metallb := &metallboperatorv1beta1.MetalLB{}
-
-	err := helper.Apiclient.Get(context.Background(),
-		types.NamespacedName{Name: netmlbparameters.MetalLBCRName,
-			Namespace: netmlbparameters.MetalLBOperatorNameSpace}, metallb)
-	if err != nil {
-		return err
-	}
-
-	if !reflect.DeepEqual(metallb.Spec.SpeakerNodeSelector, netmlbparameters.SpeakerNodeSelectorWorker) {
-		metallb.Spec.SpeakerNodeSelector = netmlbparameters.SpeakerNodeSelectorWorker
-
-		err = helper.Apiclient.Update(context.Background(), metallb)
 		if err != nil {
 			return err
 		}
@@ -581,106 +477,6 @@ func DeleteLabelFromWorkers(label string) error {
 		_, err = helper.Apiclient.Nodes().Update(context.Background(), &node, metav1.UpdateOptions{})
 		if err != nil {
 			return fmt.Errorf("failed to remove label from %s %w", node.Name, err)
-		}
-	}
-
-	return nil
-}
-
-// CollectMetalLBMetricsByPod returns MetalLB metrics from speaker pods by prefix.
-func CollectMetalLBMetricsByPod(speakerPods []k8sv1.Pod, prefix string) (map[string][]string, []string) {
-	uniqueMetricKeys := []string{}
-	monitoredEntriesByPod := map[string][]string{}
-
-	Expect(speakerPods).ShouldNot(BeEmpty(), "List of Speakers is empty")
-
-	for _, speakerPod := range speakerPods {
-		podEntries := []string{}
-
-		var (
-			stdout bytes.Buffer
-			err    error
-		)
-
-		Eventually(func() error {
-			stdout, err = pod.ExecCommand(helper.Apiclient, speakerPod, []string{"curl", "localhost:29151/metrics"})
-			if len(strings.Split(stdout.String(), "\n")) == 0 {
-				return fmt.Errorf("empty response")
-			}
-
-			return err
-		}, 1*time.Minute, 2*time.Second).ShouldNot(HaveOccurred())
-
-		for _, line := range strings.Split(stdout.String(), "\n") {
-			if strings.HasPrefix(line, prefix) {
-				metricsKey := line[0:strings.Index(line, "{")]
-				podEntries = append(podEntries, metricsKey)
-				uniqueMetricKeys = appendIfMissing(uniqueMetricKeys, metricsKey)
-			}
-		}
-
-		monitoredEntriesByPod[speakerPod.Name] = podEntries
-	}
-
-	Expect(uniqueMetricKeys).ShouldNot(BeEmpty(), "There is no metrics on a pod")
-	Expect(monitoredEntriesByPod).ShouldNot(BeEmpty(), "There is no metrics on a pod")
-
-	return monitoredEntriesByPod, uniqueMetricKeys
-}
-
-// CollectPrometheusMetrics returns  metrics from prometheus pod by uniqueMetricKeys.
-func CollectPrometheusMetrics(uniqueMetricKeys []string) map[string][]string {
-	prometheusPods, err := helper.Apiclient.Pods(parameters.PromNamespace).List(context.Background(),
-		metav1.ListOptions{
-			LabelSelector: "app.kubernetes.io/name=prometheus",
-		})
-	Expect(err).ToNot(HaveOccurred())
-	Expect(prometheusPods.Items).NotTo(BeEmpty())
-
-	podsPerPrometheusMetricKey := map[string][]string{}
-
-	Expect(uniqueMetricKeys).NotTo(BeEmpty())
-
-	for _, metricsKey := range uniqueMetricKeys {
-		podsPerKey := []string{}
-
-		command := []string{
-			"curl",
-			fmt.Sprintf("%squery?query=%s", parameters.PromLocalURL, metricsKey),
-		}
-		stdout, err := pod.ExecCommand(helper.Apiclient, prometheusPods.Items[0], command)
-		Expect(err).ToNot(HaveOccurred())
-
-		var queryOutput queryOutput
-		err = json.Unmarshal(stdout.Bytes(), &queryOutput)
-		Expect(err).ToNot(HaveOccurred(), stdout.String())
-
-		for _, result := range queryOutput.Data.Result {
-			podsPerKey = append(podsPerKey, result.Metric.Pod)
-		}
-
-		podsPerPrometheusMetricKey[metricsKey] = podsPerKey
-	}
-
-	Expect(podsPerPrometheusMetricKey).NotTo(BeEmpty(), "There is no metrics on a Prometheus pod")
-
-	return podsPerPrometheusMetricKey
-}
-
-// ContainSameMetrics verifies that metricsByPod have prometheusMetrics.
-func ContainSameMetrics(metricsByPod map[string][]string, prometheusMetrics map[string][]string) error {
-	for podName, monitoringKeys := range metricsByPod {
-		for _, key := range monitoringKeys {
-			if podsWithMetric, ok := prometheusMetrics[key]; ok {
-				// We only check if the element is present, but do not compare the values
-				// New values are reported periodically, and there is a risk of discrepancies
-				// in the values read from metalLB Speaker pods and the ones read from prometheus
-				if nethelper.StrParamInListOfParams(podName, podsWithMetric) == nil {
-					continue
-				}
-			}
-
-			return fmt.Errorf("metric %s on pod %s was not reported", key, podName)
 		}
 	}
 
@@ -772,96 +568,6 @@ func DeleteAllL2Advertisements() error {
 		err = helper.Apiclient.Delete(context.Background(), &l2Advertisement)
 		if err != nil {
 			return err
-		}
-	}
-
-	return nil
-}
-
-// UpdateSpeakerNodeLabel adds label metallbtest to the speaker nodes.  This label will be used in Metallb in order to
-// simulate a node failure.
-func UpdateSpeakerNodeLabel() {
-	workerNodeList, err := nodes.GetByRole(helper.Apiclient, parameters.RoleWorker)
-	Expect(err).ToNot(HaveOccurred())
-
-	err = updateSpeakerNodeSelector(netmlbparameters.MetalLBOperatorNameSpace,
-		map[string]string{netmlbparameters.SpeakerNodeTestLabel: ""})
-	Expect(err).ToNot(HaveOccurred())
-	Eventually(func() bool {
-		speakerPodList, _ := helper.Apiclient.Pods(netmlbparameters.MetalLBOperatorNameSpace).List(
-			context.Background(),
-			metav1.ListOptions{LabelSelector: netmlbparameters.SpeakersLabelSelector},
-		)
-
-		return len(speakerPodList.Items) == 0
-	}, 1*time.Minute, 1*time.Second).Should(BeTrue())
-
-	for _, worker := range workerNodeList {
-		_, err = nodes.LabelNode(helper.Apiclient, worker.Name, netmlbparameters.SpeakerNodeTestLabel, "")
-		Expect(err).ToNot(HaveOccurred())
-	}
-
-	Eventually(AreSpeakersReady, netmlbparameters.PodWaitingTime, netmlbparameters.Interval).
-		Should(BeTrue(), "Speaker pods are not ready")
-}
-
-// AddOrDeleteSpeakerStaticRoute removes or creates static routs on all Speaker pods.
-func AddOrDeleteSpeakerStaticRoute(action string, nextHopMap map[string]string, destIP string) (string, error) {
-	var buffer bytes.Buffer
-
-	speakerPodList, err := helper.Apiclient.Pods(netmlbparameters.MetalLBOperatorNameSpace).List(
-		context.Background(),
-		metav1.ListOptions{LabelSelector: netmlbparameters.SpeakersLabelSelector},
-	)
-	if err != nil {
-		return "", err
-	}
-
-	for _, speakerPod := range speakerPodList.Items {
-		buffer, err = pod.ExecCommand(helper.Apiclient,
-			speakerPod,
-			[]string{"ip", "route", action, destIP, "via", nextHopMap[speakerPod.Spec.NodeName]},
-			netmlbparameters.FRRContainerName)
-		if err != nil {
-			if strings.Contains(buffer.String(), "File exists") {
-				log.Printf("Warning: Route to %s already exist", destIP)
-
-				return buffer.String(), nil
-			}
-
-			if strings.Contains(buffer.String(), "No such process") {
-				log.Printf("Warning: Route to %s already absent", destIP)
-
-				return buffer.String(), nil
-			}
-
-			return buffer.String(), err
-		}
-	}
-
-	return buffer.String(), nil
-}
-
-// ValidateIPs checks given IP addresses if they belong to IPFamily.
-func ValidateIPs(ipAddressList []string, ipFamily string) error {
-	var ipAddresses []string
-
-	switch ipFamily {
-	case netparameters.IPV4Family:
-		ipAddresses = []string{ipAddressList[0], ipAddressList[1]}
-
-	case netparameters.IPV6Family:
-		ipAddresses = []string{ipAddressList[2], ipAddressList[3]}
-	}
-
-	for _, ipAddress := range ipAddresses {
-		ipStack, _, err := nethelper.DefineIPFamily(ipAddress)
-		if err != nil {
-			return err
-		}
-
-		if ipStack != ipFamily {
-			return fmt.Errorf("%s is not from %s", ipAddress, ipFamily)
 		}
 	}
 
@@ -1051,14 +757,6 @@ func DescribeMetalLBCRDParameters(externalTrafficPolicy k8sv1.ServiceExternalTra
 	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Failed to Marshal: TrafficPolicy=%s", externalTrafficPolicy))
 
 	return string(myPrams)
-}
-
-func appendIfMissing(slice []string, newItem string) []string {
-	if nethelper.StrParamInListOfParams(newItem, slice) == nil {
-		return slice
-	}
-
-	return append(slice, newItem)
 }
 
 func uint32Ptr(n uint32) *uint32 {
