@@ -172,11 +172,11 @@ var _ = Describe("Per-Core Runtime Tuning of power states - CRI-O", Ordered, fun
 		}()
 
 		output, err := pod.ExecCommand(helper.Apiclient, *testpod,
-			[]string{"cat", "/sys/fs/cgroup/cpuset/cpuset.cpus"}, "test")
-		Expect(err).ToNot(HaveOccurred())
+			[]string{"sh", `-c`, "taskset -c -p $$ | cut -d: -f2"}, "test")
+		Expect(err).ToNot(HaveOccurred(), "Unable to detect pod cpu affinity: %s", output.String())
 
 		By("Verify powersetting of cpus used by the pod")
-		trimmedOutput := strings.Trim(output.String(), "\r\n")
+		trimmedOutput := strings.Trim(output.String(), " \r\n")
 		cpusUsed, err := cpuset.Parse(trimmedOutput)
 		Expect(err).ToNot(HaveOccurred())
 
