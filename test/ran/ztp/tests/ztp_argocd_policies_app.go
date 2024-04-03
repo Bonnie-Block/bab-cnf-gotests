@@ -394,6 +394,16 @@ var _ = Describe("ZTP Argocd policies Tests", Ordered, Label("ztp-argocd-policie
 				Expect(err).ToNot(HaveOccurred())
 			})
 
+			By("Waiting for timeout before checking new custom cr exists", func() {
+				err := rantalmhelper.WaitUntilObjectExists(
+					ranztphelper.SpokeAPIClient,
+					testCrName,
+					testNs,
+					ranztphelper.IsServiceAccountExist,
+				)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
 			By("Checking new custom Service Account created and applied to spoke", func() {
 				newCrExists, err := ranztphelper.IsServiceAccountExist(ranztphelper.SpokeAPIClient, testCrName, testNs)
 				Expect(err).ToNot(HaveOccurred())
@@ -619,6 +629,16 @@ var _ = Describe("ZTP Argocd policies Tests", Ordered, Label("ztp-argocd-policie
 					ranztpparameters.ZtpTestNamespace,
 					policiesv1.Compliant,
 					ranztpparameters.ArgocdChangeTimeout,
+				)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			By("Waiting for timeout before checking new custom cr exists", func() {
+				err := rantalmhelper.WaitUntilObjectExists(
+					ranztphelper.SpokeAPIClient,
+					testCrName,
+					testNs,
+					ranztphelper.IsServiceAccountExist,
 				)
 				Expect(err).ToNot(HaveOccurred())
 			})
