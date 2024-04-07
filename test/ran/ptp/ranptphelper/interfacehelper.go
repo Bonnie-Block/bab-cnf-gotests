@@ -105,6 +105,10 @@ func interfaceParser(config ptpv1api.PtpConfig, node corev1.Node,
 			continue
 		}
 
+		if IsHaProfile(profile) {
+			continue
+		}
+
 		ifceRoleMap := bcPtpProfileParser(profile)
 
 		for ifce, role := range ifceRoleMap {
@@ -189,8 +193,9 @@ func checkConfiguration(config ptpv1api.PtpConfig) error {
 		return fmt.Errorf("more than one or no profile detected for ptpconfig %s", config.ObjectMeta.Name)
 	}
 
-	if nil == config.Spec.Profile[0].Ptp4lConf || len(*config.Spec.Profile[0].Ptp4lConf) == 0 {
-		return fmt.Errorf("configuration is not evaleble")
+	if !IsHaProfile(config.Spec.Profile[0]) && (nil == config.Spec.Profile[0].Ptp4lConf ||
+		len(*config.Spec.Profile[0].Ptp4lConf) == 0) {
+		return fmt.Errorf("configuration is not available")
 	}
 
 	return nil

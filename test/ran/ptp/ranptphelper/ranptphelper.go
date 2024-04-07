@@ -307,6 +307,10 @@ func IsOrdinaryClockProfile(profile ptpv1.PtpProfile) bool {
 	return profile.Interface != nil && profile.Ptp4lOpts != nil && strings.Contains(*profile.Ptp4lOpts, " -s")
 }
 
+func IsHaProfile(profile ptpv1.PtpProfile) bool {
+	return profile.Interface == nil && profile.Ptp4lConf == nil
+}
+
 // IsBoundaryClockProfile checks if given profile has boundary clock config.
 func IsBoundaryClockProfile(profile ptpv1.PtpProfile) bool {
 	if profile.Interface != nil || (profile.Ptp4lOpts != nil && strings.Contains(*profile.Ptp4lOpts, " -s")) {

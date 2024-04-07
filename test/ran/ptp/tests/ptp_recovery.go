@@ -546,6 +546,9 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 		)
 
 		BeforeEach(func() {
+			if ptpConfigCounts[gmOneCardConfigIndx] == 0 && ptpConfigCounts[gmTwoCardConfigIndx] == 0 {
+				Skip("Test requires Grandmaster configuration")
+			}
 			ptpDaemonPods, err := helper.Apiclient.Pods(parameters.PtpOperatorNamespace).List(context.Background(),
 				metav1.ListOptions{LabelSelector: parameters.PtpDaemonsetLabelSelector})
 			Expect(err).NotTo(HaveOccurred())
@@ -560,6 +563,9 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 		})
 
 		AfterEach(func() {
+			if ptpConfigCounts[gmOneCardConfigIndx] == 0 && ptpConfigCounts[gmTwoCardConfigIndx] == 0 {
+				Skip("Test requires Grandmaster configuration")
+			}
 			// make sure sma connection is up.
 			rxSma, err := ranptphelper.GetSma(ptpDaemonPod, rxInterface)
 			Expect(err).NotTo(HaveOccurred())
@@ -571,9 +577,6 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 
 		It("checks FREERUN status are generated for dpll process for RX interface and GM process for TX "+
 			"interface", polarion.ID("70114"), func() {
-			if ptpConfigCounts[gmOneCardConfigIndx] == 0 && ptpConfigCounts[gmTwoCardConfigIndx] == 0 {
-				Skip("Test requires Grandmaster configuration")
-			}
 
 			txInterface, err := ranptphelper.GetTxIface(ptpConfigs.Items[2])
 			Expect(err).NotTo(HaveOccurred())

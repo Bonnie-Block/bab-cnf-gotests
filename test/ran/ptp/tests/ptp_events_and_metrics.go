@@ -193,7 +193,7 @@ var _ = Describe("Basic PTP Configs", func() {
 // 2 - BC configs.
 // 3 - GM configs.
 func getPtpConfigCounts(ptpConfigsList ptpv1.PtpConfigList) []int {
-	configCount, ocCount, bcCount, gmOneCount, gmTwoCount := 0, 0, 0, 0, 0
+	configCount, ocCount, bcCount, gmOneCount, gmTwoCount, haCount := 0, 0, 0, 0, 0, 0
 
 	for _, ptpconfig := range ptpConfigsList.Items {
 		for _, profile := range ptpconfig.Spec.Profile {
@@ -213,6 +213,12 @@ func getPtpConfigCounts(ptpConfigsList ptpv1.PtpConfigList) []int {
 
 			if ranptphelper.IsOrdinaryClockProfile(profile) {
 				ocCount++
+
+				continue
+			}
+
+			if ranptphelper.IsHaProfile(profile) {
+				haCount++
 
 				continue
 			}
