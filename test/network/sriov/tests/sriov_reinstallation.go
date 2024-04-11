@@ -160,6 +160,32 @@ var _ = Describe("CNF SRIOV", Ordered, func() {
 					Update(context.Background(), sriovOperatorConfig, metav1.UpdateOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Failed to update SriovOperatorConfig")
 
+				By(fmt.Sprintf("Waiting for MutatingWebhooks removal: %v",
+					netsriovparameters.SriovMutationWebhooks))
+				for _, sriovMutationWebhookName := range netsriovparameters.SriovMutationWebhooks {
+					Eventually(func() error {
+						mutatingWebhookConfiguration := &admregv1.MutatingWebhookConfiguration{}
+						err := helper.Apiclient.Get(context.TODO(), goclient.ObjectKey{
+							Name: sriovMutationWebhookName,
+						}, mutatingWebhookConfiguration)
+
+						return err
+					}, 2*time.Minute, netsriovparameters.SriovOperatorDeploymentRetry).Should(HaveOccurred(),
+						fmt.Sprintf("MutationWebhook %s was not removed", sriovMutationWebhookName))
+				}
+
+				By(fmt.Sprintf("Waiting for ValidatingWebhook removal: %s",
+					netsriovparameters.SriovValidationWebhook))
+				Eventually(func() error {
+					validatingWebhookConfiguration := &admregv1.ValidatingWebhookConfiguration{}
+					err := helper.Apiclient.Get(context.TODO(), goclient.ObjectKey{
+						Name: netsriovparameters.SriovValidationWebhook,
+					}, validatingWebhookConfiguration)
+
+					return err
+				}, 2*time.Minute, netsriovparameters.SriovOperatorDeploymentRetry).Should(HaveOccurred(),
+					fmt.Sprintf("ValidatingWebhook %s was not removed", netsriovparameters.SriovValidationWebhook))
+
 				By("Remove sriov subscription")
 				err = helper.Apiclient.Subscriptions(
 					parameters.SriovOperatorNamespace).Delete(context.Background(), sriovSubscription.Name, metav1.DeleteOptions{})
