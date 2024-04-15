@@ -33,10 +33,11 @@ var _ = Describe("PTP Events and Metrics - interface down", func() {
 	)
 
 	const (
-		ocConfigIndx        = 1
-		bcConfigIndx        = 2
-		gmOneCardConfigIndx = 3
-		gmTwoCardConfigIndx = 4
+		ocConfigIndx               = 1
+		bcConfigIndx               = 2
+		gmOneCardConfigIndx        = 3
+		gmTwoCardConfigIndx        = 4
+		highAvailabilityConfigIndx = 5
 	)
 
 	execute.BeforeAll(func() {
@@ -137,7 +138,8 @@ var _ = Describe("PTP Events and Metrics - interface down", func() {
 			for _, ifaces := range ifaceGroups {
 				iface := ifaces[0]
 				startTime := time.Now()
-				By(fmt.Sprintf("Bring down ptp Boundary Clock master interfaces %v on node %s\n", ifaces, ptpNode.Name))
+				By(fmt.Sprintf("Bring down ptp Boundary Clock master interfaces %v on node %s\n", ifaces,
+					ptpNode.Name))
 				for _, i := range ifaces {
 					err = ranptphelper.SetInterfaceStatus(&ptpDaemonPod, parameters.PtpContainerName, i,
 						ranptpparameters.Off)
@@ -158,7 +160,8 @@ var _ = Describe("PTP Events and Metrics - interface down", func() {
 				Expect(err).To(HaveOccurred(), "event received for clock state change to "+
 					"[HOLDOVER] after bringing down BC master interface")
 
-				By(fmt.Sprintf("Bring up ptp Boundary Clock master interfaces %v on node %s\n", ifaces, ptpNode.Name))
+				By(fmt.Sprintf("Bring up ptp Boundary Clock master interfaces %v on node %s\n", ifaces,
+					ptpNode.Name))
 				for _, i := range ifaces {
 					err = ranptphelper.SetInterfaceStatus(&ptpDaemonPod, parameters.PtpContainerName, i,
 						ranptpparameters.On)
@@ -216,14 +219,16 @@ var _ = Describe("PTP Events and Metrics - interface down", func() {
 
 					By("Patch ptp config with new ptp4lConf value")
 					_, err = helper.Apiclient.PtpConfigs(parameters.PtpOperatorNamespace).Patch(
-						context.Background(), ptpConfigList.Items[0].Name, types.JSONPatchType, newPatchPtpBytes, metav1.PatchOptions{})
+						context.Background(), ptpConfigList.Items[0].Name, types.JSONPatchType, newPatchPtpBytes,
+						metav1.PatchOptions{})
 					Expect(err).NotTo(HaveOccurred())
 
 					By("Assert new interface is being used")
 					ptpconfig, err := helper.Apiclient.PtpConfigs(parameters.PtpOperatorNamespace).Get(
 						context.Background(), ptpConfigList.Items[0].Name, metav1.GetOptions{})
 					Expect(err).NotTo(HaveOccurred())
-					Expect(*ptpconfig.Spec.Profile[0].Interface).To(Equal(ifaceToModify), "new interface is not being used")
+					Expect(*ptpconfig.Spec.Profile[0].Interface).To(Equal(ifaceToModify), "new "+
+						"interface is not being used")
 
 					node, err := ranhelper.GetNodeByName(nodeName)
 					Expect(err).NotTo(HaveOccurred())
@@ -248,7 +253,8 @@ var _ = Describe("PTP Events and Metrics - interface down", func() {
 						}
 
 						return strings.Contains(err.Error(), "openshift_ptp_clock_state")
-					}, 3*time.Minute, 10*time.Second).Should(BeTrue(), "openshift_ptp_clock_state still appears in ptp metrics")
+					}, 3*time.Minute, 10*time.Second).Should(BeTrue(), "openshift_ptp_clock_state "+
+						"still appears in ptp metrics")
 
 					break OUTERLOOP
 				}
@@ -292,7 +298,8 @@ var _ = Describe("PTP Events and Metrics - interface down", func() {
 
 					By("Patch ptp config with new ptp4lConf value")
 					_, err = helper.Apiclient.PtpConfigs(parameters.PtpOperatorNamespace).Patch(
-						context.Background(), ptpConfigList.Items[0].Name, types.JSONPatchType, newPatchPtpBytes, metav1.PatchOptions{})
+						context.Background(), ptpConfigList.Items[0].Name, types.JSONPatchType, newPatchPtpBytes,
+						metav1.PatchOptions{})
 					Expect(err).NotTo(HaveOccurred())
 
 					node, err := ranhelper.GetNodeByName(nodeName)
@@ -317,12 +324,280 @@ var _ = Describe("PTP Events and Metrics - interface down", func() {
 						}
 
 						return strings.Contains(err.Error(), "openshift_ptp_clock_state")
-					}, 3*time.Minute, 10*time.Second).Should(BeTrue(), "openshift_ptp_clock_state still appears in ptp metrics")
+					}, 3*time.Minute, 10*time.Second).Should(BeTrue(),
+						"openshift_ptp_clock_state still appears in ptp metrics")
 
 					break OUTERLOOP
 				}
 			}
 		}
+	})
+
+	// 73093
+	It("should change high availability active profile when other nic interface is down", polarion.ID("73093"), func() {
+		nodeToPtpDaemonPod, err := ranptphelper.NodesToPtpDaemonPods()
+		Expect(err).NotTo(HaveOccurred())
+
+		for nodeName, ptpDaemonPod := range nodeToPtpDaemonPod {
+			By("finding the active HA profile")
+			// find the right active profile
+			statusProfilesMap, err := ranptphelper.BuildStatusProfileNamesMap(ptpDaemonPod)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(len(statusProfilesMap[ranptpparameters.Active])).Should(Equal(1))
+
+			activeProfileOriginal, err := ranptphelper.GetHaProfile(ranptpparameters.Active)
+
+			Expect(err).NotTo(HaveOccurred())
+
+			By("getting slave interface of the active HA profile")
+			// find the interface
+			ptpNode, err := ranhelper.GetNodeByName(nodeName)
+			Expect(err).NotTo(HaveOccurred())
+			profileSlaveIfaceMap, err := ranptphelper.BuildProfileSlaveInterfaceMap(*ptpNode)
+			Expect(err).NotTo(HaveOccurred())
+
+			activeIface := profileSlaveIfaceMap[activeProfileOriginal[0]]
+			Expect(err).NotTo(HaveOccurred())
+
+			if ranptphelper.ContainsOcpInterface([]string{activeIface}) {
+				log.Println("Avoid bringing down interface used by ocp:", ranptpparameters.OcpInterface)
+				Skip("Test skipped to avoid bringing down port used by br-ex interface")
+			}
+
+			By("bringing down active HA slave interface down")
+			// bring that interface down
+			err = ranptphelper.SetInterfaceStatus(&ptpDaemonPod, parameters.PtpContainerName, activeIface,
+				ranptpparameters.Off)
+			Expect(err).NotTo(HaveOccurred())
+
+			err = ranptphelper.GetPTPMetrics(ptpDaemonPod)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Validating the activate HA profile changed")
+			activeProfileNew, err := ranptphelper.GetHaProfile(ranptpparameters.Active)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(activeProfileOriginal).NotTo(Equal(activeProfileNew[0]))
+
+			By("Validating the clock state of the original active interface is FREERUN")
+			err = ranptphelper.WaitForPtpClockStateMetric(ptpDaemonPod, ranptpparameters.FreeRunState,
+				activeIface, 5*time.Minute, 10*time.Second)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("validating all other interfaces are LOCKED")
+			profileIfacesMap, err := ranptphelper.BuildPtpProfileIfacesMap()
+			activeIfaceNic := ranptphelper.GetNic(activeIface)
+			Expect(err).NotTo(HaveOccurred())
+			for _, ifaces := range profileIfacesMap {
+				for _, iface := range ifaces {
+					if ranptphelper.GetNic(iface) == activeIfaceNic {
+						continue
+					}
+					err = ranptphelper.WaitForPtpClockStateMetric(ptpDaemonPod, ranptpparameters.LockedState,
+						iface, 5*time.Minute, 10*time.Second)
+					Expect(err).NotTo(HaveOccurred())
+				}
+			}
+
+			err = ranptphelper.WaitForPtpClockStateMetric(ptpDaemonPod, ranptpparameters.LockedState,
+				"", 5*time.Minute, 10*time.Second, "ptp4l")
+			Expect(err).NotTo(HaveOccurred())
+		}
+	})
+
+	// 73094
+	It("should move to FREERUN state when active and inactive interfaces are down", polarion.ID("73094"), func() {
+		if ptpConfigCounts[highAvailabilityConfigIndx] == 0 {
+			Skip("Test requires High Availability configuration")
+		}
+
+		nodeToPtpDaemonPod, err := ranptphelper.NodesToPtpDaemonPods()
+		Expect(err).NotTo(HaveOccurred())
+
+		for nodeName, ptpDaemonPod := range nodeToPtpDaemonPod {
+			activeProfiles, err := ranptphelper.GetHaProfile(ranptpparameters.Active)
+			Expect(err).NotTo(HaveOccurred())
+			inactiveProfiles, err := ranptphelper.GetHaProfile(ranptpparameters.Inactive)
+			Expect(err).NotTo(HaveOccurred())
+
+			ptpNode, err := ranhelper.GetNodeByName(nodeName)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("getting the active and inactive ha interfaces")
+			profileSlaveIfaceMap, err := ranptphelper.BuildProfileSlaveInterfaceMap(*ptpNode)
+			Expect(err).NotTo(HaveOccurred())
+
+			activeIface := profileSlaveIfaceMap[activeProfiles[0]]
+
+			var inactiveIfaces []string
+			for _, inactiveProfile := range inactiveProfiles {
+				inactiveIfaces = append(inactiveIfaces, profileSlaveIfaceMap[inactiveProfile])
+			}
+			Expect(err).NotTo(HaveOccurred())
+
+			By("checking the interfaces are not ocp interfaces")
+			if ranptphelper.ContainsOcpInterface([]string{activeIface}) {
+				log.Println("Avoid bringing down interface used by ocp:", ranptpparameters.OcpInterface)
+				Skip("Test skipped to avoid bringing down port used by br-ex interface")
+			}
+
+			if ranptphelper.ContainsOcpInterface(inactiveIfaces) {
+				log.Println("Avoid bringing down interface used by ocp:", ranptpparameters.OcpInterface)
+				Skip("Test skipped to avoid bringing down port used by br-ex interface")
+			}
+
+			// bring both interface down.
+			By("bringing active and inactive interfaces down")
+			err = ranptphelper.SetInterfaceStatus(&ptpDaemonPod, parameters.PtpContainerName, activeIface,
+				ranptpparameters.Off)
+			Expect(err).NotTo(HaveOccurred())
+			for _, inactiveIface := range inactiveIfaces {
+				err = ranptphelper.SetInterfaceStatus(&ptpDaemonPod, parameters.PtpContainerName, inactiveIface,
+					ranptpparameters.Off)
+				Expect(err).NotTo(HaveOccurred())
+			}
+
+			By("validating ptp4l clock states are FREERUN")
+			err = ranptphelper.WaitForPtpClockStateMetric(ptpDaemonPod, ranptpparameters.FreeRunState, activeIface,
+				time.Minute, 10*time.Second)
+			Expect(err).NotTo(HaveOccurred())
+			for _, inactiveIface := range inactiveIfaces {
+				err = ranptphelper.WaitForPtpClockStateMetric(ptpDaemonPod, ranptpparameters.FreeRunState,
+					inactiveIface, time.Minute, 10*time.Second)
+				Expect(err).NotTo(HaveOccurred())
+			}
+
+			By("validating all other interfaces are LOCKED")
+			profileIfacesMap, err := ranptphelper.BuildPtpProfileIfacesMap()
+			activeIfaceNic := ranptphelper.GetNic(activeIface)
+			Expect(err).NotTo(HaveOccurred())
+			for _, ifaces := range profileIfacesMap {
+				for _, iface := range ifaces {
+					for _, inactiveIface := range inactiveIfaces {
+						if ranptphelper.GetNic(iface) == activeIfaceNic || ranptphelper.GetNic(iface) == ranptphelper.
+							GetNic(inactiveIface) {
+							continue
+						}
+						err = ranptphelper.WaitForPtpClockStateMetric(ptpDaemonPod, ranptpparameters.LockedState,
+							iface, 5*time.Minute, 10*time.Second)
+						Expect(err).NotTo(HaveOccurred())
+					}
+				}
+			}
+
+			By("validate not ptp4l processes are in clock state LOCKED ")
+			err = ranptphelper.WaitForPtpClockStateMetric(ptpDaemonPod, ranptpparameters.LockedState,
+				"", 5*time.Minute, 10*time.Second, "ptp4l")
+			Expect(err).NotTo(HaveOccurred())
+		}
+	})
+
+	Context("remove active profile bc configuration", func() {
+		var (
+			ptpConfig           ptpv1.PtpConfig
+			nodeToPtpDaemonPod  map[string]corev1.Pod
+			profileNameIfaceMap map[string][]string
+			err                 error
+		)
+
+		BeforeEach(func() {
+			By("getting original interfaces from profiles")
+			profileNameIfaceMap, err = ranptphelper.BuildPtpProfileIfacesMap()
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		AfterEach(func() {
+			if ptpConfigCounts[highAvailabilityConfigIndx] == 0 {
+				Skip("Test requires High Availability configuration")
+			}
+
+			if ptpConfig.Name == "" {
+				Skip("no ptpConfig to restore")
+			}
+
+			// remove the resource version from the configuration, so it can be recreated with same values.
+			ptpConfig.ObjectMeta.ResourceVersion = ""
+
+			By("restoring deleted configuration")
+			_, err = helper.Apiclient.PtpConfigs(parameters.PtpOperatorNamespace).Create(context.Background(),
+				&ptpConfig, metav1.CreateOptions{})
+			Expect(err).NotTo(HaveOccurred())
+
+			By("validating all interfaces clock state is LOCKED")
+			for _, ptpDaemonPod := range nodeToPtpDaemonPod {
+				for _, ifaces := range profileNameIfaceMap {
+					ifaceGroupMap := ranptphelper.GetInterfaceGroups(ifaces)
+					for ifaceGroup := range ifaceGroupMap {
+						err = ranptphelper.WaitForPtpClockStateMetric(ptpDaemonPod, ranptpparameters.LockedState,
+							ifaceGroup, 5*time.Minute, 10*time.Second)
+						Expect(err).NotTo(HaveOccurred())
+					}
+				}
+
+				err = ranptphelper.WaitForPtpClockStateMetric(ptpDaemonPod, ranptpparameters.LockedState,
+					"", 5*time.Minute, 10*time.Second, "ptp4l")
+				Expect(err).NotTo(HaveOccurred())
+			}
+		})
+
+		// 73095
+		It("should change high availability active profile when active profile is deleted",
+			polarion.ID("73095"), func() {
+				// there is ha ptp configuration.
+				if ptpConfigCounts[highAvailabilityConfigIndx] == 0 {
+					Skip("Test requires High Availability configuration")
+				}
+
+				nodeToPtpDaemonPod, err = ranptphelper.NodesToPtpDaemonPods()
+				Expect(err).NotTo(HaveOccurred())
+
+				for nodeName, ptpDaemonPod := range nodeToPtpDaemonPod {
+					By("validating only one active profile exists")
+					statusProfilesMap, err := ranptphelper.BuildStatusProfileNamesMap(ptpDaemonPod)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(len(statusProfilesMap[ranptpparameters.Active])).Should(Equal(1))
+
+					By("getting the active ha profile")
+					activeProfile, err := ranptphelper.GetHaProfile(ranptpparameters.Active)
+					Expect(err).NotTo(HaveOccurred())
+
+					By("getting the the right configuration from the active profile name")
+					profileNameConfigMap, err := ranptphelper.BuildProfileNameConfigMap()
+					Expect(err).NotTo(HaveOccurred())
+
+					By("saving the configuration for later use")
+					ptpConfig = profileNameConfigMap[activeProfile[0]]
+
+					By("deleting the configuration " + ptpConfig.Name)
+					err = helper.Apiclient.PtpConfigs(parameters.PtpOperatorNamespace).Delete(context.Background(),
+						ptpConfig.Name, metav1.DeleteOptions{})
+					Expect(err).NotTo(HaveOccurred())
+
+					By("validating the active configuration changed")
+					err = ranptphelper.WaitForMHaMetricsUpdate(ptpDaemonPod, activeProfile[0], time.Minute*2)
+					Expect(err).NotTo(HaveOccurred())
+
+					By("validating only one active profile exists")
+					statusProfilesMap, err = ranptphelper.BuildStatusProfileNamesMap(ptpDaemonPod)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(len(statusProfilesMap[ranptpparameters.Active])).Should(Equal(1))
+
+					activeProfiles, err := ranptphelper.GetHaProfile(ranptpparameters.Active)
+					Expect(err).NotTo(HaveOccurred())
+
+					ptpNode, err := ranhelper.GetNodeByName(nodeName)
+					Expect(err).NotTo(HaveOccurred())
+
+					By("getting the active interface")
+					profileSlaveIfaceMap, err := ranptphelper.BuildProfileSlaveInterfaceMap(*ptpNode)
+					Expect(err).NotTo(HaveOccurred())
+
+					By("validating active clock state is LOCKED")
+					activeIface := profileSlaveIfaceMap[activeProfiles[0]]
+					err = ranptphelper.WaitForPtpClockStateMetric(ptpDaemonPod, ranptpparameters.LockedState,
+						activeIface, 3*time.Minute, 10*time.Second)
+					Expect(err).NotTo(HaveOccurred())
+				}
+			})
 	})
 })
 

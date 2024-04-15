@@ -53,7 +53,7 @@ func GetInterfaceGroups(interfaces []string) map[string][]string {
 	ifaceGroupMap := make(map[string][]string)
 
 	for _, iface := range interfaces {
-		nic := getNic(iface)
+		nic := GetNic(iface)
 		if !slices.Contains(ifaceGroupMap[nic], iface) {
 			ifaceGroupMap[nic] = append(ifaceGroupMap[nic], iface)
 		}
@@ -62,7 +62,7 @@ func GetInterfaceGroups(interfaces []string) map[string][]string {
 	return ifaceGroupMap
 }
 
-func getNic(iface string) string {
+func GetNic(iface string) string {
 	return iface[:len(iface)-1] + "x"
 }
 
@@ -94,31 +94,7 @@ func interfaceParser(config ptpv1api.PtpConfig, node corev1.Node,
 		return nil, err
 	}
 
-	for _, profile := range nodeProfileMap[node.Name] {
-		if IsOrdinaryClockProfile(profile) {
-			if _, ok := interfacesRoleMap[*profile.Interface]; ok {
-				log.Printf("Warning: slave interface %s is configured more than once", *profile.Interface)
-			}
-
-			interfacesRoleMap[*profile.Interface] = map[string]string{"masterOnly": "0"}
-
-			continue
-		}
-
-		if IsHaProfile(profile) {
-			continue
-		}
-
-		ifceRoleMap := bcPtpProfileParser(profile)
-
-		for ifce, role := range ifceRoleMap {
-			if _, ok := interfacesRoleMap[ifce]; ok {
-				log.Printf("Warning: interface %s is configured more than once", ifce)
-			}
-
-			interfacesRoleMap[ifce] = role
-		}
-	}
+	interfacesRoleMap = getIfaceRoleMap(nodeProfileMap[node.Name], interfacesRoleMap)
 
 	return interfacesRoleMap, nil
 }
@@ -163,7 +139,7 @@ func GetPtpProfilesPerNode(config ptpv1api.PtpConfig) (map[string][]ptpv1api.Ptp
 }
 
 func bcPtpProfileParser(profile ptpv1api.PtpProfile) map[string]ranptpparameters.RoleMap {
-	ifceRoleMap := make(map[string]ranptpparameters.RoleMap)
+	ifaceRoleMap := make(map[string]ranptpparameters.RoleMap)
 
 	lines := strings.Split(*profile.Ptp4lConf, "\n")
 
@@ -176,12 +152,12 @@ func bcPtpProfileParser(profile ptpv1api.PtpProfile) map[string]ranptpparameters
 				ifaceRoleSlice := strings.Split(role, " ")
 				ifaceRole := make(map[string]string)
 				ifaceRole[ifaceRoleSlice[0]] = ifaceRoleSlice[1]
-				ifceRoleMap[ifaceID] = ifaceRole
+				ifaceRoleMap[ifaceID] = ifaceRole
 			}
 		}
 	}
 
-	return ifceRoleMap
+	return ifaceRoleMap
 }
 
 // checkConfiguration returns an error in the following cases:
@@ -227,4 +203,106 @@ func ContainsOcpInterface(interfaces []string) bool {
 	}
 
 	return false
+}
+
+// BuildProfileSlaveInterfaceMap returns a slave interface by getting a profile name ptpProfileName.
+func BuildProfileSlaveInterfaceMap(node corev1.Node) (map[string]string, error) {
+	profileSlaveIface := make(map[string]string)
+	// getting all slaves interfaces.
+	slaveIfaces, err := GetInterfaces(ptpv1api.Slave, node)
+	if err != nil {
+		return nil, err
+	}
+
+	// creates a profile interface map the match slave interface to wanted profile.
+	ptpProfileIfaces, err := BuildPtpProfileIfacesMap()
+	if err != nil {
+		return nil, err
+	}
+
+	// match the slave interface connected to the ptpProfileName profile.
+	for _, slaveIfaceFromInterface := range slaveIfaces {
+		for profileName, ifaces := range ptpProfileIfaces {
+			for _, iface := range ifaces {
+				if iface == slaveIfaceFromInterface {
+					profileSlaveIface[profileName] = iface
+				}
+			}
+		}
+	}
+
+	return profileSlaveIface, nil
+}
+
+// BuildPtpProfileIfacesMap creates a ptp-profile name to interface name map.
+func BuildPtpProfileIfacesMap() (map[string][]string, error) {
+	ptpConfigsList, err := helper.Apiclient.PtpConfigs(parameters.PtpOperatorNamespace).List(context.Background(),
+		metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	ptpProfileIfaces := make(map[string][]string)
+
+	for _, ptpConfig := range ptpConfigsList.Items {
+		for _, ptpProfile := range ptpConfig.Spec.Profile {
+			interfacesRoleMap := make(map[string]ranptpparameters.RoleMap)
+			for iface := range getIfaceRoleMap(ptpConfig.Spec.Profile, interfacesRoleMap) {
+				ptpProfileIfaces[*ptpProfile.Name] = append(ptpProfileIfaces[*ptpProfile.Name], iface)
+			}
+		}
+	}
+
+	return ptpProfileIfaces, nil
+}
+
+// getIfaceRoleMap greats a profile name to interface role map.
+func getIfaceRoleMap(ptpProfileList []ptpv1api.PtpProfile,
+	interfacesRoleMap map[string]ranptpparameters.RoleMap) map[string]ranptpparameters.RoleMap {
+	for _, ptpProfile := range ptpProfileList {
+		if IsOrdinaryClockProfile(ptpProfile) {
+			if _, ok := interfacesRoleMap[*ptpProfile.Interface]; ok {
+				log.Printf("Warning: slave interface %s is configured more than once", *ptpProfile.Interface)
+			}
+
+			interfacesRoleMap[*ptpProfile.Interface] = map[string]string{"masterOnly": "0"}
+
+			continue
+		}
+
+		if IsHaProfile(ptpProfile) {
+			continue
+		}
+
+		ifaceRoleMap := bcPtpProfileParser(ptpProfile)
+
+		for iface, role := range ifaceRoleMap {
+			if _, ok := interfacesRoleMap[iface]; ok {
+				log.Printf("Warning: interface %s is configured more than once", iface)
+			}
+
+			interfacesRoleMap[iface] = role
+		}
+	}
+
+	return interfacesRoleMap
+}
+
+// BuildProfileNameConfigMap creates a ptpProfile name to ptpConfig map.
+func BuildProfileNameConfigMap() (map[string]ptpv1api.PtpConfig, error) {
+	profileNameConfigMap := make(map[string]ptpv1api.PtpConfig)
+
+	ptpConfigList, err := helper.Apiclient.PtpConfigs(parameters.PtpOperatorNamespace).List(context.Background(),
+		metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	for _, ptpConfig := range ptpConfigList.Items {
+		for _, ptpProfile := range ptpConfig.Spec.Profile {
+			profileNameConfigMap[*ptpProfile.Name] = ptpConfig
+		}
+	}
+
+	return profileNameConfigMap, nil
 }

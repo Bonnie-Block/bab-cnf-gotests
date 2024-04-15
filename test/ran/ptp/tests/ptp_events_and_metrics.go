@@ -231,7 +231,7 @@ func getPtpConfigCounts(ptpConfigsList ptpv1.PtpConfigList) []int {
 		}
 	}
 
-	return []int{configCount, ocCount, bcCount, gmOneCount, gmTwoCount}
+	return []int{configCount, ocCount, bcCount, gmOneCount, gmTwoCount, haCount}
 }
 
 // restore ptp configs on system to original configs.

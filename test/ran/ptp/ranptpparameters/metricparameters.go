@@ -32,14 +32,18 @@ const (
 	Available   = 1
 	Unavailable = 0
 
+	Inactive = int64(0)
+	Active   = int64(1)
+
 	Off InterfaceState = "down"
 	On  InterfaceState = "up"
 
-	OpenshiftPtpClockState    = "openshift_ptp_clock_state"
-	OpenshiftPtpProcessStatus = "openshift_ptp_process_status"
-	OpenshiftPtpInterfaceRole = "openshift_ptp_interface_role"
-	OpenshiftPtpThreshold     = "openshift_ptp_threshold"
-	OpenshiftPtpNmeaStatus    = "openshift_ptp_nmea_status"
+	OpenshiftPtpClockState      = "openshift_ptp_clock_state"
+	OpenshiftPtpProcessStatus   = "openshift_ptp_process_status"
+	OpenshiftPtpInterfaceRole   = "openshift_ptp_interface_role"
+	OpenshiftPtpThreshold       = "openshift_ptp_threshold"
+	OpenshiftPtpNmeaStatus      = "openshift_ptp_nmea_status"
+	OpenshiftPtpHaProfileStatus = "openshift_ptp_ha_profile_status"
 
 	ClockStateValueField  = "clock_state_value"
 	ValueField            = "value"
@@ -80,4 +84,5 @@ type MetricDetails struct {
 	Config             string        `json:"config"`
 	Code               int           `json:"code"`
 	Threshold          string        `json:"threshold"`
+	Profile            string        `json:"profile"`
 }

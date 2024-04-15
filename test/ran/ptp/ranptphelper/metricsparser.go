@@ -163,6 +163,7 @@ func getDetails(singleMetric string, metric ranptpparameters.MetricDetails) (ran
 		return metric, err
 	}
 
+	metric.Profile = getSpecificDetail(singleMetric, "profile")
 	metric.Threshold = getSpecificDetail(singleMetric, "threshold")
 
 	return metric, nil

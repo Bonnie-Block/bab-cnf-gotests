@@ -605,3 +605,114 @@ func getJSONInterface(ptpConfig ptpv1.PtpConfig) ([]string, map[string]interface
 
 	return ifaces, ifaceJSON, nil
 }
+
+// GetHaProfile returns a profile name with the wanted state, active (1) or inactive (0).
+func GetHaProfile(status int64) ([]string, error) {
+	var haProfile []string
+
+	for _, HaMetrics := range ranptpparameters.MetricMap[ranptpparameters.OpenshiftPtpHaProfileStatus] {
+		if HaMetrics.Value == status {
+			log.Printf("found profile %s with status %d\n", HaMetrics.Profile, status)
+			haProfile = append(haProfile, HaMetrics.Profile)
+		}
+	}
+
+	if len(haProfile) == 0 {
+		return nil, fmt.Errorf("no ha profile with status %v found", status)
+	}
+
+	return haProfile, nil
+}
+
+// BuildStatusProfileNamesMap creates a status to profile names map.
+func BuildStatusProfileNamesMap(ptpDaemonPod corev1.Pod) (map[int64][]string, error) {
+	statusProfilesMap := make(map[int64][]string)
+
+	var (
+		HaMetrics []ranptpparameters.MetricDetails
+		errMsg    string
+		err       error
+	)
+
+	errTimeout := wait.PollImmediate(10*time.Second, 3*time.Minute, func() (bool, error) {
+
+		err = GetPTPMetrics(ptpDaemonPod)
+		HaMetrics = ranptpparameters.MetricMap[ranptpparameters.OpenshiftPtpHaProfileStatus]
+		if HaMetrics == nil {
+			errMsg = "no openshift_ptp_ha_profile_status metrics found"
+
+			return false, nil
+		}
+
+		return true, nil
+	})
+
+	if errTimeout != nil {
+		return nil, fmt.Errorf(errMsg)
+	}
+
+	for _, HaMetric := range HaMetrics {
+		if HaMetric.Value == ranptpparameters.Inactive {
+			log.Printf("found profile %s with status inactive\n", HaMetric.Profile)
+
+			statusProfilesMap[ranptpparameters.Inactive] = append(statusProfilesMap[ranptpparameters.Inactive],
+				HaMetric.Profile)
+		}
+
+		if HaMetric.Value == ranptpparameters.Active {
+			log.Printf("found profile %s with status active\n", HaMetric.Profile)
+
+			statusProfilesMap[ranptpparameters.Active] = append(statusProfilesMap[ranptpparameters.Active],
+				HaMetric.Profile)
+		}
+	}
+
+	return statusProfilesMap, err
+}
+
+// WaitForMHaMetricsUpdate waits for ha metric to update after removing one bc configuration.
+func WaitForMHaMetricsUpdate(ptpDaemonPod corev1.Pod, profileName string, timeout time.Duration) error {
+	var (
+		err    error
+		errMsg string
+	)
+
+	interval := 5 * time.Second
+
+	successMsg := "profile " + profileName + " deleted from metrics"
+
+	errTimeout := wait.PollImmediate(interval, timeout, func() (bool, error) {
+		errMsg = ""
+
+		err = GetPTPMetrics(ptpDaemonPod)
+		HaMetrics := ranptpparameters.MetricMap[ranptpparameters.OpenshiftPtpHaProfileStatus]
+
+		if len(HaMetrics) == 0 || (len(HaMetrics) == 1 && HaMetrics[0].Value == ranptpparameters.Inactive) {
+			errMsg = "No active profile found"
+
+			return false, nil
+		}
+
+		for _, HaMetric := range HaMetrics {
+			if HaMetric.Profile == profileName {
+				errMsg = "Profile " + profileName + " still appears in metrics"
+
+				return false, nil
+			}
+		}
+
+		return true, nil
+	})
+
+	if errTimeout != nil {
+		return fmt.Errorf(errMsg)
+	}
+
+	if err != nil {
+		return err
+	}
+
+	log.Println(successMsg)
+
+	return nil
+}

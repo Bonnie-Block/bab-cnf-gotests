@@ -22,6 +22,8 @@ var (
 
 	PtpVersion   string
 	OcpInterface string
+
+	PtpProfileIfaces map[string][]string
 )
 
 const (
