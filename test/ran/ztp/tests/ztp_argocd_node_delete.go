@@ -25,6 +25,10 @@ const (
 	crAnnotationKey = "bmac.agent-install.openshift.io/remove-agent-and-node-on-delete"
 )
 
+var (
+	earlyReturnNonSNO = false
+)
+
 var _ = Describe("ZTP Argocd node delete Tests", polarion.ID("72463"), Label("ztp-argocd-node-delete"), func() {
 	// These tests use the hub and spoke
 	var clusterList []*testClient.ClientSet
@@ -68,6 +72,7 @@ var _ = Describe("ZTP Argocd node delete Tests", polarion.ID("72463"), Label("zt
 
 			// First, check if there are two total nodes in the cluster
 			if !nodes.IsSNOPlusOneWorkerCluster(ranztphelper.GetSpokeClient()) {
+				earlyReturnNonSNO = true
 				Skip("cluster does not contain a single master and worker node")
 			}
 
@@ -87,6 +92,11 @@ var _ = Describe("ZTP Argocd node delete Tests", polarion.ID("72463"), Label("zt
 
 	AfterEach(func() {
 		// Reset the clusters app back to default after each test
+
+		// Skip the afterEach if the environment is not SNO+1
+		if earlyReturnNonSNO {
+			return
+		}
 
 		// This is essentially our "return-to-normal" test case.
 		By("Resetting the clusters app back to the original settings", func() {
