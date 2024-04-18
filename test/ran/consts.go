@@ -4,6 +4,12 @@ const (
 	EnvWorkloadDuration       = "RAN_WORKLOAD_DURATION"
 	EnvNoWorkloadDuration     = "RAN_NO_WORKLOAD_DURATION"
 	EnvMetricSamplingInterval = "RAN_METRIC_SAMPLING_INTERVAL"
+	Baseline                  = "BASELINE"
+	BaselineVersion           = "BASELINE_VERSION"
+	TrendTimeframe            = "TREND_TIMEFRAME"
+	TrendThreshold            = "TREND_THRESHOLD"
+	MillicoreThreshold        = "MILLICORE_THRESHOLD"
+	PrometheusURL             = "PROMETHEUS_URL"
 )
 
 const (

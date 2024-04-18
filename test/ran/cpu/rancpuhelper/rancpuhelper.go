@@ -1,10 +1,13 @@
 package rancpuhelper
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -14,6 +17,7 @@ import (
 	performancev2 "github.com/openshift/cluster-node-tuning-operator/pkg/apis/performanceprofile/v2"
 	"github.com/openshift/cluster-node-tuning-operator/pkg/performanceprofile/controller/performanceprofile/components"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/cpu/rancpuparameters"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
 	podUtil "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -254,4 +258,79 @@ func IsOcExist() bool {
 	_, err := helper.ExecAndLogCommand(true, 10*time.Second, "oc", "version")
 
 	return err == nil
+}
+
+func ExecPromQueryRanMetrics(query string, logCommand bool) (rancpuparameters.PromQueryResponseRanMetrics, error) {
+	reqBody := []byte("query=" + query)
+
+	log.Println("Query in flight ", query)
+
+	PromRanMetricsURL := os.Getenv(ran.PrometheusURL)
+
+	response, err := http.Post(PromRanMetricsURL, "application/x-www-form-urlencoded", bytes.NewBuffer(reqBody))
+	if err != nil {
+		log.Println("Error sending POST request to RAN Metrics Prometheus:", err)
+	}
+	defer response.Body.Close()
+
+	var results rancpuparameters.PromQueryResponseRanMetrics
+
+	if response.StatusCode == http.StatusOK {
+		responseBody, _ := io.ReadAll(response.Body)
+		if err := json.Unmarshal(responseBody, &results); err != nil {
+			panic(err)
+		}
+	} else {
+		log.Println("POST request failed. Status code:", response.StatusCode)
+
+		return results, err
+	}
+
+	return results, nil
+}
+
+// This functions accepts a baseline data query and returns a map with baseline value for [namespace][pod].
+func GetBaseline(baselinequery string, baselineVersion string, workloadDuration string, trendTimeframe int,
+	podType string) (map[string]map[string][]interface{}, error) {
+	var node *corev1.Node
+	node, _ = ranhelper.GetWorker(true)
+
+	nodeName := strings.SplitN(node.Name, ".", 2)[0]
+
+	formattedQuery := fmt.Sprintf(baselinequery, nodeName, baselineVersion, workloadDuration, trendTimeframe)
+
+	response, _ := ExecPromQueryRanMetrics(formattedQuery, false)
+
+	log.Println("RAN METRICS RESULT ", response.Data.Result)
+
+	baseline := make(map[string]map[string][]interface{})
+
+	if len(response.Data.Result) != 0 {
+		switch podType {
+		case "namespace":
+			for _, metric := range response.Data.Result {
+				_, ok := baseline[metric.Metric[podType]]
+				if ok {
+					baseline[metric.Metric[podType]][metric.Metric["pod"]] = metric.Value
+				} else {
+					baseline[metric.Metric[podType]] = make(map[string][]interface{})
+					baseline[metric.Metric[podType]][metric.Metric["pod"]] = metric.Value
+				}
+			}
+		case "groupname":
+			for _, metric := range response.Data.Result {
+				_, ok := baseline[metric.Metric[podType]]
+				if ok {
+					baseline[metric.Metric[podType]]["daemon"] = metric.Value
+				} else {
+					baseline[metric.Metric[podType]] = make(map[string][]interface{})
+					baseline[metric.Metric[podType]]["daemon"] = metric.Value
+				}
+			}
+		}
+
+		return baseline, nil
+	}
+
+	return baseline, fmt.Errorf("no baseline data")
 }

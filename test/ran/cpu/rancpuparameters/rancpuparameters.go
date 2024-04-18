@@ -22,9 +22,11 @@ var (
 
 // RAN CPU metric names/prefixes.
 const (
-	RanCPUMetricOsDaemon  = "ranmetrics_cpu_os_daemon"
-	RanCPUMetricInfraPods = "ranmetrics_cpu_infra_pods"
-	RanCPUMetricTotal     = "ranmetrics_cpu_total"
+	RanCPUMetricOsDaemon       = "ranmetrics_cpu_os_daemon"
+	RanCPUMetricInfraPods      = "ranmetrics_cpu_infra_pods"
+	RanCPUMetricTotal          = "ranmetrics_cpu_total"
+	RanCPUMetricInfraPodsTrend = "ranmetrics_cpu_infra_pods_trend"
+	RanCPUMetricOsDaemonTrend  = "ranmetrics_cpu_os_daemon_trend"
 )
 
 type PromQueryResponse struct {
@@ -39,4 +41,12 @@ type PromQueryResponse struct {
 type PromMetric struct {
 	Metric map[string]string
 	Value  []interface{}
+}
+
+type PromQueryResponseRanMetrics struct {
+	Status string
+	Data   struct {
+		ResultType string
+		Result     []PromMetric
+	}
 }
