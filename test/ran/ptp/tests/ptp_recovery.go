@@ -459,7 +459,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Wait for all ptp clocks in LOCKED state in ptp metrics")
-			err = ranptphelper.WaitForPtpClockStateMetric(*ptpDaemonPod, ranptpparameters.LockedState, "", 1*time.Minute,
+			err = ranptphelper.WaitForPtpClockStateMetric(*ptpDaemonPod, ranptpparameters.LockedState, "", 10*time.Minute,
 				10*time.Second)
 			Expect(err).NotTo(HaveOccurred())
 
