@@ -34,7 +34,7 @@ const (
 	AnnotationWpMutationWarning = "workload.openshift.io/warning"
 	WarningQoSChange            = "skip pod CPUs requests modifications because it will change the pod QoS class " +
 		"from Burstable to BestEffort"
-	WarningQoSGuaranteed  = "skip pod CPUs requests modifications because it has guaranteed QoS class"
-	WarningCPUReqAndLimit = "skip pod CPUs requests modifications because pod container has both CPU limit " +
-		"and request"
+	WarningQoSGuaranteed        = "skip pod CPUs requests modifications because it has guaranteed QoS class"
+	WarningCPUReqAndLimitRegExp = "skip pod CPUs requests modifications because " +
+		`(pod container has both CPU limit and request|it will change the pod QoS class from Burstable to BestEffort)`
 )

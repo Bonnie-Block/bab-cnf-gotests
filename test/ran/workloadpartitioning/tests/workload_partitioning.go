@@ -241,7 +241,7 @@ var _ = Describe("SNO management workload partitioning", func() {
 			Expect(resourceRequests.Cpu().Value()).To(Equal(int64(cpuReq)))
 			warning, warningAnnotated := pod.Annotations[ranwpparameters.AnnotationWpMutationWarning]
 			Expect(warningAnnotated).To(BeTrue())
-			Expect(warning).To(ContainSubstring(ranwpparameters.WarningCPUReqAndLimit))
+			Expect(warning).To(MatchRegexp(ranwpparameters.WarningCPUReqAndLimitRegExp))
 		})
 		By("Checking correct cpushares and affinity in crio", func() {
 			containersInfo := ranwphelper.GetContainersInfo(node)
