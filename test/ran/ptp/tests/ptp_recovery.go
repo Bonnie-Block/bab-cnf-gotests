@@ -494,45 +494,42 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 
 			ptpDaemonPod := &ptpDaemonPods.Items[0]
 
-			By("checkin the nmea metrics is in an available state")
+			By("checking the nmea metrics is in available state")
 			err = ranptphelper.WaitForMetricValueStatus(*ptpDaemonPod, ranptpparameters.OpenshiftPtpNmeaStatus,
 				ranptpparameters.Available, 1*time.Minute, 10*time.Second)
 			Expect(err).NotTo(HaveOccurred())
 
-			By("GPS cold boot on pod:" + ptpDaemonPod.Name)
+			// Time to start log monitoring for nmea loss - right before GPS cold reboot
+			startTime := time.Now()
+
+			By("GPS cold boot via pod:" + ptpDaemonPod.Name)
 			err = ranptphelper.GpsColdReboot(ptpDaemonPod)
 			Expect(err).NotTo(HaveOccurred())
 
-			By("checking holdover state is tarted on linuxptp-daemon in " + parameters.PtpContainerName +
-				"log on pod: " + ptpDaemonPod.Name)
-			err = ranptphelper.WaitForLog(ptpDaemonPod, parameters.PtpContainerName,
-				"nmea sentence: GPTXT,01,01,02,Starting GNSS",
-				1*time.Minute, 10*time.Second)
-			Expect(err).NotTo(HaveOccurred())
-			err = ranptphelper.WaitForLog(ptpDaemonPod, parameters.PtpContainerName, "nmea string lost",
-				1*time.Minute, 10*time.Second)
+			// Time to start log monitoring for recovery
+			startTimeRecover := time.Now()
+
+			By("checking dpll holdover state via linuxptp-daemon log - 'state is HOLDOVER'")
+			err = ranptphelper.WaitForLog(ptpDaemonPod, parameters.PtpContainerName, "state is HOLDOVER",
+				time.Since(startTime), 1*time.Minute)
 			Expect(err).NotTo(HaveOccurred())
 
-			By("checking nmea metrics value on pod: " + ptpDaemonPod.Name)
+			By("checking nmea loss via linuxptp-daemon log - 'nmea string lost'")
+			err = ranptphelper.WaitForLog(ptpDaemonPod, parameters.PtpContainerName, "nmea string lost",
+				time.Since(startTime), 1*time.Minute)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("checking nmea loss via metrics - openshift_ptp_nmea_status metrics becomes unavailable")
 			err = ranptphelper.WaitForMetricValueStatus(*ptpDaemonPod, ranptpparameters.OpenshiftPtpNmeaStatus,
 				ranptpparameters.Unavailable, 1*time.Minute, 10*time.Second)
 			Expect(err).NotTo(HaveOccurred())
 
-			By("wait for GPS to recover")
-			err = ranptphelper.WaitForLog(ptpDaemonPod, parameters.PtpContainerName,
-				"holdover was closed",
-				1*time.Second, 30*time.Second)
+			By("checking recovery via linuxptp-daemon log - 'dpll is locked'")
+			err = ranptphelper.WaitForLog(ptpDaemonPod, parameters.PtpContainerName, "dpll is locked",
+				time.Since(startTimeRecover), 1*time.Minute)
 			Expect(err).NotTo(HaveOccurred())
-			err = ranptphelper.WaitForLog(ptpDaemonPod, parameters.PtpContainerName,
-				"dpll is locked",
-				1*time.Second, 30*time.Second)
-			Expect(err).NotTo(HaveOccurred())
-			// wait for log to show "holdover was closed".
-			// wait fot log to show "dpll is locked"
 
-			By("checking nmea metrics value after recover on pod: " + ptpDaemonPod.Name)
-			// wait for openshift_ptp_nmea_status metrics to become available.
-			// wait for openshift_ptp_pps_status metrics for interface ens7fx to became available.
+			By("checking recovery via metrics - openshift_ptp_nmea_status metrics becomes available ")
 			err = ranptphelper.WaitForMetricValueStatus(*ptpDaemonPod, ranptpparameters.OpenshiftPtpNmeaStatus,
 				ranptpparameters.Available, 1*time.Minute, 10*time.Second)
 			Expect(err).NotTo(HaveOccurred())
