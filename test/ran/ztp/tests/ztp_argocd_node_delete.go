@@ -46,11 +46,11 @@ var _ = Describe("ZTP Argocd node delete Tests", polarion.ID("72463"), Label("zt
 		}
 		// Check for minimum ztp version
 		By("Checking the ZTP version", func() {
-			if !ranhelper.IsVersionStringInRange(ranztphelper.ZtpVersion, "4.16", "") {
+			if !ranhelper.IsVersionStringInRange(ranztphelper.ZtpVersion, "4.14", "") {
 				Skip(fmt.Sprintf(
 					"unable to run test on ztp version '%s' as it is less than minimum '%s",
 					ranztphelper.ZtpVersion,
-					"4.16",
+					"4.14",
 				))
 			}
 		})
