@@ -342,6 +342,21 @@ func IsGmTwoCardProfile(profile ptpv1.PtpProfile) bool {
 	return false
 }
 
+// GetGmPtpConfig return a GM ptp configuration.
+func GetGmPtpConfig(listPtpConfig ptpv1.PtpConfigList) (*ptpv1.PtpConfig, error) {
+	for _, ptpConfig := range listPtpConfig.Items {
+		for _, ptpProfile := range ptpConfig.Spec.Profile {
+			if IsGmOneCardProfile(ptpProfile) || IsGmTwoCardProfile(ptpProfile) {
+				log.Println("found GM ptp configuration")
+
+				return &ptpConfig, nil
+			}
+		}
+	}
+
+	return nil, fmt.Errorf("no GM configuraion found")
+}
+
 // IncreaseMaxOffsetThresholdMlx sets OffsetThresholds to 200 for Mellanox NICs to workaround performance issue.
 func IncreaseMaxOffsetThresholdMlx(ptpPod corev1.Pod) error {
 	ptpConfigsList, err := helper.Apiclient.PtpConfigs(parameters.PtpOperatorNamespace).

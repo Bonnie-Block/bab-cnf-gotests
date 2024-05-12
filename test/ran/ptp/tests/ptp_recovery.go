@@ -557,7 +557,11 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 			ptpConfigs, err = helper.Apiclient.PtpConfigs(parameters.PtpOperatorNamespace).List(context.Background(),
 				metav1.ListOptions{})
 			Expect(err).NotTo(HaveOccurred())
-			rxInterface, err = ranptphelper.GetRxIface(ptpConfigs.Items[2])
+
+			gmPtpConfiguration, err := ranptphelper.GetGmPtpConfig(*ptpConfigs)
+			Expect(err).NotTo(HaveOccurred())
+
+			rxInterface, err = ranptphelper.GetRxIface(*gmPtpConfiguration)
 			Expect(err).NotTo(HaveOccurred())
 			log.Printf("RX interface plugin %s", rxInterface)
 		})
@@ -578,7 +582,10 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 		It("checks FREERUN status are generated for dpll process for RX interface and GM process for TX "+
 			"interface", polarion.ID("70114"), func() {
 
-			txInterface, err := ranptphelper.GetTxIface(ptpConfigs.Items[2])
+			gmPtpConfiguration, err := ranptphelper.GetGmPtpConfig(*ptpConfigs)
+			Expect(err).NotTo(HaveOccurred())
+
+			txInterface, err := ranptphelper.GetTxIface(*gmPtpConfiguration)
 			Expect(err).NotTo(HaveOccurred())
 
 			By(fmt.Sprintf("modify SMA1 value for interface %s, in pod  %s to 0 1", rxInterface,
