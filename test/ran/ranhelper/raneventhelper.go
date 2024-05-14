@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-
 	"io"
 	"log"
 	"os"
@@ -19,6 +18,7 @@ import (
 	"github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"github.com/pkg/errors"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ptp/ranptpparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
 	corev1 "k8s.io/api/core/v1"
@@ -133,7 +133,11 @@ func GetConsumerManifest(images map[string]string, transportType string, namespa
 	var manifestPath string
 
 	if transportType == ranparameters.TransportHTTP {
-		manifestPath = ranparameters.TemplatePathDict()(namespace) + "/" + ranparameters.ConsumerManifestHTTP
+		if IsVersionStringInRange(ranptpparameters.PtpVersion, "4.15", "") {
+			manifestPath = ranparameters.TemplatePathDict()(namespace) + "/" + ranparameters.ConsumerManifestHTTP
+		} else {
+			manifestPath = ranparameters.TemplatePathDict()(namespace) + "/" + ranparameters.ConsumerManifestHTTPOld
+		}
 	} else if transportType == ranparameters.TransportAMQP {
 		manifestPath = ranparameters.TemplatePathDict()(namespace) + "/" + ranparameters.ConsumerManifestAMQP
 	}
