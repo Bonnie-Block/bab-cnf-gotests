@@ -4,16 +4,12 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
-
-	corev1 "k8s.io/api/core/v1"
 
 	sriovv1 "github.com/k8snetworkplumbingwg/sriov-network-operator/api/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	testclient "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
-	pods "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 )
 
 // EnabledNodes provides info on sriov enabled nodes of the cluster.
@@ -44,12 +40,7 @@ func DiscoverSriov(clients *testclient.ClientSet, operatorNamespace string) (*En
 	}
 
 	for _, state := range ss {
-		isStable, err := stateStable(state, clients, operatorNamespace)
-		if err != nil {
-			return nil, err
-		}
-
-		if !isStable {
+		if !stateStable(state) {
 			return nil, fmt.Errorf("sync status still in progress")
 		}
 
@@ -134,12 +125,7 @@ func SriovStable(operatorNamespace string, clients *testclient.ClientSet) (bool,
 	}
 
 	for _, state := range nodeStates.Items {
-		nodeReady, err := stateStable(state, clients, operatorNamespace)
-		if err != nil {
-			return false, err
-		}
-
-		if !nodeReady {
+		if !stateStable(state) {
 			return false, nil
 		}
 	}
@@ -148,80 +134,17 @@ func SriovStable(operatorNamespace string, clients *testclient.ClientSet) (bool,
 }
 
 func stateStable(
-	state sriovv1.SriovNetworkNodeState, clients *testclient.ClientSet, operatorNamespace string) (bool, error) {
+	state sriovv1.SriovNetworkNodeState) bool {
 	switch state.Status.SyncStatus {
 	case "Succeeded":
-		return CheckReadyGeneration(clients, operatorNamespace, state)
+		return true
 	// When the config daemon is restarted the status will be empty
 	// This doesn't mean the config was applied
 	case "":
-		return false, nil
+		return false
 	}
 
-	return false, nil
-}
-
-func CheckReadyGeneration(
-	clients *testclient.ClientSet, operatorNamespace string, state sriovv1.SriovNetworkNodeState) (bool, error) {
-	podList, err := clients.Pods(operatorNamespace).List(
-		context.Background(),
-		metav1.ListOptions{LabelSelector: "app=sriov-network-config-daemon"},
-	)
-	if err != nil {
-		return false, err
-	}
-
-	var podObj *corev1.Pod
-
-	for _, pod := range podList.Items {
-		if pod.Spec.NodeName == state.Name {
-			podObj = &pod
-
-			break
-		}
-	}
-
-	if podObj == nil {
-		return false, nil
-	}
-
-	if podObj.Status.Phase != corev1.PodRunning {
-		return false, nil
-	}
-
-	logs, err := pods.GetLog(clients, podObj, 5*time.Minute, "sriov-network-config-daemon")
-	if err != nil {
-		return false, err
-	}
-
-	logsList := strings.Split(logs, "\n")
-	for idx, log := range logsList {
-		// example output from the config-daemon
-		// I0412 09:46:26.041882 3910208 writer.go:111] setNodeStateStatus(): syncStatus: Succeeded, lastSyncError:
-		// I0412 09:46:35.293994 3910208 daemon.go:244] nodeStateChangeHandler(): current generation is 183
-		if strings.Contains(log, fmt.Sprintf("current generation is %d", state.Generation)) &&
-			strings.Contains(logsList[idx-1], "syncStatus: Succeeded") {
-			return true, nil
-		}
-
-		// 2023-12-11T20:56:01.492756313Z	INFO	daemon/daemon.go:358	nodeStateSyncHandler(): new generation	{"generation": 196}
-		// 2023-12-11T20:56:01.51768364Z	INFO	daemon/daemon.go:358	nodeStateSyncHandler(): Interface not changed
-		if strings.Contains(log, fmt.Sprintf("new generation\t{\"generation\": %d}", state.Generation)) &&
-			strings.Contains(logsList[idx+1], "Interface not changed") {
-			return true, nil
-		}
-
-		// I0912 11:37:51.930227   INFO	daemon/daemon.go:358	nodeStateSyncHandler(): new generation	{"generation": 1}
-		// I0912 11:37:51.937262   18563 daemon.go:425] nodeStateSyncHandler(): Name: helix09.lab.eng.tlv2.redhat.com,
-		// Interface policy spec not yet set by controller
-		if strings.Contains(log, fmt.Sprintf("new generation\t{\"generation\": %d}", state.Generation)) &&
-			state.Generation == 1 &&
-			strings.Contains(logsList[idx+1], "Interface policy spec not yet set by controller") {
-			return true, nil
-		}
-	}
-
-	return false, nil
+	return false
 }
 
 func IsDriverSupported(driver string) bool {

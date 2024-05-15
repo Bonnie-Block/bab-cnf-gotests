@@ -67,7 +67,8 @@ func TestSriovIPv4Scenario(
 		netsriovparameters.TestInterfaceName)
 
 	By("Creating Server Pod")
-	RunServerPod(
+
+	serverPod := RunServerPod(
 		protocol,
 		connectivityParameters.MTU,
 		connectivityParameters.Connectivity,
@@ -112,6 +113,9 @@ func TestSriovIPv4Scenario(
 	if protocol == netsriovparameters.CommunicationProtocolMulticastUDP ||
 		protocol == netsriovparameters.CommunicationProtocolBroadcastUDP ||
 		protocol == netsriovparameters.CommunicationProtocolUnicastSCTP {
+		err = pod.DeletePodAndWait(Apiclient, serverPod)
+		Expect(err).ToNot(HaveOccurred())
+
 		RunServerPod(
 			protocol,
 			connectivityParameters.MTU,

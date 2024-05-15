@@ -375,15 +375,8 @@ func RunServerPod(
 	serverMacAddress string,
 	serverIP string,
 	interfaceName string,
-	ipam string) {
+	ipam string) *corev1.Pod {
 	nodeSelector := defineNodeSelector(connectivity, sriovInfos)
-
-	if (protocol == netsriovparameters.CommunicationProtocolMulticastUDP ||
-		protocol == netsriovparameters.CommunicationProtocolBroadcastUDP ||
-		protocol == netsriovparameters.CommunicationProtocolUnicastSCTP) && negative {
-		err := namespaces.CleanPods(netsriovparameters.OperatorTestNamespace, Apiclient)
-		Expect(err).ToNot(HaveOccurred())
-	}
 
 	serverCommand, err := serverCommandFor(protocol, mtu, serverIP, negative, netsriovparameters.TestPort,
 		interfaceName)
@@ -412,6 +405,8 @@ func RunServerPod(
 		"Server",
 		serverCommand,
 		corev1.PodRunning, netsriovparameters.PodWaitingTime)
+
+	return serverPod
 }
 
 func DefineTestCommandParameters(

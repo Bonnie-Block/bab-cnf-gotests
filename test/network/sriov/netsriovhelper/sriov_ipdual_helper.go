@@ -14,7 +14,6 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/network/netparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/cluster"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 
 	corev1 "k8s.io/api/core/v1"
@@ -93,15 +92,8 @@ func runDualServerPod(
 	negative bool,
 	serverMacAddress string,
 	serverIPV4 string,
-	serverIPV6 string) {
+	serverIPV6 string) *corev1.Pod {
 	nodeSelector := defineNodeSelector(connectivity, sriovInfos)
-
-	if (protocol == netsriovparameters.CommunicationProtocolMulticastUDP ||
-		protocol == netsriovparameters.CommunicationProtocolBroadcastUDP ||
-		protocol == netsriovparameters.CommunicationProtocolUnicastSCTP) && negative {
-		err := namespaces.CleanPods(netsriovparameters.OperatorTestNamespace, Apiclient)
-		Expect(err).ToNot(HaveOccurred())
-	}
 
 	serverIPv4Command, err := serverCommandFor(protocol,
 		mtu,
@@ -144,6 +136,8 @@ func runDualServerPod(
 		append(serverIPv4Command, serverIPv6Command...),
 		corev1.PodRunning,
 		netsriovparameters.DualPodWaitingTime)
+
+	return serverPod
 }
 
 func defineDualServerPod(protocol string,
@@ -286,7 +280,8 @@ func TestSriovDualScenario(
 	)
 
 	By("Creating Server Pod")
-	runDualServerPod(
+
+	serverPod := runDualServerPod(
 		protocol,
 		connectivityParameters.MTU,
 		connectivityParameters.Connectivity,
@@ -331,6 +326,9 @@ func TestSriovDualScenario(
 	if protocol == netsriovparameters.CommunicationProtocolMulticastUDP ||
 		protocol == netsriovparameters.CommunicationProtocolBroadcastUDP ||
 		protocol == netsriovparameters.CommunicationProtocolUnicastSCTP {
+		err = pod.DeletePodAndWait(Apiclient, serverPod)
+		Expect(err).ToNot(HaveOccurred())
+
 		runDualServerPod(
 			protocol,
 			connectivityParameters.MTU,
