@@ -561,8 +561,11 @@ func getUnhealthyPods(namespace string) (map[string]string, error) {
 			// to complete the task.
 			// Temp: Also excludes pods under logging namespace. As we don't have a valid logging server
 			// configured, the pod gets stuck in Crashloopback. Remove this after RAN team figures out a workaround.
+			// Temp: Also excludes assisted-installer debug pods, which get stuck in a disconnected environment.
+			// This is a known bug, see MGMT-17353 for further details. Remove this if/when MGMT-17353 gets merged
 			if !((pod.Status.Phase == k8sv1.PodFailed && pod.Spec.RestartPolicy == k8sv1.RestartPolicyNever) ||
-				pod.Namespace == "openshift-logging") {
+				pod.Namespace == "openshift-logging" ||
+				(pod.Namespace == "assisted-installer" && strings.Contains(pod.Name, "debug"))) {
 				unhealthyPods[pod.Name] = err.Error()
 			}
 		}
