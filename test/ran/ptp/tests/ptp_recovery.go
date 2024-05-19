@@ -543,8 +543,8 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 		)
 
 		BeforeEach(func() {
-			if ptpConfigCounts[gmOneCardConfigIndx] == 0 && ptpConfigCounts[gmTwoCardConfigIndx] == 0 {
-				Skip("Test requires Grandmaster configuration")
+			if ptpConfigCounts[gmTwoCardConfigIndx] == 0 {
+				Skip("Test requires two Grandmaster configurations")
 			}
 			ptpDaemonPods, err := helper.Apiclient.Pods(parameters.PtpOperatorNamespace).List(context.Background(),
 				metav1.ListOptions{LabelSelector: parameters.PtpDaemonsetLabelSelector})
@@ -564,8 +564,8 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 		})
 
 		AfterEach(func() {
-			if ptpConfigCounts[gmOneCardConfigIndx] == 0 && ptpConfigCounts[gmTwoCardConfigIndx] == 0 {
-				Skip("Test requires Grandmaster configuration")
+			if ptpConfigCounts[gmTwoCardConfigIndx] == 0 {
+				Skip("Test requires two Grandmaster configurations")
 			}
 			// make sure sma connection is up.
 			rxSma, err := ranptphelper.GetSma(ptpDaemonPod, rxInterface)
