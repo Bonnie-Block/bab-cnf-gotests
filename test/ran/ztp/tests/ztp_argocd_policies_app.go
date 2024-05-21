@@ -20,7 +20,7 @@ import (
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 )
 
-var _ = Describe("ZTP Argocd policies Tests", Ordered, Label("ztp-argocd-policies"), func() {
+var _ = Describe("ZTP Argocd policies Tests", Ordered, ContinueOnFailure, Label("ztp-argocd-policies"), func() {
 
 	// These tests use the hub and spoke
 	var clusterList []*testClient.ClientSet
