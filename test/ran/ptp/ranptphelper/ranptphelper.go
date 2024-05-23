@@ -436,7 +436,7 @@ func GetNicDriver(ptpPod corev1.Pod, ifName string) (string, error) {
 
 // GpsColdReboot reboots the gps using ubxtool, if the reboot failed, an error returns.
 func GpsColdReboot(ptpPod *corev1.Pod) error {
-	cmd := "ubxtool -p COLDBOOT" /* -v 3 29.20*/
+	cmd := "ubxtool -p COLDBOOT; sleep 0.1" /* -v 3 29.20*/
 	_, err := pod.ExecCommand(helper.Apiclient, *ptpPod, []string{"/bin/bash", "-c", cmd}, parameters.PtpContainerName)
 
 	return err

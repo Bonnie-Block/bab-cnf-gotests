@@ -87,7 +87,7 @@ func getProcessInfo(ptpPod *corev1.Pod, command string) (bytes.Buffer, error) {
 	)
 
 	timeoutErr := wait.PollImmediate(3*time.Second, 30*time.Second, func() (done bool, err error) {
-		cmdOutput, errActual = pod.ExecCommand(helper.Apiclient, *ptpPod, []string{"bash", "-c", command},
+		cmdOutput, errActual = pod.ExecCommand(helper.Apiclient, *ptpPod, []string{"bash", "-c", command + "; sleep 0.1"},
 			parameters.PtpContainerName)
 		if errActual != nil {
 			return false, nil
