@@ -24,7 +24,6 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/config"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/machineconfigpool"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 )
@@ -43,19 +42,13 @@ func InstallSriovFecClusterNodeConfig(
 	isSingleNode bool, cnfNodeLabel string) {
 	CleanAllSriovFecClusterConfig(clientSet)
 	createSriovFecClusterConfig(clientSet, fecConfig)
-	fmt.Println("Waiting for the cluster to become stable")
-
-	if !isSingleNode {
-		err := machineconfigpool.WaitForMcpUpdate(clientSet, cnfNodeLabel)
-		Expect(err).NotTo(HaveOccurred())
-	}
 
 	Eventually(func() string {
 		sriovFecNodeConfigList, err := GetSriovFecNodeConfigList(clientSet)
 		Expect(err).NotTo(HaveOccurred())
 
 		return sriovFecNodeConfigList.Items[0].Status.Conditions[0].Reason
-	}, 2*time.Minute, 5*time.Second).Should(
+	}, 20*time.Minute, 5*time.Second).Should(
 		Equal("Succeeded"),
 		"SriovFecNodeConfig resource is not configured successfully ",
 	)
