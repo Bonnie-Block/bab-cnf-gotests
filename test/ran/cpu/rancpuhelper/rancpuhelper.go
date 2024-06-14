@@ -290,7 +290,7 @@ func ExecPromQueryRanMetrics(query string, logCommand bool) (rancpuparameters.Pr
 }
 
 // This functions accepts a baseline data query and returns a map with baseline value for [namespace][pod].
-func GetBaseline(baselinequery string, baselineVersion string, workloadDuration string, trendTimeframe int,
+func GetCPUBaseline(baselinequery string, baselineVersion string, workloadDuration string, trendTimeframe int,
 	podType string) (map[string]map[string][]interface{}, error) {
 	var node *corev1.Node
 	node, _ = ranhelper.GetWorker(true)
@@ -333,4 +333,45 @@ func GetBaseline(baselinequery string, baselineVersion string, workloadDuration 
 	}
 
 	return baseline, fmt.Errorf("no baseline data")
+}
+
+// This functions accepts apibaseline data query and returns a map with baseline value for [namespace][pod][verb].
+func GetAPIBaseline(baselinequery string, trendTimeframe int) map[string]map[string]map[string][]interface{} {
+	var node *corev1.Node
+	node, _ = ranhelper.GetWorker(true)
+
+	nodeName := strings.SplitN(node.Name, ".", 2)[0]
+
+	formattedQuery := fmt.Sprintf(baselinequery, nodeName, trendTimeframe)
+
+	response, _ := ExecPromQueryRanMetrics(formattedQuery, false)
+
+	log.Println("RAN METRICS RESULT ", response.Data.Result)
+
+	baseline := make(map[string]map[string]map[string][]interface{})
+
+	if len(response.Data.Result) != 0 {
+		for _, metric := range response.Data.Result {
+			namespace := metric.Metric["namespace"]
+			pod, ok := metric.Metric["pod"]
+
+			if !ok {
+				pod = "default"
+			}
+
+			verb := metric.Metric["verb"]
+			// Adding current metric to baseline map
+			if _, ns := baseline[namespace]; !ns {
+				baseline[namespace] = make(map[string]map[string][]interface{})
+			}
+
+			if _, p := baseline[namespace][pod]; !p {
+				baseline[namespace][pod] = make(map[string][]interface{})
+			}
+
+			baseline[namespace][pod][verb] = metric.Value
+		}
+	}
+
+	return baseline
 }

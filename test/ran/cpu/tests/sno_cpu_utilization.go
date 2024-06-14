@@ -29,18 +29,10 @@ import (
 )
 
 const (
-	// Prom query statistic representation for management cpu overhead.
-	cpuOverheadStat = "namedprocess_namegroup_cpu_rate{groupname!~\"conmon\"}"
-	// Prom query statistic representation for infra pods. Assuming only oslat and stress-ng user pods are running.
-	cpuInfraPodsStat = "pod:container_cpu_usage:sum{pod!~\"process-exp.*\",pod!~\"oslat.*\",pod!~\"stress.*\"," +
-		"pod!~\"cnfgotestpriv.*\"}"
-	testCountWithWorkload = 6
-	osTrendQuery          = `avg by (groupname, pod)
-		(max_over_time(ranmetrics_cpu_os_daemon_steadyworkload_avg{cluster='%s',
-		baseline='true', sw_version=~'%s', duration='%s'}[%dw]))`
-	podTrendQuery = `avg by (namespace, pod)
-		(max_over_time(ranmetrics_cpu_infra_pods_steadyworkload_avg{cluster='%s',
-		baseline='true', sw_version=~'%s', duration='%s'}[%dw]))`
+	cpuOverheadStat       = rancpuparameters.CPUOverheadStat
+	cpuInfraPodsStat      = rancpuparameters.CPUInfraPodsStat
+	testCountWithWorkload = 7
+	idleDuration          = 10 * time.Minute
 )
 
 var _ = Describe("SNO core reduction", func() {
@@ -92,10 +84,28 @@ var _ = Describe("SNO core reduction", func() {
 
 	Context("Management CPU utilization in idle state", func() {
 		It(fmt.Sprintf("should use less than %d core(s)", ran.SnoMgmtCoreLimit), func() {
-			duration := 10 * time.Minute
-			log.Printf("Wait for %s in idle...\n", duration.String())
-			time.Sleep(duration)
-			checkCPUUsage(duration, mgmtCPULimit, "idle")
+			log.Printf("Wait for %s in idle...\n", idleDuration.String())
+			time.Sleep(idleDuration)
+			// This is the timestamp to send the query. If the time difference is more than 1s,
+			// then use offset to ensure the same duration was verified.
+			endTime := time.Now().UTC()
+
+			checkCPUUsage(idleDuration, endTime, mgmtCPULimit, "idle")
+		})
+	})
+
+	baseline, _ := strconv.ParseBool(rancpuhelper.GetEnv(ran.Baseline, "false"))
+	baselineVersion := os.Getenv(ran.BaselineVersion)
+	trendTimeframe, _ := strconv.Atoi(rancpuhelper.GetEnv(ran.TrendTimeframe, "4"))
+	trendThreshold, _ := strconv.ParseFloat(rancpuhelper.GetEnv(ran.TrendThreshold, "50"), 64)
+	log.Println("Baseline run:", baseline, "Baseline version:", baselineVersion,
+		"Trend Timeframe:", trendTimeframe, "Trend Threshold:", trendThreshold)
+
+	Context("Kube API Server utilization trend", func() {
+		It("grouped by resource,verb,namespace", func() {
+			endTime := time.Now().UTC()
+			checkAPIUsage(idleDuration, endTime, "idle", !baseline, trendTimeframe)
+
 		})
 	})
 
@@ -104,6 +114,7 @@ var _ = Describe("SNO core reduction", func() {
 			workloadPods      []*corev1.Pod
 			testExecCount     = 0
 			workloadStartTime time.Time
+			steadyEndTime     time.Time
 		)
 
 		BeforeEach(func() {
@@ -137,7 +148,10 @@ var _ = Describe("SNO core reduction", func() {
 			log.Printf("Wait for %s with workload pods running...\n", postLaunchDuration.String())
 			time.Sleep(postLaunchDuration)
 			duration := time.Since(workloadStartTime)
-			checkCPUUsage(duration, mgmtCPULimit, "workloadlaunch")
+			// This is the timestamp to send the query. If the time difference is more than 1s,
+			// then use offset to ensure the same duration was verified.
+			endTime := time.Now().UTC()
+			checkCPUUsage(duration, endTime, mgmtCPULimit, "workloadlaunch")
 		})
 
 		Context("with must-gather running", func() {
@@ -160,7 +174,10 @@ var _ = Describe("SNO core reduction", func() {
 				Expect(err).ToNot(HaveOccurred())
 				// Sleep for 31 seconds to ensure prometheus does not miss the last 1-30 seconds of must-gather run.
 				time.Sleep(31 * time.Second)
-				checkCPUUsage(time.Since(startTime), mgmtCPULimit, "mustgather")
+				// This is the timestamp to send the query. If the time difference is more than 1s,
+				// then use offset to ensure the same duration was verified.
+				endTime := time.Now().UTC()
+				checkCPUUsage(time.Since(startTime), endTime, mgmtCPULimit, "mustgather")
 			})
 		})
 
@@ -170,7 +187,8 @@ var _ = Describe("SNO core reduction", func() {
 				duration := 10 * time.Minute
 				startTime, _ := repeatPromQuery(duration)
 				time.Sleep(31 * time.Second)
-				checkCPUUsage(time.Since(startTime), mgmtCPULimit, "promquery")
+				endTime := time.Now().UTC()
+				checkCPUUsage(time.Since(startTime), endTime, mgmtCPULimit, "promquery")
 			})
 		})
 
@@ -180,29 +198,23 @@ var _ = Describe("SNO core reduction", func() {
 			It(fmt.Sprintf("should use less than %d core(s)", ran.SnoMgmtCoreLimit), polarion.ID("40810"), func() {
 				duration, err := time.ParseDuration(workloadDuration)
 				Expect(err).ToNot(HaveOccurred())
-
 				log.Printf("Wait for %s with workload pods running...\n", duration.String())
 				time.Sleep(duration)
-				checkCPUUsage(duration, mgmtCPULimit, "steadyworkload")
+				endTime := time.Now().UTC()
+				steadyEndTime = endTime
+				checkCPUUsage(duration, endTime, mgmtCPULimit, "steadyworkload")
 			})
 		})
-		baseline, _ := strconv.ParseBool(rancpuhelper.GetEnv(ran.Baseline, "false"))
-		log.Println("Baseline run:", baseline)
-		baselineVersion := os.Getenv(ran.BaselineVersion)
-		log.Println("Baseline version:", baselineVersion)
-		trendTimeframe, _ := strconv.Atoi(rancpuhelper.GetEnv(ran.TrendTimeframe, "4"))
-		log.Println("Trend Timeframe:", trendTimeframe)
-		trendThreshold, _ := strconv.ParseFloat(rancpuhelper.GetEnv(ran.TrendThreshold, "50"), 64)
-		log.Println("Trend Threshold:", trendThreshold)
+
 		millicoreThreshold, _ := strconv.ParseFloat(rancpuhelper.GetEnv(ran.MillicoreThreshold, "10"), 64)
 		log.Println("Minimum Millicore usage Threshold:", millicoreThreshold)
 		Context("with Trend Test for Infra Pods CPU Usage", func() {
 			// Polarion ID??
 			It(fmt.Sprintf("should not deviate from trend by %f", trendThreshold), func() {
-				startTime := time.Now().UTC()
-				time.Sleep(31 * time.Second)
+				duration, err := time.ParseDuration(workloadDuration)
+				Expect(err).ToNot(HaveOccurred())
 				if !baseline {
-					checkCPUTrend(time.Since(startTime), workloadDuration, trendTimeframe,
+					checkCPUTrend(duration, steadyEndTime, workloadDuration, trendTimeframe,
 						trendThreshold, millicoreThreshold, baselineVersion, "cputrendpod")
 				} else {
 					log.Println("Skipping podtrend check on baseline run")
@@ -214,10 +226,10 @@ var _ = Describe("SNO core reduction", func() {
 		Context("with Trend Test for Os Daemon CPU Usage", func() {
 			// Polarion ID??
 			It(fmt.Sprintf("should not deviate from trend by %f", trendThreshold), func() {
-				startTime := time.Now().UTC()
-				time.Sleep(31 * time.Second)
+				duration, err := time.ParseDuration(workloadDuration)
+				Expect(err).ToNot(HaveOccurred())
 				if !baseline {
-					checkCPUTrend(time.Since(startTime), workloadDuration, trendTimeframe,
+					checkCPUTrend(duration, steadyEndTime, workloadDuration, trendTimeframe,
 						trendThreshold, millicoreThreshold, baselineVersion, "cputrendos")
 				} else {
 					log.Println("Skipping ostrend check on baseline run")
@@ -231,10 +243,8 @@ var _ = Describe("SNO core reduction", func() {
 
 // Check mgmt cpu utilization is limited to given number of vCPUs for the last given duration.
 // Fail test and print top 5 consumers if exceeded given vCPU limit.
-func checkCPUUsage(duration time.Duration, mgmtCPULimit int, scenario string) {
-	// This is the timestamp to send the query. If the time difference is more than 1s, then use offset to ensure the
-	// same duration was verified.
-	timestamp := time.Now().UTC()
+func checkCPUUsage(duration time.Duration, endTime time.Time, mgmtCPULimit int, scenario string) {
+	timestamp := endTime
 
 	// Ensure it can be converted to string without floating number in seconds
 	duration = time.Duration(int(duration.Seconds())) * time.Second
@@ -341,6 +351,11 @@ func parseTag(tag map[string]string) (string, string) {
 			if key == "pod" {
 				// use <namespace>-<fullpodname> as component
 				component = fmt.Sprintf("%s %s", tag["namespace"], value)
+				verb, ok := tag["verb"]
+
+				if ok {
+					component = fmt.Sprintf("%s %s %s", tag["namespace"], value, verb)
+				}
 				// use parsed pod name as value without randomly generated string
 				re := regexp.MustCompile(`-[a-f0-9]{8,10}-[a-z0-9]{5}\z`)
 				value = re.ReplaceAllString(value, "-")
@@ -388,11 +403,9 @@ func sortAndWriteToReport(
 
 // Check cpu utilization against last known baseline data for deviations.
 // Currently does not fail test and only prints all violations.
-func checkCPUTrend(duration time.Duration, workloadDuration string, trendTimeframe int,
+func checkCPUTrend(duration time.Duration, endTime time.Time, workloadDuration string, trendTimeframe int,
 	trendThreshold float64, millicoreThreshold float64, baselineVersion string, scenario string) {
-	// This is the timestamp to send the query. If the time difference is more than 1s, then use offset to ensure the
-	// same duration was verified.
-	timestamp := time.Now().UTC()
+	timestamp := endTime
 	duration = time.Duration(int(duration.Seconds())) * time.Second
 
 	log.Println("Trend test\nBaseline duration->", workloadDuration)
@@ -446,7 +459,7 @@ func checkCPUTrend(duration time.Duration, workloadDuration string, trendTimefra
 
 		log.Println("Infra Pods Trend Test")
 
-		podBaseline, _ := rancpuhelper.GetBaseline(podTrendQuery, baselineVersion,
+		podBaseline, _ := rancpuhelper.GetCPUBaseline(rancpuparameters.PodTrendQuery, baselineVersion,
 			workloadDuration, trendTimeframe, "namespace")
 
 		var podTrendString = getBreakdown(podBreakdown, podBaseline, "namespace", "pod")
@@ -460,7 +473,7 @@ func checkCPUTrend(duration time.Duration, workloadDuration string, trendTimefra
 
 		log.Println("Os Daemons Trend Test")
 
-		osBaseline, _ := rancpuhelper.GetBaseline(osTrendQuery, baselineVersion,
+		osBaseline, _ := rancpuhelper.GetCPUBaseline(rancpuparameters.OsTrendQuery, baselineVersion,
 			workloadDuration, trendTimeframe, "groupname")
 
 		var osTrendString = getBreakdown(osBreakdown, osBaseline, "groupname", "daemon")
@@ -468,5 +481,65 @@ func checkCPUTrend(duration time.Duration, workloadDuration string, trendTimefra
 		log.Println("-----------------------------------------------------------------------------")
 		log.Print("Os Daemons Trend Violations current vs baseline deviation\n", osTrendString)
 		log.Println("-----------------------------------------------------------------------------")
+	}
+}
+
+func checkAPIUsage(duration time.Duration, startTime time.Time, scenario string, checkTrend bool, trendTimeframe int) {
+	timestamp := startTime
+	// ApiServer total over the duration.
+	query := fmt.Sprintf(rancpuparameters.APITotalQuery, duration.String(), getOffset(timestamp))
+	apiServerTotalBreakdown, err := rancpuhelper.ExecPromQuery(query, true)
+
+	for _, metric := range apiServerTotalBreakdown {
+		if metric.Metric["namespace"] == "default" {
+			metric.Metric["pod"] = "default"
+		}
+	}
+
+	if err != nil {
+		log.Println(err)
+	}
+
+	log.Println(apiServerTotalBreakdown)
+	sortAndWriteToReport(rancpuparameters.RanAPIServerTotal, apiServerTotalBreakdown, "max", scenario)
+
+	if checkTrend {
+		checkAPITrend(apiServerTotalBreakdown, rancpuparameters.APITotalTrendQuery, trendTimeframe)
+	}
+}
+
+func checkAPITrend(apiResults []rancpuparameters.PromMetric, query string, trendTimeframe int) {
+	log.Println("Baseline comparison for API Server")
+
+	log.Println("CURRENT RESULTS ", apiResults)
+
+	baseline := rancpuhelper.GetAPIBaseline(query, trendTimeframe)
+
+	for _, metric := range apiResults {
+		namespace := metric.Metric["namespace"]
+		pod := metric.Metric["pod"]
+		// Using parsed pod name without randomly generated string.
+		re := regexp.MustCompile(`-[a-f0-9]{8,10}-[a-z0-9]{5}\z`)
+		pod = re.ReplaceAllString(pod, "-")
+		re = regexp.MustCompile(`-[a-z0-9]{5}\z`)
+		pod = re.ReplaceAllString(pod, "-")
+		verb := metric.Metric["verb"]
+
+		if len(metric.Value) > 1 && len(baseline[namespace][pod][verb]) > 1 {
+			currentValue, err1 := strconv.ParseFloat(metric.Value[1].(string), 64)
+			historicValue, err2 := strconv.ParseFloat(baseline[namespace][pod][verb][1].(string), 64)
+
+			if err1 == nil && err2 == nil {
+				if currentValue > historicValue {
+					log.Println("[Trend Violated]", namespace, pod, verb, "baseline", historicValue, "current", currentValue)
+				} else {
+					log.Println("[Trend Observed]", namespace, pod, verb, "baseline", historicValue, "current", currentValue)
+				}
+			} else {
+				log.Println("[Parsing error]", namespace, pod, verb)
+			}
+		} else {
+			log.Println("[Baseline unknown]", namespace, pod, verb)
+		}
 	}
 }

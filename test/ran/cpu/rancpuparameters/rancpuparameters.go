@@ -22,11 +22,11 @@ var (
 
 // RAN CPU metric names/prefixes.
 const (
-	RanCPUMetricOsDaemon       = "ranmetrics_cpu_os_daemon"
-	RanCPUMetricInfraPods      = "ranmetrics_cpu_infra_pods"
-	RanCPUMetricTotal          = "ranmetrics_cpu_total"
-	RanCPUMetricInfraPodsTrend = "ranmetrics_cpu_infra_pods_trend"
-	RanCPUMetricOsDaemonTrend  = "ranmetrics_cpu_os_daemon_trend"
+	RanCPUMetricOsDaemon  = "ranmetrics_cpu_os_daemon"
+	RanCPUMetricInfraPods = "ranmetrics_cpu_infra_pods"
+	RanCPUMetricTotal     = "ranmetrics_cpu_total"
+	RanAPIServerRate      = "ranmetrics_apiserver_rate"
+	RanAPIServerTotal     = "ranmetrics_apiserver_total"
 )
 
 type PromQueryResponse struct {
@@ -50,3 +50,22 @@ type PromQueryResponseRanMetrics struct {
 		Result     []PromMetric
 	}
 }
+
+const (
+	// Prom query statistic representation for management cpu overhead.
+	CPUOverheadStat = "namedprocess_namegroup_cpu_rate{groupname!~\"conmon\"}"
+	// Prom query statistic representation for infra pods. Assuming only oslat and stress-ng user pods are running.
+	CPUInfraPodsStat = "pod:container_cpu_usage:sum{pod!~\"process-exp.*\",pod!~\"oslat.*\",pod!~\"stress.*\"," +
+		"pod!~\"cnfgotestpriv.*\"}"
+	OsTrendQuery = `avg by (groupname, pod)
+	(max_over_time(ranmetrics_cpu_os_daemon_steadyworkload_avg{cluster='%s',
+	baseline='true', sw_version=~'%s', duration='%s'}[%dw]))`
+	PodTrendQuery = `avg by (namespace, pod)
+	(max_over_time(ranmetrics_cpu_infra_pods_steadyworkload_avg{cluster='%s',
+	baseline='true', sw_version=~'%s', duration='%s'}[%dw]))`
+	// Prom query statistic representation for api requests of services.
+	APITotalQuery = `avg by (namespace, pod, verb) 
+	(max_over_time(apiserver_request_total{}[%s]%s))`
+	APITotalTrendQuery = `avg by (namespace, pod, verb) 
+	(max_over_time(ranmetrics_apiserver_total_idle_max{cluster='%s',baseline='true'}[%dw]))`
+)
