@@ -62,143 +62,154 @@ var _ = Describe("ZTP Argocd Hub templating Tests", Ordered, Label("ztp-hub-temp
 
 	Context("using hub side acm templating", func() {
 		// 54240
-		It("should report an error for using printf function where not allowed", polarion.ID("54240"), func() {
-			// https://issues.redhat.com/browse/CNF-6304
-
-			// The ztp test data is stored in a nested directory within the ztp repo
-			testGitPath := ranztphelper.JoinGitPaths(
-				[]string{
-					ranztphelper.ArgocdApps[ranztpparameters.ArgocdPoliciesAppName].Path,
-					"ztp-test/hub-templating-printf",
-				},
-			)
-
-			HubTemplateTestSetup(testGitPath, policyName, cguName, cguNamespace)
-
-			By("Validating TALM reported a policy error", func() {
-				assertTalmPodLog(ranztphelper.HubAPIClient, "printf variable is not supported in the template function Name field")
-			})
-		})
-
-		// 54240
-		It("should report an error for using fromsecret function where not allowed", polarion.ID("54240"), func() {
-			// https://issues.redhat.com/browse/CNF-6304
-
-			// The ztp test data is stored in a nested directory within the ztp repo
-			testGitPath := ranztphelper.JoinGitPaths(
-				[]string{
-					ranztphelper.ArgocdApps[ranztpparameters.ArgocdPoliciesAppName].Path,
-					"ztp-test/hub-templating-fromsecret",
-				},
-			)
-
-			// Since we need to create the secret first, we need to create the namespace
-			// Normally that would be handled by the site config but this test is a special case
-
-			// Create the namespace
-			err := namespaces.Create(ranztpparameters.ZtpTestNamespace, ranztphelper.HubAPIClient)
-			Expect(err).ToNot(HaveOccurred())
-
-			// Wait until the test namespace exists
-			err = wait.PollImmediate(
-				30*time.Second,
-				5*time.Minute,
-				func() (bool, error) {
-					if namespaces.Exists(ranztpparameters.ZtpTestNamespace, ranztphelper.HubAPIClient) {
-						return true, nil
-					}
-
-					return false, nil
-				},
-			)
-			Expect(err).ToNot(HaveOccurred())
-
-			// Create secret
-			secret := corev1.Secret{}
-			secret.Name = ranztphelper.SpokeName + "-sriovdata"
-			secret.StringData = map[string]string{
-				"vlan": "MTEwCg==",
-			}
-
-			_, err = ranztphelper.HubAPIClient.
-				Secrets(ranztpparameters.ZtpTestNamespace).
-				Create(ranztphelper.GetZtpContext(), &secret, metav1.CreateOptions{})
-
-			Expect(err).ToNot(HaveOccurred())
-
-			HubTemplateTestSetup(testGitPath, policyName, cguName, cguNamespace)
-
-			By("Validating TALM reported a policy error", func() {
-				assertTalmPodLog(ranztphelper.HubAPIClient, "template function is not supported in TALM")
-			})
-		})
-
-		// 54240
-		It("should report an error for using autoindent function where not allowed", polarion.ID("54240"), func() {
-			// https://issues.redhat.com/browse/CNF-6304
-
-			// The ztp test data is stored in a nested directory within the ztp repo
-			testGitPath := ranztphelper.JoinGitPaths(
-				[]string{
-					ranztphelper.ArgocdApps[ranztpparameters.ArgocdPoliciesAppName].Path,
-					"ztp-test/hub-templating-autoindent",
-				},
-			)
-
-			HubTemplateTestSetup(testGitPath, policyName, cguName, cguNamespace)
-
-			By("Validating TALM reported a policy error", func() {
-				assertTalmPodLog(ranztphelper.HubAPIClient, cguLogHubTemplateError)
+		When("Talm is less than version 4.16", func() {
+			BeforeEach(func() {
+				if !ranhelper.IsVersionStringInRange(
+					ranztphelper.TalmVersion,
+					"",
+					"4.15",
+				) {
+					Skip("These templating tests are only valid when using TALM version 4.15 or lower")
+				}
 			})
 
-			By("Validating the specific error using the policy annotation", func() {
-				err := ranztphelper.WaitForConfigPolicyMessageToContainSubstring(
-					ranztpparameters.ZtpTestNamespace+"."+policyName,
-					ranztphelper.SpokeName,
-					"wrong type for value; expected string; got int",
+			It("should report an error for using printf function where not allowed", polarion.ID("54240"), func() {
+				// https://issues.redhat.com/browse/CNF-6304
+
+				// The ztp test data is stored in a nested directory within the ztp repo
+				testGitPath := ranztphelper.JoinGitPaths(
+					[]string{
+						ranztphelper.ArgocdApps[ranztpparameters.ArgocdPoliciesAppName].Path,
+						"ztp-test/hub-templating-printf",
+					},
+				)
+
+				HubTemplateTestSetup(testGitPath, policyName, cguName, cguNamespace)
+
+				By("Validating TALM reported a policy error", func() {
+					assertTalmPodLog(ranztphelper.HubAPIClient, "printf variable is not supported in the template function Name field")
+				})
+			})
+
+			// 54240
+			It("should report an error for using fromsecret function where not allowed", polarion.ID("54240"), func() {
+				// https://issues.redhat.com/browse/CNF-6304
+
+				// The ztp test data is stored in a nested directory within the ztp repo
+				testGitPath := ranztphelper.JoinGitPaths(
+					[]string{
+						ranztphelper.ArgocdApps[ranztpparameters.ArgocdPoliciesAppName].Path,
+						"ztp-test/hub-templating-fromsecret",
+					},
+				)
+
+				// Since we need to create the secret first, we need to create the namespace
+				// Normally that would be handled by the site config but this test is a special case
+
+				// Create the namespace
+				err := namespaces.Create(ranztpparameters.ZtpTestNamespace, ranztphelper.HubAPIClient)
+				Expect(err).ToNot(HaveOccurred())
+
+				// Wait until the test namespace exists
+				err = wait.PollImmediate(
+					30*time.Second,
+					5*time.Minute,
+					func() (bool, error) {
+						if namespaces.Exists(ranztpparameters.ZtpTestNamespace, ranztphelper.HubAPIClient) {
+							return true, nil
+						}
+
+						return false, nil
+					},
 				)
 				Expect(err).ToNot(HaveOccurred())
-			})
-		})
 
-		It("should report an error for using invalid lookup hub template function", func() {
-			if !ranhelper.IsVersionStringInRange(
-				ranztphelper.TalmVersion,
-				"4.12",
-				"",
-			) {
-				Skip("The minimum required TALM version for this test is 4.12")
-			}
+				// Create secret
+				secret := corev1.Secret{}
+				secret.Name = ranztphelper.SpokeName + "-sriovdata"
+				secret.StringData = map[string]string{
+					"vlan": "MTEwCg==",
+				}
 
-			// The ztp test data is stored in a nested directory within the ztp repo
-			testGitPath := ranztphelper.JoinGitPaths(
-				[]string{
-					ranztphelper.ArgocdApps[ranztpparameters.ArgocdPoliciesAppName].Path,
-					"ztp-test/hub-templating-lookup-invalid",
-				},
-			)
+				_, err = ranztphelper.HubAPIClient.
+					Secrets(ranztpparameters.ZtpTestNamespace).
+					Create(ranztphelper.GetZtpContext(), &secret, metav1.CreateOptions{})
 
-			HubTemplateTestSetup(testGitPath, policyName, cguName, cguNamespace)
-
-			By("Validating CGU reported an invalid policy error", func() {
-				err := rantalmhelper.WaitForCguInCondition(
-					ranztphelper.HubAPIClient,
-					cguName,
-					cguNamespace,
-					"Validated",
-					"Invalid managed policies",
-					"False",
-					"NotAllManagedPoliciesExist", 1*time.Minute)
 				Expect(err).ToNot(HaveOccurred())
+
+				HubTemplateTestSetup(testGitPath, policyName, cguName, cguNamespace)
+
+				By("Validating TALM reported a policy error", func() {
+					assertTalmPodLog(ranztphelper.HubAPIClient, "template function is not supported in TALM")
+				})
 			})
 
-			By("Validating TALM reported a policy error", func() {
-				assertTalmPodLog(ranztphelper.HubAPIClient,
-					"template function only allows the resource with apiVersion in"+
-						" 'cluster.open-cluster-management.io', kind 'ManagedCluster' and empty namespace")
+			// 54240
+			It("should report an error for using autoindent function where not allowed", polarion.ID("54240"), func() {
+				// https://issues.redhat.com/browse/CNF-6304
+
+				// The ztp test data is stored in a nested directory within the ztp repo
+				testGitPath := ranztphelper.JoinGitPaths(
+					[]string{
+						ranztphelper.ArgocdApps[ranztpparameters.ArgocdPoliciesAppName].Path,
+						"ztp-test/hub-templating-autoindent",
+					},
+				)
+
+				HubTemplateTestSetup(testGitPath, policyName, cguName, cguNamespace)
+
+				By("Validating TALM reported a policy error", func() {
+					assertTalmPodLog(ranztphelper.HubAPIClient, cguLogHubTemplateError)
+				})
+
+				By("Validating the specific error using the policy annotation", func() {
+					err := ranztphelper.WaitForConfigPolicyMessageToContainSubstring(
+						ranztpparameters.ZtpTestNamespace+"."+policyName,
+						ranztphelper.SpokeName,
+						"wrong type for value; expected string; got int",
+					)
+					Expect(err).ToNot(HaveOccurred())
+				})
+			})
+
+			It("should report an error for using invalid lookup hub template function", func() {
+				if !ranhelper.IsVersionStringInRange(
+					ranztphelper.TalmVersion,
+					"4.12",
+					"",
+				) {
+					Skip("The minimum required TALM version for this test is 4.12")
+				}
+
+				// The ztp test data is stored in a nested directory within the ztp repo
+				testGitPath := ranztphelper.JoinGitPaths(
+					[]string{
+						ranztphelper.ArgocdApps[ranztpparameters.ArgocdPoliciesAppName].Path,
+						"ztp-test/hub-templating-lookup-invalid",
+					},
+				)
+
+				HubTemplateTestSetup(testGitPath, policyName, cguName, cguNamespace)
+
+				By("Validating CGU reported an invalid policy error", func() {
+					err := rantalmhelper.WaitForCguInCondition(
+						ranztphelper.HubAPIClient,
+						cguName,
+						cguNamespace,
+						"Validated",
+						"Invalid managed policies",
+						"False",
+						"NotAllManagedPoliciesExist", 1*time.Minute)
+					Expect(err).ToNot(HaveOccurred())
+				})
+
+				By("Validating TALM reported a policy error", func() {
+					assertTalmPodLog(ranztphelper.HubAPIClient,
+						"template function only allows the resource with apiVersion in"+
+							" 'cluster.open-cluster-management.io', kind 'ManagedCluster' and empty namespace")
+				})
 			})
 		})
-
 		// 54240
 		It("should create the policy successfully with a valid template", polarion.ID("54240"), func() {
 
