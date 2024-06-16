@@ -335,6 +335,10 @@ var _ = Describe("PTP Events and Metrics - interface down", func() {
 
 	// 73093
 	It("should change high availability active profile when other nic interface is down", polarion.ID("73093"), func() {
+		if ptpConfigCounts[highAvailabilityConfigIndx] == 0 {
+			Skip("Test requires High Availability configuration")
+		}
+
 		nodeToPtpDaemonPod, err := ranptphelper.NodesToPtpDaemonPods()
 		Expect(err).NotTo(HaveOccurred())
 
@@ -500,6 +504,10 @@ var _ = Describe("PTP Events and Metrics - interface down", func() {
 		)
 
 		BeforeEach(func() {
+			if ptpConfigCounts[highAvailabilityConfigIndx] == 0 {
+				Skip("Test requires High Availability configuration")
+			}
+
 			By("getting original interfaces from profiles")
 			profileNameIfaceMap, err = ranptphelper.BuildPtpProfileIfacesMap()
 			Expect(err).NotTo(HaveOccurred())
