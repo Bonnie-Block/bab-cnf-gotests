@@ -197,7 +197,9 @@ var _ = Describe("PTP Events and Metrics - interface down", Ordered, ContinueOnF
 			Expect(len(statusProfilesMap[ranptpparameters.Active])).Should(Equal(1))
 
 			activeProfileOriginal, err := ranptphelper.GetHaProfile(ranptpparameters.Active)
+			Expect(err).NotTo(HaveOccurred())
 
+			inactiveProfileOriginal, err := ranptphelper.GetHaProfile(ranptpparameters.Inactive)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("getting slave interface of the active HA profile")
@@ -210,10 +212,16 @@ var _ = Describe("PTP Events and Metrics - interface down", Ordered, ContinueOnF
 			activeIface := profileSlaveIfaceMap[activeProfileOriginal[0]]
 			Expect(err).NotTo(HaveOccurred())
 
+			inactiveOriginalIface := profileSlaveIfaceMap[inactiveProfileOriginal[0]]
+			Expect(err).NotTo(HaveOccurred())
+
 			if ranptphelper.ContainsOcpInterface([]string{activeIface}) {
 				log.Println("Avoid bringing down primary interface:", ranptpparameters.OcpInterface)
 				Skip("Test skipped to avoid bringing down port used by br-ex interface")
 			}
+
+			startTime := time.Now()
+			time.Sleep(1 * time.Second)
 
 			By("bringing down active HA slave interface down")
 			// bring that interface down
@@ -234,23 +242,22 @@ var _ = Describe("PTP Events and Metrics - interface down", Ordered, ContinueOnF
 				activeIface, 5*time.Minute, 10*time.Second)
 			Expect(err).NotTo(HaveOccurred())
 
-			By("validating all other interfaces are LOCKED")
-			profileIfacesMap, err := ranptphelper.BuildPtpProfileIfacesMap()
-			activeIfaceNic := ranptphelper.GetNic(activeIface)
-			Expect(err).NotTo(HaveOccurred())
-			for _, ifaces := range profileIfacesMap {
-				for _, iface := range ifaces {
-					if ranptphelper.GetNic(iface) == activeIfaceNic {
-						continue
-					}
-					err = ranptphelper.WaitForPtpClockStateMetric(ptpDaemonPod, ranptpparameters.LockedState,
-						iface, 5*time.Minute, 10*time.Second)
-					Expect(err).NotTo(HaveOccurred())
-				}
-			}
+			By("Validate no [HOLDOVER] event for original inactive interface received via pod: " + ptpDaemonPod.Name)
+			err = ranptphelper.WaitForEvent(&ptpDaemonPod, ranptpparameters.CloudEventContainer,
+				"event.sync.ptp-status.ptp-state-change",
+				ranptpparameters.EventHoldOver, inactiveOriginalIface, "", startTime, 10*time.Second)
+			Expect(err).To(HaveOccurred(),
+				fmt.Sprintf("HOLDOVER event is received for original inactive interface %s after HA BC profile"+
+					" changed", inactiveOriginalIface))
 
+			By("Validating the clock state of the original inactive interface is LOCKED")
 			err = ranptphelper.WaitForPtpClockStateMetric(ptpDaemonPod, ranptpparameters.LockedState,
-				"", 5*time.Minute, 10*time.Second, "ptp4l")
+				inactiveOriginalIface, 5*time.Minute, 10*time.Second)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Validating the clock state of the CLOCK_REALTIME is LOCKED")
+			err = ranptphelper.WaitForPtpClockStateMetric(ptpDaemonPod, ranptpparameters.LockedState,
+				"CLOCK_REALTIME", 5*time.Minute, 10*time.Second)
 			Expect(err).NotTo(HaveOccurred())
 		}
 	})
