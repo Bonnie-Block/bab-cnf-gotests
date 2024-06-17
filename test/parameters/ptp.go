@@ -15,7 +15,8 @@ const (
 	PtpContainerName          = "linuxptp-daemon-container"
 	PtpDaemonsetLabelSelector = "app=linuxptp-daemon"
 
-	cloudEventNamespace = "cloud-events"
+	cloudEventNamespace   = "cloud-events"
+	ConsumerLabelSelector = "app=consumer"
 )
 
 var (

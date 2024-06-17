@@ -10,6 +10,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ptp/ranptpparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/polarion"
 	corev1 "k8s.io/api/core/v1"
@@ -368,7 +369,9 @@ func printPTPInfo() {
 		metav1.ListOptions{LabelSelector: parameters.PtpDaemonsetLabelSelector})
 
 	if err != nil {
-		log.Println(err.Error())
+		log.Println("ERROR:", err.Error())
+
+		return
 	}
 
 	for _, ptpDaemonPod := range ptpDaemonPods.Items {
@@ -388,5 +391,43 @@ func printPTPInfo() {
 
 		// print ptp metrics
 		_ = ranptphelper.GetPTPMetrics(ptpDaemonPod, true)
+	}
+
+	// Make sure cloud-event-consumer namespace exists
+	if namespaces.Exists(parameters.CloudEventNamespace, helper.Apiclient) {
+		log.Println(parameters.CloudEventNamespace, " exists ")
+
+		cloudEventPods, err := helper.Apiclient.Pods(parameters.CloudEventNamespace).List(context.Background(),
+			metav1.ListOptions{LabelSelector: parameters.ConsumerLabelSelector})
+
+		if err != nil {
+			log.Println("ERROR:", err.Error())
+
+			return
+		}
+
+		if len(cloudEventPods.Items) == 0 {
+			log.Println("ERROR: no pods were found in ", parameters.CloudEventNamespace)
+
+			return
+		}
+
+		duration = 1 * time.Minute
+
+		for _, cloudEventPod := range cloudEventPods.Items {
+			if ranhelper.IsContainerExistInPod(cloudEventPod, ranptpparameters.ConsumerContainer) {
+				consumerContainerLog, err := pod.GetLog(helper.Apiclient, &cloudEventPod, duration,
+					ranptpparameters.ConsumerContainer)
+
+				if err == nil {
+					log.Printf("Logs from last %s for pod %s container %s:\n%s",
+						duration.String(), cloudEventPod.Name, ranptpparameters.ConsumerContainer,
+						consumerContainerLog)
+				}
+			} else {
+				log.Println("ERROR: no", ranptpparameters.ConsumerContainer, "container found in pod",
+					cloudEventPod.Name)
+			}
+		}
 	}
 }
