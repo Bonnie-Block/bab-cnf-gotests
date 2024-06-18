@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -413,7 +414,8 @@ func getPodsCPUShares(pods []corev1.Pod, containerShares map[string]int) map[str
 	for _, pod := range pods {
 		for key, val := range pod.Annotations {
 			if strings.HasPrefix(key, ranwpparameters.AnnotationPrefixCPUShare) {
-				cpushare, err := strconv.Atoi(strings.TrimSpace(strings.SplitN(strings.SplitN(val, ":", 2)[1], "}", 2)[0]))
+				r := regexp.MustCompile(`"cpushares":\s?([0-9]+),?.*\z`)
+				cpushare, err := strconv.Atoi(strings.TrimSpace(r.FindStringSubmatch(val)[1]))
 				Expect(err).ToNot(HaveOccurred())
 
 				containerName := strings.TrimSpace(strings.Split(key, "/")[1])
