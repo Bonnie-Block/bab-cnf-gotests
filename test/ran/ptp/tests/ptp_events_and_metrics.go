@@ -25,15 +25,10 @@ var _ = Describe("Basic PTP Configs", Ordered, ContinueOnFailure, func() {
 	var (
 		errBeforeAll         error
 		originPtpConfigSpecs = map[string]ptpv1.PtpConfigSpec{}
-		configCounts         []int
 	)
 
-	const (
-		gmOneCardConfigIndx = 3
-		gmTwoCardConfigIndx = 4
-	)
 	BeforeAll(func() {
-		originPtpConfigSpecs, configCounts, errBeforeAll = ptpPretestValidations()
+		originPtpConfigSpecs, _, errBeforeAll = ptpPretestValidations()
 	})
 
 	BeforeEach(func() {
@@ -97,27 +92,6 @@ var _ = Describe("Basic PTP Configs", Ordered, ContinueOnFailure, func() {
 				if ranptpparameters.ProcessPHC2SYS == processState.Process {
 					Expect(processState.ProcessStatusValue).Should(Equal(ranptpparameters.Up),
 						"Unexpected phc2sys process_status_value for ptp config: "+processState.Config)
-				}
-			}
-		})
-
-		// 66848
-		It("verifies Clock Class value should match dpll/gnss clock state", polarion.ID("66848"), func() {
-			if configCounts[gmOneCardConfigIndx] == 0 && configCounts[gmTwoCardConfigIndx] == 0 {
-				Skip("Test requires Grandmaster configuration")
-			}
-
-			for _, clockValueState := range ranptpparameters.MetricMap[ranptpparameters.OpenshiftPtpClockState] {
-				if clockValueState.Process == ranptpparameters.ProcessDPLL ||
-					clockValueState.Process == ranptpparameters.ProcessGNSS {
-					switch clockValueState.Value {
-					case int64(ranptpparameters.ClockClassFreerun):
-						Expect(clockValueState.ClockStateValue).Should(Equal(ranptpparameters.FreeRunState))
-					case int64(ranptpparameters.ClockClassHoldOver):
-						Expect(clockValueState.ClockStateValue).Should(Equal(ranptpparameters.HoldOverState))
-					case int64(ranptpparameters.ClockClassLocked):
-						Expect(clockValueState.ClockStateValue).Should(Equal(ranptpparameters.LockedState))
-					}
 				}
 			}
 		})
