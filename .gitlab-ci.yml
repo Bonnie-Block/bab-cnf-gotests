@@ -1,9 +1,9 @@
 default:
   image: quay.io/centos/centos:7
   before_script:
-    - sed -i s/mirror.centos.org/vault.centos.org/g /etc/yum.repos.d/*.repo
-    - sed -i s/^#.*baseurl=http/baseurl=http/g /etc/yum.repos.d/*.repo
-    - sed -i s/^mirrorlist=http/#mirrorlist=http/g /etc/yum.repos.d/*.repo
+    - sed -i 's/mirror.centos.org/vault.centos.org/g' /etc/yum.repos.d/*.repo
+    - sed -i 's/^#.*baseurl=http/baseurl=http/g' /etc/yum.repos.d/*.repo
+    - sed -i 's/^mirrorlist=http/#mirrorlist=http/g' /etc/yum.repos.d/*.repo
     - yum -y install make wget which gcc curl
     - wget --no-verbose --directory-prefix=/tmp/ https://go.dev/dl/go1.19.12.linux-amd64.tar.gz
     - tar -C /usr/local -xzf /tmp/go1.19.12.linux-amd64.tar.gz
