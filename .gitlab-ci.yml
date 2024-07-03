@@ -1,6 +1,7 @@
 default:
   image: quay.io/centos/centos:7
   before_script:
+    - echo "TESTING"
     - sed -i 's/mirror.centos.org/vault.centos.org/g' /etc/yum.repos.d/*.repo
     - sed -i 's/^#.*baseurl=http/baseurl=http/g' /etc/yum.repos.d/*.repo
     - sed -i 's/^mirrorlist=http/#mirrorlist=http/g' /etc/yum.repos.d/*.repo
