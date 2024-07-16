@@ -6,8 +6,8 @@ default:
     - sed -i 's/^#.*baseurl=http/baseurl=http/g' /etc/yum.repos.d/*.repo
     - sed -i 's/^mirrorlist=http/#mirrorlist=http/g' /etc/yum.repos.d/*.repo
     - yum -y install make wget which gcc curl
-    - wget --no-verbose --directory-prefix=/tmp/ https://go.dev/dl/go1.19.12.linux-amd64.tar.gz
-    - tar -C /usr/local -xzf /tmp/go1.19.12.linux-amd64.tar.gz
+    - wget --no-verbose --directory-prefix=/tmp/ https://go.dev/dl/go1.21.12.linux-amd64.tar.gz
+    - tar -C /usr/local -xzf /tmp/go1.21.12.linux-amd64.tar.gz
     - export PATH=$PATH:/usr/local/go/bin:${HOME}/go/bin/
     - go version
 
