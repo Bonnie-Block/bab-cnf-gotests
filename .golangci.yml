@@ -13,8 +13,19 @@ linters-settings:
       - name: indent-error-flow
       - name: var-naming
       - name: increment-decrement
-  wsl:
-    strict-append: false
+  depguard:
+    #    list-type: blacklist
+    #    include-go-root: false
+    #    packages:
+    #      - "github.com/onsi**"
+    rules:
+      main:
+        list-mode: lax
+        files:
+          - $all
+        allow:
+          - $gostd
+
   gocognit:
     min-complexity: 36
   gofmt:
@@ -31,8 +42,14 @@ linters-settings:
     # Select the Go version to target. The default is '1.13'.
     # https://staticcheck.io/docs/options#checks
     checks: [ "all", "-ST1001"]
+    go: "1.22"
 
 linters:
+  disable:
+    - ireturn
+    - structcheck
+    - goconst
+    - wsl
   enable:
     - asciicheck
     - bidichk
@@ -47,7 +64,6 @@ linters:
     - funlen
     - gochecknoinits
     - gocognit
-    - goconst
     - gocritic
     - gocyclo
     - godot
@@ -61,7 +77,6 @@ linters:
     - govet
     - ifshort
     - ineffassign
-    - ireturn
     - lll
     - makezero
     - misspell
@@ -81,7 +96,6 @@ linters:
     - unused
     - varcheck
     - varnamelen
-    - wsl
     - nlreturn
 output:
   format: colored-line-number

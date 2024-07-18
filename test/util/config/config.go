@@ -265,14 +265,14 @@ func (c *Config) GetSwitchPass() (string, error) {
 	return c.Network.SwitchPass, nil
 }
 
-func (c *Config) GetMetalLbVlanIds() ([]uint16, error) {
+func (c *Config) GetMetalLbVlanIDs() ([]uint16, error) {
 	envValue := strings.Split(c.Network.MetalLBVlanIDs, ",")
 
 	if len(envValue) != 2 {
 		return nil, fmt.Errorf("check METALLB_VLANS env var. It reuires two vlans")
 	}
 
-	var vlanIds []uint16
+	var vlanIDs []uint16
 
 	for _, vlan := range envValue {
 		vlanID, err := strconv.Atoi(vlan)
@@ -284,10 +284,10 @@ func (c *Config) GetMetalLbVlanIds() ([]uint16, error) {
 			return nil, fmt.Errorf("vlan id %s should be less that 4095", vlan)
 		}
 
-		vlanIds = append(vlanIds, uint16(vlanID))
+		vlanIDs = append(vlanIDs, uint16(vlanID))
 	}
 
-	return vlanIds, nil
+	return vlanIDs, nil
 }
 
 func (c *Config) GetSwitchLagNames() ([]string, error) {

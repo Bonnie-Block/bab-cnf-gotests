@@ -156,20 +156,20 @@ var _ = Describe("BMER", func() {
 })
 
 // VerifyEvents sends givens events to given consumers and verify consumers received the events.
-func VerifyEvents(consumersList *corev1.PodList, testMsgIds []string, eventService *redfish.EventService,
+func VerifyEvents(consumersList *corev1.PodList, testMsgIDs []string, eventService *redfish.EventService,
 	localNodeVendor string) {
-	Expect(testMsgIds).ToNot(BeEmpty())
+	Expect(testMsgIDs).ToNot(BeEmpty())
 
 	startTime := time.Now()
 	time.Sleep(1 * time.Second)
 
-	for _, testMsgID := range testMsgIds {
+	for _, testMsgID := range testMsgIDs {
 		err := rfclient.SendEvent(eventService, testMsgID, localNodeVendor)
 		Expect(err).ToNot(HaveOccurred())
 	}
 
 	for _, consumer := range consumersList.Items {
-		for _, testMsgID := range testMsgIds {
+		for _, testMsgID := range testMsgIDs {
 			err := ranbmerhelper.WaitForEvent(&consumer, testMsgID, startTime, 1*time.Minute)
 			Expect(err).NotTo(HaveOccurred())
 		}

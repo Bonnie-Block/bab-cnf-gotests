@@ -4,7 +4,7 @@ set -eou pipefail
 . $(dirname "$0")/common.sh
 
 # The version of golangci-lint that should be used
-GOLANGCI_LINT_VERSION="1.52.2"
+GOLANGCI_LINT_VERSION="1.56.2"
 
 # IsGoLangCiLintInstalled is used to check whether golangci-lint executable is on the $PATH.
 function IsGolangCiLintInstalled() {

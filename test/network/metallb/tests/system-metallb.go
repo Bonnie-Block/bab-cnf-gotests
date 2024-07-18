@@ -199,7 +199,7 @@ var _ = Describe("system metallb", Ordered, func() {
 		secondaryWebServer      *k8sv1.Pod
 		primaryService          *k8sv1.Service
 		secondaryService        *k8sv1.Service
-		vlanIds                 []uint16
+		vlanIDs                 []uint16
 		runningFrrPodList       []*k8sv1.Pod
 	)
 
@@ -209,7 +209,7 @@ var _ = Describe("system metallb", Ordered, func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Get vlan ids from environment variable")
-		vlanIds, err = helper.Config.GetMetalLbVlanIds()
+		vlanIDs, err = helper.Config.GetMetalLbVlanIDs()
 		if err != nil {
 			Skip(fmt.Sprintf("skipping test due to %s. Please check METALLB_VLANS env var", err))
 		}
@@ -232,7 +232,7 @@ var _ = Describe("system metallb", Ordered, func() {
 		netmetallbhelper.SetupMetalLB()
 
 		By("Define NMState configuration and wait until it's created on cluster")
-		_ = defineAndCreateNMStatePolicy(validSecondaryInterfaces[0], workerNodeList[1].Name, vlanIds)
+		_ = defineAndCreateNMStatePolicy(validSecondaryInterfaces[0], workerNodeList[1].Name, vlanIDs)
 
 		By("Create Internal NAD")
 		defineAndCreateInternalNad(netmlbparameters.InternalNADName)
@@ -241,7 +241,7 @@ var _ = Describe("system metallb", Ordered, func() {
 		bfdProfile, err := netmetallbhelper.DefineAndCreateBFDProfile()
 		Expect(err).ToNot(HaveOccurred())
 
-		for _, vlanID := range vlanIds {
+		for _, vlanID := range vlanIDs {
 			By(fmt.Sprintf("Configure setup on vlan %d", vlanID))
 			By(fmt.Sprintf("Create External %d NAD", vlanID))
 			defineAndCreateExternalNad(vlanID, validSecondaryInterfaces[0])
@@ -261,7 +261,7 @@ var _ = Describe("system metallb", Ordered, func() {
 			serverLabel := netmlbparameters.AppLabel1
 			bGPAdvertisementName := netmlbparameters.BGPAdvertisementName
 
-			if vlanID == vlanIds[1] {
+			if vlanID == vlanIDs[1] {
 
 				addrPoolLBList = netmlbparameters.IPv4AddressesLB2List
 				addrPoolName = netmlbparameters.AddressPoolS2Name
@@ -344,7 +344,7 @@ var _ = Describe("system metallb", Ordered, func() {
 
 			runningFrrPodList = append(runningFrrPodList, runningFrrPod)
 			// set vars for test case
-			if vlanID == vlanIds[0] {
+			if vlanID == vlanIDs[0] {
 				primaryService = service
 				primaryWebServer = webServer
 				primaryClientPod = runningClientPod
@@ -392,8 +392,8 @@ var _ = Describe("system metallb", Ordered, func() {
 
 		By("should delete AddressPool, Service, BGP Peers and test Pod after test")
 		externalNadList := []string{
-			fmt.Sprintf("external-%d", vlanIds[0]),
-			fmt.Sprintf("external-%d", vlanIds[1]),
+			fmt.Sprintf("external-%d", vlanIDs[0]),
+			fmt.Sprintf("external-%d", vlanIDs[1]),
 			netmlbparameters.InternalNADName}
 		masterConfigMapList := []string{netmlbparameters.FrrConfigMapS1Name, netmlbparameters.FrrConfigMapS2Name}
 		netmetallbhelper.RemoveMetallbBGPTestSetup(externalNadList, masterConfigMapList)
@@ -407,7 +407,7 @@ var _ = Describe("system metallb", Ordered, func() {
 
 		// 53894
 		It("", polarion.ID("53894"), func() {
-			for idx, vlanID := range vlanIds {
+			for idx, vlanID := range vlanIDs {
 
 				clientIP := netmlbparameters.InternalClient1IPv4
 				clientPod := primaryClientPod
@@ -483,7 +483,7 @@ var _ = Describe("system metallb", Ordered, func() {
 			By("Verify is MetalLb in Running state")
 			netmetallbhelper.SetupMetalLB()
 
-			for idx, vlanID := range vlanIds {
+			for idx, vlanID := range vlanIDs {
 				addrPoolLBList := netmlbparameters.IPv4AddressesLBList
 				bgpPeerIP := netmlbparameters.NodeIntFacePrimaryIPAddr
 				clientIP := netmlbparameters.InternalClient1IPv4
