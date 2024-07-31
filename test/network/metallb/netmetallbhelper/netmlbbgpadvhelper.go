@@ -323,15 +323,15 @@ func TestBGPBlockRouteAdvertisment(ipStack string,
 		return err
 	}, 2*time.Minute, netmlbparameters.TimeoutBFDBGP).ShouldNot(HaveOccurred())
 
-	By("should validate BGP route is not received on Speakers")
+	By("should validate BGP route is not received on FRRK8S pods")
 
-	speakerPods, err := helper.Apiclient.Pods(netmlbparameters.MetalLBOperatorNameSpace).
+	frrk8sPods, err := helper.Apiclient.Pods(netmlbparameters.MetalLBOperatorNameSpace).
 		List(context.Background(), metav1.ListOptions{
-			LabelSelector: netmlbparameters.SpeakersLabelSelector,
+			LabelSelector: netmlbparameters.FRRK8SLabelSelector,
 		})
 	Expect(err).ToNot(HaveOccurred())
 
-	acceptedPrefixes, err := parseAddressFamilyInfo(speakerPods.Items, netmlbparameters.AcceptedPrefixCounter)
+	acceptedPrefixes, err := parseAddressFamilyInfo(frrk8sPods.Items, netmlbparameters.AcceptedPrefixCounter)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(acceptedPrefixes).To(Equal(0))
 }
@@ -342,7 +342,7 @@ func parseAddressFamilyInfo(frrPods []k8sv1.Pod, addressFamilyInfo string) (int,
 		err      error
 	)
 
-	if strings.Contains(frrPods[0].Name, "speaker") {
+	if strings.Contains(frrPods[0].Name, "frr-k8s") {
 		vtyshRes, err = pod.ExecCommand(helper.Apiclient, frrPods[0],
 			append(netmlbparameters.VtyshFRRCmdPrefix, "sh bgp neighbors json"),
 			netmlbparameters.FRRContainerName)

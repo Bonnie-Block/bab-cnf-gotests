@@ -441,10 +441,8 @@ var _ = Describe("MetalLB NodeSelector", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("should validate route to the external FRR1 container with nodeSelector and peer option")
-				workerNodesAdressesList1 := []string{workerNodesAdresses[0]}
-
 				Eventually(func() error {
-					return netmetallbhelper.CheckBGPRoutesSingleNode(masterNodeFRRPod1, workerNodesAdressesList1,
+					return netmetallbhelper.CheckBGPRoutesSingleNode(masterNodeFRRPod1, []string{workerNodesAdresses[0]},
 						[]string{netmlbparameters.AddressPoolS1[0]}, netparameters.IPV4Family,
 						netmlbparameters.PrefixLen32)
 				}, 30*time.Second, netmlbparameters.Interval).ShouldNot(HaveOccurred())

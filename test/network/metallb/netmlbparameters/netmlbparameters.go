@@ -55,7 +55,7 @@ const (
 	HelmChartDemoSpeaker                        = "demo-speaker"
 	HelmChartSpeakerTest                        = "speaker-test"
 	HelmChartHighPriority                       = "high-priority"
-	SpeakersLabelSelector                       = "component=speaker"
+	FRRK8SLabelSelector                         = "component=frr-k8s"
 	BFDProfileName                              = "bfdprofile"
 	BGPPassword                                 = "bgp-test"
 	AppLabel1                                   = "nginx1"

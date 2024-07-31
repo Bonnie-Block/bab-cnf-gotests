@@ -177,7 +177,7 @@ var _ = Describe("MetalLb New CRDs", func() {
 			secInterfaces, err = helper.Config.GetSriovInterfaces(sriovInterfaces, 1)
 			Expect(err).ToNot(HaveOccurred(), "Failed to find valid sriov interfaces")
 
-			outputString, err := netmetallbhelper.AddOrDeleteNodeSecIPAddViaSpeaker("add", workerNodeList[0].Name,
+			outputString, err := netmetallbhelper.AddOrDeleteNodeSecIPAddViaFRRK8S("add", workerNodeList[0].Name,
 				netmlbparameters.IPSecondaryInterface1, secInterfaces[0].Name)
 			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error occurred while"+
 				" adding IP address to the secondary interface %s.:%s", secInterfaces[0].Name, outputString))
@@ -199,7 +199,7 @@ var _ = Describe("MetalLb New CRDs", func() {
 			err := netmetallbhelper.DeleteAllL2Advertisements()
 			Expect(err).ToNot(HaveOccurred(), "Failed to delete all L2Advertisements.")
 
-			outputString, err := netmetallbhelper.AddOrDeleteNodeSecIPAddViaSpeaker("del", workerNodeList[0].Name,
+			outputString, err := netmetallbhelper.AddOrDeleteNodeSecIPAddViaFRRK8S("del", workerNodeList[0].Name,
 				netmlbparameters.IPSecondaryInterface1, secInterfaces[0].Name)
 			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("Error occurred while"+
 				" deleting IP address from the secondary interface %s.:%s", secInterfaces[0].Name, outputString))

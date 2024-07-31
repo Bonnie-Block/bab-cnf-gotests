@@ -485,14 +485,14 @@ func DeleteLabelFromWorkers(label string) error {
 
 // IsProtocolConfigured checks for the presence of a protocol prefix in running-config on Speakers.
 func IsProtocolConfigured(protocolPrefix string) bool {
-	speakerPodList, err := helper.Apiclient.Pods(netmlbparameters.MetalLBOperatorNameSpace).List(
+	frrk8sPodList, err := helper.Apiclient.Pods(netmlbparameters.MetalLBOperatorNameSpace).List(
 		context.Background(),
-		metav1.ListOptions{LabelSelector: netmlbparameters.SpeakersLabelSelector},
+		metav1.ListOptions{LabelSelector: netmlbparameters.FRRK8SLabelSelector},
 	)
 	Expect(err).ToNot(HaveOccurred())
 
-	for _, speakerPod := range speakerPodList.Items {
-		configStateOut, err := pod.ExecCommand(helper.Apiclient, speakerPod,
+	for _, frrk8sPod := range frrk8sPodList.Items {
+		configStateOut, err := pod.ExecCommand(helper.Apiclient, frrk8sPod,
 			[]string{"vtysh", "-c", "sh run"}, netmlbparameters.FRRContainerName)
 		Expect(err).ToNot(HaveOccurred())
 
@@ -685,25 +685,25 @@ func ActivateSCTPModuleOnMaster(masterNodeList []k8sv1.Node) {
 	Expect(err).ToNot(HaveOccurred(), "failed to delete cnfgotestpriv namespace")
 }
 
-// AddOrDeleteNodeSecIPAddViaSpeaker removes or adds IP address to the secondary Node interface via speaker pod.
-func AddOrDeleteNodeSecIPAddViaSpeaker(action string,
+// AddOrDeleteNodeSecIPAddViaFRRK8S removes or adds IP address to the secondary Node interface via frrk8s pod.
+func AddOrDeleteNodeSecIPAddViaFRRK8S(action string,
 	workerNodeName string,
 	ipaddress string,
 	secInterface string) (string, error) {
 	fieldSelector := fmt.Sprintf("spec.nodeName=%s", workerNodeName)
 
-	speakerPodList, err := helper.Apiclient.Pods(netmlbparameters.MetalLBOperatorNameSpace).List(
+	frrk8sPodList, err := helper.Apiclient.Pods(netmlbparameters.MetalLBOperatorNameSpace).List(
 		context.Background(),
 		metav1.ListOptions{
-			LabelSelector: netmlbparameters.SpeakersLabelSelector, FieldSelector: fieldSelector},
+			LabelSelector: netmlbparameters.FRRK8SLabelSelector, FieldSelector: fieldSelector},
 	)
 	if err != nil {
 		return "", fmt.Errorf("failed to get MetalLB speaker pods: %w", err)
 	}
 
-	if len(speakerPodList.Items) != 1 {
-		return "", fmt.Errorf("wrong number of speakers(%d) on the worker node %s",
-			len(speakerPodList.Items), workerNodeName)
+	if len(frrk8sPodList.Items) != 1 {
+		return "", fmt.Errorf("wrong number of frrk8s(%d) on the worker node %s",
+			len(frrk8sPodList.Items), workerNodeName)
 	}
 
 	_, subnet, err := nethelper.DefineIPFamily(ipaddress)
@@ -711,7 +711,7 @@ func AddOrDeleteNodeSecIPAddViaSpeaker(action string,
 		return "", err
 	}
 
-	buffer, err := pod.ExecCommand(helper.Apiclient, speakerPodList.Items[0], []string{"ip", "add", action,
+	buffer, err := pod.ExecCommand(helper.Apiclient, frrk8sPodList.Items[0], []string{"ip", "add", action,
 		netmlbparameters.IPSecondaryInterface1 + "/" + subnet, "dev", secInterface}, netmlbparameters.FRRContainerName)
 	if err != nil {
 		return buffer.String(), err
@@ -797,11 +797,11 @@ func SetLogLevel(logLevel metallboperatorv1beta1.MetalLBLogLevel) error {
 	return nil
 }
 
-// ValidateLogLevel verifies the loglevel on the FRR speaker with show logging.
+// ValidateLogLevel verifies the loglevel on the FRRK8S with show logging.
 func ValidateLogLevel(logLevel string) error {
-	speakerPods, err := helper.Apiclient.Pods(netmlbparameters.MetalLBOperatorNameSpace).
+	frrk8sPods, err := helper.Apiclient.Pods(netmlbparameters.MetalLBOperatorNameSpace).
 		List(context.Background(), metav1.ListOptions{
-			LabelSelector: netmlbparameters.SpeakersLabelSelector,
+			LabelSelector: netmlbparameters.FRRK8SLabelSelector,
 		})
 	if err != nil {
 		return fmt.Errorf("error unable to retrieve speaker pods: %w", err)
@@ -816,8 +816,8 @@ func ValidateLogLevel(logLevel string) error {
 		removedLogLevel = netmlbparameters.LogLevelDebug
 	}
 
-	for _, speakerFRRPod := range speakerPods.Items {
-		outPut, err := pod.ExecCommand(helper.Apiclient, speakerFRRPod,
+	for _, frrk8sPod := range frrk8sPods.Items {
+		outPut, err := pod.ExecCommand(helper.Apiclient, frrk8sPod,
 			[]string{"vtysh", "-c", "show logging"}, netmlbparameters.FRRContainerName)
 		if err != nil {
 			return fmt.Errorf("error on executing command: %s: %w", outPut.String(), err)

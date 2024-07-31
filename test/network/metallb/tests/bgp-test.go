@@ -155,15 +155,15 @@ var _ = Describe("MetalLB BGP", func() {
 			}, 1*time.Minute, netmlbparameters.Interval).Should(BeTrue())
 
 			By("should verify default BGP Peer timers")
-			speakerPods, err := helper.Apiclient.Pods(netmlbparameters.MetalLBOperatorNameSpace).
+			frrk8sPods, err := helper.Apiclient.Pods(netmlbparameters.MetalLBOperatorNameSpace).
 				List(context.Background(), metav1.ListOptions{
-					LabelSelector: netmlbparameters.SpeakersLabelSelector,
+					LabelSelector: netmlbparameters.FRRK8SLabelSelector,
 				})
 			Expect(err).ToNot(HaveOccurred())
 
 			defaultTimerSettings := []int{netmlbparameters.BGPDefaultHoldTimer, netmlbparameters.BGPDefaultKeepAliveTimer}
 			Eventually(func() error {
-				return netmetallbhelper.ValidateBGPTimers(speakerPods.Items, defaultTimerSettings)
+				return netmetallbhelper.ValidateBGPTimers(frrk8sPods.Items, defaultTimerSettings)
 			}, 1*time.Minute, netmlbparameters.Interval).Should(Not(HaveOccurred()))
 
 			By("should update default BGP Peer timers")
@@ -176,7 +176,7 @@ var _ = Describe("MetalLB BGP", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			Eventually(func() error {
-				return netmetallbhelper.ValidateBGPTimers(speakerPods.Items, updatedTimerSettings)
+				return netmetallbhelper.ValidateBGPTimers(frrk8sPods.Items, updatedTimerSettings)
 			}, 1*time.Minute, netmlbparameters.Interval).Should(Not(HaveOccurred()))
 
 		})
