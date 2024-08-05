@@ -127,25 +127,39 @@ func containsEvent(eventMsgs []ranptpparameters.EventMsg, eventType string, valu
 		failedResources  []string
 	)
 
+	var (
+		dataType string
+		resource string
+	)
+
 	for _, event := range eventMsgs {
 		if event.EventType == eventType {
 			for _, val := range event.Data.Values {
-				if !strings.Contains(val.DataType, "notification") || slices.Contains(checkedResources, val.Resource) {
+				if ranhelper.IsVersionStringInRange(ranptpparameters.PtpVersion, "4.17", "") {
+					dataType = val.DataTypeORan
+					resource = val.ResourceORan
+				} else {
+					dataType = val.DataType
+					resource = val.Resource
+				}
+
+				if !strings.Contains(dataType, "notification") || slices.Contains(checkedResources, resource) {
 					continue
 				}
 
 				if strings.Contains(val.Value, value) {
 					if iface == "" {
-						checkedResources = append(checkedResources, val.Resource)
-					} else if strings.Contains(val.Resource, iface) {
+						checkedResources = append(checkedResources, resource)
+
+					} else if strings.Contains(resource, iface) {
 						log.Printf("Info: %s %s is found for resource(s): %v\n", eventType, value, iface)
 
 						return true
 					}
 				} else if iface == "" {
 					log.Printf("Info: %s has value %s for %s, expected value: %s\n",
-						eventType, val.Value, val.Resource, value)
-					failedResources = append(failedResources, val.Resource)
+						eventType, val.Value, resource, value)
+					failedResources = append(failedResources, resource)
 				}
 			}
 		}

@@ -58,8 +58,11 @@ type EventData struct {
 }
 
 type Values struct {
-	Resource  string `json:"resource"`
-	DataType  string `json:"dataType"`
-	ValueType string `json:"valueType"`
-	Value     string `json:"value"`
+	Resource      string `json:"resource"`
+	ResourceORan  string `json:"ResourceAddress"`
+	DataType      string `json:"dataType"`
+	DataTypeORan  string `json:"data_type"`
+	ValueType     string `json:"valueType"`
+	ValueTypeORan string `json:"value_type"`
+	Value         string `json:"value"`
 }
