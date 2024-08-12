@@ -53,6 +53,19 @@ var _ = BeforeSuite(func() {
 
 	// Deploy process-exporter pod on each node
 	ranhelper.DeployProcessExporter()
+
+	log.Println("Checking for kube-burner binary in PATH")
+	_, err = helper.ExecAndLogCommand(true, 1*time.Minute, "kube-burner", "version")
+	if err != nil {
+		Skip("Kube burner binary unavailable in PATH")
+	}
+
+	// Cleanup workload namespace
+	if namespaces.Exists(ran.NamespaceWorkload, helper.Apiclient) {
+		log.Println("Deleting workload namespace", ran.NamespaceWorkload)
+		_ = namespaces.DeleteAndWait(helper.Apiclient, ran.NamespaceWorkload, 5*time.Minute)
+	}
+
 })
 
 var _ = AfterSuite(func() {
@@ -61,6 +74,14 @@ var _ = AfterSuite(func() {
 	log.Println("Deleting test namespace", ran.NamespaceTesting)
 	err := namespaces.DeleteAndWait(helper.Apiclient, ran.NamespaceTesting, timeout)
 	Expect(err).ToNot(HaveOccurred())
+
+	// Cleanup workload namespace
+	if namespaces.Exists(ran.NamespaceWorkload, helper.Apiclient) {
+		log.Println("Deleting workload namespace", ran.NamespaceWorkload)
+		err = namespaces.DeleteAndWait(helper.Apiclient, ran.NamespaceWorkload, 5*time.Minute)
+		Expect(err).ToNot(HaveOccurred())
+	}
+
 })
 
 var _ = ReportAfterEach(func(report types.SpecReport) {

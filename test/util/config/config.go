@@ -50,6 +50,11 @@ type Config struct {
 		OslatTestImage            string   `yaml:"oslat_test_image" envconfig:"OSLAT_TEST_IMAGE"`
 		ProcessExporterImage      string   `yaml:"process_exporter_image" envconfig:"PROCESS_EXPORTER_IMAGE"`
 		ProcessExporterConfigsDir string   `yaml:"process_exporter_resources"`
+		WorkloadRegistry          string   `yaml:"workload_registry" envconfig:"WORKLOAD_REGISTRY"`
+		WorkloadRepository        string   `yaml:"workload_repository" envconfig:"WORKLOAD_REPOSITORY"`
+		WorkloadVersion           string   `yaml:"workload_version" envconfig:"WORKLOAD_VERSION"`
+		WorkloadCreate            string   `yaml:"workload_create" envconfig:"WORKLOAD_CREATE"`
+		WorkloadRemove            string   `yaml:"workload_remove" envconfig:"WORKLOAD_REMOVE"`
 		BmcHosts                  string   `envconfig:"BMC_HOSTS"`
 		BmcUser                   string   `yaml:"bmc_user" envconfig:"BMC_USER"`
 		BmcPassword               string   `yaml:"bmc_password" envconfig:"BMC_PASSWORD"`

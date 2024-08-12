@@ -14,12 +14,13 @@ const (
 
 const (
 	// NamespaceTesting contains the name of the testing namespace.
-	NamespaceTesting = "ran-test"
-	NamespaceFec     = "vran-acceleration-operators"
-	NamespaceBmer    = "openshift-bare-metal-events"
-	NamespaceAmq     = "amq-router"
-	NamespaceNetdiag = "openshift-network-diagnostics"
-	NamespaceConsole = "openshift-console"
+	NamespaceTesting  = "ran-test"
+	NamespaceFec      = "vran-acceleration-operators"
+	NamespaceBmer     = "openshift-bare-metal-events"
+	NamespaceAmq      = "amq-router"
+	NamespaceNetdiag  = "openshift-network-diagnostics"
+	NamespaceConsole  = "openshift-console"
+	NamespaceWorkload = "workload"
 )
 
 const (

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"os"
 	"os/exec"
 	"strings"
 	"time"
@@ -19,6 +20,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/machineconfigpool"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 
+	"github.com/go-git/go-git/v5"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 	k8sv1 "k8s.io/api/core/v1"
@@ -572,4 +574,24 @@ func getUnhealthyPods(namespace string) (map[string]string, error) {
 	}
 
 	return unhealthyPods, nil
+}
+
+func GitCloneToTemp(repository string, branch string) (string, error) {
+	temp, err := os.MkdirTemp("/tmp", "workload-")
+	if err != nil {
+		log.Fatal("Failed to create temporary dir")
+	}
+	_, err = git.PlainClone(temp, false, &git.CloneOptions{
+		URL:        repository,
+		Progress:   os.Stdout,
+		RemoteName: branch,
+	})
+
+	if err != nil {
+		log.Fatal("Failed to clone repository")
+	}
+
+	log.Printf("Repository cloned to: %s\n", temp)
+
+	return temp, err
 }

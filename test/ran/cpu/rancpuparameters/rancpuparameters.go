@@ -56,7 +56,7 @@ const (
 	CPUOverheadStat = "namedprocess_namegroup_cpu_rate{groupname!~\"conmon\"}"
 	// Prom query statistic representation for infra pods. Assuming only oslat and stress-ng user pods are running.
 	CPUInfraPodsStat = "pod:container_cpu_usage:sum{pod!~\"process-exp.*\",pod!~\"oslat.*\",pod!~\"stress.*\"," +
-		"pod!~\"cnfgotestpriv.*\"}"
+		"pod!~\"cnfgotestpriv.*\",namespace!~\"workload\"}"
 	OsTrendQuery = `avg by (groupname, pod)
 	(max_over_time(ranmetrics_cpu_os_daemon_steadyworkload_avg{cluster='%s',
 	baseline='true', sw_version=~'%s', duration='%s'}[%dw]))`

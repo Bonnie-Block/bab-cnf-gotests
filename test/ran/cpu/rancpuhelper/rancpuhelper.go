@@ -375,3 +375,13 @@ func GetAPIBaseline(baselinequery string, trendTimeframe int) map[string]map[str
 
 	return baseline
 }
+
+func ExecKubeBurnerTemplate(workloadDir string, template string) ([]byte, error) {
+
+	if (os.Chdir(workloadDir)) != nil {
+		log.Println("Could not change to temp workload directory")
+	}
+
+	return helper.ExecAndLogCommand(true, 10*time.Minute, "kube-burner", "init", "--config", template)
+
+}

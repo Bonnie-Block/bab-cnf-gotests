@@ -6,6 +6,7 @@ require (
 	github.com/containernetworking/cni v1.0.1
 	github.com/containers/podman/v2 v2.2.1
 	github.com/docker/docker v20.10.17+incompatible
+	github.com/go-git/go-git/v5 v5.4.2
 	github.com/golang/glog v1.0.0
 	github.com/hashicorp/go-retryablehttp v0.7.1
 	github.com/ishidawataru/sctp v0.0.0-20191218070446-00ab2ac2db07
@@ -122,7 +123,6 @@ require (
 	github.com/go-errors/errors v1.0.1 // indirect
 	github.com/go-git/gcfg v1.5.0 // indirect
 	github.com/go-git/go-billy/v5 v5.3.1 // indirect
-	github.com/go-git/go-git/v5 v5.4.2 // indirect
 	github.com/go-kit/log v0.2.1 // indirect
 	github.com/go-logfmt/logfmt v0.5.1 // indirect
 	github.com/go-logr/logr v1.2.4 // indirect

@@ -31,7 +31,7 @@ import (
 const (
 	cpuOverheadStat       = rancpuparameters.CPUOverheadStat
 	cpuInfraPodsStat      = rancpuparameters.CPUInfraPodsStat
-	testCountWithWorkload = 7
+	testCountWithWorkload = 6
 	idleDuration          = 10 * time.Minute
 )
 
@@ -111,21 +111,41 @@ var _ = Describe("SNO core reduction", func() {
 
 	Context("Management CPU utilization with workload pods running", func() {
 		var (
-			workloadPods      []*corev1.Pod
+			// workloadPods      []*corev1.Pod
 			testExecCount     = 0
 			workloadStartTime time.Time
 			steadyEndTime     time.Time
+			workloadDir       string
 		)
 
 		BeforeEach(func() {
-			// Create pod before first test under workload context is started.
-			if testExecCount == 0 || workloadPods == nil || len(workloadPods) == 0 {
+			// Deploy workloads using kube-burner under workload namespace
+			if testExecCount == 0 {
 				workloadStartTime = time.Now().UTC()
 				time.Sleep(20 * time.Second)
-				// stressNg cpu count is roughly 1/3.5 of total isolated cores
-				workloadPods = ranhelper.DeployWorkloadPods(perfProfile, node)
-			} else {
-				Expect(workloadPods).ToNot(BeEmpty())
+
+				workloadDir, _ = helper.GitCloneToTemp(helper.Config.Ran.WorkloadRepository, helper.Config.Ran.WorkloadVersion)
+				log.Println("Setting registry to", helper.Config.Ran.WorkloadRegistry)
+				os.Setenv("REGISTRY", helper.Config.Ran.WorkloadRegistry)
+				_, err := rancpuhelper.ExecKubeBurnerTemplate(workloadDir,
+					helper.Config.Ran.WorkloadCreate)
+				if err != nil {
+					log.Println("Failed to deploy workload templates")
+					_, err := rancpuhelper.ExecKubeBurnerTemplate(workloadDir, helper.Config.Ran.WorkloadRemove)
+					if err == nil {
+						log.Println("Retry after stale workload purge")
+						_, err := rancpuhelper.ExecKubeBurnerTemplate(workloadDir,
+							helper.Config.Ran.WorkloadCreate)
+						if err != nil {
+							log.Fatal("Failed to deploy workload templates from ",
+								helper.Config.Ran.WorkloadRepository)
+						}
+					} else {
+						log.Fatal("Test cannot continue due to residual workload artifacts")
+					}
+				}
+				log.Println("\nKube-burner workload deployed with templates from", helper.Config.Ran.WorkloadRepository)
+
 			}
 			testExecCount++
 		})
@@ -133,10 +153,13 @@ var _ = Describe("SNO core reduction", func() {
 		AfterEach(func() {
 			// Delete workload pods after last test under workload context is completed.
 			// In case less than testCountWithWorkload tests are executed, cleanup will still be done at suite level.
+			log.Println("Test Exec Count:", testExecCount, testCountWithWorkload)
 			if testExecCount >= testCountWithWorkload {
-				// Delete oslat pod and wait for deletion completes
-				if len(workloadPods) > 0 {
-					ranhelper.DeletePodsAndWaitForRemoval(workloadPods, 5*time.Minute)
+				// Run Kube-burner delete job and wait for deletion.
+				log.Println("Removing Kube-burner workload artifacts")
+				_, err := rancpuhelper.ExecKubeBurnerTemplate(workloadDir, helper.Config.Ran.WorkloadRemove)
+				if err != nil {
+					log.Println("Some Kube-burner workload artifacts might not be removed")
 				}
 			}
 		})
