@@ -22,7 +22,7 @@ ran:
     - common-config-policy
     - common-subscriptions-policy
   ocp_upgrade_upstream_url: "https://api.openshift.com/api/upgrades_info/v1/graph"
-  workload_repository: https://github.com/openshift-kni/du-intensive.git
+  workload_repository: https://github.com/openshift-kni/du-test-workloads.git
   workload_version: v1.0
   workload_create: du-intensive.yaml
   workload_remove: du-intensive-remove.yaml
