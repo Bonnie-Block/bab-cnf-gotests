@@ -169,17 +169,17 @@ func DefineNmStateVlanInterfaceConfig(
 
 // GetNodeOvnRouterIP returns router ip address for given worker node.
 func GetNodeOvnRouterIP(workerNode *k8sv1.Node) (string, error) {
-	routerIPConfig := map[string]string{}
-	err := json.Unmarshal([]byte(workerNode.Annotations["k8s.ovn.org/node-gateway-router-lrp-ifaddr"]), &routerIPConfig)
+	routerIPConfig := map[string]map[string]string{}
+	err := json.Unmarshal([]byte(workerNode.Annotations["k8s.ovn.org/node-gateway-router-lrp-ifaddrs"]), &routerIPConfig)
 
 	if err != nil {
 		return "", err
 	}
 
-	routeIP, keyExist := routerIPConfig["ipv4"]
+	routeIP, keyExist := routerIPConfig["default"]["ipv4"]
 
 	if !keyExist {
-		return "", fmt.Errorf("annotation %s doesn't have ip configuration", "k8s.ovn.org/node-gateway-router-lrp-ifaddr")
+		return "", fmt.Errorf("annotation %s doesn't have ip configuration", "k8s.ovn.org/node-gateway-router-lrp-ifaddrs")
 	}
 
 	routerIPAddress := strings.Split(routeIP, "/")
