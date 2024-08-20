@@ -6,6 +6,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/k8sreporter"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/schemes/ptp/ptpv1"
 	appsv1 "k8s.io/api/apps/v1"
+	v1 "k8s.io/api/core/v1"
 )
 
 var (
@@ -22,6 +23,7 @@ var (
 		{Cr: &ptpv1.NodePtpDeviceList{}},
 		{Cr: &ptpv1.PtpOperatorConfigList{}},
 		{Cr: &appsv1.DaemonSetList{}},
+		{Cr: &v1.ConfigMapList{}},
 	}
 
 	PtpVersion   string

@@ -436,32 +436,21 @@ func GetNicDriver(ptpPod corev1.Pod, ifName string) (string, error) {
 
 // GpsColdReboot reboots the gps using ubxtool, if the reboot failed, an error returns.
 func GpsColdReboot(ptpPod *corev1.Pod) error {
-	cmd := "ubxtool -p COLDBOOT; sleep 0.1" /* -v 3 29.20*/
+	cmd := "ubxtool -p COLDBOOT; sleep 0.1"
 	_, err := pod.ExecCommand(helper.Apiclient, *ptpPod, []string{"/bin/bash", "-c", cmd}, parameters.PtpContainerName)
 
 	return err
 }
 
 // WaitForLog waits for specified string to appear in ptp log.
-func WaitForLog(ptpPod *corev1.Pod, container string, wantedLog string, since time.Duration,
+func WaitForLog(ptpPod *corev1.Pod, container string, wantedLog string, startTime time.Time,
 	timeout time.Duration) error {
-	if since < 1*time.Second {
-		since = 1 * time.Second
-	}
 
-	startTime := time.Now()
-
-	logs, err := pod.GetLog(helper.Apiclient, ptpPod, since, container)
-	if err != nil {
-		return err
-	}
-
-	interval := 5 * time.Second
+	interval, extraTime := 5*time.Second, 1*time.Second
 
 	return wait.PollImmediate(interval, timeout, func() (bool, error) {
-		time.Sleep(interval)
-
-		logs, err = pod.GetLog(helper.Apiclient, ptpPod, time.Since(startTime)+time.Second,
+		newStartTime := time.Now()
+		logs, err := pod.GetLog(helper.Apiclient, ptpPod, time.Since(startTime)+extraTime,
 			container)
 		if err != nil {
 			return false, nil
@@ -472,6 +461,8 @@ func WaitForLog(ptpPod *corev1.Pod, container string, wantedLog string, since ti
 		}
 
 		startTime = time.Now()
+		extraTime = time.Since(newStartTime) + 1*time.Second
+		time.Sleep(interval)
 
 		return false, nil
 	})
