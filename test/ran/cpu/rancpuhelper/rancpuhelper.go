@@ -346,8 +346,6 @@ func GetAPIBaseline(baselinequery string, trendTimeframe int) map[string]map[str
 
 	response, _ := ExecPromQueryRanMetrics(formattedQuery, false)
 
-	log.Println("RAN METRICS RESULT ", response.Data.Result)
-
 	baseline := make(map[string]map[string]map[string][]interface{})
 
 	if len(response.Data.Result) != 0 {
@@ -384,4 +382,28 @@ func ExecKubeBurnerTemplate(workloadDir string, template string) ([]byte, error)
 
 	return helper.ExecAndLogCommand(true, 10*time.Minute, "kube-burner", "init", "--config", template)
 
+}
+
+func GetPodCountBaseline(baselinequery string, trendTimeframe int) map[string]map[string][]interface{} {
+	var node *corev1.Node
+	node, _ = ranhelper.GetWorker(true)
+
+	nodeName := strings.SplitN(node.Name, ".", 2)[0]
+	formattedQuery := fmt.Sprintf(baselinequery, nodeName, trendTimeframe)
+	response, _ := ExecPromQueryRanMetrics(formattedQuery, false)
+	baseline := make(map[string]map[string][]interface{})
+
+	if len(response.Data.Result) != 0 {
+		for _, metric := range response.Data.Result {
+			namespace := metric.Metric["namespace"]
+			pod := metric.Metric["pod"]
+			if _, ns := baseline[namespace]; !ns {
+				baseline[namespace] = make(map[string][]interface{})
+			}
+
+			baseline[namespace][pod] = metric.Value
+		}
+	}
+
+	return baseline
 }

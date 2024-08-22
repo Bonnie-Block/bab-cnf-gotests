@@ -22,11 +22,13 @@ var (
 
 // RAN CPU metric names/prefixes.
 const (
-	RanCPUMetricOsDaemon  = "ranmetrics_cpu_os_daemon"
-	RanCPUMetricInfraPods = "ranmetrics_cpu_infra_pods"
-	RanCPUMetricTotal     = "ranmetrics_cpu_total"
-	RanAPIServerRate      = "ranmetrics_apiserver_rate"
-	RanAPIServerTotal     = "ranmetrics_apiserver_total"
+	RanCPUMetricOsDaemon       = "ranmetrics_cpu_os_daemon"
+	RanCPUMetricInfraPods      = "ranmetrics_cpu_infra_pods"
+	RanCPUMetricTotal          = "ranmetrics_cpu_total"
+	RanAPIServerRate           = "ranmetrics_apiserver_rate"
+	RanAPIServerTotal          = "ranmetrics_apiserver_total"
+	RanContainerCount          = "ranmetrics_container_count"
+	RanContainerCountBreakdown = "ranmetrics_container_count_breakdown"
 )
 
 type PromQueryResponse struct {
@@ -68,4 +70,15 @@ const (
 	(max_over_time(apiserver_request_total{}[%s]%s))`
 	APITotalTrendQuery = `avg by (namespace, pod, verb) 
 	(max_over_time(ranmetrics_apiserver_total_idle_max{cluster='%s',baseline='true'}[%dw]))`
+	// Prom query statistic representation of running pod count in the system.
+	ContainerCountQuery = `sum(kube_pod_container_info{pod!~"cnfgotestpriv.*", 
+	pod!~"process-exp.*", namespace!~"workload"} * on(namespace, pod) 
+	group_left() kube_pod_status_phase{phase="Running"} == 1)`
+	ContainerCountBreakdownQuery = `count by (namespace, pod) (kube_pod_container_info{pod!~"cnfgotestpriv.*", 
+	pod!~"process-exp.*", namespace!~"workload"} * on(namespace, pod) 
+	group_left() kube_pod_status_phase{phase="Running"} == 1)`
+	ContainerCountTrendQuery = `last_over_time(ranmetrics_container_count_idle_total{cluster='%s',
+	baseline='true'}[%dw])`
+	ContainerCountBreakdownTrendQuery = `last_over_time(ranmetrics_container_count_breakdown_idle_total{cluster='%s',
+	baseline='true'}[%dw])`
 )

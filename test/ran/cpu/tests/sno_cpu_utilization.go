@@ -43,7 +43,12 @@ var _ = Describe("SNO core reduction", func() {
 		perfProfile  *performancev2.PerformanceProfile
 		mgmtCPUSet   cpuset.CPUSet
 	)
-
+	baseline, _ := strconv.ParseBool(rancpuhelper.GetEnv(ran.Baseline, "false"))
+	baselineVersion := os.Getenv(ran.BaselineVersion)
+	trendTimeframe, _ := strconv.Atoi(rancpuhelper.GetEnv(ran.TrendTimeframe, "4"))
+	trendThreshold, _ := strconv.ParseFloat(rancpuhelper.GetEnv(ran.TrendThreshold, "50"), 64)
+	log.Println("Baseline run:", baseline, "Baseline version:", baselineVersion,
+		"Trend Timeframe:", trendTimeframe, "Trend Threshold:", trendThreshold)
 	execute.BeforeAll(func() {
 		isSNO, _ = nodes.IsSingleNodeCluster(helper.Apiclient)
 		perfProfile, _ = rancpuhelper.GetPerformanceProfileWithCPUSet(nil)
@@ -81,7 +86,11 @@ var _ = Describe("SNO core reduction", func() {
 				"Check Reserved Cpus in RT performance profile configures mgmt cpus as per core reduction requirement")
 		})
 	})
-
+	Context("Pre-test Pod/Container counts in idle state", func() {
+		It("should not deviate from baseline", func() {
+			checkContainerCounts("idle", !baseline, trendTimeframe)
+		})
+	})
 	Context("Management CPU utilization in idle state", func() {
 		It(fmt.Sprintf("should use less than %d core(s)", ran.SnoMgmtCoreLimit), func() {
 			log.Printf("Wait for %s in idle...\n", idleDuration.String())
@@ -93,22 +102,13 @@ var _ = Describe("SNO core reduction", func() {
 			checkCPUUsage(idleDuration, endTime, mgmtCPULimit, "idle")
 		})
 	})
-
-	baseline, _ := strconv.ParseBool(rancpuhelper.GetEnv(ran.Baseline, "false"))
-	baselineVersion := os.Getenv(ran.BaselineVersion)
-	trendTimeframe, _ := strconv.Atoi(rancpuhelper.GetEnv(ran.TrendTimeframe, "4"))
-	trendThreshold, _ := strconv.ParseFloat(rancpuhelper.GetEnv(ran.TrendThreshold, "50"), 64)
-	log.Println("Baseline run:", baseline, "Baseline version:", baselineVersion,
-		"Trend Timeframe:", trendTimeframe, "Trend Threshold:", trendThreshold)
-
-	Context("Kube API Server utilization trend", func() {
+	Context("Kube API Server utilization in idle state", func() {
 		It("grouped by resource,verb,namespace", func() {
 			endTime := time.Now().UTC()
 			checkAPIUsage(idleDuration, endTime, "idle", !baseline, trendTimeframe)
 
 		})
 	})
-
 	Context("Management CPU utilization with workload pods running", func() {
 		var (
 			// workloadPods      []*corev1.Pod
@@ -379,11 +379,7 @@ func parseTag(tag map[string]string) (string, string) {
 				if ok {
 					component = fmt.Sprintf("%s %s %s", tag["namespace"], value, verb)
 				}
-				// use parsed pod name as value without randomly generated string
-				re := regexp.MustCompile(`-[a-f0-9]{8,10}-[a-z0-9]{5}\z`)
-				value = re.ReplaceAllString(value, "-")
-				re = regexp.MustCompile(`-[a-z0-9]{5}\z`)
-				value = re.ReplaceAllString(value, "-")
+				value = getPodName(value)
 			} else if key == "groupname" {
 				component = value
 			}
@@ -395,6 +391,17 @@ func parseTag(tag map[string]string) (string, string) {
 	tagString = strings.TrimRight(tagString, ",")
 
 	return component, tagString
+}
+
+// getPodName function parses out the random string at the end of podname.
+func getPodName(pod string) string {
+
+	re := regexp.MustCompile(`-[a-f0-9]{8,10}-[a-z0-9]{5}\z`)
+	pod = re.ReplaceAllString(pod, "-")
+	re = regexp.MustCompile(`-[a-z0-9]{5}\z`)
+	pod = re.ReplaceAllString(pod, "-")
+
+	return pod
 }
 
 // sortAndWriteToReport sorts the metrics by podname or groupname, and write them to ginkgo report.
@@ -425,7 +432,6 @@ func sortAndWriteToReport(
 }
 
 // Check cpu utilization against last known baseline data for deviations.
-// Currently does not fail test and only prints all violations.
 func checkCPUTrend(duration time.Duration, endTime time.Time, workloadDuration string, trendTimeframe int,
 	trendThreshold float64, millicoreThreshold float64, baselineVersion string, scenario string) {
 	timestamp := endTime
@@ -445,11 +451,7 @@ func checkCPUTrend(duration time.Duration, endTime time.Time, workloadDuration s
 			// For os daemons, its expected to stay as a constant in baseline[groupname]['daemon'].
 			if pod != "daemon" {
 				pod = metric.Metric["pod"]
-				// Using parsed pod name without randomly generated string.
-				re := regexp.MustCompile(`-[a-f0-9]{8,10}-[a-z0-9]{5}\z`)
-				pod = re.ReplaceAllString(pod, "-")
-				re = regexp.MustCompile(`-[a-z0-9]{5}\z`)
-				pod = re.ReplaceAllString(pod, "-")
+				pod = getPodName(pod)
 			}
 
 			if basePod, ok := baseline[groupname][pod]; ok {
@@ -507,11 +509,12 @@ func checkCPUTrend(duration time.Duration, endTime time.Time, workloadDuration s
 	}
 }
 
+// Check Kube-api-server usage during idle phase.
 func checkAPIUsage(duration time.Duration, startTime time.Time, scenario string, checkTrend bool, trendTimeframe int) {
 	timestamp := startTime
 	// ApiServer total over the duration.
 	query := fmt.Sprintf(rancpuparameters.APITotalQuery, duration.String(), getOffset(timestamp))
-	apiServerTotalBreakdown, err := rancpuhelper.ExecPromQuery(query, true)
+	apiServerTotalBreakdown, err := rancpuhelper.ExecPromQuery(query, false)
 
 	for _, metric := range apiServerTotalBreakdown {
 		if metric.Metric["namespace"] == "default" {
@@ -523,7 +526,6 @@ func checkAPIUsage(duration time.Duration, startTime time.Time, scenario string,
 		log.Println(err)
 	}
 
-	log.Println(apiServerTotalBreakdown)
 	sortAndWriteToReport(rancpuparameters.RanAPIServerTotal, apiServerTotalBreakdown, "max", scenario)
 
 	if checkTrend {
@@ -531,21 +533,16 @@ func checkAPIUsage(duration time.Duration, startTime time.Time, scenario string,
 	}
 }
 
+// Check Kube-api-server usage against known baseline data for deviations.
 func checkAPITrend(apiResults []rancpuparameters.PromMetric, query string, trendTimeframe int) {
 	log.Println("Baseline comparison for API Server")
-
-	log.Println("CURRENT RESULTS ", apiResults)
 
 	baseline := rancpuhelper.GetAPIBaseline(query, trendTimeframe)
 
 	for _, metric := range apiResults {
 		namespace := metric.Metric["namespace"]
 		pod := metric.Metric["pod"]
-		// Using parsed pod name without randomly generated string.
-		re := regexp.MustCompile(`-[a-f0-9]{8,10}-[a-z0-9]{5}\z`)
-		pod = re.ReplaceAllString(pod, "-")
-		re = regexp.MustCompile(`-[a-z0-9]{5}\z`)
-		pod = re.ReplaceAllString(pod, "-")
+		pod = getPodName(pod)
 		verb := metric.Metric["verb"]
 
 		if len(metric.Value) > 1 && len(baseline[namespace][pod][verb]) > 1 {
@@ -565,4 +562,84 @@ func checkAPITrend(apiResults []rancpuparameters.PromMetric, query string, trend
 			log.Println("[Baseline unknown]", namespace, pod, verb)
 		}
 	}
+}
+
+// Check pod/container counts.
+func checkContainerCounts(scenario string, checkTrend bool, trendTimeframe int) {
+	var node *corev1.Node
+	node, _ = ranhelper.GetWorker(true)
+	nodeName := strings.SplitN(node.Name, ".", 2)[0]
+	log.Println("Querying for container counts in system under test")
+	containerCountTotal, _ := rancpuhelper.ExecPromQuery(rancpuparameters.ContainerCountQuery, false)
+	containerCount, err := strconv.ParseFloat(containerCountTotal[0].Value[1].(string), 64)
+	if err == nil {
+		log.Printf("Writing total container counts to ran metrics %f \n", containerCount)
+		fmt.Fprintf(GinkgoWriter, "%s_%s_%s: %f\n", rancpuparameters.RanContainerCount, scenario, "total", containerCount)
+
+		containerCountBreakdown, err := rancpuhelper.ExecPromQuery(rancpuparameters.ContainerCountBreakdownQuery, false)
+		if err == nil {
+			if checkTrend {
+				containerCountTrend := fmt.Sprintf(rancpuparameters.ContainerCountTrendQuery, nodeName, trendTimeframe)
+				log.Printf("Getting total container count from ran metrics baseline")
+				ranmetricsResponse, _ := rancpuhelper.ExecPromQueryRanMetrics(containerCountTrend, false)
+
+				if len(ranmetricsResponse.Data.Result) != 0 {
+					containerCountBaseline, _ := strconv.ParseFloat(ranmetricsResponse.Data.Result[0].Value[1].(string), 64)
+					log.Println(containerCountBaseline)
+					if containerCount > containerCountBaseline {
+						log.Printf("[Trend Violated] Container counts increased from %f to %f \n", containerCountBaseline, containerCount)
+						log.Println("Comparing all Openshift namespaces against baseline")
+						checkContainerTrend(containerCountBreakdown, rancpuparameters.ContainerCountBreakdownTrendQuery, trendTimeframe)
+					} else {
+						log.Printf("[Trend Observed] Container counts baseline met %f to %f \n", containerCountBaseline, containerCount)
+					}
+				} else {
+					Skip(fmt.Sprintf("No container counts baseline found for %s", nodeName))
+				}
+
+			} else {
+				log.Println("Writing baseline (namespace,pod) container count breakdown to RAN Metrics for historical comparisons")
+				sortAndWriteToReport(rancpuparameters.RanContainerCountBreakdown, containerCountBreakdown, "total", scenario)
+			}
+		} else {
+			Skip(fmt.Sprintf("Could not get container breakdown in system under test %s", nodeName))
+		}
+	} else {
+		Skip(fmt.Sprintf("Could not get container count total in system under test %s", nodeName))
+	}
+
+}
+
+func checkContainerTrend(containerCountBreakdown []rancpuparameters.PromMetric, query string, trendTimeframe int) {
+	log.Println("Comparing (namespace,pod) container count breakdown against RAN metrics baseline")
+
+	baseline := rancpuhelper.GetPodCountBaseline(query, trendTimeframe)
+	var violationsString = ""
+	for _, metric := range containerCountBreakdown {
+		namespace := metric.Metric["namespace"]
+		pod := metric.Metric["pod"]
+
+		pod = getPodName(pod)
+
+		if len(metric.Value) > 1 && len(baseline[namespace][pod]) > 1 {
+			currentValue, err1 := strconv.ParseFloat(metric.Value[1].(string), 64)
+			historicValue, err2 := strconv.ParseFloat(baseline[namespace][pod][1].(string), 64)
+
+			if err1 == nil && err2 == nil {
+				if currentValue > historicValue {
+					log.Println("[Trend Violated]", namespace, "baseline", historicValue, "current", currentValue)
+					violationsString += fmt.Sprintf("%s_%s : %f\n", metric.Metric["namespace"], metric.Metric["pod"], metric.Value)
+				} else {
+					log.Println("[Trend Observed]", namespace, "baseline", historicValue, "current", currentValue)
+				}
+			} else {
+				log.Println("[Parsing error]", namespace, pod)
+			}
+
+		} else {
+			log.Println("[Trend Violated] No baseline found for unexpected containers", namespace, pod)
+			violationsString += fmt.Sprintf("%s_%s : missing\n", namespace, pod)
+		}
+	}
+	Expect(violationsString).To(BeEmpty())
 }
