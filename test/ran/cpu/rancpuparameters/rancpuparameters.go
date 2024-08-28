@@ -60,16 +60,16 @@ const (
 	CPUInfraPodsStat = "pod:container_cpu_usage:sum{pod!~\"process-exp.*\",pod!~\"oslat.*\",pod!~\"stress.*\"," +
 		"pod!~\"cnfgotestpriv.*\",namespace!~\"workload\"}"
 	OsTrendQuery = `avg by (groupname, pod)
-	(max_over_time(ranmetrics_cpu_os_daemon_steadyworkload_avg{cluster='%s',
+	(last_over_time(ranmetrics_cpu_os_daemon_steadyworkload_avg{cluster='%s',
 	baseline='true', sw_version=~'%s', duration='%s'}[%dw]))`
 	PodTrendQuery = `avg by (namespace, pod)
-	(max_over_time(ranmetrics_cpu_infra_pods_steadyworkload_avg{cluster='%s',
+	(last_over_time(ranmetrics_cpu_infra_pods_steadyworkload_avg{cluster='%s',
 	baseline='true', sw_version=~'%s', duration='%s'}[%dw]))`
 	// Prom query statistic representation for api requests of services.
 	APITotalQuery = `avg by (namespace, pod, verb) 
-	(max_over_time(apiserver_request_total{}[%s]%s))`
+	(avg_over_time(apiserver_request_total{}[%s]%s))`
 	APITotalTrendQuery = `avg by (namespace, pod, verb) 
-	(max_over_time(ranmetrics_apiserver_total_idle_max{cluster='%s',baseline='true'}[%dw]))`
+	(last_over_time(ranmetrics_apiserver_total_idle_max{cluster='%s',baseline='true'}[%dw]))`
 	// Prom query statistic representation of running pod count in the system.
 	ContainerCountQuery = `sum(kube_pod_container_info{pod!~"cnfgotestpriv.*", 
 	pod!~"process-exp.*", namespace!~"workload"} * on(namespace, pod) 
