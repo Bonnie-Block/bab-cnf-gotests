@@ -492,6 +492,7 @@ func checkCPUTrend(duration time.Duration, endTime time.Time, workloadDuration s
 		log.Println("-----------------------------------------------------------------------------")
 		log.Print("Infra Pods Trend Violations current vs baseline deviation\n", podTrendString)
 		log.Println("-----------------------------------------------------------------------------")
+		Expect(podTrendString).To(BeEmpty())
 	case "cputrendos":
 		query := fmt.Sprintf("avg_over_time(%s[%s:30s]%s)", cpuOverheadStat, duration.String(), getOffset(timestamp))
 		osBreakdown, _ := rancpuhelper.ExecPromQuery(query, true)
@@ -506,6 +507,7 @@ func checkCPUTrend(duration time.Duration, endTime time.Time, workloadDuration s
 		log.Println("-----------------------------------------------------------------------------")
 		log.Print("Os Daemons Trend Violations current vs baseline deviation\n", osTrendString)
 		log.Println("-----------------------------------------------------------------------------")
+		Expect(osTrendString).To(BeEmpty())
 	}
 }
 
