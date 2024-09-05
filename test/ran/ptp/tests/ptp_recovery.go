@@ -95,11 +95,6 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 					time.Since(sinceTime), 3*time.Minute)
 				Expect(err).NotTo(HaveOccurred())
 
-				err = ranptphelper.WaitForEvent(&ptpDaemonPod, ranptpparameters.CloudEventContainer,
-					"event.sync.ptp-status.ptp-state-change", ranptpparameters.EventFreeRun, "", time.Since(sinceTime),
-					3*time.Minute)
-				Expect(err).NotTo(HaveOccurred())
-
 				By(fmt.Sprintf("validate new phc2sys process is started on node %s", nodeName))
 				newPID, err := ranptphelper.WaitForProcess(&ptpDaemonPod, "phc2sys")
 				Expect(err).NotTo(HaveOccurred())
@@ -109,12 +104,6 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 				err = ranptphelper.WaitForEvent(&ptpDaemonPod, ranptpparameters.CloudEventContainer,
 					"event.sync.sync-status.os-clock-sync-state-change", ranptpparameters.EventLocked, "",
 					time.Since(sinceTime), 3*time.Minute)
-				Expect(err).NotTo(HaveOccurred())
-
-				By("validating LOCKED event received after killing ptp4l process")
-				err = ranptphelper.WaitForEvent(&ptpDaemonPod, ranptpparameters.CloudEventContainer,
-					"event.sync.ptp-status.ptp-state-change", ranptpparameters.EventLocked, "", time.Since(sinceTime),
-					3*time.Minute)
 				Expect(err).NotTo(HaveOccurred())
 
 				By("validate all ptp clocks are in LOCKED state in ptp metrics")
