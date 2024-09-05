@@ -1,16 +1,16 @@
 package ranptpparameters
 
-import ptpoperatorv1 "github.com/openshift/ptp-operator/api/v1"
+import "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/schemes/ptp/ptpv1"
 
-var OriginalThresholdsValues map[string]*ptpoperatorv1.PtpClockThreshold
+var OriginalThresholdsValues map[string]*ptpv1.PtpClockThreshold
 
-var ModifiedThresholdsValues = ptpoperatorv1.PtpClockThreshold{
+var ModifiedThresholdsValues = ptpv1.PtpClockThreshold{
 	HoldOverTimeout:    120,
 	MaxOffsetThreshold: 1,
 	MinOffsetThreshold: -1,
 }
 
-var MlxThresholdsValues = ptpoperatorv1.PtpClockThreshold{
+var MlxThresholdsValues = ptpv1.PtpClockThreshold{
 	MaxOffsetThreshold: 200,
 	MinOffsetThreshold: -200,
 }

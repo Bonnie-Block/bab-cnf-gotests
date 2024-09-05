@@ -6,8 +6,8 @@ import (
 	"context"
 	"time"
 
-	v1 "github.com/openshift/ptp-operator/api/v1"
-	scheme "github.com/openshift/ptp-operator/pkg/client/clientset/versioned/scheme"
+	v1 "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/schemes/ptp/ptpv1"
+	scheme "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/schemes/ptp/ptpclient/scheme"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"

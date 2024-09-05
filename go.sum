@@ -2093,8 +2093,6 @@ github.com/openshift/machine-config-operator v0.0.0-20210317203040-17ef0905ea26 
 github.com/openshift/machine-config-operator v0.0.0-20210317203040-17ef0905ea26/go.mod h1:k6nPHwa38pFpZXG9uK279i9O8yXLSaRpPZakaAKOHu4=
 github.com/openshift/metallb-operator v0.0.0-20221021081446-400e85464d4a h1:P/TE3pFBDN+CUFK/eLD2Xy0PZSLbZxQIvL/KE/wjIiw=
 github.com/openshift/metallb-operator v0.0.0-20221021081446-400e85464d4a/go.mod h1:WPMbMzm6jBkeFdqOnK/N+Vu/yaRoZPm5ZSpZsXOojYo=
-github.com/openshift/ptp-operator v0.0.0-20230415000340-fcbdad1b1174 h1:m5rQih4UjAAECuptMyudysqDkTfRL2jC3Xp7tHaisZQ=
-github.com/openshift/ptp-operator v0.0.0-20230415000340-fcbdad1b1174/go.mod h1:REq+B9v9PANCGs5fgXet6H/7e4boCBLXpvGI01uT14w=
 github.com/openshift/runtime-utils v0.0.0-20200415173359-c45d4ff3f912/go.mod h1:0OXNy7VoqFexkxKqyQbHJLPwn1MFp1/CxRJAgKHM+/o=
 github.com/openshift/sriov-network-operator v0.0.0-20210105152551-211d8ee0992e h1:29r4hMOVoRxY5Ygt0I7wAEQPnE+/lnolDy2F3wWKpxs=
 github.com/openshift/sriov-network-operator v0.0.0-20210105152551-211d8ee0992e/go.mod h1:hoVXjFrXULuc1Ncb0RG0orcKIkTPQEM2z85nLu9tJbs=

@@ -1105,11 +1105,6 @@ github.com/openshift/machine-config-operator/pkg/generated/informers/externalver
 github.com/openshift/machine-config-operator/pkg/generated/informers/externalversions/machineconfiguration.openshift.io
 github.com/openshift/machine-config-operator/pkg/generated/informers/externalversions/machineconfiguration.openshift.io/v1
 github.com/openshift/machine-config-operator/pkg/generated/listers/machineconfiguration.openshift.io/v1
-# github.com/openshift/ptp-operator v0.0.0-20230415000340-fcbdad1b1174
-## explicit; go 1.18
-github.com/openshift/ptp-operator/api/v1
-github.com/openshift/ptp-operator/pkg/client/clientset/versioned/scheme
-github.com/openshift/ptp-operator/pkg/client/clientset/versioned/typed/ptp/v1
 # github.com/opentracing/opentracing-go v1.2.0
 ## explicit; go 1.14
 github.com/opentracing/opentracing-go

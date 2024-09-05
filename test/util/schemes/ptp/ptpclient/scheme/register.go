@@ -3,7 +3,7 @@
 package scheme
 
 import (
-	ptpv1 "github.com/openshift/ptp-operator/api/v1"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/schemes/ptp/ptpv1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"

@@ -27,12 +27,12 @@ require (
 	github.com/openshift/client-go v0.0.0-20220831193253-4950ae70c8ea
 	github.com/openshift/cluster-node-tuning-operator v0.0.0-20221212105308-07894f42e7dc
 	github.com/openshift/machine-config-operator v4.2.0-alpha.0.0.20190917115525-033375cbe820+incompatible
-	github.com/openshift/ptp-operator v0.0.0-20230415000340-fcbdad1b1174
 	github.com/opentracing/opentracing-go v1.2.0
 	github.com/operator-framework/api v0.17.6
 	github.com/operator-framework/operator-lifecycle-manager v3.11.0+incompatible
 	github.com/pkg/errors v0.9.1
 	github.com/redhat-cne/hw-event-proxy-operator v0.0.0-20220704173357-701293c0d4b5
+	github.com/sirupsen/logrus v1.9.3
 	github.com/smart-edge-open/sriov-fec-operator/sriov-fec v0.0.0-20220421094756-1803088bf003
 	github.com/stmcginnis/gofish v0.13.0
 	github.com/stolostron/klusterlet-addon-controller v0.0.0-20230125024035-c724f5abe19c
@@ -226,7 +226,6 @@ require (
 	github.com/russross/blackfriday v1.5.2 // indirect
 	github.com/seccomp/libseccomp-golang v0.9.2-0.20220502022130-f33da4d89646 // indirect
 	github.com/sergi/go-diff v1.1.0 // indirect
-	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/spf13/cobra v1.7.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/stefanberger/go-pkcs11uri v0.0.0-20201008174630-78d3cae3a980 // indirect

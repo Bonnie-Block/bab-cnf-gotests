@@ -1,12 +1,12 @@
 package ranptphelper
 
 import (
-	ptpv1api "github.com/openshift/ptp-operator/api/v1"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ptp/ranptpparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/schemes/ptp/ptpv1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/strings/slices"
@@ -20,7 +20,7 @@ import (
 
 // GetInterfaces returns ptp interfaces with specified role on given node.
 // the function returns only "master" or "slave" interfaces.
-func GetInterfaces(role ptpv1api.PtpRole, node corev1.Node) ([]string, error) {
+func GetInterfaces(role ptpv1.PtpRole, node corev1.Node) ([]string, error) {
 	var interfaces []string
 
 	configList, err := helper.Apiclient.PtpConfigs(parameters.PtpOperatorNamespace).List(context.Background(),
@@ -82,7 +82,7 @@ func SetInterfaceStatus(clientPod *corev1.Pod,
 
 // interfaceParser parses the interface section of a given pointer to configuration file, "config".
 // an error is returned if any accord.
-func interfaceParser(config ptpv1api.PtpConfig, node corev1.Node,
+func interfaceParser(config ptpv1.PtpConfig, node corev1.Node,
 	interfacesRoleMap map[string]ranptpparameters.RoleMap) (map[string]ranptpparameters.RoleMap, error) {
 	err := checkConfiguration(config)
 	if nil != err {
@@ -100,8 +100,8 @@ func interfaceParser(config ptpv1api.PtpConfig, node corev1.Node,
 }
 
 // GetPtpProfilesPerNode returns a map of ptp profile list for each node.
-func GetPtpProfilesPerNode(config ptpv1api.PtpConfig) (map[string][]ptpv1api.PtpProfile, error) {
-	var nodeProfileMap = map[string][]ptpv1api.PtpProfile{}
+func GetPtpProfilesPerNode(config ptpv1.PtpConfig) (map[string][]ptpv1.PtpProfile, error) {
+	var nodeProfileMap = map[string][]ptpv1.PtpProfile{}
 
 	nodeList, err := helper.Apiclient.Nodes().List(context.Background(), metav1.ListOptions{})
 	if err != nil {
@@ -109,10 +109,10 @@ func GetPtpProfilesPerNode(config ptpv1api.PtpConfig) (map[string][]ptpv1api.Ptp
 	}
 
 	for _, node := range nodeList.Items {
-		nodeProfileMap[node.Name] = []ptpv1api.PtpProfile{}
+		nodeProfileMap[node.Name] = []ptpv1.PtpProfile{}
 	}
 
-	var profileMap = map[string]ptpv1api.PtpProfile{}
+	var profileMap = map[string]ptpv1.PtpProfile{}
 	for _, profile := range config.Spec.Profile {
 		profileMap[*profile.Name] = profile
 	}
@@ -138,7 +138,7 @@ func GetPtpProfilesPerNode(config ptpv1api.PtpConfig) (map[string][]ptpv1api.Ptp
 	return nodeProfileMap, nil
 }
 
-func bcPtpProfileParser(profile ptpv1api.PtpProfile) map[string]ranptpparameters.RoleMap {
+func bcPtpProfileParser(profile ptpv1.PtpProfile) map[string]ranptpparameters.RoleMap {
 	ifaceRoleMap := make(map[string]ranptpparameters.RoleMap)
 
 	lines := strings.Split(*profile.Ptp4lConf, "\n")
@@ -164,7 +164,7 @@ func bcPtpProfileParser(profile ptpv1api.PtpProfile) map[string]ranptpparameters
 // 1) the given configuration, "config", has more than one profile.
 // 2) the PTP4l configuration is not exists in the profile.
 // 3) the PTP4l configuration is empty.
-func checkConfiguration(config ptpv1api.PtpConfig) error {
+func checkConfiguration(config ptpv1.PtpConfig) error {
 	if len(config.Spec.Profile) != 1 {
 		return fmt.Errorf("more than one or no profile detected for ptpconfig %s", config.ObjectMeta.Name)
 	}
@@ -209,7 +209,7 @@ func ContainsOcpInterface(interfaces []string) bool {
 func BuildProfileSlaveInterfaceMap(node corev1.Node) (map[string]string, error) {
 	profileSlaveIface := make(map[string]string)
 	// getting all slaves interfaces.
-	slaveIfaces, err := GetInterfaces(ptpv1api.Slave, node)
+	slaveIfaces, err := GetInterfaces(ptpv1.Slave, node)
 	if err != nil {
 		return nil, err
 	}
@@ -257,7 +257,7 @@ func BuildPtpProfileIfacesMap() (map[string][]string, error) {
 }
 
 // getIfaceRoleMap greats a profile name to interface role map.
-func getIfaceRoleMap(ptpProfileList []ptpv1api.PtpProfile,
+func getIfaceRoleMap(ptpProfileList []ptpv1.PtpProfile,
 	interfacesRoleMap map[string]ranptpparameters.RoleMap) map[string]ranptpparameters.RoleMap {
 	for _, ptpProfile := range ptpProfileList {
 		if IsOrdinaryClockProfile(ptpProfile) {
@@ -289,8 +289,8 @@ func getIfaceRoleMap(ptpProfileList []ptpv1api.PtpProfile,
 }
 
 // BuildProfileNameConfigMap creates a ptpProfile name to ptpConfig map.
-func BuildProfileNameConfigMap() (map[string]ptpv1api.PtpConfig, error) {
-	profileNameConfigMap := make(map[string]ptpv1api.PtpConfig)
+func BuildProfileNameConfigMap() (map[string]ptpv1.PtpConfig, error) {
+	profileNameConfigMap := make(map[string]ptpv1.PtpConfig)
 
 	ptpConfigList, err := helper.Apiclient.PtpConfigs(parameters.PtpOperatorNamespace).List(context.Background(),
 		metav1.ListOptions{})
