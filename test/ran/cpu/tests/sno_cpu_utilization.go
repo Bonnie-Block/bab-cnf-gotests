@@ -396,7 +396,7 @@ func parseTag(tag map[string]string) (string, string) {
 // getPodName function parses out the random string at the end of podname.
 func getPodName(pod string) string {
 
-	re := regexp.MustCompile(`-[a-f0-9]{8,10}-[a-z0-9]{5}\z`)
+	re := regexp.MustCompile(`-[a-f0-9]{7,10}-[a-z0-9]{5}\z`)
 	pod = re.ReplaceAllString(pod, "-")
 	re = regexp.MustCompile(`-[a-z0-9]{5}\z`)
 	pod = re.ReplaceAllString(pod, "-")
@@ -643,5 +643,6 @@ func checkContainerTrend(containerCountBreakdown []rancpuparameters.PromMetric, 
 			violationsString += fmt.Sprintf("%s_%s : missing\n", namespace, pod)
 		}
 	}
-	Expect(violationsString).To(BeEmpty())
+	Expect(violationsString).To(BeEmpty(),
+		"The following pods have changed or were not present in the previous baseline "+violationsString)
 }
