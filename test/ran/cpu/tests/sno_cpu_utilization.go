@@ -47,8 +47,10 @@ var _ = Describe("SNO core reduction", func() {
 	baselineVersion := os.Getenv(ran.BaselineVersion)
 	trendTimeframe, _ := strconv.Atoi(rancpuhelper.GetEnv(ran.TrendTimeframe, "4"))
 	trendThreshold, _ := strconv.ParseFloat(rancpuhelper.GetEnv(ran.TrendThreshold, "50"), 64)
+	workloadDuration := rancpuhelper.GetEnv(ran.EnvWorkloadDuration, "1h")
 	log.Println("Baseline run:", baseline, "Baseline version:", baselineVersion,
-		"Trend Timeframe:", trendTimeframe, "Trend Threshold:", trendThreshold)
+		"Trend Timeframe:", trendTimeframe, "Trend Threshold:", trendThreshold,
+		"Workload Duration:", workloadDuration)
 	execute.BeforeAll(func() {
 		isSNO, _ = nodes.IsSingleNodeCluster(helper.Apiclient)
 		perfProfile, _ = rancpuhelper.GetPerformanceProfileWithCPUSet(nil)
@@ -88,7 +90,7 @@ var _ = Describe("SNO core reduction", func() {
 	})
 	Context("Pre-test Pod/Container counts in idle state", func() {
 		It("should not deviate from baseline", func() {
-			checkContainerCounts("idle", !baseline, trendTimeframe)
+			checkContainerCounts("idle", !baseline, trendTimeframe, baselineVersion, workloadDuration)
 		})
 	})
 	Context("Management CPU utilization in idle state", func() {
@@ -105,7 +107,7 @@ var _ = Describe("SNO core reduction", func() {
 	Context("Kube API Server utilization in idle state", func() {
 		It("grouped by resource,verb,namespace", func() {
 			endTime := time.Now().UTC()
-			checkAPIUsage(idleDuration, endTime, "idle", !baseline, trendTimeframe)
+			checkAPIUsage(idleDuration, endTime, "idle", !baseline, trendTimeframe, baselineVersion, workloadDuration)
 
 		})
 	})
@@ -215,7 +217,6 @@ var _ = Describe("SNO core reduction", func() {
 			})
 		})
 
-		workloadDuration := rancpuhelper.GetEnv(ran.EnvWorkloadDuration, "8h")
 		Context(fmt.Sprintf("with workload running for %s", workloadDuration), func() {
 			// 40810
 			It(fmt.Sprintf("should use less than %d core(s)", ran.SnoMgmtCoreLimit), polarion.ID("40810"), func() {
@@ -470,7 +471,7 @@ func checkCPUTrend(duration time.Duration, endTime time.Time, workloadDuration s
 					log.Printf("%f %% devation for current: %f vs baseline: %f", deviation, currentValue, historicValue)
 				}
 			} else {
-				log.Println("[Fail] unknown component not in baseline", pod)
+				log.Printf("[Skip] Unknown component %s not in baseline \n", pod)
 			}
 		}
 
@@ -484,35 +485,48 @@ func checkCPUTrend(duration time.Duration, endTime time.Time, workloadDuration s
 
 		log.Println("Infra Pods Trend Test")
 
-		podBaseline, _ := rancpuhelper.GetCPUBaseline(rancpuparameters.PodTrendQuery, baselineVersion,
+		podBaseline, err := rancpuhelper.GetCPUBaseline(rancpuparameters.PodTrendQuery, baselineVersion,
 			workloadDuration, trendTimeframe, "namespace")
+
+		if err != nil {
+			Skip("No baseline for node found in RAN Metrics")
+		}
 
 		var podTrendString = getBreakdown(podBreakdown, podBaseline, "namespace", "pod")
 
 		log.Println("-----------------------------------------------------------------------------")
 		log.Print("Infra Pods Trend Violations current vs baseline deviation\n", podTrendString)
 		log.Println("-----------------------------------------------------------------------------")
-		Expect(podTrendString).To(BeEmpty())
+		Expect(podTrendString).To(BeEmpty(),
+			fmt.Sprintf("The following openshift pods with usage more than %dmc violated threshold increase of %d percent",
+				int(millicoreThreshold), int(trendThreshold)))
 	case "cputrendos":
 		query := fmt.Sprintf("avg_over_time(%s[%s:30s]%s)", cpuOverheadStat, duration.String(), getOffset(timestamp))
 		osBreakdown, _ := rancpuhelper.ExecPromQuery(query, true)
 
 		log.Println("Os Daemons Trend Test")
 
-		osBaseline, _ := rancpuhelper.GetCPUBaseline(rancpuparameters.OsTrendQuery, baselineVersion,
+		osBaseline, err := rancpuhelper.GetCPUBaseline(rancpuparameters.OsTrendQuery, baselineVersion,
 			workloadDuration, trendTimeframe, "groupname")
+
+		if err != nil {
+			Skip("No baseline found for node in RAN Metrics")
+		}
 
 		var osTrendString = getBreakdown(osBreakdown, osBaseline, "groupname", "daemon")
 
 		log.Println("-----------------------------------------------------------------------------")
 		log.Print("Os Daemons Trend Violations current vs baseline deviation\n", osTrendString)
 		log.Println("-----------------------------------------------------------------------------")
-		Expect(osTrendString).To(BeEmpty())
+		Expect(osTrendString).To(BeEmpty(),
+			fmt.Sprintf("The following os daemons with usage more than %dmc violated threshold increase of %d percent",
+				int(millicoreThreshold), int(trendThreshold)))
 	}
 }
 
 // Check Kube-api-server usage during idle phase.
-func checkAPIUsage(duration time.Duration, startTime time.Time, scenario string, checkTrend bool, trendTimeframe int) {
+func checkAPIUsage(duration time.Duration, startTime time.Time, scenario string,
+	checkTrend bool, trendTimeframe int, baselineVersion string, workloadDuration string) {
 	timestamp := startTime
 	// ApiServer total over the duration.
 	query := fmt.Sprintf(rancpuparameters.APITotalQuery, duration.String(), getOffset(timestamp))
@@ -531,16 +545,21 @@ func checkAPIUsage(duration time.Duration, startTime time.Time, scenario string,
 	sortAndWriteToReport(rancpuparameters.RanAPIServerTotal, apiServerTotalBreakdown, "max", scenario)
 
 	if checkTrend {
-		checkAPITrend(apiServerTotalBreakdown, rancpuparameters.APITotalTrendQuery, trendTimeframe)
+		checkAPITrend(apiServerTotalBreakdown, rancpuparameters.APITotalTrendQuery,
+			trendTimeframe, baselineVersion, workloadDuration)
 	}
 }
 
 // Check Kube-api-server usage against known baseline data for deviations.
-func checkAPITrend(apiResults []rancpuparameters.PromMetric, query string, trendTimeframe int) {
+func checkAPITrend(apiResults []rancpuparameters.PromMetric, query string,
+	trendTimeframe int, baselineVersion string, workloadDuration string) {
 	log.Println("Baseline comparison for API Server")
 
-	baseline := rancpuhelper.GetAPIBaseline(query, trendTimeframe)
+	baseline, err := rancpuhelper.GetAPIBaseline(query, trendTimeframe, baselineVersion, workloadDuration)
 
+	if err != nil {
+		Skip("No baseline found for node in RAN Metrics")
+	}
 	for _, metric := range apiResults {
 		namespace := metric.Metric["namespace"]
 		pod := metric.Metric["pod"]
@@ -567,7 +586,8 @@ func checkAPITrend(apiResults []rancpuparameters.PromMetric, query string, trend
 }
 
 // Check pod/container counts.
-func checkContainerCounts(scenario string, checkTrend bool, trendTimeframe int) {
+func checkContainerCounts(scenario string, checkTrend bool, trendTimeframe int,
+	baselineVersion string, workloadDuration string) {
 	var node *corev1.Node
 	node, _ = ranhelper.GetWorker(true)
 	nodeName := strings.SplitN(node.Name, ".", 2)[0]
@@ -581,7 +601,8 @@ func checkContainerCounts(scenario string, checkTrend bool, trendTimeframe int) 
 		containerCountBreakdown, err := rancpuhelper.ExecPromQuery(rancpuparameters.ContainerCountBreakdownQuery, false)
 		if err == nil {
 			if checkTrend {
-				containerCountTrend := fmt.Sprintf(rancpuparameters.ContainerCountTrendQuery, nodeName, trendTimeframe)
+				containerCountTrend := fmt.Sprintf(rancpuparameters.ContainerCountTrendQuery, nodeName,
+					baselineVersion, workloadDuration, trendTimeframe)
 				log.Printf("Getting total container count from ran metrics baseline")
 				ranmetricsResponse, _ := rancpuhelper.ExecPromQueryRanMetrics(containerCountTrend, false)
 
@@ -591,7 +612,8 @@ func checkContainerCounts(scenario string, checkTrend bool, trendTimeframe int) 
 					if containerCount > containerCountBaseline {
 						log.Printf("[Trend Violated] Container counts increased from %f to %f \n", containerCountBaseline, containerCount)
 						log.Println("Comparing all Openshift namespaces against baseline")
-						checkContainerTrend(containerCountBreakdown, rancpuparameters.ContainerCountBreakdownTrendQuery, trendTimeframe)
+						checkContainerTrend(containerCountBreakdown, rancpuparameters.ContainerCountBreakdownTrendQuery,
+							trendTimeframe, baselineVersion, workloadDuration)
 					} else {
 						log.Printf("[Trend Observed] Container counts baseline met %f to %f \n", containerCountBaseline, containerCount)
 					}
@@ -612,10 +634,14 @@ func checkContainerCounts(scenario string, checkTrend bool, trendTimeframe int) 
 
 }
 
-func checkContainerTrend(containerCountBreakdown []rancpuparameters.PromMetric, query string, trendTimeframe int) {
+func checkContainerTrend(containerCountBreakdown []rancpuparameters.PromMetric, query string,
+	trendTimeframe int, baselineVersion string, workloadDuration string) {
 	log.Println("Comparing (namespace,pod) container count breakdown against RAN metrics baseline")
 
-	baseline := rancpuhelper.GetPodCountBaseline(query, trendTimeframe)
+	baseline, err := rancpuhelper.GetPodCountBaseline(query, trendTimeframe, baselineVersion, workloadDuration)
+	if err != nil {
+		Skip("No baseline found for node in RAN Metrics")
+	}
 	var violationsString = ""
 	for _, metric := range containerCountBreakdown {
 		namespace := metric.Metric["namespace"]
@@ -644,5 +670,5 @@ func checkContainerTrend(containerCountBreakdown []rancpuparameters.PromMetric, 
 		}
 	}
 	Expect(violationsString).To(BeEmpty(),
-		"The following pods have changed or were not present in the previous baseline "+violationsString)
+		"The following pods have changed or were not present in the previous baseline")
 }

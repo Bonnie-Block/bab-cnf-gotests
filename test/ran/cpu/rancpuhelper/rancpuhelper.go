@@ -336,13 +336,14 @@ func GetCPUBaseline(baselinequery string, baselineVersion string, workloadDurati
 }
 
 // This functions accepts apibaseline data query and returns a map with baseline value for [namespace][pod][verb].
-func GetAPIBaseline(baselinequery string, trendTimeframe int) map[string]map[string]map[string][]interface{} {
+func GetAPIBaseline(baselinequery string, trendTimeframe int,
+	baselineVersion string, workloadDuration string) (map[string]map[string]map[string][]interface{}, error) {
 	var node *corev1.Node
 	node, _ = ranhelper.GetWorker(true)
 
 	nodeName := strings.SplitN(node.Name, ".", 2)[0]
 
-	formattedQuery := fmt.Sprintf(baselinequery, nodeName, trendTimeframe)
+	formattedQuery := fmt.Sprintf(baselinequery, nodeName, baselineVersion, workloadDuration, trendTimeframe)
 
 	response, _ := ExecPromQueryRanMetrics(formattedQuery, false)
 
@@ -369,9 +370,12 @@ func GetAPIBaseline(baselinequery string, trendTimeframe int) map[string]map[str
 
 			baseline[namespace][pod][verb] = metric.Value
 		}
+
+		return baseline, nil
 	}
 
-	return baseline
+	return baseline, fmt.Errorf("no baseline data for api-server rate")
+
 }
 
 func ExecKubeBurnerTemplate(workloadDir string, template string) ([]byte, error) {
@@ -384,12 +388,13 @@ func ExecKubeBurnerTemplate(workloadDir string, template string) ([]byte, error)
 
 }
 
-func GetPodCountBaseline(baselinequery string, trendTimeframe int) map[string]map[string][]interface{} {
+func GetPodCountBaseline(baselinequery string, trendTimeframe int,
+	baselineVersion string, workloadDuration string) (map[string]map[string][]interface{}, error) {
 	var node *corev1.Node
 	node, _ = ranhelper.GetWorker(true)
 
 	nodeName := strings.SplitN(node.Name, ".", 2)[0]
-	formattedQuery := fmt.Sprintf(baselinequery, nodeName, trendTimeframe)
+	formattedQuery := fmt.Sprintf(baselinequery, nodeName, baselineVersion, workloadDuration, trendTimeframe)
 	response, _ := ExecPromQueryRanMetrics(formattedQuery, false)
 	baseline := make(map[string]map[string][]interface{})
 
@@ -403,7 +408,10 @@ func GetPodCountBaseline(baselinequery string, trendTimeframe int) map[string]ma
 
 			baseline[namespace][pod] = metric.Value
 		}
+
+		return baseline, nil
 	}
 
-	return baseline
+	return baseline, fmt.Errorf("no baseline data for container counts")
+
 }

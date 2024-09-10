@@ -59,17 +59,18 @@ const (
 	// Prom query statistic representation for infra pods. Assuming only oslat and stress-ng user pods are running.
 	CPUInfraPodsStat = "pod:container_cpu_usage:sum{pod!~\"process-exp.*\",pod!~\"oslat.*\",pod!~\"stress.*\"," +
 		"pod!~\"cnfgotestpriv.*\",namespace!~\"workload\"}"
-	OsTrendQuery = `avg by (groupname, pod)
+	OsTrendQuery = `max without (sw_version)
 	(last_over_time(ranmetrics_cpu_os_daemon_steadyworkload_avg{cluster='%s',
-	baseline='true', sw_version=~'%s', duration='%s'}[%dw]))`
-	PodTrendQuery = `avg by (namespace, pod)
+	baseline='true', sw_version=~'%s', duration='%s', formal_test='true'}[%dw]))`
+	PodTrendQuery = `max without (sw_version)
 	(last_over_time(ranmetrics_cpu_infra_pods_steadyworkload_avg{cluster='%s',
-	baseline='true', sw_version=~'%s', duration='%s'}[%dw]))`
+	baseline='true', sw_version=~'%s', duration='%s', formal_test='true'}[%dw]))`
 	// Prom query statistic representation for api requests of services.
-	APITotalQuery = `avg by (namespace, pod, verb) 
+	APITotalQuery = `max by (namespace, pod, verb) 
 	(avg_over_time(apiserver_request_total{}[%s]%s))`
-	APITotalTrendQuery = `avg by (namespace, pod, verb) 
-	(last_over_time(ranmetrics_apiserver_total_idle_max{cluster='%s',baseline='true'}[%dw]))`
+	APITotalTrendQuery = `max without (sw_version) 
+	(last_over_time(ranmetrics_apiserver_total_idle_max{cluster='%s', baseline='true',
+	sw_version=~'%s', duration='%s', formal_test='true'}[%dw]))`
 	// Prom query statistic representation of running pod count in the system.
 	ContainerCountQuery = `sum(kube_pod_container_info{pod!~"cnfgotestpriv.*", 
 	pod!~"process-exp.*", namespace!~"workload"} * on(namespace, pod) 
@@ -77,8 +78,10 @@ const (
 	ContainerCountBreakdownQuery = `count by (namespace, pod) (kube_pod_container_info{pod!~"cnfgotestpriv.*", 
 	pod!~"process-exp.*", namespace!~"workload"} * on(namespace, pod) 
 	group_left() kube_pod_status_phase{phase="Running"} == 1)`
-	ContainerCountTrendQuery = `last_over_time(ranmetrics_container_count_idle_total{cluster='%s',
-	baseline='true'}[%dw])`
-	ContainerCountBreakdownTrendQuery = `last_over_time(ranmetrics_container_count_breakdown_idle_total{cluster='%s',
-	baseline='true'}[%dw])`
+	ContainerCountTrendQuery = `max without (sw_version)
+	(last_over_time(ranmetrics_container_count_idle_total{cluster='%s', baseline='true',
+	sw_version=~'%s', duration='%s', formal_test='true'}[%dw]))`
+	ContainerCountBreakdownTrendQuery = `max without (sw_version)
+	(last_over_time(ranmetrics_container_count_breakdown_idle_total{cluster='%s', baseline='true',
+	sw_version=~'%s', duration='%s', formal_test='true'}[%dw]))`
 )
