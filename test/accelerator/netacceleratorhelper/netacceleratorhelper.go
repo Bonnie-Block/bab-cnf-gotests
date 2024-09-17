@@ -32,7 +32,7 @@ const (
 	AcceleratorDiscoveryDaemonset = "accelerator-discovery"
 	SriovDevicePlugin             = "sriov-device-plugin"
 	SriovFecDaemonset             = "sriov-fec-daemonset"
-	PerformanceProfileName        = "performance"
+	PerformanceProfileName        = "performance-profile-dpdk"
 )
 
 // InstallSriovFecClusterNodeConfig creates a new SriovFecClusterConfig and waits for the cluster to become stable.
