@@ -46,11 +46,13 @@ var _ = Describe("SNO core reduction", func() {
 	baseline, _ := strconv.ParseBool(rancpuhelper.GetEnv(ran.Baseline, "false"))
 	baselineVersion := os.Getenv(ran.BaselineVersion)
 	trendTimeframe, _ := strconv.Atoi(rancpuhelper.GetEnv(ran.TrendTimeframe, "4"))
-	trendThreshold, _ := strconv.ParseFloat(rancpuhelper.GetEnv(ran.TrendThreshold, "50"), 64)
+	trendThreshold, _ := strconv.ParseFloat(rancpuhelper.GetEnv(ran.TrendThreshold, "20"), 64)
 	workloadDuration := rancpuhelper.GetEnv(ran.EnvWorkloadDuration, "1h")
+	millicoreThreshold, _ := strconv.ParseFloat(rancpuhelper.GetEnv(ran.MillicoreThreshold, "10"), 64)
+	trendAPIThreshold, _ := strconv.ParseFloat(rancpuhelper.GetEnv(ran.TrendAPIThreshold, "50"), 64)
 	log.Println("Baseline run:", baseline, "Baseline version:", baselineVersion,
 		"Trend Timeframe:", trendTimeframe, "Trend Threshold:", trendThreshold,
-		"Workload Duration:", workloadDuration)
+		"Millicore Threshold:", millicoreThreshold, "Workload Duration:", workloadDuration)
 	execute.BeforeAll(func() {
 		isSNO, _ = nodes.IsSingleNodeCluster(helper.Apiclient)
 		perfProfile, _ = rancpuhelper.GetPerformanceProfileWithCPUSet(nil)
@@ -107,7 +109,8 @@ var _ = Describe("SNO core reduction", func() {
 	Context("Kube API Server utilization in idle state", func() {
 		It("grouped by resource,verb,namespace", func() {
 			endTime := time.Now().UTC()
-			checkAPIUsage(idleDuration, endTime, "idle", !baseline, trendTimeframe, baselineVersion, workloadDuration)
+			checkAPIUsage(idleDuration, endTime, "idle", !baseline,
+				trendTimeframe, baselineVersion, workloadDuration, trendAPIThreshold)
 
 		})
 	})
@@ -230,8 +233,6 @@ var _ = Describe("SNO core reduction", func() {
 			})
 		})
 
-		millicoreThreshold, _ := strconv.ParseFloat(rancpuhelper.GetEnv(ran.MillicoreThreshold, "10"), 64)
-		log.Println("Minimum Millicore usage Threshold:", millicoreThreshold)
 		Context("with Trend Test for Infra Pods CPU Usage", func() {
 			// Polarion ID??
 			It(fmt.Sprintf("should not deviate from trend by %f", trendThreshold), func() {
@@ -461,13 +462,13 @@ func checkCPUTrend(duration time.Duration, endTime time.Time, workloadDuration s
 				deviation := ((currentValue - historicValue) / historicValue) * 100
 
 				if deviation > trendThreshold && (currentValue*1000) >= millicoreThreshold {
-					log.Println("[Fail] Threshold deviated for ", groupname, "_", pod)
+					log.Println("[Trend Violated] cpu mc threshold deviated for ", groupname, "_", pod)
 					log.Printf("%f %% devation for current: %f vs baseline: %f", deviation, currentValue, historicValue)
 					trendString = trendString + groupname + " _ " + pod + "-> current: " +
 						strconv.FormatFloat(currentValue, 'f', 7, 64) + " baseline: " + strconv.FormatFloat(historicValue, 'f', 7, 64) +
 						" deviation: " + strconv.FormatFloat(deviation, 'f', 2, 64) + "%\n"
 				} else {
-					log.Println("[Pass] Atleast one threshold observed for ", groupname, "_", pod)
+					log.Println("[Trend Observed] cpu mc threshold observed for ", groupname, "_", pod)
 					log.Printf("%f %% devation for current: %f vs baseline: %f", deviation, currentValue, historicValue)
 				}
 			} else {
@@ -526,13 +527,13 @@ func checkCPUTrend(duration time.Duration, endTime time.Time, workloadDuration s
 
 // Check Kube-api-server usage during idle phase.
 func checkAPIUsage(duration time.Duration, startTime time.Time, scenario string,
-	checkTrend bool, trendTimeframe int, baselineVersion string, workloadDuration string) {
+	checkTrend bool, trendTimeframe int, baselineVersion string, workloadDuration string, trendThreshold float64) {
 	timestamp := startTime
 	// ApiServer total over the duration.
-	query := fmt.Sprintf(rancpuparameters.APITotalQuery, duration.String(), getOffset(timestamp))
-	apiServerTotalBreakdown, err := rancpuhelper.ExecPromQuery(query, false)
+	query := fmt.Sprintf(rancpuparameters.APIRateQuery, duration.String(), getOffset(timestamp))
+	apiServerRateBreakdown, err := rancpuhelper.ExecPromQuery(query, true)
 
-	for _, metric := range apiServerTotalBreakdown {
+	for _, metric := range apiServerRateBreakdown {
 		if metric.Metric["namespace"] == "default" {
 			metric.Metric["pod"] = "default"
 		}
@@ -542,17 +543,17 @@ func checkAPIUsage(duration time.Duration, startTime time.Time, scenario string,
 		log.Println(err)
 	}
 
-	sortAndWriteToReport(rancpuparameters.RanAPIServerTotal, apiServerTotalBreakdown, "max", scenario)
+	sortAndWriteToReport(rancpuparameters.RanAPIServerRate, apiServerRateBreakdown, "avg", scenario)
 
 	if checkTrend {
-		checkAPITrend(apiServerTotalBreakdown, rancpuparameters.APITotalTrendQuery,
-			trendTimeframe, baselineVersion, workloadDuration)
+		checkAPITrend(apiServerRateBreakdown, rancpuparameters.APIRateTrendQuery,
+			trendTimeframe, baselineVersion, workloadDuration, trendThreshold)
 	}
 }
 
 // Check Kube-api-server usage against known baseline data for deviations.
 func checkAPITrend(apiResults []rancpuparameters.PromMetric, query string,
-	trendTimeframe int, baselineVersion string, workloadDuration string) {
+	trendTimeframe int, baselineVersion string, workloadDuration string, trendThreshold float64) {
 	log.Println("Baseline comparison for API Server")
 
 	baseline, err := rancpuhelper.GetAPIBaseline(query, trendTimeframe, baselineVersion, workloadDuration)
@@ -560,6 +561,7 @@ func checkAPITrend(apiResults []rancpuparameters.PromMetric, query string,
 	if err != nil {
 		Skip("No baseline found for node in RAN Metrics")
 	}
+	var violationsString = ""
 	for _, metric := range apiResults {
 		namespace := metric.Metric["namespace"]
 		pod := metric.Metric["pod"]
@@ -571,10 +573,14 @@ func checkAPITrend(apiResults []rancpuparameters.PromMetric, query string,
 			historicValue, err2 := strconv.ParseFloat(baseline[namespace][pod][verb][1].(string), 64)
 
 			if err1 == nil && err2 == nil {
-				if currentValue > historicValue {
-					log.Println("[Trend Violated]", namespace, pod, verb, "baseline", historicValue, "current", currentValue)
+				rateIncrease := ((currentValue - historicValue) / currentValue) * 100
+				if rateIncrease > trendThreshold {
+					log.Println("[Trend Violated]", namespace, pod, verb, "baseline", historicValue,
+						"current", currentValue, "->", rateIncrease, "%")
+					violationsString += fmt.Sprintf("%s _ %s _ %s : increased by %.3f percent \n", namespace, pod, verb, rateIncrease)
 				} else {
-					log.Println("[Trend Observed]", namespace, pod, verb, "baseline", historicValue, "current", currentValue)
+					log.Println("[Trend Observed]", namespace, pod, verb, "baseline", historicValue,
+						"current", currentValue, "->", rateIncrease, "%")
 				}
 			} else {
 				log.Println("[Parsing error]", namespace, pod, verb)
@@ -583,6 +589,8 @@ func checkAPITrend(apiResults []rancpuparameters.PromMetric, query string,
 			log.Println("[Baseline unknown]", namespace, pod, verb)
 		}
 	}
+	Expect(violationsString).To(BeEmpty(),
+		fmt.Sprintf("The following apiserver/verbs violated threshold increase of %d percent", int(trendThreshold)))
 }
 
 // Check pod/container counts.
@@ -656,7 +664,7 @@ func checkContainerTrend(containerCountBreakdown []rancpuparameters.PromMetric, 
 			if err1 == nil && err2 == nil {
 				if currentValue > historicValue {
 					log.Println("[Trend Violated]", namespace, "baseline", historicValue, "current", currentValue)
-					violationsString += fmt.Sprintf("%s_%s : %f\n", metric.Metric["namespace"], metric.Metric["pod"], metric.Value)
+					violationsString += fmt.Sprintf("%s _ %s : %f\n", namespace, pod, metric.Value)
 				} else {
 					log.Println("[Trend Observed]", namespace, "baseline", historicValue, "current", currentValue)
 				}
@@ -666,7 +674,7 @@ func checkContainerTrend(containerCountBreakdown []rancpuparameters.PromMetric, 
 
 		} else {
 			log.Println("[Trend Violated] No baseline found for unexpected containers", namespace, pod)
-			violationsString += fmt.Sprintf("%s_%s : missing\n", namespace, pod)
+			violationsString += fmt.Sprintf("%s _ %s : missing\n", namespace, pod)
 		}
 	}
 	Expect(violationsString).To(BeEmpty(),

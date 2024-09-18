@@ -8,6 +8,7 @@ const (
 	BaselineVersion           = "BASELINE_VERSION"
 	TrendTimeframe            = "TREND_TIMEFRAME"
 	TrendThreshold            = "TREND_THRESHOLD"
+	TrendAPIThreshold         = "TREND_API_THRESHOLD"
 	MillicoreThreshold        = "MILLICORE_THRESHOLD"
 	PrometheusURL             = "PROMETHEUS_URL"
 )

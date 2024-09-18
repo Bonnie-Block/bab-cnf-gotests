@@ -26,7 +26,6 @@ const (
 	RanCPUMetricInfraPods      = "ranmetrics_cpu_infra_pods"
 	RanCPUMetricTotal          = "ranmetrics_cpu_total"
 	RanAPIServerRate           = "ranmetrics_apiserver_rate"
-	RanAPIServerTotal          = "ranmetrics_apiserver_total"
 	RanContainerCount          = "ranmetrics_container_count"
 	RanContainerCountBreakdown = "ranmetrics_container_count_breakdown"
 )
@@ -66,10 +65,9 @@ const (
 	(last_over_time(ranmetrics_cpu_infra_pods_steadyworkload_avg{cluster='%s',
 	baseline='true', sw_version=~'%s', duration='%s', formal_test='true'}[%dw]))`
 	// Prom query statistic representation for api requests of services.
-	APITotalQuery = `max by (namespace, pod, verb) 
-	(avg_over_time(apiserver_request_total{}[%s]%s))`
-	APITotalTrendQuery = `max without (sw_version) 
-	(last_over_time(ranmetrics_apiserver_total_idle_max{cluster='%s', baseline='true',
+	APIRateQuery      = `sum by(namespace,pod, verb) (rate(apiserver_request_total{}[%s]%s))`
+	APIRateTrendQuery = `max without (sw_version) 
+	(last_over_time(ranmetrics_apiserver_rate_idle_avg{cluster='%s', baseline='true',
 	sw_version=~'%s', duration='%s', formal_test='true'}[%dw]))`
 	// Prom query statistic representation of running pod count in the system.
 	ContainerCountQuery = `sum(kube_pod_container_info{pod!~"cnfgotestpriv.*", 
