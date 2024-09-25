@@ -31,6 +31,7 @@ import (
 const (
 	cpuOverheadStat       = rancpuparameters.CPUOverheadStat
 	cpuInfraPodsStat      = rancpuparameters.CPUInfraPodsStat
+	memInfraPodsStat      = rancpuparameters.MemInfraPodsStat
 	testCountWithWorkload = 6
 	idleDuration          = 10 * time.Minute
 )
@@ -307,6 +308,15 @@ func checkCPUUsage(duration time.Duration, endTime time.Time, mgmtCPULimit int, 
 	fmt.Fprintf(GinkgoWriter, "%s_%s_%s: %.7F\n", rancpuparameters.RanCPUMetricOsDaemon, scenario, "max", resOS)
 	fmt.Fprintf(GinkgoWriter, "%s_%s_%s: %.7F\n", rancpuparameters.RanCPUMetricInfraPods, scenario, "max", resPods)
 
+	query = fmt.Sprintf("max_over_time(sum(%s)[%s:30s]%s)", memInfraPodsStat, duration.String(), getOffset(timestamp))
+	podMemResult, err := rancpuhelper.ExecPromQuery(query, true)
+	Expect(err).ShouldNot(HaveOccurred())
+
+	podMemUsage := podMemResult[0].Value[1]
+	resPodsMem, err := strconv.ParseFloat(reflect.ValueOf(podMemUsage).String(), 64)
+	Expect(err).ToNot(HaveOccurred())
+	log.Printf("Mgmt Mem usage for the last %s - mgmt pods %f mb", duration.String(), resPodsMem/1000000)
+	fmt.Fprintf(GinkgoWriter, "%s_%s_%s: %.7F\n", rancpuparameters.RanMemMetricTotal, scenario, "max", resPodsMem)
 	if scenario == "steadyworkload" {
 		log.Println("Query avg over time cpu usage for each infra pod")
 
@@ -321,6 +331,15 @@ func checkCPUUsage(duration time.Duration, endTime time.Time, mgmtCPULimit int, 
 		osBreakdown, err := rancpuhelper.ExecPromQuery(query, true)
 		Expect(err).ShouldNot(HaveOccurred())
 		sortAndWriteToReport(rancpuparameters.RanCPUMetricOsDaemon, osBreakdown, "avg", scenario)
+
+		log.Println("Query avg over time mem usage for each infra pod")
+
+		query = fmt.Sprintf("sum by (namespace,pod) (avg_over_time(%s[%s:30s]%s))",
+			memInfraPodsStat, duration.String(), getOffset(timestamp))
+		podMemBreakdown, err := rancpuhelper.ExecPromQuery(query, true)
+		Expect(err).ShouldNot(HaveOccurred())
+		sortAndWriteToReport(rancpuparameters.RanMemMetricInfraPods, podMemBreakdown, "avg", scenario)
+
 	}
 	// Defer the check until top 5 consumers were printed in case of failure.
 	defer Expect(resTotal).ToNot(BeNumerically(">", float64(mgmtCPULimit)))

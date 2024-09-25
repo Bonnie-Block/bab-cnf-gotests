@@ -28,6 +28,8 @@ const (
 	RanAPIServerRate           = "ranmetrics_apiserver_rate"
 	RanContainerCount          = "ranmetrics_container_count"
 	RanContainerCountBreakdown = "ranmetrics_container_count_breakdown"
+	RanMemMetricTotal          = "ranmetrics_mem_total"
+	RanMemMetricInfraPods      = "ranmetrics_mem_infra_pods"
 )
 
 type PromQueryResponse struct {
@@ -54,10 +56,13 @@ type PromQueryResponseRanMetrics struct {
 
 const (
 	// Prom query statistic representation for management cpu overhead.
-	CPUOverheadStat = "namedprocess_namegroup_cpu_rate{groupname!~\"conmon\"}"
-	// Prom query statistic representation for infra pods. Assuming only oslat and stress-ng user pods are running.
-	CPUInfraPodsStat = "pod:container_cpu_usage:sum{pod!~\"process-exp.*\",pod!~\"oslat.*\",pod!~\"stress.*\"," +
-		"pod!~\"cnfgotestpriv.*\",namespace!~\"workload\"}"
+	CPUOverheadStat = `namedprocess_namegroup_cpu_rate{groupname!~"conmon"}`
+	// Prom query statistic representation for infra pods. Assuming only workload pods are running.
+	CPUInfraPodsStat = `pod:container_cpu_usage:sum{pod!~"process-exp.*",pod!~"oslat.*",
+	pod!~"stress.*",pod!~"cnfgotestpriv.*",namespace!~"workload"}`
+	// Prom query memory statistic representation for infra pods. Assuming only workload pods are running.
+	MemInfraPodsStat = `container_memory_usage_bytes{pod!~"process-exp.*",pod!~"oslat.*",
+	pod!~"stress.*",pod!~"cnfgotestpriv.*",namespace!~"workload",namespace!~"",pod!~""}`
 	OsTrendQuery = `max without (sw_version)
 	(last_over_time(ranmetrics_cpu_os_daemon_steadyworkload_avg{cluster='%s',
 	baseline='true', sw_version=~'%s', duration='%s', formal_test='true'}[%dw]))`
