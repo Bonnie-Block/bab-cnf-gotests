@@ -150,8 +150,7 @@ var _ = Describe("MetalLB BGP", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			Eventually(func() bool {
-				return netmetallbhelper.CheckNeighborsStatus(masterNodeFRRPod, netparameters.IPV4Family,
-					workerNodesAdresses)
+				return netmetallbhelper.CheckNeighborsStatus(masterNodeFRRPod, workerNodesAdresses)
 			}, 1*time.Minute, netmlbparameters.Interval).Should(BeTrue())
 
 			By("should verify default BGP Peer timers")
@@ -206,8 +205,7 @@ var _ = Describe("MetalLB BGP", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			Eventually(func() bool {
-				return netmetallbhelper.CheckNeighborsStatus(masterNodeFRRPod, netparameters.IPV4Family,
-					workerNodesAdresses)
+				return netmetallbhelper.CheckNeighborsStatus(masterNodeFRRPod, workerNodesAdresses)
 			}, 1*time.Minute, netmlbparameters.Interval).Should(BeTrue())
 		})
 

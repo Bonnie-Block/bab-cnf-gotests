@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
-	"sort"
 	"strconv"
 	"strings"
 	"text/template"
@@ -103,16 +102,12 @@ func DefineFRRBGPConfigMap(ipAddresses []string, configMapName, ipStack string, 
 
 // CheckNeighborsStatus returns information for the all the neighbors in the given
 // executor.
-func CheckNeighborsStatus(frrPod *k8sv1.Pod, ipStack string, neighborsIPAddresses []string) bool {
+func CheckNeighborsStatus(frrPod *k8sv1.Pod, neighborsIPAddresses []string) bool {
 	neighborState, err := pod.ExecCommand(helper.Apiclient, *frrPod,
 		append(netmlbparameters.VtyshFRRCmdPrefix, "show ip bgp neighbor json"))
 	Expect(err).ToNot(HaveOccurred())
 
 	parseNeigh := parseNeighbors(neighborState.String())
-
-	sort.Slice(parseNeigh, func(i, j int) bool {
-		return (bytes.Compare(parseNeigh[i].IP, parseNeigh[j].IP) < 0)
-	})
 
 	workerNodeList, err := nodes.GetByRole(helper.Apiclient, parameters.RoleWorker)
 	Expect(err).ToNot(HaveOccurred())
@@ -122,77 +117,28 @@ func CheckNeighborsStatus(frrPod *k8sv1.Pod, ipStack string, neighborsIPAddresse
 		expectedNeighNumber = 2
 	}
 
-	switch ipStack {
-	case netparameters.IPV4Family:
-		if len(parseNeigh) != expectedNeighNumber {
-			fmt.Printf("Expected %d neighbours, got %d\n", expectedNeighNumber, len(parseNeigh))
+	parseNeighIPs := make(map[string]struct{})
+	for _, neighbor := range parseNeigh {
+		parseNeighIPs[neighbor.IP.String()] = struct{}{}
+	}
 
-			return false
-		}
+	expectedNeighIPs := make(map[string]struct{})
+	for _, ip := range neighborsIPAddresses {
+		expectedNeighIPs[ip] = struct{}{}
+	}
 
-		if !parseNeigh[0].IP.Equal(net.ParseIP(neighborsIPAddresses[0])) {
-			fmt.Printf("neighbour %s ip not matching\n", neighborsIPAddresses[0])
+	if len(parseNeigh) != expectedNeighNumber {
+		fmt.Printf("Expected %d neighbours, got %d\n", expectedNeighNumber, len(parseNeigh))
 
-			return false
-		}
-
-		if !parseNeigh[1].IP.Equal(net.ParseIP(neighborsIPAddresses[1])) {
-			fmt.Printf("neighbour %s ip not matching\n", neighborsIPAddresses[1])
-
-			return false
-		}
-
-	case netparameters.IPV6Family:
-		if len(parseNeigh) != expectedNeighNumber {
-			fmt.Printf("Expected %d neighbours, got %d\n", expectedNeighNumber, len(parseNeigh))
-
-			return false
-		}
-
-		if !parseNeigh[0].IP.Equal(net.ParseIP(neighborsIPAddresses[2])) {
-			fmt.Printf("neighbour %s ip not matching\n", neighborsIPAddresses[2])
-
-			return false
-		}
-
-		if !parseNeigh[1].IP.Equal(net.ParseIP(neighborsIPAddresses[3])) {
-			fmt.Printf("neighbour %s ip not matching\n", neighborsIPAddresses[3])
-
-			return false
-		}
-
-	case netparameters.DualIPFamily:
-		if len(parseNeigh) != expectedNeighNumber*2 {
-			fmt.Printf("Expected 4 IPv64neighbours, got %d\n", len(parseNeigh))
-
-			return false
-		}
-
-		if !parseNeigh[0].IP.Equal(net.ParseIP(neighborsIPAddresses[0])) {
-			fmt.Printf("neighbour %s ip not matching\n", neighborsIPAddresses[0])
-
-			return false
-		}
-
-		if !parseNeigh[1].IP.Equal(net.ParseIP(neighborsIPAddresses[1])) {
-			fmt.Printf("neighbour %s ip not matching\n", neighborsIPAddresses[1])
-
-			return false
-		}
-
-		if !parseNeigh[2].IP.Equal(net.ParseIP(neighborsIPAddresses[2])) {
-			fmt.Printf("neighbour %s ip not matching\n", neighborsIPAddresses[2])
-
-			return false
-		}
-
-		if !parseNeigh[3].IP.Equal(net.ParseIP(neighborsIPAddresses[3])) {
-			fmt.Printf("neighbour %s ip not matching\n", neighborsIPAddresses[3])
-
-			return false
-		}
-	default:
 		return false
+	}
+
+	for ip := range parseNeighIPs {
+		if _, exists := expectedNeighIPs[ip]; !exists {
+			fmt.Printf("Expected neighbor IP %s not found\n", ip)
+
+			return false
+		}
 	}
 
 	return true
@@ -247,6 +193,11 @@ func CheckBGPRoutesMultipleNodes(frrPod *k8sv1.Pod, neighborsIPAddresses, routeL
 		return err
 	}
 
+	expectedNeighIPs := make(map[string]struct{})
+	for _, ip := range neighborsIPAddresses {
+		expectedNeighIPs[ip] = struct{}{}
+	}
+
 	for _, route := range routeList {
 		ipRoutes, routePrefix := routes[route]
 
@@ -258,39 +209,19 @@ func CheckBGPRoutesMultipleNodes(frrPod *k8sv1.Pod, neighborsIPAddresses, routeL
 			return fmt.Errorf("advertised prefix %d is not equal to %d", prefixLen, ipRoutes.PrefixLen)
 		}
 
-		ips := make([]net.IP, 0)
-		ips = append(ips, ipRoutes.NextHops...)
-
-		if len(ips) < 2 {
-			return fmt.Errorf("BGP Neighbors is less than 2: %v", ips)
+		ipSet := make(map[string]struct{})
+		for _, ip := range ipRoutes.NextHops {
+			ipSet[ip.String()] = struct{}{}
 		}
 
-		sort.Slice(ips, func(i, j int) bool {
-			return (bytes.Compare(ips[i], ips[j]) < 0)
-		})
-
-		if iPFamily == netparameters.IPV4Family {
-			if !ips[0].Equal(net.ParseIP(neighborsIPAddresses[0])) {
-				return fmt.Errorf("neighbour %s ip not matching", neighborsIPAddresses[0])
-			}
-
-			if !ips[1].Equal(net.ParseIP(neighborsIPAddresses[1])) {
-				return fmt.Errorf("neighbour %s ip not matching", neighborsIPAddresses[1])
-			}
-		}
-
-		if iPFamily == netparameters.IPV6Family {
-			if !ips[0].Equal(net.ParseIP(neighborsIPAddresses[2])) {
-				return fmt.Errorf("neighbour %s ip not matching", neighborsIPAddresses[2])
-			}
-
-			if !ips[1].Equal(net.ParseIP(neighborsIPAddresses[3])) {
-				return fmt.Errorf("neighbour %s ip not matching", neighborsIPAddresses[3])
+		for ip := range ipSet {
+			if _, exists := expectedNeighIPs[ip]; !exists {
+				return fmt.Errorf("expected neighbor IP %s not found", ip)
 			}
 		}
 	}
 
-	return err
+	return nil
 }
 
 // CheckBGPRoutesSingleNode returns informations about routes in the external frr container from a single node.
@@ -302,12 +233,15 @@ func CheckBGPRoutesSingleNode(frrPod *k8sv1.Pod, neighborsIPAddresses, routeList
 	if err != nil {
 		return err
 	}
-
-	ips := make([]net.IP, 0)
 	err = checkRoutePrefix(routeList[0], neighborsIPAddresses[0], routes)
 
 	if err != nil {
 		return err
+	}
+
+	expectedNeighIPs := make(map[string]struct{})
+	for _, ip := range neighborsIPAddresses {
+		expectedNeighIPs[ip] = struct{}{}
 	}
 
 	for _, route := range routeList {
@@ -321,26 +255,19 @@ func CheckBGPRoutesSingleNode(frrPod *k8sv1.Pod, neighborsIPAddresses, routeList
 			return fmt.Errorf("advertised prefix %d is not equal to %d", prefixLen, ipRoutes.PrefixLen)
 		}
 
-		ips = append(ips, ipRoutes.NextHops...)
-
-		if iPFamily == netparameters.IPV4Family {
-			if !ips[0].Equal(net.ParseIP(neighborsIPAddresses[0])) {
-				return fmt.Errorf("neighbour %s ip not matching", neighborsIPAddresses[0])
-			}
+		ipSet := make(map[string]struct{})
+		for _, ip := range ipRoutes.NextHops {
+			ipSet[ip.String()] = struct{}{}
 		}
 
-		if iPFamily == netparameters.IPV6Family {
-			if !ips[0].Equal(net.ParseIP(neighborsIPAddresses[2])) {
-				return fmt.Errorf("neighbour %s ip not matching", neighborsIPAddresses[2])
+		for ip := range ipSet {
+			if _, exists := expectedNeighIPs[ip]; !exists {
+				return fmt.Errorf("expected neighbor IP %s not found", ip)
 			}
 		}
-
-		sort.Slice(ips, func(i, j int) bool {
-			return (bytes.Compare(ips[i], ips[j]) < 0)
-		})
 	}
 
-	return err
+	return nil
 }
 
 func bgpStateOutput(frrPod *k8sv1.Pod, iPFamily string) (map[string]netmlbparameters.Route, error) {
@@ -361,23 +288,25 @@ func bgpStateOutput(frrPod *k8sv1.Pod, iPFamily string) (map[string]netmlbparame
 }
 
 // checkRoutePrefix validates the route and prefix from a single BGPPeer Node.
-func checkRoutePrefix(routeList, neighborsIPAddresses string,
+func checkRoutePrefix(routeList, neighborsIPAddress string,
 	routes map[string]netmlbparameters.Route) error {
-	ips := make([]net.IP, 0)
+
 	ipRoutes, routePrefix := routes[routeList]
-	ips = append(ips, ipRoutes.NextHops...)
 
 	if !routePrefix {
 		return fmt.Errorf("route %s not found", routeList)
 	}
 
-	for _, ipAddress := range ips {
-		if ipAddress.Equal(net.ParseIP(neighborsIPAddresses)) {
-			return nil
-		}
+	ipSet := make(map[string]struct{})
+	for _, ip := range ipRoutes.NextHops {
+		ipSet[ip.String()] = struct{}{}
 	}
 
-	return fmt.Errorf("neighbour ip %s not matching with %v", neighborsIPAddresses, ips)
+	if _, exists := ipSet[neighborsIPAddress]; !exists {
+		return fmt.Errorf("expected neighbor IP %s not found", neighborsIPAddress)
+	}
+
+	return nil
 }
 
 // parseRoutes takes the result of a show bgp neighbor

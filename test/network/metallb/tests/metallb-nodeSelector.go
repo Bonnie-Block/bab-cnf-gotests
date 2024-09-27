@@ -175,16 +175,18 @@ var _ = Describe("MetalLB NodeSelector", func() {
 		It("Advertise separate IPAddressPools using the node selector option", polarion.ID("53986"), func() {
 			By("should create BGPAdvertisement for external FRR1 container")
 			err := createBGPAdvertisementWithNodeSelector(netmlbparameters.BGPAdvertisementName,
-				workerNodeList[0].Name, netmlbparameters.CommunityNoAdv, clusterIPStack,
-				[]string{netmlbparameters.AddressPoolS1Name}, []string{netmlbparameters.BGPPeerName1v4})
+				netmlbparameters.CommunityNoAdv, clusterIPStack,
+				[]string{netmlbparameters.AddressPoolS1Name}, []string{netmlbparameters.BGPPeerName1v4},
+				map[string]string{parameters.LabelHostname: workerNodeList[0].Name})
 
 			Expect(err).ToNot(HaveOccurred())
 
 			By("should create BGPAdvertisement for external FRR2 container")
 
 			err = createBGPAdvertisementWithNodeSelector(netmlbparameters.BGPAdvertisement2Name,
-				workerNodeList[1].Name, netmlbparameters.CommunityNoAdv, clusterIPStack,
-				[]string{netmlbparameters.AddressPoolS2Name}, []string{netmlbparameters.BGPPeerName2v4})
+				netmlbparameters.CommunityNoAdv, clusterIPStack, []string{netmlbparameters.AddressPoolS2Name},
+				[]string{netmlbparameters.BGPPeerName2v4},
+				map[string]string{parameters.LabelHostname: workerNodeList[1].Name})
 
 			Expect(err).ToNot(HaveOccurred())
 
@@ -222,16 +224,18 @@ var _ = Describe("MetalLB NodeSelector", func() {
 			By("should create BGPAdvertisement for external FRR1 container")
 
 			err := createBGPAdvertisementWithNodeSelector(netmlbparameters.BGPAdvertisementName,
-				workerNodeList[0].Name, netmlbparameters.CommunityNoAdv, clusterIPStack,
-				[]string{netmlbparameters.AddressPoolS1Name}, []string{netmlbparameters.BGPPeerName1v4})
+				netmlbparameters.CommunityNoAdv, clusterIPStack,
+				[]string{netmlbparameters.AddressPoolS1Name}, []string{netmlbparameters.BGPPeerName1v4},
+				map[string]string{parameters.LabelHostname: workerNodeList[0].Name})
 
 			Expect(err).ToNot(HaveOccurred())
 
 			By("should create BGPAdvertisement for external FRR2 container")
 
 			err = createBGPAdvertisementWithNodeSelector(netmlbparameters.BGPAdvertisement2Name,
-				workerNodeList[1].Name, netmlbparameters.CommunityNoAdv, clusterIPStack,
-				[]string{netmlbparameters.AddressPoolS1Name}, []string{netmlbparameters.BGPPeerName2v4})
+				netmlbparameters.CommunityNoAdv, clusterIPStack,
+				[]string{netmlbparameters.AddressPoolS1Name}, []string{netmlbparameters.BGPPeerName2v4},
+				map[string]string{parameters.LabelHostname: workerNodeList[1].Name})
 
 			Expect(err).ToNot(HaveOccurred())
 
@@ -352,19 +356,20 @@ var _ = Describe("MetalLB NodeSelector", func() {
 		})
 
 		AfterEach(func() {
-			By("should return node hostname")
-			_, err := nodes.LabelNode(helper.Apiclient, workerNodeList[0].Name, parameters.LabelHostname, workerNodeList[0].Name)
-			Expect(err).ToNot(HaveOccurred())
+			By("should remove test label")
+			err := netmetallbhelper.DeleteLabelFromWorkers(netmlbparameters.SpeakerNodeTestLabel)
+			Expect(err).ToNot(HaveOccurred(), "failed to remove label")
 		})
 
 		// OCP-53987
-		It("Advertise a single IPAddressPool with only one Speaker using the node selector option",
+		It("Advertise a single IPAddressPool with different attributes using the node selector option",
 			polarion.ID("53987"), func() {
 				By("should create BGPAdvertisement for external FRR1 container with the nodeSelector option")
 
 				err := createBGPAdvertisementWithNodeSelector(netmlbparameters.BGPAdvertisementName,
-					workerNodeList[0].Name, netmlbparameters.CommunityNoAdv, clusterIPStack,
-					[]string{netmlbparameters.AddressPoolS1Name}, []string{netmlbparameters.BGPPeerName1v4})
+					netmlbparameters.CommunityNoAdv, clusterIPStack,
+					[]string{netmlbparameters.AddressPoolS1Name}, []string{netmlbparameters.BGPPeerName1v4},
+					map[string]string{parameters.LabelHostname: workerNodeList[0].Name})
 
 				Expect(err).ToNot(HaveOccurred(), "Error creating BGPAdvertisement for FRR1")
 
@@ -426,7 +431,7 @@ var _ = Describe("MetalLB NodeSelector", func() {
 		// OCP-53988
 		It("Advertise a single IPAddressPool with only one Speaker using the node selector option",
 			polarion.ID("53988"), func() {
-				By("should create BGPAdvertisement without the node seclector option")
+				By("should create BGPAdvertisement without the node selector option")
 				bgpAdvertisement := netmetallbhelper.DefineBGPAdvertisement(netmlbparameters.BGPAdvertisement2Name,
 					netmlbparameters.CommunityNoAdv, clusterIPStack, []string{netmlbparameters.AddressPoolS1Name},
 					netmlbparameters.PrefixLen32, netmlbparameters.LocalPref100)
@@ -435,8 +440,9 @@ var _ = Describe("MetalLB NodeSelector", func() {
 
 				By("should create BGPAdvertisement for external FRR1 container with the node and peer selector option")
 				err = createBGPAdvertisementWithNodeSelector(netmlbparameters.BGPAdvertisementName,
-					workerNodeList[0].Name, netmlbparameters.CustomCommunity, clusterIPStack,
-					[]string{netmlbparameters.AddressPoolS1Name}, []string{netmlbparameters.BGPPeerName1v4})
+					netmlbparameters.CustomCommunity, clusterIPStack,
+					[]string{netmlbparameters.AddressPoolS1Name}, []string{netmlbparameters.BGPPeerName1v4},
+					map[string]string{parameters.LabelHostname: workerNodeList[0].Name})
 
 				Expect(err).ToNot(HaveOccurred())
 
@@ -501,8 +507,9 @@ var _ = Describe("MetalLB NodeSelector", func() {
 			By("should create BGPAdvertisement for external FRR1 container")
 
 			err := createBGPAdvertisementWithNodeSelector(netmlbparameters.BGPAdvertisementName,
-				netmlbparameters.SpeakerNodeTestLabel, netmlbparameters.CommunityNoAdv, clusterIPStack,
-				[]string{netmlbparameters.AddressPoolS1Name}, []string{netmlbparameters.BGPPeerName1v4})
+				netmlbparameters.CommunityNoAdv, clusterIPStack,
+				[]string{netmlbparameters.AddressPoolS1Name}, []string{netmlbparameters.BGPPeerName1v4},
+				map[string]string{netmlbparameters.SpeakerNodeTestLabel: ""})
 
 			Expect(err).ToNot(HaveOccurred())
 
@@ -517,8 +524,8 @@ var _ = Describe("MetalLB NodeSelector", func() {
 
 			By("should update Node Label for FRR1 Container")
 
-			_, err = nodes.LabelNode(helper.Apiclient, workerNodeList[0].Name, parameters.LabelHostname,
-				netmlbparameters.SpeakerNodeTestLabel)
+			_, err = nodes.LabelNode(helper.Apiclient, workerNodeList[0].Name, netmlbparameters.SpeakerNodeTestLabel,
+				"")
 			Expect(err).ToNot(HaveOccurred())
 
 			Eventually(netmetallbhelper.AreSpeakersReady, netmlbparameters.Timeout, netmlbparameters.Interval).
@@ -536,11 +543,17 @@ var _ = Describe("MetalLB NodeSelector", func() {
 
 		// OCP-53991
 		It("Remove from node label used in the node selector option", polarion.ID("53991"), func() {
+
+			By("label the test node with test label")
+			_, err := nodes.LabelNode(helper.Apiclient, workerNodeList[0].Name, netmlbparameters.SpeakerNodeTestLabel, "")
+			Expect(err).ToNot(HaveOccurred())
+
 			By("should create BGPAdvertisement for external FRR1 container")
 
-			err := createBGPAdvertisementWithNodeSelector(netmlbparameters.BGPAdvertisementName,
-				workerNodeList[0].Name, netmlbparameters.CommunityNoAdv, clusterIPStack,
-				[]string{netmlbparameters.AddressPoolS1Name}, []string{netmlbparameters.BGPPeerName1v4})
+			err = createBGPAdvertisementWithNodeSelector(netmlbparameters.BGPAdvertisementName,
+				netmlbparameters.CommunityNoAdv, clusterIPStack,
+				[]string{netmlbparameters.AddressPoolS1Name}, []string{netmlbparameters.BGPPeerName1v4},
+				map[string]string{netmlbparameters.SpeakerNodeTestLabel: ""})
 
 			Expect(err).ToNot(HaveOccurred())
 
@@ -554,8 +567,7 @@ var _ = Describe("MetalLB NodeSelector", func() {
 
 			By("should update Node Label for FRR1 Container")
 
-			_, err = nodes.LabelNode(helper.Apiclient, workerNodeList[0].Name, parameters.LabelHostname,
-				netmlbparameters.SpeakerNodeTestLabel)
+			_, err = nodes.LabelNode(helper.Apiclient, workerNodeList[0].Name, netmlbparameters.SpeakerNodeTestLabel, "test")
 			Expect(err).ToNot(HaveOccurred())
 
 			Eventually(netmetallbhelper.AreSpeakersReady, netmlbparameters.Timeout, netmlbparameters.Interval).
@@ -573,12 +585,12 @@ var _ = Describe("MetalLB NodeSelector", func() {
 	})
 })
 
-func createBGPAdvertisementWithNodeSelector(bgpadvertisementName, nodeName, ipFamily, community string,
-	ipAddressPoolName, bgpPeerName []string) error {
+func createBGPAdvertisementWithNodeSelector(bgpadvertisementName, ipFamily, community string,
+	ipAddressPoolName, bgpPeerName []string, label map[string]string) error {
 	err := helper.Apiclient.Create(
 		context.Background(),
-		netmetallbhelper.RedefineBGPAdvertisementWithNodeSelector(bgpadvertisementName, nodeName, ipFamily, community,
-			ipAddressPoolName, bgpPeerName, netmlbparameters.PrefixLen32, netmlbparameters.LocalPref100))
+		netmetallbhelper.RedefineBGPAdvertisementWithNodeSelector(bgpadvertisementName, ipFamily, community,
+			ipAddressPoolName, bgpPeerName, netmlbparameters.PrefixLen32, netmlbparameters.LocalPref100, label))
 
 	return err
 }

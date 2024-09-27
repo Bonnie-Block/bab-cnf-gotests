@@ -104,8 +104,7 @@ func TestBGPTable(ipStack string, workerNodeList []k8sv1.Node, masterNodeList []
 	Expect(err).ToNot(HaveOccurred())
 
 	Eventually(func() bool {
-		return CheckNeighborsStatus(masterNodeFRRPod, ipStack,
-			workerNodesAdresses)
+		return CheckNeighborsStatus(masterNodeFRRPod, workerNodesAdresses)
 	}, 1*time.Minute, netmlbparameters.Interval).Should(BeTrue())
 
 	By("should validate BGP routes to service")

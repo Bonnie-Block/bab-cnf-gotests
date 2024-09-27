@@ -102,8 +102,7 @@ func TestBGPAdvertismentTableUpdates(masterNodeList []k8sv1.Node, workerNodeList
 	Expect(err).ToNot(HaveOccurred())
 
 	Eventually(func() bool {
-		return CheckNeighborsStatus(masterNodeFRRPod, ipStack,
-			workerNodesAdresses)
+		return CheckNeighborsStatus(masterNodeFRRPod, workerNodesAdresses)
 	}, 1*time.Minute, netmlbparameters.Interval).Should(BeTrue())
 
 	By("should validate BGP route prefix")
@@ -309,8 +308,7 @@ func TestBGPBlockRouteAdvertisment(ipStack string,
 	Expect(err).ToNot(HaveOccurred())
 
 	Eventually(func() bool {
-		return CheckNeighborsStatus(masterNodeFRRPod, ipStack,
-			workerNodesAdresses)
+		return CheckNeighborsStatus(masterNodeFRRPod, workerNodesAdresses)
 	}, 1*time.Minute, netmlbparameters.Interval).Should(BeTrue())
 
 	By("should validate BGP route is advertised from external FRR")

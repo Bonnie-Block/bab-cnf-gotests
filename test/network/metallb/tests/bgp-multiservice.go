@@ -178,11 +178,9 @@ var _ = Describe("MetalLB BGP", func() {
 
 		By("Checking that BGP sessions are established")
 		Eventually(func() bool {
-			netmetallbhelper.CheckNeighborsStatus(masterNodeFRRPod, netparameters.IPV4Family,
-				workerNodesAdresses)
+			netmetallbhelper.CheckNeighborsStatus(masterNodeFRRPod, workerNodesAdresses)
 
-			return netmetallbhelper.CheckNeighborsStatus(masterNodeFRRPod, netparameters.IPV4Family,
-				workerNodesAdresses)
+			return netmetallbhelper.CheckNeighborsStatus(masterNodeFRRPod, workerNodesAdresses)
 		}, 1*time.Minute, netmlbparameters.Interval).Should(BeTrue())
 
 		By("should validate BGP routes to service")
