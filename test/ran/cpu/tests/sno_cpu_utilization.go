@@ -51,6 +51,7 @@ var _ = Describe("SNO core reduction", func() {
 	workloadDuration := rancpuhelper.GetEnv(ran.EnvWorkloadDuration, "1h")
 	millicoreThreshold, _ := strconv.ParseFloat(rancpuhelper.GetEnv(ran.MillicoreThreshold, "10"), 64)
 	trendAPIThreshold, _ := strconv.ParseFloat(rancpuhelper.GetEnv(ran.TrendAPIThreshold, "50"), 64)
+	rateAPIThreshold, _ := strconv.ParseFloat(rancpuhelper.GetEnv(ran.RateAPIThreshold, "0.01"), 64)
 	log.Println("Baseline run:", baseline, "Baseline version:", baselineVersion,
 		"Trend Timeframe:", trendTimeframe, "Trend Threshold:", trendThreshold,
 		"Millicore Threshold:", millicoreThreshold, "Workload Duration:", workloadDuration)
@@ -111,7 +112,7 @@ var _ = Describe("SNO core reduction", func() {
 		It("grouped by resource,verb,namespace", func() {
 			endTime := time.Now().UTC()
 			checkAPIUsage(idleDuration, endTime, "idle", !baseline,
-				trendTimeframe, baselineVersion, workloadDuration, trendAPIThreshold)
+				trendTimeframe, baselineVersion, workloadDuration, trendAPIThreshold, rateAPIThreshold)
 
 		})
 	})
@@ -546,7 +547,8 @@ func checkCPUTrend(duration time.Duration, endTime time.Time, workloadDuration s
 
 // Check Kube-api-server usage during idle phase.
 func checkAPIUsage(duration time.Duration, startTime time.Time, scenario string,
-	checkTrend bool, trendTimeframe int, baselineVersion string, workloadDuration string, trendThreshold float64) {
+	checkTrend bool, trendTimeframe int, baselineVersion string, workloadDuration string,
+	trendThreshold float64, rateAPIThreshold float64) {
 	timestamp := startTime
 	// ApiServer total over the duration.
 	query := fmt.Sprintf(rancpuparameters.APIRateQuery, duration.String(), getOffset(timestamp))
@@ -566,13 +568,14 @@ func checkAPIUsage(duration time.Duration, startTime time.Time, scenario string,
 
 	if checkTrend {
 		checkAPITrend(apiServerRateBreakdown, rancpuparameters.APIRateTrendQuery,
-			trendTimeframe, baselineVersion, workloadDuration, trendThreshold)
+			trendTimeframe, baselineVersion, workloadDuration, trendThreshold, rateAPIThreshold)
 	}
 }
 
 // Check Kube-api-server usage against known baseline data for deviations.
 func checkAPITrend(apiResults []rancpuparameters.PromMetric, query string,
-	trendTimeframe int, baselineVersion string, workloadDuration string, trendThreshold float64) {
+	trendTimeframe int, baselineVersion string, workloadDuration string,
+	trendThreshold float64, rateAPIThreshold float64) {
 	log.Println("Baseline comparison for API Server")
 
 	baseline, err := rancpuhelper.GetAPIBaseline(query, trendTimeframe, baselineVersion, workloadDuration)
@@ -592,11 +595,12 @@ func checkAPITrend(apiResults []rancpuparameters.PromMetric, query string,
 			historicValue, err2 := strconv.ParseFloat(baseline[namespace][pod][verb][1].(string), 64)
 
 			if err1 == nil && err2 == nil {
-				rateIncrease := ((currentValue - historicValue) / currentValue) * 100
-				if rateIncrease > trendThreshold {
+				rateIncrease := ((currentValue - historicValue) / historicValue) * 100
+				if rateIncrease > trendThreshold && currentValue > rateAPIThreshold {
 					log.Println("[Trend Violated]", namespace, pod, verb, "baseline", historicValue,
 						"current", currentValue, "->", rateIncrease, "%")
-					violationsString += fmt.Sprintf("%s _ %s _ %s : increased by %.3f percent \n", namespace, pod, verb, rateIncrease)
+					violationsString += fmt.Sprintf("%s _ %s _ %s : baseline: %f current: %f increased by %.3f percent \n",
+						namespace, pod, verb, historicValue, currentValue, rateIncrease)
 				} else {
 					log.Println("[Trend Observed]", namespace, pod, verb, "baseline", historicValue,
 						"current", currentValue, "->", rateIncrease, "%")
@@ -609,7 +613,8 @@ func checkAPITrend(apiResults []rancpuparameters.PromMetric, query string,
 		}
 	}
 	Expect(violationsString).To(BeEmpty(),
-		fmt.Sprintf("The following apiserver/verbs violated threshold increase of %d percent", int(trendThreshold)))
+		fmt.Sprintf("The following apiserver/verbs with rate %f violated threshold increase of %d percent",
+			rateAPIThreshold, int(trendThreshold)))
 }
 
 // Check pod/container counts.
