@@ -22,12 +22,15 @@ var (
 		"cloud_event_proxy_image": {"ose-cloud-event-proxy", "cloud_event_proxy_image"},
 	}
 	DebugTest               = strings.ToLower(helper.Config.Ran.RanEventTestDebug) == "true"
-	ConsumerManifestHTTP    = "consumer_http_manifest.j2"
+	ConsumerManifestHTTPv2  = "consumer_http_v2_manifest.j2"
+	ConsumerManifestHTTPv1  = "consumer_http_v1_manifest.j2"
 	ConsumerManifestAMQP    = "consumer_amqp_manifest.j2"
 	ConsumerManifestHTTPOld = "consumer_http_old_manifest.j2"
 	ConsumerImageName       = "cloud_event_consumer"
 	// TransportType retrieved from application and to be used in consumer deployment.
-	TransportType = TransportHTTP
+	TransportType    = TransportHTTP
+	EventAPIVersion1 = "1.0"
+	EventAPIVersion2 = "2.0"
 )
 
 func CsvDict() func(string) string {

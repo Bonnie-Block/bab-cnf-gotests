@@ -18,6 +18,7 @@ import (
 	"github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"github.com/pkg/errors"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ptp/ranptpparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
@@ -27,6 +28,42 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/util/yaml"
 )
+
+// GetEventAPIVersion gets the ptp operator config api version.
+func GetEventAPIVersion() (string, error) {
+	// get the ptp operator config api version.
+	ptpOperatorConfigs, err := helper.Apiclient.PtpOperatorConfigs(parameters.PtpOperatorNamespace).
+		List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return "", fmt.Errorf("failed to ptp operator config due to: %w", err)
+	}
+
+	eventAPIVersion := ptpOperatorConfigs.Items[0].Spec.EventConfig.ApiVersion
+
+	switch {
+	case eventAPIVersion == "":
+		return ranparameters.EventAPIVersion1, nil
+	case eventAPIVersion == "1.0":
+		return ranparameters.EventAPIVersion1, nil
+	case eventAPIVersion == "2.0":
+		return ranparameters.EventAPIVersion2, nil
+	default:
+		return "1.0", fmt.Errorf("unexpected ptp operator api version: %v", eventAPIVersion)
+	}
+
+}
+
+// GetPtpOperatorConfigName gets the ptp operator config name.
+func GetPtpOperatorConfigName() (string, error) {
+	// get the ptp operator config name.
+	ptpOperatorConfigs, err := helper.Apiclient.PtpOperatorConfigs(parameters.PtpOperatorNamespace).
+		List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return "", fmt.Errorf("failed to ptp operator config due to: %w", err)
+	}
+
+	return ptpOperatorConfigs.Items[0].Name, nil
+}
 
 // GetConsumers get all consumer pods that are deployed in a namespace.
 func GetConsumers(namespace string) (*corev1.PodList, error) {
@@ -132,11 +169,24 @@ func GetConsumerManifest(images map[string]string, transportType string, namespa
 
 	var manifestPath string
 
+	eventAPIVersion, err := GetEventAPIVersion()
+	if err != nil {
+		return "", fmt.Errorf("failed to get event api version: %w", err)
+	}
+	log.Printf("EventApiVersion: %v", eventAPIVersion)
 	if transportType == ranparameters.TransportHTTP {
-		if IsVersionStringInRange(ranptpparameters.PtpVersion, "4.15", "") {
-			manifestPath = ranparameters.TemplatePathDict()(namespace) + "/" + ranparameters.ConsumerManifestHTTP
+		if IsVersionStringInRange(ranptpparameters.PtpVersion, "4.17", "") {
+			if eventAPIVersion == "2.0" {
+				manifestPath = ranparameters.TemplatePathDict()(namespace) + "/" + ranparameters.ConsumerManifestHTTPv2
+			} else {
+				manifestPath = ranparameters.TemplatePathDict()(namespace) + "/" + ranparameters.ConsumerManifestHTTPv1
+			}
 		} else {
-			manifestPath = ranparameters.TemplatePathDict()(namespace) + "/" + ranparameters.ConsumerManifestHTTPOld
+			if IsVersionStringInRange(ranptpparameters.PtpVersion, "4.15", "") {
+				manifestPath = ranparameters.TemplatePathDict()(namespace) + "/" + ranparameters.ConsumerManifestHTTPv1
+			} else {
+				manifestPath = ranparameters.TemplatePathDict()(namespace) + "/" + ranparameters.ConsumerManifestHTTPOld
+			}
 		}
 	} else if transportType == ranparameters.TransportAMQP {
 		manifestPath = ranparameters.TemplatePathDict()(namespace) + "/" + ranparameters.ConsumerManifestAMQP
