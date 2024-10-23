@@ -175,7 +175,7 @@ func GetConsumerManifest(images map[string]string, transportType string, namespa
 	}
 	log.Printf("EventApiVersion: %v", eventAPIVersion)
 	if transportType == ranparameters.TransportHTTP {
-		if IsVersionStringInRange(ranptpparameters.PtpVersion, "4.17", "") {
+		if IsVersionStringInRange(ranptpparameters.PtpVersion, "4.16", "") {
 			if eventAPIVersion == "2.0" {
 				manifestPath = ranparameters.TemplatePathDict()(namespace) + "/" + ranparameters.ConsumerManifestHTTPv2
 			} else {

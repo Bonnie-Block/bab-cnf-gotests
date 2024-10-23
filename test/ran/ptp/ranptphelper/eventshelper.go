@@ -135,7 +135,7 @@ func containsEvent(eventMsgs []ranptpparameters.EventMsg, eventType string, valu
 	for _, event := range eventMsgs {
 		if event.EventType == eventType {
 			for _, val := range event.Data.Values {
-				if ranhelper.IsVersionStringInRange(ranptpparameters.PtpVersion, "4.17", "") {
+				if ranhelper.IsVersionStringInRange(ranptpparameters.PtpVersion, "4.16", "") {
 					dataType = val.DataTypeORan
 					resource = val.ResourceORan
 				} else {
