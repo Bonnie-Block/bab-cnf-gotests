@@ -42,7 +42,7 @@ func GetContainersInfo(node *corev1.Node) []ContainerInfo {
 	for i := 1; i <= 3; i++ {
 		// The selected fields needs to match ContainersInfo struct
 		output, err = helper.ExecCommandOnNodeWithHostBinaries(node, []string{"bash", "-c",
-			`crictl ps --state running --quiet | xargs crictl inspect -o json | jq '. | {
+			`crictl ps --state running --quiet | xargs -L1 crictl inspect -o json | jq '. | {
 name: .status.metadata.name,
 podname: .status.labels."io.kubernetes.pod.name",
 namespace: .status.labels."io.kubernetes.pod.namespace",
