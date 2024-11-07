@@ -94,8 +94,10 @@ const (
 )
 
 var (
-	WaitingTime        = 35 * time.Minute
-	PodWaitingTime     = 1 * time.Minute
+	WaitingTime = 35 * time.Minute
+	// Uncomment this once the bug is resolved: https://issues.redhat.com/browse/OCPBUGS-23311.
+	// PodWaitingTime     = 1 * time.Minute.
+	PodWaitingTime     = 150 * time.Second
 	DualPodWaitingTime = 3 * time.Minute
 
 	mtuParameters          = []int{MTUCustom, MTUJumbo, MTUStandard}
