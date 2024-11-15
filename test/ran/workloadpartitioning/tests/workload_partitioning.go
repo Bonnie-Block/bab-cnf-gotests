@@ -77,7 +77,8 @@ var _ = Describe("SNO management workload partitioning", func() {
 		})
 	})
 
-	It("should pin OS daemon to reserved cpus", func() {
+	// 77705
+	It("should pin OS daemon to reserved cpus", polarion.ID("77705"), func() {
 		failedPids, _ := ranwphelper.CheckCPUAffinityOnNonKernelPids(node, mgmtCPUSet)
 		Expect(failedPids).To(BeEmpty())
 	})
@@ -188,7 +189,8 @@ var _ = Describe("SNO management workload partitioning", func() {
 		})
 	})
 
-	It("should mutate burstable pod with only memory request&limit", func() {
+	// 77707
+	It("should mutate burstable pod with only memory request&limit", polarion.ID("77707"), func() {
 		createsTestMgmtNamespace()
 		By("Creating a burstable pod under test management namespace with only memory request", func() {
 			pod = ranwphelper.DefineQoSTestPod(node.Name, ran.NamespaceTesting, "", "", "100M", "100M")
@@ -219,7 +221,8 @@ var _ = Describe("SNO management workload partitioning", func() {
 		})
 	})
 
-	It("should not mutate burstable pod with cpu request and limit", func() {
+	// 77743
+	It("should not mutate burstable pod with cpu request and limit", polarion.ID("77743"), func() {
 		createsTestMgmtNamespace()
 		cpuReq, cpuLimit := 1, 2
 		By("Creating a burstable pod under test management namespace with cpu request and limit", func() {
