@@ -290,9 +290,11 @@ func ptpPretestValidations() (map[string]ptpv1.PtpConfigSpec, []int, error) {
 		originPtpConfigSpecs[ptpconf.Name] = ptpconf.Spec
 	}
 
-	ptpConfigCounts := getPtpConfigCounts(*originPtpConfigList)
+	configCounts := getPtpConfigCounts(*originPtpConfigList)
 
-	return originPtpConfigSpecs, ptpConfigCounts, beforeAllErr
+	log.Printf("PTP config counts: %v\n", configCounts)
+
+	return originPtpConfigSpecs, configCounts, beforeAllErr
 }
 
 // verifyEventsAndMetricsModifyThresholds verifies ptp metrics and events by changing thresholds for HOLDOVER/FREERUN.
