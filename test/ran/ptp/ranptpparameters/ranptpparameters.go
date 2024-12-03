@@ -5,12 +5,15 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/k8sreporter"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/schemes/ptp/ptpv1"
+	appsv1 "k8s.io/api/apps/v1"
 )
 
 var (
 	// ReporterNamespacesToDump tells to reporter from where to collect logs.
 	ReporterNamespacesToDump = map[string]string{
-		parameters.PtpOperatorNamespace: "openshift-ptp",
+		parameters.PtpOperatorNamespace: "",
+		parameters.CloudEventNamespace:  "",
+		parameters.PrivPodNamespace:     "",
 	}
 	// ReporterCrds tells to reporter what resources to collect.
 	ReporterCrds = []k8sreporter.CRData{
@@ -18,6 +21,7 @@ var (
 		{Cr: &ptpv1.PtpConfigList{}},
 		{Cr: &ptpv1.NodePtpDeviceList{}},
 		{Cr: &ptpv1.PtpOperatorConfigList{}},
+		{Cr: &appsv1.DaemonSetList{}},
 	}
 
 	PtpVersion   string
