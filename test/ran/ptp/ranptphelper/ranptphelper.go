@@ -496,8 +496,7 @@ func GetSma(ptpPod *corev1.Pod, iface string) (string, error) {
 	return smaVal.String(), err
 }
 
-// GetRxIface gets the RX interface.
-func GetRxIface(ptpConfig ptpv1.PtpConfig) (string, error) {
+func getGmIface(ptpConfig ptpv1.PtpConfig, smaString string) (string, error) {
 	ifaces, ifaceJSON, err := getJSONInterface(ptpConfig)
 	if err != nil {
 		return "", err
@@ -505,6 +504,7 @@ func GetRxIface(ptpConfig ptpv1.PtpConfig) (string, error) {
 
 	for _, iface := range ifaces {
 		ifaceStr, err := json.Marshal(ifaceJSON[iface])
+
 		if err != nil {
 			return "", err
 		}
@@ -517,13 +517,12 @@ func GetRxIface(ptpConfig ptpv1.PtpConfig) (string, error) {
 		}
 
 		sma1Str, err := json.Marshal(sma1Json["SMA1"])
-
 		if err != nil {
 			return "", err
 		}
 
-		if string(sma1Str) == "\"1 1\"" {
-			log.Printf("found interface %s with value 1 1", iface)
+		if string(sma1Str) == fmt.Sprintf("\"%s\"", smaString) {
+			log.Printf("found interface %s with value %s", iface, smaString)
 
 			return iface, nil
 		}
@@ -532,39 +531,32 @@ func GetRxIface(ptpConfig ptpv1.PtpConfig) (string, error) {
 	return "", nil
 }
 
+// GetRxIface gets the RX interface.
+func GetRxIface(ptpConfig ptpv1.PtpConfig) (string, error) {
+	return getGmIface(ptpConfig, "1 1")
+}
+
 func GetTxIface(ptpConfig ptpv1.PtpConfig) (string, error) {
-	ifaces, ifaceJSON, err := getJSONInterface(ptpConfig)
+	return getGmIface(ptpConfig, "2 1")
+}
+
+// GetGmInterfaceToGPS	returns a GM interface that is connected to GPS via GNSS module.
+func GetGmInterfaceToGPS(gmPtpConfig ptpv1.PtpConfig) (string, error) {
+	ifaces, _, err := getJSONInterface(gmPtpConfig)
 	if err != nil {
 		return "", err
 	}
 
-	for _, iface := range ifaces {
-		ifaceStr, err := json.Marshal(ifaceJSON[iface])
+	if len(ifaces) == 0 {
+		log.Printf("No interface found from PTP config %s - spec: \n%v\n", gmPtpConfig.Name, gmPtpConfig.Spec)
 
-		if err != nil {
-			return "", err
-		}
-
-		var sma1Json map[string]interface{}
-		err = json.Unmarshal(ifaceStr, &sma1Json)
-
-		if err != nil {
-			return "", err
-		}
-
-		sma1Str, err := json.Marshal(sma1Json["SMA1"])
-		if err != nil {
-			return "", err
-		}
-
-		if string(sma1Str) == "\"2 1\"" {
-			log.Printf("found interface %s with value 2 1", iface)
-
-			return iface, nil
-		}
+		return "", fmt.Errorf("no interface found from %s", gmPtpConfig.Name)
+	} else if len(ifaces) == 1 {
+		return ifaces[0], nil
 	}
 
-	return "", nil
+	// Returns Tx interface when more than 1 GM is configured
+	return GetTxIface(gmPtpConfig)
 }
 
 func getJSONInterface(ptpConfig ptpv1.PtpConfig) ([]string, map[string]interface{}, error) {

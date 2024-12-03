@@ -332,9 +332,22 @@ func WaitForEvent(consumerPod *corev1.Pod, messageID string, startTime time.Time
 		}
 
 		eventMsgs := getEvents(logs)
-		if containsEvent(eventMsgs, messageID) {
-			return true, nil
+
+		if len(eventMsgs) == 0 {
+			log.Println("No event is found.")
+
+			return false, nil
 		}
+
+		for _, event := range eventMsgs {
+			if strings.Contains(event, messageID) {
+				log.Printf("%s is found\n", messageID)
+
+				return true, nil
+			}
+		}
+
+		log.Printf("Event %s is not found\n", messageID)
 
 		return false, nil
 	})
@@ -356,25 +369,4 @@ func getEvents(eventLog string) []string {
 	}
 
 	return eventMsgs
-}
-
-// containsEvent returns true when specified messageID is found in given event messages.
-func containsEvent(eventMsgs []string, messageID string) bool {
-	if len(eventMsgs) == 0 {
-		log.Println("No event is provided.")
-
-		return false
-	}
-
-	for _, event := range eventMsgs {
-		if strings.Contains(event, messageID) {
-			log.Printf("%s is found\n", messageID)
-
-			return true
-		}
-	}
-
-	log.Printf("Event %s is not found\n", messageID)
-
-	return false
 }

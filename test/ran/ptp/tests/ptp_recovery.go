@@ -1,6 +1,12 @@
 package tests
 
 import (
+	"context"
+	"fmt"
+	"log"
+	"strings"
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
@@ -9,24 +15,17 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ptp/ranptpparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranparameters"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/polarion"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/schemes/ptp/ptpv1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-
-	"context"
-	"fmt"
-	"log"
-	"strings"
-	"time"
 )
 
-var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
+var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailure, func() {
 	var (
 		errBeforeAll         error
-		ptpConfigCounts      []int
+		configCountsRecovery []int
 		originPtpConfigSpecs = map[string]ptpv1.PtpConfigSpec{}
 	)
 	const (
@@ -37,8 +36,8 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 		highAvailabilityConfigIndx = 5
 	)
 
-	execute.BeforeAll(func() {
-		originPtpConfigSpecs, ptpConfigCounts, errBeforeAll = ptpPretestValidations()
+	BeforeAll(func() {
+		originPtpConfigSpecs, configCountsRecovery, errBeforeAll = ptpPretestValidations()
 	})
 
 	BeforeEach(func() {
@@ -82,37 +81,36 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 				ptpNode, err := ranhelper.GetNodeByName(nodeName)
 				Expect(err).NotTo(HaveOccurred())
 
-				By("Kill ph2sys process on node " + ptpNode.Name)
-				// get the phc2sys pid before killing it
-				oldPID, err := ranptphelper.GetProcessPID(&ptpDaemonPod, "phc2sys")
+				oldPID, err := ranptphelper.GetProcessPIDWithRetries(&ptpDaemonPod, "phc2sys", 1)
 				Expect(err).NotTo(HaveOccurred())
 
-				sinceTime := time.Now()
+				startTime := time.Now()
 
-				err = ranptphelper.KillPtpProcess(&ptpDaemonPod, "phc2sys")
+				By("Kill ph2sys process on " + ptpNode.Name)
+				// Kill twice to increase the chance of FREERUN event
+				err = ranptphelper.KillPtpProcessMultipleTimes(&ptpDaemonPod, "phc2sys", 2)
 				Expect(err).NotTo(HaveOccurred())
-				log.Printf("phc2sys PID %s killed", oldPID)
 
-				By("validating FREERUN event received after killing phc2sys process")
+				By("Verify CLOCK_REALTIME FREERUN event received after killing phc2sys process")
 				err = ranptphelper.WaitForEvent(&ptpDaemonPod, ranptpparameters.CloudEventContainer,
-					"event.sync.sync-status.os-clock-sync-state-change", ranptpparameters.EventFreeRun, "",
-					time.Since(sinceTime), 3*time.Minute)
+					ranptpparameters.EventTypeOsClockStateChange, ranptpparameters.EventFreeRun, "",
+					"CLOCK_REALTIME", startTime, 1*time.Minute)
 				Expect(err).NotTo(HaveOccurred())
 
-				By(fmt.Sprintf("validate new phc2sys process is started on node %s", nodeName))
+				By("Verify CLOCK_REALTIME LOCKED event received after process phc2sys recovery")
+				err = ranptphelper.WaitForEvent(&ptpDaemonPod, ranptpparameters.CloudEventContainer,
+					ranptpparameters.EventTypeOsClockStateChange, ranptpparameters.EventLocked, "",
+					"CLOCK_REALTIME", startTime, 3*time.Minute)
+				Expect(err).NotTo(HaveOccurred())
+
+				By("Verify mew phc2sys process has a different PID")
 				newPID, err := ranptphelper.WaitForProcess(&ptpDaemonPod, "phc2sys")
 				Expect(err).NotTo(HaveOccurred())
-				Expect(newPID).ShouldNot(Equal(oldPID))
+				Expect(newPID).NotTo(Equal(oldPID), "process phc2sys PID did not change: "+oldPID)
 
-				By("validating LOCKED event received after killing phc2sys process")
-				err = ranptphelper.WaitForEvent(&ptpDaemonPod, ranptpparameters.CloudEventContainer,
-					"event.sync.sync-status.os-clock-sync-state-change", ranptpparameters.EventLocked, "",
-					time.Since(sinceTime), 3*time.Minute)
-				Expect(err).NotTo(HaveOccurred())
-
-				By("validate all ptp clocks are in LOCKED state in ptp metrics")
-				err = ranptphelper.WaitForPtpClockStateMetric(ptpDaemonPod, ranptpparameters.LockedState, "", 1*time.Minute,
-					10*time.Second)
+				By("Verify all ptp clocks are in LOCKED state in ptp metrics")
+				err = ranptphelper.WaitForPtpClockStateMetric(ptpDaemonPod, ranptpparameters.LockedState, "",
+					1*time.Minute, 10*time.Second)
 				Expect(err).NotTo(HaveOccurred())
 
 				// test on one node only
@@ -123,7 +121,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 		// 57197
 		It("should create a new ptp4l process after killing a ptp4l process that is not related to the "+
 			"phc2sy process", polarion.ID("57197"), func() {
-			if ptpConfigCounts[configsIndx] < 2 {
+			if configCountsRecovery[configsIndx] < 2 {
 				Skip("Test requires at least two PTP configs")
 			}
 
@@ -150,8 +148,8 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 
 				By("validating FREERUN event received after killing ptp4l process")
 				err = ranptphelper.WaitForEvent(&ptpDaemonPod, ranptpparameters.CloudEventContainer,
-					"event.sync.ptp-status.ptp-state-change", ranptpparameters.EventFreeRun, "", time.Since(sinceTime),
-					3*time.Minute)
+					"event.sync.ptp-status.ptp-state-change", ranptpparameters.EventFreeRun, "",
+					"/master", sinceTime, 3*time.Minute)
 				Expect(err).NotTo(HaveOccurred())
 
 				time.Sleep(1 * time.Second)
@@ -167,8 +165,8 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 
 				By("validating LOCKED event received after killing ptp4l process")
 				err = ranptphelper.WaitForEvent(&ptpDaemonPod, ranptpparameters.CloudEventContainer,
-					"event.sync.ptp-status.ptp-state-change", ranptpparameters.EventLocked, "", time.Since(sinceTime),
-					3*time.Minute)
+					"event.sync.ptp-status.ptp-state-change", ranptpparameters.EventLocked, "",
+					"/master", sinceTime, 3*time.Minute)
 				Expect(err).NotTo(HaveOccurred())
 
 				By("validate all ptp clocks are in LOCKED state in ptp metrics")
@@ -184,11 +182,11 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 		// 49736
 		It("should restart both ptp4l processes with one related to phc2sys after killing them",
 			polarion.ID("49736"), func() {
-				if ptpConfigCounts[configsIndx] < 2 || ptpConfigCounts[bcConfigIndx] == 0 {
+				if configCountsRecovery[configsIndx] < 2 || configCountsRecovery[bcConfigIndx] == 0 {
 					Skip("Test requires at least two PTP configs with BC configuration")
 				}
 
-				if ptpConfigCounts[highAvailabilityConfigIndx] > 0 {
+				if configCountsRecovery[highAvailabilityConfigIndx] > 0 {
 					Skip("Test requires the phc2sys and ptp4l to be configured in one profile")
 				}
 
@@ -240,7 +238,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 		// 49737
 		It("should recover the ptp4l process after the killing "+
 			"a ptp4l process that is related to phc2sys process", polarion.ID("49737"), func() {
-			if ptpConfigCounts[highAvailabilityConfigIndx] > 0 {
+			if configCountsRecovery[highAvailabilityConfigIndx] > 0 {
 				Skip("Test requires the phc2sys and ptp4l to be configured in one profile")
 			}
 
@@ -283,56 +281,80 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 		})
 		// 59863
 		It("should recover the ts2phc process after the killing a ts2phc process", polarion.ID("59863"), func() {
-			if ptpConfigCounts[gmOneCardConfigIndx] == 0 && ptpConfigCounts[gmTwoCardConfigIndx] == 0 {
+			if configCountsRecovery[gmOneCardConfigIndx] == 0 && configCountsRecovery[gmTwoCardConfigIndx] == 0 {
 				Skip("Test requires grand master configuration")
 			}
 
 			nodeToPtpDaemonPod, err := ranptphelper.NodesToPtpDaemonPods()
 			Expect(err).NotTo(HaveOccurred())
 
+			ptpConfigs, err := helper.Apiclient.PtpConfigs(parameters.PtpOperatorNamespace).List(context.Background(),
+				metav1.ListOptions{})
+			Expect(err).NotTo(HaveOccurred())
+
+			ptpConfiguration, err := ranptphelper.GetGmPtpConfig(*ptpConfigs)
+			Expect(err).NotTo(HaveOccurred())
+
+			gmIface, err := ranptphelper.GetGmInterfaceToGPS(*ptpConfiguration)
+			Expect(err).NotTo(HaveOccurred())
+
 			for nodeName, ptpDaemonPod := range nodeToPtpDaemonPod {
 				workerNode, err := ranhelper.GetNodeByName(nodeName)
 				Expect(err).NotTo(HaveOccurred())
 
-				log.Println("get ts2phc PID")
-				pid, err := ranptphelper.GetProcessPID(&ptpDaemonPod, "ts2phc")
+				oldPID, err := ranptphelper.GetProcessPIDWithRetries(&ptpDaemonPod, "ts2phc", 1)
 				Expect(err).NotTo(HaveOccurred())
 
-				sinceTime := time.Now()
+				startTime := time.Now()
 
-				By(fmt.Sprintf("Kill a ts2phc process on node %s", workerNode.Name))
-				err = ranptphelper.KillProcess(&ptpDaemonPod, pid)
+				By("Kill ts2phc process on " + workerNode.Name)
+				// Kill twice to increase the chance of FREERUN event
+				err = ranptphelper.KillPtpProcessMultipleTimes(&ptpDaemonPod, "ts2phc", 2)
 				Expect(err).NotTo(HaveOccurred())
 
-				By("validating FREERUN event received after killing ts2phc process")
+				By("Verify FREERUN event received")
 				err = ranptphelper.WaitForEvent(&ptpDaemonPod, ranptpparameters.CloudEventContainer,
-					"event.sync.ptp-status.ptp-state-change", ranptpparameters.EventFreeRun, "", time.Since(sinceTime),
-					3*time.Minute)
+					ranptpparameters.EventTypePtpStateChange, ranptpparameters.EventFreeRun, gmIface,
+					"/master", startTime, 1*time.Minute)
 				Expect(err).NotTo(HaveOccurred())
 
-				By("validate a new ts2phc process is started")
-				log.Println("get new ts2phc PID")
-				newPid, err := ranptphelper.GetProcessPID(&ptpDaemonPod, "ts2phc")
-				Expect(err).NotTo(HaveOccurred())
-				Expect(pid).ShouldNot(Equal(newPid))
-
-				By("validating LOCKED event received after killing ts2phc process")
+				By("Verify clock class change to 248 event received")
 				err = ranptphelper.WaitForEvent(&ptpDaemonPod, ranptpparameters.CloudEventContainer,
-					"event.sync.ptp-status.ptp-state-change", ranptpparameters.EventLocked, "", time.Since(sinceTime),
-					3*time.Minute)
+					ranptpparameters.EventTypeClockClassChange, "248",
+					gmIface, "/master", startTime, 1*time.Minute)
 				Expect(err).NotTo(HaveOccurred())
+
+				By("Verify LOCKED event received after process ts2phc recovery")
+				err = ranptphelper.WaitForEvent(&ptpDaemonPod, ranptpparameters.CloudEventContainer,
+					ranptpparameters.EventTypePtpStateChange, ranptpparameters.EventLocked, gmIface,
+					"/master", startTime, 3*time.Minute)
+				Expect(err).NotTo(HaveOccurred())
+
+				By("Verify clock class change to 6 event received")
+				err = ranptphelper.WaitForEvent(&ptpDaemonPod, ranptpparameters.CloudEventContainer,
+					ranptpparameters.EventTypeClockClassChange, "6",
+					gmIface, "/master", startTime, 1*time.Minute)
+				Expect(err).NotTo(HaveOccurred())
+
+				By("Verify new ts2phc process has a different PID")
+				newPID, err := ranptphelper.WaitForProcess(&ptpDaemonPod, "ts2phc")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(newPID).NotTo(Equal(oldPID), "process ts2phc PID did not change: "+oldPID)
 
 				By("validate all ptp clocks are in LOCKED state in ptp metrics")
-				err = ranptphelper.WaitForPtpClockStateMetric(ptpDaemonPod, ranptpparameters.LockedState, "", 1*time.Minute,
-					10*time.Second)
+				err = ranptphelper.WaitForPtpClockStateMetric(ptpDaemonPod, ranptpparameters.LockedState, "",
+					1*time.Minute, 10*time.Second)
 				Expect(err).NotTo(HaveOccurred())
+
+				// test on one node only
+				break
 			}
 		})
 
 		// 59863
 		It("should recover the ptp4l process after the killing a "+
 			"ptp4l process that is related to ts2phc process", polarion.ID("59863"), func() {
-			if ptpConfigCounts[gmOneCardConfigIndx] == 0 && ptpConfigCounts[gmTwoCardConfigIndx] == 0 {
+			if configCountsRecovery[gmOneCardConfigIndx] == 0 && configCountsRecovery[gmTwoCardConfigIndx] == 0 {
 				Skip("Test requires grand master configuration")
 			}
 
@@ -367,7 +389,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 
 		// 64777
 		It("should recover gpsd process after killing it on node ", polarion.ID("64777"), func() {
-			if ptpConfigCounts[gmOneCardConfigIndx] == 0 && ptpConfigCounts[gmTwoCardConfigIndx] == 0 {
+			if configCountsRecovery[gmOneCardConfigIndx] == 0 && configCountsRecovery[gmTwoCardConfigIndx] == 0 {
 				Skip("Test requires grand master configuration")
 			}
 
@@ -633,7 +655,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 			By(fmt.Sprintf("Wait for ptp events [LOCKED] for all PTP clocks after node %s recovered", ptpNode.Name))
 			err = ranptphelper.WaitForEvent(ptpDaemonPod, ranptpparameters.CloudEventContainer,
 				"event.sync.ptp-status.ptp-state-change",
-				ranptpparameters.EventLocked, "", time.Since(startTime), 1*time.Minute)
+				ranptpparameters.EventLocked, "", "", startTime, 1*time.Minute)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -651,7 +673,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 
 	Context("restart GM", func() {
 		It("should make nmea lost after GPS cold reboot", polarion.ID("70111"), func() {
-			if ptpConfigCounts[gmOneCardConfigIndx] == 0 && ptpConfigCounts[gmTwoCardConfigIndx] == 0 {
+			if configCountsRecovery[gmOneCardConfigIndx] == 0 && configCountsRecovery[gmTwoCardConfigIndx] == 0 {
 				Skip("Test requires Grandmaster configuration")
 			}
 
@@ -666,6 +688,17 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 				ranptpparameters.Available, 1*time.Minute, 10*time.Second)
 			Expect(err).NotTo(HaveOccurred())
 
+			// Get gm interface
+			ptpConfigs, err := helper.Apiclient.PtpConfigs(parameters.PtpOperatorNamespace).List(context.Background(),
+				metav1.ListOptions{})
+			Expect(err).NotTo(HaveOccurred())
+
+			ptpConfiguration, err := ranptphelper.GetGmPtpConfig(*ptpConfigs)
+			Expect(err).NotTo(HaveOccurred())
+
+			gmIface, err := ranptphelper.GetGmInterfaceToGPS(*ptpConfiguration)
+			Expect(err).NotTo(HaveOccurred())
+
 			// Time to start log monitoring for nmea loss - right before GPS cold reboot
 			startTime := time.Now()
 
@@ -673,27 +706,28 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 			err = ranptphelper.GpsColdReboot(ptpDaemonPod)
 			Expect(err).NotTo(HaveOccurred())
 
-			// Time to start log monitoring for recovery
-			startTimeRecover := time.Now()
-
-			By("checking dpll holdover state via linuxptp-daemon log - 'state is HOLDOVER'")
-			err = ranptphelper.WaitForLog(ptpDaemonPod, parameters.PtpContainerName, "state is HOLDOVER",
-				time.Since(startTime), 1*time.Minute)
+			By("Wait for GNSS ANTENNA-DISCONNECTED event")
+			err = ranptphelper.WaitForEvent(ptpDaemonPod, ranptpparameters.CloudEventContainer,
+				ranptpparameters.EventTypeGnssStateChange, "ANTENNA-DISCONNECTED",
+				gmIface, "/master", startTime, 1*time.Minute)
 			Expect(err).NotTo(HaveOccurred())
 
-			By("checking nmea loss via linuxptp-daemon log - 'nmea string lost'")
-			err = ranptphelper.WaitForLog(ptpDaemonPod, parameters.PtpContainerName, "nmea string lost",
-				time.Since(startTime), 1*time.Minute)
+			By("Wait for Holdover event")
+			err = ranptphelper.WaitForEvent(ptpDaemonPod, ranptpparameters.CloudEventContainer,
+				"event.sync.ptp-status.ptp-state-change", ranptpparameters.EventHoldOver,
+				gmIface, "/master", startTime, 1*time.Minute)
 			Expect(err).NotTo(HaveOccurred())
 
-			By("checking nmea loss via metrics - openshift_ptp_nmea_status metrics becomes unavailable")
-			err = ranptphelper.WaitForMetricValueStatus(*ptpDaemonPod, ranptpparameters.OpenshiftPtpNmeaStatus,
-				ranptpparameters.Unavailable, 1*time.Minute, 10*time.Second)
+			By("Wait for GNSS SYNCHRONIZED event")
+			err = ranptphelper.WaitForEvent(ptpDaemonPod, ranptpparameters.CloudEventContainer,
+				ranptpparameters.EventTypeGnssStateChange, "SYNCHRONIZED",
+				gmIface, "/master", startTime, 1*time.Minute)
 			Expect(err).NotTo(HaveOccurred())
 
-			By("checking recovery via linuxptp-daemon log - 'dpll is locked'")
-			err = ranptphelper.WaitForLog(ptpDaemonPod, parameters.PtpContainerName, "dpll is locked",
-				time.Since(startTimeRecover), 1*time.Minute)
+			By("Wait for recovery - Clock Lock event")
+			err = ranptphelper.WaitForEvent(ptpDaemonPod, ranptpparameters.CloudEventContainer,
+				"event.sync.ptp-status.ptp-state-change", ranptpparameters.EventLocked,
+				gmIface, "/master", startTime, 3*time.Minute)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("checking recovery via metrics - openshift_ptp_nmea_status metrics becomes available ")
@@ -710,7 +744,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 		)
 
 		BeforeEach(func() {
-			if ptpConfigCounts[gmTwoCardConfigIndx] == 0 {
+			if configCountsRecovery[gmTwoCardConfigIndx] == 0 {
 				Skip("Test requires two Grandmaster configurations")
 			}
 			ptpDaemonPods, err := helper.Apiclient.Pods(parameters.PtpOperatorNamespace).List(context.Background(),
@@ -731,7 +765,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 		})
 
 		AfterEach(func() {
-			if ptpConfigCounts[gmTwoCardConfigIndx] == 0 {
+			if configCountsRecovery[gmTwoCardConfigIndx] == 0 {
 				Skip("Test requires two Grandmaster configurations")
 			}
 			// make sure sma connection is up.

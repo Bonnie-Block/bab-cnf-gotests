@@ -36,6 +36,28 @@ func GetProcessPID(ptpPod *corev1.Pod, processName string) (string, error) {
 	return pid, nil
 }
 
+// GetProcessPIDWithRetries gets the process id with a given name, with retries.
+// Arguments:
+// "ptpPod"-		a pod that run the ptp processes.
+// "processName"-	the name of a process.
+// "retries"-		int, must be 0 or larger.
+func GetProcessPIDWithRetries(ptpPod *corev1.Pod, processName string, retries int) (string, error) {
+	var (
+		pid string
+		err error
+	)
+
+	for i := 0; i < retries+1; i++ {
+		pid, err = GetProcessPID(ptpPod, processName)
+		if err == nil {
+			return pid, nil
+		}
+		time.Sleep(1 * time.Second)
+	}
+
+	return pid, err
+}
+
 // WaitForProcess waits for given process to appear and returns the process id.
 func WaitForProcess(ptpPod *corev1.Pod, processName string) (string, error) {
 	var (
@@ -62,6 +84,32 @@ func KillPtpProcess(ptpPod *corev1.Pod, processName string) error {
 	if nil != err {
 		return err
 	}
+
+	return nil
+}
+
+// KillPtpProcessMultipleTimes kill a process with the given name multiple times.
+// Arguments:
+// "ptpPod"-		a pod that run the ptp processes.
+// "processName"-	the name of a process to be killed.
+// "count"-			how many times to kill the given process. Must be 1 or larger.
+// return value:	an error if any occurred.
+func KillPtpProcessMultipleTimes(ptpPod *corev1.Pod, processName string, count int) error {
+	var err error
+	for i := 0; i < count; i++ {
+		err = KillPtpProcess(ptpPod, processName)
+		if err != nil {
+			time.Sleep(1 * time.Second)
+			err = KillPtpProcess(ptpPod, processName)
+			if err != nil {
+				return err
+			}
+		}
+
+		time.Sleep(500 * time.Microsecond)
+	}
+
+	log.Printf("Process %s killed %d times\n", processName, count)
 
 	return nil
 }

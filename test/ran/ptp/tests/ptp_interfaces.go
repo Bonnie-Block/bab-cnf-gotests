@@ -15,7 +15,6 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ptp/ranptphelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ptp/ranptpparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/polarion"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/schemes/ptp/ptpv1"
 
@@ -24,12 +23,12 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-var _ = Describe("PTP Events and Metrics - interface down", func() {
+var _ = Describe("PTP Events and Metrics - interface down", Ordered, ContinueOnFailure, func() {
 	var (
 		errBeforeAll error
 		// isOcConfigured  bool
 		originPtpConfigSpecs = map[string]ptpv1.PtpConfigSpec{}
-		ptpConfigCounts      []int
+		configCountsIfce     []int
 	)
 
 	const (
@@ -40,8 +39,8 @@ var _ = Describe("PTP Events and Metrics - interface down", func() {
 		highAvailabilityConfigIndx = 5
 	)
 
-	execute.BeforeAll(func() {
-		originPtpConfigSpecs, ptpConfigCounts, errBeforeAll = ptpPretestValidations()
+	BeforeAll(func() {
+		originPtpConfigSpecs, configCountsIfce, errBeforeAll = ptpPretestValidations()
 	})
 
 	BeforeEach(func() {
@@ -116,7 +115,7 @@ var _ = Describe("PTP Events and Metrics - interface down", func() {
 
 	// 49734
 	It("should have no effect when Boundary Clock master interface goes down and up", polarion.ID("49734"), func() {
-		if ptpConfigCounts[bcConfigIndx] == 0 {
+		if configCountsIfce[bcConfigIndx] == 0 {
 			Skip("Test requires Boundary Clock configuration")
 		}
 
@@ -159,7 +158,7 @@ var _ = Describe("PTP Events and Metrics - interface down", func() {
 					"interface  %s goes down on node %s", iface, ptpNode.Name))
 				err = ranptphelper.WaitForEvent(&ptpDaemonPod, ranptpparameters.CloudEventContainer,
 					"event.sync.ptp-status.ptp-state-change",
-					ranptpparameters.EventHoldOver, iface, time.Since(startTime), 1*time.Minute)
+					ranptpparameters.EventHoldOver, iface, "/master", startTime, 1*time.Minute)
 				Expect(err).To(HaveOccurred(), "event received for clock state change to "+
 					"[HOLDOVER] after bringing down BC master interface")
 
@@ -187,8 +186,8 @@ var _ = Describe("PTP Events and Metrics - interface down", func() {
 	// 59865
 	It("should fail when modify interface on ptpconfig", polarion.ID("59865"), func() {
 
-		if ptpConfigCounts[ocConfigIndx] == 0 || ptpConfigCounts[gmOneCardConfigIndx] != 0 ||
-			ptpConfigCounts[gmTwoCardConfigIndx] != 0 {
+		if configCountsIfce[ocConfigIndx] == 0 || configCountsIfce[gmOneCardConfigIndx] != 0 ||
+			configCountsIfce[gmTwoCardConfigIndx] != 0 {
 			Skip("Test requires Ordinary Clock configuration without GM config on same cluster")
 		}
 
@@ -268,8 +267,8 @@ var _ = Describe("PTP Events and Metrics - interface down", func() {
 	// 59866
 	It("should fail when removing interface from ptpconfig", polarion.ID("59866"), func() {
 
-		if ptpConfigCounts[ocConfigIndx] == 0 || ptpConfigCounts[gmOneCardConfigIndx] != 0 ||
-			ptpConfigCounts[gmTwoCardConfigIndx] != 0 {
+		if configCountsIfce[ocConfigIndx] == 0 || configCountsIfce[gmOneCardConfigIndx] != 0 ||
+			configCountsIfce[gmTwoCardConfigIndx] != 0 {
 			Skip("Test requires Ordinary Clock configuration without GM config on same cluster")
 		}
 
@@ -338,7 +337,7 @@ var _ = Describe("PTP Events and Metrics - interface down", func() {
 
 	// 73093
 	It("should change high availability active profile when other nic interface is down", polarion.ID("73093"), func() {
-		if ptpConfigCounts[highAvailabilityConfigIndx] == 0 {
+		if configCountsIfce[highAvailabilityConfigIndx] == 0 {
 			Skip("Test requires High Availability configuration")
 		}
 
@@ -413,7 +412,7 @@ var _ = Describe("PTP Events and Metrics - interface down", func() {
 
 	// 73094
 	It("should move to FREERUN state when active and inactive interfaces are down", polarion.ID("73094"), func() {
-		if ptpConfigCounts[highAvailabilityConfigIndx] == 0 {
+		if configCountsIfce[highAvailabilityConfigIndx] == 0 {
 			Skip("Test requires High Availability configuration")
 		}
 
@@ -507,7 +506,7 @@ var _ = Describe("PTP Events and Metrics - interface down", func() {
 		)
 
 		BeforeEach(func() {
-			if ptpConfigCounts[highAvailabilityConfigIndx] == 0 {
+			if configCountsIfce[highAvailabilityConfigIndx] == 0 {
 				Skip("Test requires High Availability configuration")
 			}
 
@@ -517,7 +516,7 @@ var _ = Describe("PTP Events and Metrics - interface down", func() {
 		})
 
 		AfterEach(func() {
-			if ptpConfigCounts[highAvailabilityConfigIndx] == 0 {
+			if configCountsIfce[highAvailabilityConfigIndx] == 0 {
 				Skip("Test requires High Availability configuration")
 			}
 
@@ -554,7 +553,7 @@ var _ = Describe("PTP Events and Metrics - interface down", func() {
 		It("should change high availability active profile when active profile is deleted",
 			polarion.ID("73095"), func() {
 				// there is ha ptp configuration.
-				if ptpConfigCounts[highAvailabilityConfigIndx] == 0 {
+				if configCountsIfce[highAvailabilityConfigIndx] == 0 {
 					Skip("Test requires High Availability configuration")
 				}
 
@@ -685,7 +684,7 @@ func verifyEventsAndMetricsSlaveInterfaceDownUp(node *corev1.Node, ptpPod *corev
 	By(fmt.Sprintf("Wait for ptp [HOLDOVER] state change event after salve interfaces %v goes down", slaveInterface))
 	err := ranptphelper.WaitForEvent(pod, container,
 		"event.sync.ptp-status.ptp-state-change",
-		ranptpparameters.EventHoldOver, slaveInterface, time.Since(startTime), 3*time.Minute)
+		ranptpparameters.EventHoldOver, slaveInterface, "/master", startTime, 3*time.Minute)
 	Expect(err).NotTo(HaveOccurred())
 
 	By(fmt.Sprintf("Wait for event [FREERUN] after slave interfaces "+
@@ -697,7 +696,7 @@ func verifyEventsAndMetricsSlaveInterfaceDownUp(node *corev1.Node, ptpPod *corev
 	timeout += time.Since(startTime) + 120*time.Second
 	err = ranptphelper.WaitForEvent(pod, container,
 		"event.sync.ptp-status.ptp-state-change",
-		ranptpparameters.EventFreeRun, slaveInterface, time.Since(startTime), timeout)
+		ranptpparameters.EventFreeRun, slaveInterface, "/master", startTime, timeout)
 	Expect(err).NotTo(HaveOccurred())
 
 	if !skipMetricCheck {
@@ -722,7 +721,7 @@ func verifyEventsAndMetricsSlaveInterfaceDownUp(node *corev1.Node, ptpPod *corev
 
 	err = ranptphelper.WaitForEvent(pod, container,
 		"event.sync.ptp-status.ptp-state-change",
-		ranptpparameters.EventLocked, slaveInterface, time.Since(startTime), 5*time.Minute)
+		ranptpparameters.EventLocked, slaveInterface, "/master", startTime, 5*time.Minute)
 	Expect(err).NotTo(HaveOccurred())
 
 	if !skipMetricCheck {

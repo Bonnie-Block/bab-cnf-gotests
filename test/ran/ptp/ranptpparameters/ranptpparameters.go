@@ -38,6 +38,11 @@ const (
 	EventLocked         = "LOCKED"
 	EventHoldOver       = "HOLDOVER"
 
+	EventTypeClockClassChange   = "event.sync.ptp-status.ptp-clock-class-change"
+	EventTypePtpStateChange     = "event.sync.ptp-status.ptp-state-change"
+	EventTypeGnssStateChange    = "event.sync.gnss-status.gnss-state-change"
+	EventTypeOsClockStateChange = "event.sync.sync-status.os-clock-sync-state-change"
+
 	Master = "master"
 )
 

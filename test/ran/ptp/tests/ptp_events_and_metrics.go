@@ -8,7 +8,6 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ptp/ranptphelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ptp/ranptpparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/polarion"
@@ -22,19 +21,19 @@ import (
 	"time"
 )
 
-var _ = Describe("Basic PTP Configs", func() {
+var _ = Describe("Basic PTP Configs", Ordered, ContinueOnFailure, func() {
 	var (
 		errBeforeAll         error
 		originPtpConfigSpecs = map[string]ptpv1.PtpConfigSpec{}
-		ptpConfigCounts      []int
+		configCounts         []int
 	)
 
 	const (
 		gmOneCardConfigIndx = 3
 		gmTwoCardConfigIndx = 4
 	)
-	execute.BeforeAll(func() {
-		originPtpConfigSpecs, ptpConfigCounts, errBeforeAll = ptpPretestValidations()
+	BeforeAll(func() {
+		originPtpConfigSpecs, configCounts, errBeforeAll = ptpPretestValidations()
 	})
 
 	BeforeEach(func() {
@@ -100,7 +99,7 @@ var _ = Describe("Basic PTP Configs", func() {
 
 		// 66848
 		It("verifies Clock Class value should match dpll/gnss clock state", polarion.ID("66848"), func() {
-			if ptpConfigCounts[gmOneCardConfigIndx] == 0 && ptpConfigCounts[gmTwoCardConfigIndx] == 0 {
+			if configCounts[gmOneCardConfigIndx] == 0 && configCounts[gmTwoCardConfigIndx] == 0 {
 				Skip("Test requires Grandmaster configuration")
 			}
 
@@ -309,7 +308,7 @@ func verifyEventsAndMetricsModifyThresholds(ptpDaemonPod *corev1.Pod, pod *corev
 	By("Validate no [FREERUN] event received via pod: " + pod.Name)
 	err := ranptphelper.WaitForEvent(pod, containerName,
 		"event.sync.ptp-status.ptp-state-change",
-		ranptpparameters.EventFreeRun, "", time.Since(startTime), 10*time.Second)
+		ranptpparameters.EventFreeRun, "", "", startTime, 10*time.Second)
 	Expect(err).To(HaveOccurred(), "FREERUN event is received before modifying maxoffset threshold")
 
 	// reset start time for FREERUN event test
@@ -329,7 +328,7 @@ func verifyEventsAndMetricsModifyThresholds(ptpDaemonPod *corev1.Pod, pod *corev
 	By("Validate clock state changed to [FREERUN] in ptp events via pod: " + pod.Name)
 	err = ranptphelper.WaitForEvent(pod, containerName,
 		"event.sync.ptp-status.ptp-state-change",
-		ranptpparameters.EventFreeRun, "", time.Since(startTime), timeout)
+		ranptpparameters.EventFreeRun, "", "", startTime, timeout)
 	Expect(err).NotTo(HaveOccurred())
 
 	if !skipMetricCheck {

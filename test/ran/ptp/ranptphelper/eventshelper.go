@@ -21,16 +21,13 @@ import (
 	"time"
 )
 
-// getClockStateEventsLogs gets a long string "logs" and an empty array of strings "eventStrings".
-// and fills "eventStrings" array with the logs that contain event state value.
-func getClockStateEventsLogs(logs string, eventStrings []string) []string {
+// getEventsLogs returns an array with event sent or received.
+func getEventsLogs(logs string, eventStrings []string) []string {
 	logs = strings.ReplaceAll(logs, "\\n", "")
 	logsSlice := strings.Split(logs, "\n")
 
 	for _, line := range logsSlice {
-		if strings.Contains(line, "id") && (strings.Contains(line, ranptpparameters.EventFreeRun) ||
-			strings.Contains(line, ranptpparameters.EventLocked) ||
-			strings.Contains(line, ranptpparameters.EventHoldOver)) {
+		if strings.Contains(line, "msg=\"event sent") || strings.Contains(line, "msg=\"received event") {
 			eventStrings = append(eventStrings, line)
 		}
 	}
@@ -40,40 +37,26 @@ func getClockStateEventsLogs(logs string, eventStrings []string) []string {
 
 // WaitForEvent waits for specified event to appear in ptp cloud event proxy log.
 func WaitForEvent(ptpPod *corev1.Pod, container string, eventType string, eventValue string,
-	iface string, since time.Duration, timeout time.Duration) error {
-	if since < 1*time.Second {
-		since = 1 * time.Second
-	}
+	iface string, resourceType string, startTime time.Time, timeout time.Duration) error {
 
-	startTime := time.Now()
-
-	logs, err := pod.GetLog(helper.Apiclient, ptpPod, since, container)
-	if err != nil {
-		return err
-	}
-
-	eventMsgs := getEvents(logs)
-	if containsEvent(eventMsgs, eventType, eventValue, iface) {
-		return nil
-	}
-
-	interval := 5 * time.Second
+	interval, extraTime := 5*time.Second, 1*time.Second
 
 	return wait.PollImmediate(interval, timeout, func() (bool, error) {
-		time.Sleep(interval)
-
-		logs, err = pod.GetLog(helper.Apiclient, ptpPod, time.Since(startTime)+time.Second,
+		newStartTime := time.Now()
+		logs, err := pod.GetLog(helper.Apiclient, ptpPod, time.Since(startTime)+extraTime,
 			container)
 		if err != nil {
 			return false, nil
 		}
 
-		eventMsgs = getEvents(logs)
-		if containsEvent(eventMsgs, eventType, eventValue, iface) {
+		eventMsgs := getEvents(logs)
+		if containsEvent(eventMsgs, eventType, eventValue, iface, resourceType) {
 			return true, nil
 		}
 
 		startTime = time.Now()
+		extraTime = time.Since(newStartTime) + 1*time.Second
+		time.Sleep(interval)
 
 		return false, nil
 	})
@@ -86,7 +69,7 @@ func getEvents(eventLogs string) []ranptpparameters.EventMsg {
 		eventStrings []string
 	)
 
-	eventStrings = getClockStateEventsLogs(eventLogs, eventStrings)
+	eventStrings = getEventsLogs(eventLogs, eventStrings)
 
 	for _, line := range eventStrings {
 		eventJSON := getEventJSON(line)
@@ -108,7 +91,8 @@ func getEvents(eventLogs string) []ranptpparameters.EventMsg {
 }
 
 // containsEvent returns true when specified event type, value and resource is found in given event messages.
-func containsEvent(eventMsgs []ranptpparameters.EventMsg, eventType string, value string, iface string) bool {
+func containsEvent(eventMsgs []ranptpparameters.EventMsg, eventType string, value string, iface string,
+	resourceType string) bool {
 	if len(eventMsgs) == 0 {
 		return false
 	}
@@ -133,34 +117,41 @@ func containsEvent(eventMsgs []ranptpparameters.EventMsg, eventType string, valu
 	)
 
 	for _, event := range eventMsgs {
-		if event.EventType == eventType {
-			for _, val := range event.Data.Values {
-				if ranhelper.IsVersionStringInRange(ranptpparameters.PtpVersion, "4.16", "") {
-					dataType = val.DataTypeORan
-					resource = val.ResourceORan
-				} else {
-					dataType = val.DataType
-					resource = val.Resource
+		if event.EventType != eventType {
+			continue
+		}
+
+		for _, val := range event.Data.Values {
+			if ranhelper.IsVersionStringInRange(ranptpparameters.PtpVersion, "4.16", "") {
+				dataType = val.DataTypeORan
+				resource = val.ResourceORan
+			} else {
+				dataType = val.DataType
+				resource = val.Resource
+			}
+
+			if !(strings.Contains(dataType, "notification") || strings.Contains(dataType, "metric")) ||
+				slices.Contains(checkedResources, resource) {
+				continue
+			}
+
+			if resourceType != "" && !strings.Contains(resource, resourceType) {
+				continue
+			}
+
+			if strings.Contains(val.Value, value) {
+				if iface == "" {
+					checkedResources = append(checkedResources, resource)
+
+				} else if strings.Contains(resource, iface) {
+					log.Printf("Info: %s %s is found for resource(s): %v\n", eventType, value, iface)
+
+					return true
 				}
-
-				if !strings.Contains(dataType, "notification") || slices.Contains(checkedResources, resource) {
-					continue
-				}
-
-				if strings.Contains(val.Value, value) {
-					if iface == "" {
-						checkedResources = append(checkedResources, resource)
-
-					} else if strings.Contains(resource, iface) {
-						log.Printf("Info: %s %s is found for resource(s): %v\n", eventType, value, iface)
-
-						return true
-					}
-				} else if iface == "" {
-					log.Printf("Info: %s has value %s for %s, expected value: %s\n",
-						eventType, val.Value, resource, value)
-					failedResources = append(failedResources, resource)
-				}
+			} else if iface == "" {
+				log.Printf("Info: %s has value %s for %s, expected value: %s\n",
+					eventType, val.Value, resource, value)
+				failedResources = append(failedResources, resource)
 			}
 		}
 	}
