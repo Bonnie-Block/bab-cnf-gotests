@@ -58,6 +58,9 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 		if CurrentSpecReport().Failed() {
 			// Best effort print PTP container logs and metrics
 			printPTPInfo()
+		} else {
+			// Best effort print PTP consumer logs
+			printConsumerLog()
 		}
 
 		restorePtpInterfaces()

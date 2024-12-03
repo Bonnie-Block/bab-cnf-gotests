@@ -61,6 +61,9 @@ var _ = Describe("PTP Events and Metrics - interface down", func() {
 		if CurrentSpecReport().Failed() {
 			// Best effort print PTP container logs and metrics
 			printPTPInfo()
+		} else {
+			// Best effort print PTP consumer logs
+			printConsumerLog()
 		}
 
 		log.Println("Restore ptpconfigs to original specs")

@@ -54,6 +54,9 @@ var _ = Describe("Basic PTP Configs", func() {
 		if CurrentSpecReport().Failed() {
 			// Best effort print PTP container logs and metrics
 			printPTPInfo()
+		} else {
+			// Best effort print PTP consumer logs
+			printConsumerLog()
 		}
 
 		// Always restore ptpconfigs to original values after each test
@@ -394,6 +397,12 @@ func printPTPInfo() {
 		// print ptp metrics
 		_ = ranptphelper.GetPTPMetrics(ptpDaemonPod, true)
 	}
+
+	printConsumerLog()
+}
+
+func printConsumerLog() {
+	var duration time.Duration
 
 	// Make sure cloud-event-consumer namespace exists
 	if namespaces.Exists(parameters.CloudEventNamespace, helper.Apiclient) {
