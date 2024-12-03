@@ -22,6 +22,7 @@ import (
 	"log"
 	"runtime"
 	"testing"
+	"time"
 )
 
 var _, currentFile, _, _ = runtime.Caller(0)
@@ -102,6 +103,13 @@ var _ = BeforeSuite(func() {
 
 	// Create privileged pods for ran testing if not already exist, and leave them on system.
 	helper.CreatePrivilegedPods("")
+
+	By("Wait for PTP clock stable state")
+	for _, ptpDaemonPod := range ptpDaemonPods.Items {
+		err = ranptphelper.WaitForPtpClockStateMetric(ptpDaemonPod, ranptpparameters.LockedState, "",
+			10*time.Minute, 1*time.Minute)
+		Expect(err).NotTo(HaveOccurred())
+	}
 })
 
 var _ = AfterSuite(func() {

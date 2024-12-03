@@ -213,6 +213,9 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), func() {
 					err = ranptphelper.KillProcess(&ptpDaemonPod, oldPtp4lPids[0])
 					Expect(err).NotTo(HaveOccurred())
 
+					// Wait for 3 seconds before checking new processes
+					time.Sleep(3 * time.Second)
+
 					By("validate new ptp4l processes are started")
 					// the new ptp4l that is not related to the phc2sys process
 					newPtp4lPhc2sys, err := ranptphelper.GetPtp4lPids(&ptpDaemonPod, "phc2sys", true)
