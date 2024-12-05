@@ -9,6 +9,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/schemes/ptp/ptpv1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/utils/strings/slices"
 
 	"context"
@@ -16,6 +17,7 @@ import (
 	"log"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // GetInterfaces returns ptp interfaces with specified role on given node.
@@ -66,18 +68,43 @@ func GetNic(iface string) string {
 	return iface[:len(iface)-1] + "x"
 }
 
-// SetInterfaceStatus sets a given interface, "ifaceID", to a given state, "newState",
-// for a given pod, "clientPod" in a given container "containerName".
-// an error return if any accord.
-func SetInterfaceStatus(clientPod *corev1.Pod,
-	containerName string,
-	ifaceID string,
-	newState ranptpparameters.InterfaceState) error {
-	_, err := pod.ExecCommand(helper.Apiclient,
-		*clientPod, []string{"ip", "link", "set", ifaceID, string(newState)},
-		containerName)
+// SetInterfaceStatus sets a given interface to a given state with option to retry.
+// retries must be 0 or larger.
+func SetInterfaceStatus(clientPod *corev1.Pod, containerName string, iface string,
+	state ranptpparameters.InterfaceState, retries int) error {
+
+	var err error
+	for i := 0; i < retries+1; i++ {
+		err = setInterfaceStatusAndCheck(clientPod, containerName, iface, state)
+		if err == nil {
+			log.Printf("%s is successfully set to %s\n", iface, state)
+
+			return nil
+		}
+	}
+
+	log.Printf("Failed to set %s to %s\n", iface, state)
 
 	return err
+}
+
+// setInterfaceStatusAndCheck sets a given interface to a given state and checks the interface is in expected state.
+func setInterfaceStatusAndCheck(clientPod *corev1.Pod, containerName string, ifaceID string,
+	state ranptpparameters.InterfaceState) error {
+	cmd := fmt.Sprintf("ip link set %s %s", ifaceID, string(state))
+	_, err := pod.ExecCommand(helper.Apiclient, *clientPod, []string{"bash", "-c", cmd}, containerName)
+	if err != nil {
+		return err
+	}
+
+	cmdCheck := fmt.Sprintf("ip link show %s | grep \" state %s \"", ifaceID, strings.ToTitle(string(state)))
+
+	return wait.PollImmediate(3*time.Second, 15*time.Second, func() (bool, error) {
+		time.Sleep(1 * time.Second)
+		_, err = pod.ExecCommand(helper.Apiclient, *clientPod, []string{"bash", "-c", cmdCheck}, containerName)
+
+		return err == nil, nil
+	})
 }
 
 // interfaceParser parses the interface section of a given pointer to configuration file, "config".

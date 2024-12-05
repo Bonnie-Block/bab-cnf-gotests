@@ -142,7 +142,7 @@ func WaitForPtpClockStateMetric(ptpDaemonPod corev1.Pod, state ranptpparameters.
 		clockStateMsg string
 	)
 
-	if iface != "" && !strings.HasSuffix(iface, "x") {
+	if iface != "" && iface != "CLOCK_REALTIME" && !strings.HasSuffix(iface, "x") {
 		iface = iface[:len(iface)-1] + "x"
 	}
 

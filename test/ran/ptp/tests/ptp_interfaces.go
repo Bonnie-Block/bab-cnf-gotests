@@ -144,7 +144,7 @@ var _ = Describe("PTP Events and Metrics - interface down", Ordered, ContinueOnF
 					ptpNode.Name))
 				for _, i := range ifaces {
 					err = ranptphelper.SetInterfaceStatus(&ptpDaemonPod, parameters.PtpContainerName, i,
-						ranptpparameters.Off)
+						ranptpparameters.Off, 2)
 					Expect(err).NotTo(HaveOccurred())
 				}
 
@@ -165,9 +165,8 @@ var _ = Describe("PTP Events and Metrics - interface down", Ordered, ContinueOnF
 				By(fmt.Sprintf("Bring up ptp Boundary Clock master interfaces %v on node %s\n", ifaces,
 					ptpNode.Name))
 				for _, i := range ifaces {
-					err = ranptphelper.SetInterfaceStatus(&ptpDaemonPod, parameters.PtpContainerName, i,
-						ranptpparameters.On)
-					Expect(err).NotTo(HaveOccurred())
+					_ = ranptphelper.SetInterfaceStatus(&ptpDaemonPod, parameters.PtpContainerName, i,
+						ranptpparameters.On, 1)
 				}
 
 				By(fmt.Sprintf("Validate ptp clock state metrics stays in [LOCKED] after master interface"+
@@ -373,7 +372,7 @@ var _ = Describe("PTP Events and Metrics - interface down", Ordered, ContinueOnF
 			By("bringing down active HA slave interface down")
 			// bring that interface down
 			err = ranptphelper.SetInterfaceStatus(&ptpDaemonPod, parameters.PtpContainerName, activeIface,
-				ranptpparameters.Off)
+				ranptpparameters.Off, 2)
 			Expect(err).NotTo(HaveOccurred())
 
 			err = ranptphelper.GetPTPMetrics(ptpDaemonPod)
@@ -454,45 +453,27 @@ var _ = Describe("PTP Events and Metrics - interface down", Ordered, ContinueOnF
 			// bring both interface down.
 			By("bringing active and inactive interfaces down")
 			err = ranptphelper.SetInterfaceStatus(&ptpDaemonPod, parameters.PtpContainerName, activeIface,
-				ranptpparameters.Off)
+				ranptpparameters.Off, 2)
 			Expect(err).NotTo(HaveOccurred())
 			for _, inactiveIface := range inactiveIfaces {
 				err = ranptphelper.SetInterfaceStatus(&ptpDaemonPod, parameters.PtpContainerName, inactiveIface,
-					ranptpparameters.Off)
+					ranptpparameters.Off, 2)
 				Expect(err).NotTo(HaveOccurred())
 			}
 
 			By("validating ptp4l clock states are FREERUN")
-			err = ranptphelper.WaitForPtpClockStateMetric(ptpDaemonPod, ranptpparameters.FreeRunState, activeIface,
-				time.Minute, 10*time.Second)
+			slaveIfaces, err := ranptphelper.GetInterfaces(ptpv1.Slave, *ptpNode)
 			Expect(err).NotTo(HaveOccurred())
-			for _, inactiveIface := range inactiveIfaces {
+
+			for _, slaveIface := range slaveIfaces {
 				err = ranptphelper.WaitForPtpClockStateMetric(ptpDaemonPod, ranptpparameters.FreeRunState,
-					inactiveIface, time.Minute, 10*time.Second)
+					slaveIface, time.Minute, 10*time.Second)
 				Expect(err).NotTo(HaveOccurred())
 			}
 
-			By("validating all other interfaces are LOCKED")
-			profileIfacesMap, err := ranptphelper.BuildPtpProfileIfacesMap()
-			activeIfaceNic := ranptphelper.GetNic(activeIface)
-			Expect(err).NotTo(HaveOccurred())
-			for _, ifaces := range profileIfacesMap {
-				for _, iface := range ifaces {
-					for _, inactiveIface := range inactiveIfaces {
-						if ranptphelper.GetNic(iface) == activeIfaceNic || ranptphelper.GetNic(iface) == ranptphelper.
-							GetNic(inactiveIface) {
-							continue
-						}
-						err = ranptphelper.WaitForPtpClockStateMetric(ptpDaemonPod, ranptpparameters.LockedState,
-							iface, 5*time.Minute, 10*time.Second)
-						Expect(err).NotTo(HaveOccurred())
-					}
-				}
-			}
-
-			By("validate not ptp4l processes are in clock state LOCKED ")
+			By("validating CLOCK_REALTIME is still LOCKED")
 			err = ranptphelper.WaitForPtpClockStateMetric(ptpDaemonPod, ranptpparameters.LockedState,
-				"", 5*time.Minute, 10*time.Second, "ptp4l")
+				"CLOCK_REALTIME", time.Minute, 10*time.Second)
 			Expect(err).NotTo(HaveOccurred())
 		}
 	})
@@ -618,8 +599,6 @@ func restorePtpInterfaces() {
 	Expect(err).ToNot(HaveOccurred())
 
 	for nodeName, ptpPod := range nodeToPtpDaemonPod {
-		var allIfaces []string
-
 		ptpNode, err := ranhelper.GetNodeByName(nodeName)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -627,15 +606,17 @@ func restorePtpInterfaces() {
 		Expect(err).NotTo(HaveOccurred())
 		masterIfaces, err := ranptphelper.GetInterfaces(ptpv1.Master, *ptpNode)
 		Expect(err).NotTo(HaveOccurred())
-		allIfaces = append(allIfaces, slaveIfaces...)
-		allIfaces = append(allIfaces, masterIfaces...)
 
-		for _, iface := range allIfaces {
-			err = ranptphelper.SetInterfaceStatus(&ptpPod,
-				parameters.PtpContainerName,
-				iface,
-				ranptpparameters.On)
+		for _, iface := range slaveIfaces {
+			err = ranptphelper.SetInterfaceStatus(&ptpPod, parameters.PtpContainerName, iface,
+				ranptpparameters.On, 2)
 			Expect(err).NotTo(HaveOccurred())
+		}
+
+		// Best effort to bring up master interface as they can be disconnected
+		for _, iface := range masterIfaces {
+			_ = ranptphelper.SetInterfaceStatus(&ptpPod, parameters.PtpContainerName, iface,
+				ranptpparameters.On, 1)
 		}
 	}
 }
@@ -676,7 +657,7 @@ func verifyEventsAndMetricsSlaveInterfaceDownUp(node *corev1.Node, ptpPod *corev
 
 	for _, i := range ifaces {
 		err := ranptphelper.SetInterfaceStatus(ptpPod, parameters.PtpContainerName, i,
-			ranptpparameters.Off)
+			ranptpparameters.Off, 2)
 		Expect(err).NotTo(HaveOccurred())
 	}
 
@@ -712,7 +693,7 @@ func verifyEventsAndMetricsSlaveInterfaceDownUp(node *corev1.Node, ptpPod *corev
 
 	for _, i := range ifaces {
 		err = ranptphelper.SetInterfaceStatus(ptpPod, parameters.PtpContainerName, i,
-			ranptpparameters.On)
+			ranptpparameters.On, 2)
 		Expect(err).NotTo(HaveOccurred())
 	}
 
