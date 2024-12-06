@@ -50,6 +50,10 @@ var _ = Describe("Basic PTP Configs", Ordered, ContinueOnFailure, func() {
 	})
 
 	AfterEach(func() {
+		if CurrentSpecReport().State.String() == "skipped" {
+			return
+		}
+
 		if CurrentSpecReport().Failed() {
 			// Best effort print PTP container logs and metrics
 			printPTPInfo()

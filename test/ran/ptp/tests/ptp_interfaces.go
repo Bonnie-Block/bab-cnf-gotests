@@ -51,6 +51,10 @@ var _ = Describe("PTP Events and Metrics - interface down", Ordered, ContinueOnF
 	})
 
 	AfterEach(func() {
+		if CurrentSpecReport().State.String() == "skipped" {
+			return
+		}
+
 		if CurrentSpecReport().Failed() {
 			// Best effort print PTP container logs and metrics
 			printPTPInfo()

@@ -54,6 +54,10 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 	})
 
 	AfterEach(func() {
+		if CurrentSpecReport().State.String() == "skipped" {
+			return
+		}
+
 		if CurrentSpecReport().Failed() {
 			// Best effort print PTP container logs and metrics
 			printPTPInfo()
