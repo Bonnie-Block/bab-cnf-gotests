@@ -422,36 +422,6 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 		})
 	})
 
-	// 49738
-	It("should recover to stable state after delete PTP daemon pod", polarion.ID("49738"), func() {
-		var ptpNode *corev1.Node
-		ptpDaemonPods, err := helper.Apiclient.Pods(parameters.PtpOperatorNamespace).List(context.Background(),
-			metav1.ListOptions{LabelSelector: parameters.PtpDaemonsetLabelSelector})
-		Expect(err).NotTo(HaveOccurred())
-
-		ptpDaemonPod := &ptpDaemonPods.Items[0]
-		ptpNode, err = ranhelper.GetNodeByName(ptpDaemonPod.Spec.NodeName)
-		Expect(err).NotTo(HaveOccurred())
-
-		// kill ptp pod.
-		By("validate event [LOCKED] after killing the publisher pod")
-		err = helper.Apiclient.Pods(parameters.PtpOperatorNamespace).Delete(context.Background(),
-			ptpDaemonPod.Name,
-			metav1.DeleteOptions{})
-		Expect(err).NotTo(HaveOccurred())
-
-		err = ranhelper.WaitForClusterRecover(ptpNode, []string{parameters.PtpOperatorNamespace})
-		Expect(err).NotTo(HaveOccurred())
-
-		ptpDaemonPod, err = ranptphelper.GetPtpDaemonPodFromNode(ptpNode)
-		Expect(err).NotTo(HaveOccurred())
-
-		By("validate all ptp clocks are in LOCKED state in ptp metrics")
-		err = ranptphelper.WaitForPtpClockStateMetric(*ptpDaemonPod, ranptpparameters.LockedState, "", 1*time.Minute,
-			10*time.Second)
-		Expect(err).NotTo(HaveOccurred())
-	})
-
 	Context("HTTP events using consumer", Ordered, func() {
 		var (
 			consumerNode *corev1.Node
@@ -475,6 +445,40 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 		AfterAll(func() {
 			// Make sure consumer exists or redeployed after destroy consumer test case
 			getConsumerNodeAndPod(parameters.CloudEventNamespace)
+		})
+
+		// 49738
+		It("should recover to stable state after delete PTP daemon pod", polarion.ID("49738"), func() {
+			var ptpNode *corev1.Node
+
+			ptpNode, err := ranhelper.GetNodeByName(ptpDaemonPod.Spec.NodeName)
+			Expect(err).NotTo(HaveOccurred())
+
+			startTime := time.Now()
+
+			// kill ptp pod.
+			By("delete PTP daemon pod and wait for recovery")
+			err = helper.Apiclient.Pods(parameters.PtpOperatorNamespace).Delete(context.Background(),
+				ptpDaemonPod.Name,
+				metav1.DeleteOptions{})
+			Expect(err).NotTo(HaveOccurred())
+
+			err = ranhelper.WaitForClusterRecover(ptpNode, []string{parameters.PtpOperatorNamespace})
+			Expect(err).NotTo(HaveOccurred())
+
+			ptpDaemonPod, err = ranptphelper.GetPtpDaemonPodFromNode(ptpNode)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("validate all ptp clocks are in LOCKED state in ptp metrics")
+			err = ranptphelper.WaitForPtpClockStateMetric(*ptpDaemonPod, ranptpparameters.LockedState, "",
+				1*time.Minute, 10*time.Second)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Validate [LOCKED] event is received by consumer pod")
+			err = ranptphelper.WaitForEvent(consumerPod, ranptpparameters.ConsumerContainer,
+				"event.sync.ptp-status.ptp-state-change",
+				ranptpparameters.EventLocked, "", "", startTime, 1*time.Minute)
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		// 59992

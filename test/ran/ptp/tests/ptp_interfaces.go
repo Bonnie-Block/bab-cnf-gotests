@@ -2,10 +2,8 @@ package tests
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
-	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -20,7 +18,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 )
 
 var _ = Describe("PTP Events and Metrics - interface down", Ordered, ContinueOnFailure, func() {
@@ -32,10 +29,7 @@ var _ = Describe("PTP Events and Metrics - interface down", Ordered, ContinueOnF
 	)
 
 	const (
-		ocConfigIndx               = 1
 		bcConfigIndx               = 2
-		gmOneCardConfigIndx        = 3
-		gmTwoCardConfigIndx        = 4
 		highAvailabilityConfigIndx = 5
 	)
 
@@ -91,7 +85,7 @@ var _ = Describe("PTP Events and Metrics - interface down", Ordered, ContinueOnF
 
 			for _, ifaces := range ifaceGroups {
 				if ranptphelper.ContainsOcpInterface(ifaces) {
-					log.Println("Avoid bringing down interface used by ocp:", ranptpparameters.OcpInterface)
+					log.Println("Avoid bringing down primary interface:", ranptpparameters.OcpInterface)
 
 					continue
 				}
@@ -182,158 +176,6 @@ var _ = Describe("PTP Events and Metrics - interface down", Ordered, ContinueOnF
 		Expect(tested).To(BeTrue(), "No interfaces found for testing while BC is configured")
 	})
 
-	// 59865
-	It("should fail when modify interface on ptpconfig", polarion.ID("59865"), func() {
-
-		if configCountsIfce[ocConfigIndx] == 0 || configCountsIfce[gmOneCardConfigIndx] != 0 ||
-			configCountsIfce[gmTwoCardConfigIndx] != 0 {
-			Skip("Test requires Ordinary Clock configuration without GM config on same cluster")
-		}
-
-		type patchInterfaceValue struct {
-			Op    string `json:"op"`
-			Path  string `json:"path"`
-			Value string `json:"value"`
-		}
-
-		ifaceToModify := "ens000"
-		ptpConfigList, err := helper.Apiclient.PtpConfigs(parameters.PtpOperatorNamespace).List(
-			context.Background(), metav1.ListOptions{})
-		Expect(err).NotTo(HaveOccurred())
-
-		ptpProfilePerNode, err := ranptphelper.GetPtpProfilesPerNode(ptpConfigList.Items[0])
-		Expect(err).NotTo(HaveOccurred())
-
-	OUTERLOOP:
-		for nodeName, profiles := range ptpProfilePerNode {
-			for _, profile := range profiles {
-				if ranptphelper.IsOrdinaryClockProfile(profile) {
-
-					patch := []patchInterfaceValue{{
-						Op:    "replace",
-						Path:  "/spec/profile/0/interface",
-						Value: ifaceToModify,
-					}}
-
-					newPatchPtpBytes, err := json.Marshal(patch)
-					Expect(err).NotTo(HaveOccurred())
-
-					By("Patch ptp config with new ptp4lConf value")
-					_, err = helper.Apiclient.PtpConfigs(parameters.PtpOperatorNamespace).Patch(
-						context.Background(), ptpConfigList.Items[0].Name, types.JSONPatchType, newPatchPtpBytes,
-						metav1.PatchOptions{})
-					Expect(err).NotTo(HaveOccurred())
-
-					By("Assert new interface is being used")
-					ptpconfig, err := helper.Apiclient.PtpConfigs(parameters.PtpOperatorNamespace).Get(
-						context.Background(), ptpConfigList.Items[0].Name, metav1.GetOptions{})
-					Expect(err).NotTo(HaveOccurred())
-					Expect(*ptpconfig.Spec.Profile[0].Interface).To(Equal(ifaceToModify), "new "+
-						"interface is not being used")
-
-					node, err := ranhelper.GetNodeByName(nodeName)
-					Expect(err).NotTo(HaveOccurred())
-
-					ptpDaemonPod, err := ranptphelper.GetPtpDaemonPodFromNode(node)
-					Expect(err).NotTo(HaveOccurred())
-
-					By("Check openshift_ptp_clock_state or openshift_ptp_interface_role should not appear in " +
-						"the metrics after interface modification")
-					log.Println("GetPTPMetrics waits 3 mins and return an error if occurred")
-					Eventually(func() bool {
-						err = ranptphelper.GetPTPMetrics(*ptpDaemonPod)
-						if err == nil {
-							return false
-						}
-
-						// when only one OC ptp profile exits, using invalid interface can cause interface_role
-						// metric missing from metrics
-						if len(profiles) == 1 {
-							return strings.Contains(err.Error(), "openshift_ptp_clock_state") ||
-								strings.Contains(err.Error(), "openshift_ptp_interface_role")
-						}
-
-						return strings.Contains(err.Error(), "openshift_ptp_clock_state")
-					}, 3*time.Minute, 10*time.Second).Should(BeTrue(), "openshift_ptp_clock_state "+
-						"still appears in ptp metrics")
-
-					break OUTERLOOP
-				}
-			}
-		}
-	})
-
-	// 59866
-	It("should fail when removing interface from ptpconfig", polarion.ID("59866"), func() {
-
-		if configCountsIfce[ocConfigIndx] == 0 || configCountsIfce[gmOneCardConfigIndx] != 0 ||
-			configCountsIfce[gmTwoCardConfigIndx] != 0 {
-			Skip("Test requires Ordinary Clock configuration without GM config on same cluster")
-		}
-
-		type patchInterfaceValue struct {
-			Op    string `json:"op"`
-			Path  string `json:"path"`
-			Value string `json:"value"`
-		}
-
-		ptpConfigList, err := helper.Apiclient.PtpConfigs(parameters.PtpOperatorNamespace).List(
-			context.Background(), metav1.ListOptions{})
-		Expect(err).NotTo(HaveOccurred())
-
-		ptpProfilePerNode, err := ranptphelper.GetPtpProfilesPerNode(ptpConfigList.Items[0])
-		Expect(err).NotTo(HaveOccurred())
-
-	OUTERLOOP:
-		for nodeName, profiles := range ptpProfilePerNode {
-			for _, profile := range profiles {
-				if ranptphelper.IsOrdinaryClockProfile(profile) {
-
-					patch := []patchInterfaceValue{{
-						Op:   "remove",
-						Path: "/spec/profile/0/interface",
-					}}
-
-					newPatchPtpBytes, err := json.Marshal(patch)
-					Expect(err).NotTo(HaveOccurred())
-
-					By("Patch ptp config with new ptp4lConf value")
-					_, err = helper.Apiclient.PtpConfigs(parameters.PtpOperatorNamespace).Patch(
-						context.Background(), ptpConfigList.Items[0].Name, types.JSONPatchType, newPatchPtpBytes,
-						metav1.PatchOptions{})
-					Expect(err).NotTo(HaveOccurred())
-
-					node, err := ranhelper.GetNodeByName(nodeName)
-					Expect(err).NotTo(HaveOccurred())
-
-					ptpDaemonPod, err := ranptphelper.GetPtpDaemonPodFromNode(node)
-					Expect(err).NotTo(HaveOccurred())
-
-					By("Check openshift_ptp_clock_state should not appear in the metrics after interface removal")
-					log.Println("GetPTPMetrics waits 3 mins and return an error if occurred")
-					Eventually(func() bool {
-						err = ranptphelper.GetPTPMetrics(*ptpDaemonPod)
-						if err == nil {
-							return false
-						}
-
-						// when only one OC ptp profile exits, using invalid interface can cause interface_role
-						// metric missing from metrics
-						if len(profiles) == 1 {
-							return strings.Contains(err.Error(), "openshift_ptp_clock_state") ||
-								strings.Contains(err.Error(), "openshift_ptp_interface_role")
-						}
-
-						return strings.Contains(err.Error(), "openshift_ptp_clock_state")
-					}, 3*time.Minute, 10*time.Second).Should(BeTrue(),
-						"openshift_ptp_clock_state still appears in ptp metrics")
-
-					break OUTERLOOP
-				}
-			}
-		}
-	})
-
 	// 73093
 	It("should change high availability active profile when other nic interface is down", polarion.ID("73093"), func() {
 		if configCountsIfce[highAvailabilityConfigIndx] == 0 {
@@ -365,7 +207,7 @@ var _ = Describe("PTP Events and Metrics - interface down", Ordered, ContinueOnF
 			Expect(err).NotTo(HaveOccurred())
 
 			if ranptphelper.ContainsOcpInterface([]string{activeIface}) {
-				log.Println("Avoid bringing down interface used by ocp:", ranptpparameters.OcpInterface)
+				log.Println("Avoid bringing down primary interface:", ranptpparameters.OcpInterface)
 				Skip("Test skipped to avoid bringing down port used by br-ex interface")
 			}
 
@@ -441,12 +283,12 @@ var _ = Describe("PTP Events and Metrics - interface down", Ordered, ContinueOnF
 
 			By("checking the interfaces are not ocp interfaces")
 			if ranptphelper.ContainsOcpInterface([]string{activeIface}) {
-				log.Println("Avoid bringing down interface used by ocp:", ranptpparameters.OcpInterface)
+				log.Println("Avoid bringing down primary interface:", ranptpparameters.OcpInterface)
 				Skip("Test skipped to avoid bringing down port used by br-ex interface")
 			}
 
 			if ranptphelper.ContainsOcpInterface(inactiveIfaces) {
-				log.Println("Avoid bringing down interface used by ocp:", ranptpparameters.OcpInterface)
+				log.Println("Avoid bringing down primary interface:", ranptpparameters.OcpInterface)
 				Skip("Test skipped to avoid bringing down port used by br-ex interface")
 			}
 

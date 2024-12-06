@@ -216,7 +216,7 @@ func GetOcpInterface(privPod corev1.Pod, containerName string) (string, error) {
 	}
 
 	ranptpparameters.OcpInterface = strings.TrimSpace(ocpInterfaceBytes.String())
-	log.Println("Interface used by OCP:", ranptpparameters.OcpInterface)
+	log.Println("primary interface:", ranptpparameters.OcpInterface)
 
 	return ranptpparameters.OcpInterface, nil
 }
