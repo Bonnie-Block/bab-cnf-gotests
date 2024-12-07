@@ -36,6 +36,24 @@ func GetProcessPID(ptpPod *corev1.Pod, processName string) (string, error) {
 	return pid, nil
 }
 
+// WaitForNewProcess waits for new PID for the given process name.
+func WaitForNewProcess(ptpPod *corev1.Pod, processName string, oldPid string) error {
+	return wait.PollImmediate(2*time.Second, 1*time.Minute, func() (bool, error) {
+		newPid, err := GetProcessPID(ptpPod, processName)
+		if err != nil {
+			return false, nil
+		}
+
+		if newPid == oldPid {
+			log.Printf("PID for %s is the same as the old PID\n", processName)
+
+			return false, nil
+		}
+
+		return true, nil
+	})
+}
+
 // GetProcessPIDWithRetries gets the process id with a given name, with retries.
 // Arguments:
 // "ptpPod"-		a pod that run the ptp processes.

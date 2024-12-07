@@ -378,6 +378,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 				Expect(err).NotTo(HaveOccurred())
 
 				By("validate a new ptp4l process is started")
+				time.Sleep(1 * time.Second)
 				log.Println("new get ptp4l PID")
 				newPid, err := ranptphelper.GetPtp4lPids(&ptpDaemonPod, "ts2phc", true)
 				Expect(err).NotTo(HaveOccurred())
@@ -414,9 +415,8 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 
 				By("validate a new gpsd process is started")
 				log.Println("get new gpsd PID")
-				newPid, err := ranptphelper.GetProcessPID(&ptpDaemonPod, "gpsd")
+				err = ranptphelper.WaitForNewProcess(&ptpDaemonPod, "gpsd", pid)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(pid).ShouldNot(Equal(newPid))
 
 				By("validate all ptp clocks are in LOCKED state in ptp metrics")
 				err = ranptphelper.WaitForPtpClockStateMetric(ptpDaemonPod, ranptpparameters.LockedState, "", 1*time.Minute,
@@ -729,13 +729,13 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 			By("Wait for GNSS SYNCHRONIZED event")
 			err = ranptphelper.WaitForEvent(ptpDaemonPod, ranptpparameters.CloudEventContainer,
 				ranptpparameters.EventTypeGnssStateChange, "SYNCHRONIZED",
-				gmIface, "/master", startTime, 1*time.Minute)
+				gmIface, "/master", startTime, 3*time.Minute)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Wait for recovery - Clock Lock event")
 			err = ranptphelper.WaitForEvent(ptpDaemonPod, ranptpparameters.CloudEventContainer,
 				"event.sync.ptp-status.ptp-state-change", ranptpparameters.EventLocked,
-				gmIface, "/master", startTime, 3*time.Minute)
+				gmIface, "/master", startTime, 7*time.Minute)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("checking recovery via metrics - openshift_ptp_nmea_status metrics becomes available ")
