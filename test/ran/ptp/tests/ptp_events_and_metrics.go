@@ -426,7 +426,7 @@ func printConsumerLog() {
 			return
 		}
 
-		duration = 30 * time.Second
+		duration = 1 * time.Minute
 
 		for _, cloudEventPod := range cloudEventPods.Items {
 			if ranhelper.IsContainerExistInPod(cloudEventPod, ranptpparameters.ConsumerContainer) {

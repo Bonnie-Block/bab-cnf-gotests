@@ -19,7 +19,6 @@ import (
 	"github.com/pkg/errors"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
-	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ptp/ranptpparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
 	corev1 "k8s.io/api/core/v1"
@@ -40,17 +39,12 @@ func GetEventAPIVersion() (string, error) {
 
 	eventAPIVersion := ptpOperatorConfigs.Items[0].Spec.EventConfig.ApiVersion
 
-	switch {
-	case eventAPIVersion == "":
-		return ranparameters.EventAPIVersion1, nil
-	case eventAPIVersion == "1.0":
-		return ranparameters.EventAPIVersion1, nil
-	case eventAPIVersion == "2.0":
+	if eventAPIVersion == "2.0" {
 		return ranparameters.EventAPIVersion2, nil
-	default:
-		return "1.0", fmt.Errorf("unexpected ptp operator api version: %v", eventAPIVersion)
 	}
 
+	// v1 is the default in any other case
+	return ranparameters.EventAPIVersion1, nil
 }
 
 // GetPtpOperatorConfigName gets the ptp operator config name.
@@ -174,21 +168,15 @@ func GetConsumerManifest(images map[string]string, transportType string, namespa
 		return "", fmt.Errorf("failed to get event api version: %w", err)
 	}
 	log.Printf("EventApiVersion: %v", eventAPIVersion)
-	if transportType == ranparameters.TransportHTTP {
-		if IsVersionStringInRange(ranptpparameters.PtpVersion, "4.16", "") {
-			if eventAPIVersion == "2.0" {
-				manifestPath = ranparameters.TemplatePathDict()(namespace) + "/" + ranparameters.ConsumerManifestHTTPv2
-			} else {
-				manifestPath = ranparameters.TemplatePathDict()(namespace) + "/" + ranparameters.ConsumerManifestHTTPv1
-			}
-		} else {
-			if IsVersionStringInRange(ranptpparameters.PtpVersion, "4.15", "") {
-				manifestPath = ranparameters.TemplatePathDict()(namespace) + "/" + ranparameters.ConsumerManifestHTTPv1
-			} else {
-				manifestPath = ranparameters.TemplatePathDict()(namespace) + "/" + ranparameters.ConsumerManifestHTTPOld
-			}
-		}
-	} else if transportType == ranparameters.TransportAMQP {
+
+	// Default to httpv2 ORAN compliant API, unless v1 is used
+	manifestPath = ranparameters.TemplatePathDict()(namespace) + "/" + ranparameters.ConsumerManifestHTTPv2
+	if eventAPIVersion != "2.0" {
+		manifestPath = ranparameters.TemplatePathDict()(namespace) + "/" + ranparameters.ConsumerManifestHTTPv1
+	}
+
+	// AMQ has been deprecated
+	if transportType == ranparameters.TransportAMQP {
 		manifestPath = ranparameters.TemplatePathDict()(namespace) + "/" + ranparameters.ConsumerManifestAMQP
 	}
 
