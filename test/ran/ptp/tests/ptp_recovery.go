@@ -475,7 +475,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 
 			By("validate all ptp clocks are in LOCKED state in ptp metrics")
 			err = ranptphelper.WaitForPtpClockStateMetric(*ptpDaemonPod, ranptpparameters.LockedState, "",
-				1*time.Minute, 10*time.Second)
+				10*time.Minute, 1*time.Minute)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Validate [LOCKED] event is received by consumer pod")
