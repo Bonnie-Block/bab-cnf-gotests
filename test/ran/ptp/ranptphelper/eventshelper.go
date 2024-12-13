@@ -42,7 +42,6 @@ func WaitForEvent(ptpPod *corev1.Pod, container string, eventType string, eventV
 	interval, extraTime := 5*time.Second, 1*time.Second
 
 	return wait.PollImmediate(interval, timeout, func() (bool, error) {
-		newStartTime := time.Now()
 		logs, err := pod.GetLog(helper.Apiclient, ptpPod, time.Since(startTime)+extraTime,
 			container)
 		if err != nil {
@@ -54,8 +53,9 @@ func WaitForEvent(ptpPod *corev1.Pod, container string, eventType string, eventV
 			return true, nil
 		}
 
+		extraTime = time.Since(startTime) + 1*time.Second
 		startTime = time.Now()
-		extraTime = time.Since(newStartTime) + 1*time.Second
+
 		time.Sleep(interval)
 
 		return false, nil
