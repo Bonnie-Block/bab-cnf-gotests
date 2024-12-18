@@ -50,15 +50,21 @@ func New(
 	addToScheme AddToScheme,
 	resourcesToLog FilterByNamespace,
 	reportPath string, crs ...CRData) (*KubernetesReporter, error) {
-	crScheme := runtime.NewScheme()
+	clients := testclient.New(kubeconfig)
 
-	if err := clientgoscheme.AddToScheme(crScheme); err != nil {
+	if err := clients.AttachScheme(clientgoscheme.AddToScheme); err != nil {
 		return nil, err
 	}
 
-	addToScheme(crScheme)
+	err := clients.AttachScheme(func(scheme *runtime.Scheme) error {
+		addToScheme(scheme)
 
-	clients := testclient.New(kubeconfig)
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
 
 	crsToDump := []CRData{}
 	if crs != nil {

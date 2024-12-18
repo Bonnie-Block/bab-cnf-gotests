@@ -1,6 +1,7 @@
 package client
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/golang/glog"
@@ -75,6 +76,7 @@ type ClientSet struct {
 	clientnetattdefv1.K8sCniCncfIoV1Interface
 	routev1.RouteV1Interface
 	whereaboutsApi.WhereaboutsV1alpha1Interface
+	scheme *runtime.Scheme
 }
 
 // New returns a *ClientBuilder with the given kubeconfig.
@@ -230,5 +232,24 @@ func New(kubeconfig string) *ClientSet {
 		panic(err)
 	}
 
+	clientSet.scheme = crScheme
+
 	return clientSet
+}
+
+// SchemeAttacher represents a function that can modify the clients current schemes.
+type SchemeAttacher func(*runtime.Scheme) error
+
+// AttachScheme attaches a scheme to the client's current scheme.
+func (clientSet *ClientSet) AttachScheme(attacher SchemeAttacher) error {
+	if clientSet == nil {
+		return fmt.Errorf("cannot add scheme to nil client")
+	}
+
+	err := attacher(clientSet.scheme)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
