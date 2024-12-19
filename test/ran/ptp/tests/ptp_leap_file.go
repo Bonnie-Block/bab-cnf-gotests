@@ -54,6 +54,9 @@ var _ = Describe("PTP leap testing", Label("ptp-leap"), func() {
 		if CurrentSpecReport().Failed() {
 			// Best effort print PTP container logs and metrics
 			printPTPInfo()
+		} else {
+			// Best effort print PTP consumer logs
+			printConsumerLog()
 		}
 
 		leapCM, err := helper.Apiclient.ConfigMaps(parameters.PtpOperatorNamespace).Get(context.Background(),
