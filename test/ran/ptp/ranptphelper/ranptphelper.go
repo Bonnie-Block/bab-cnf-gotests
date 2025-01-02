@@ -15,6 +15,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/schemes/ptp/ptpv1"
 	corev1 "k8s.io/api/core/v1"
+	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/utils/strings/slices"
@@ -357,6 +358,22 @@ func GetGmPtpConfig(listPtpConfig ptpv1.PtpConfigList) (*ptpv1.PtpConfig, error)
 	return nil, fmt.Errorf("no GM configuraion found")
 }
 
+// GetGmPtpConfigWithProfileIndex returns the PTP configuration which has a GM profile & the index
+// of the profile within the configuration. Returns an error if no Grandmaster profile is found.
+func GetGmPtpConfigWithProfileIndex(listPtpConfig ptpv1.PtpConfigList) (*ptpv1.PtpConfig, int, error) {
+	for _, ptpConfig := range listPtpConfig.Items {
+		for i, ptpProfile := range ptpConfig.Spec.Profile {
+			if IsGmOneCardProfile(ptpProfile) || IsGmTwoCardProfile(ptpProfile) {
+				log.Println("found GM ptp configuration")
+
+				return &ptpConfig, i, nil
+			}
+		}
+	}
+
+	return nil, 0, fmt.Errorf("no GM configuraion found")
+}
+
 // IncreaseMaxOffsetThresholdMlx sets OffsetThresholds to 200 for Mellanox NICs to workaround performance issue.
 func IncreaseMaxOffsetThresholdMlx(ptpPod corev1.Pod) error {
 	ptpConfigsList, err := helper.Apiclient.PtpConfigs(parameters.PtpOperatorNamespace).
@@ -696,6 +713,143 @@ func WaitForMHaMetricsUpdate(ptpDaemonPod corev1.Pod, profileName string, timeou
 	}
 
 	log.Println(successMsg)
+
+	return nil
+}
+
+func getPtpConfigProfileByIndex(
+	ptpConfig *ptpv1.PtpConfig,
+	ptpProfileIndex int) (
+	*ptpv1.PtpProfile, error) {
+	l := len(ptpConfig.Spec.Profile)
+	if ptpProfileIndex >= l {
+		return nil, fmt.Errorf("PTP Profile Index %d out of range, there are only %d PTP Profiles in the configuration",
+			ptpProfileIndex, l)
+	}
+
+	return &ptpConfig.Spec.Profile[ptpProfileIndex], nil
+}
+
+// GetPtpSettings gets the e810 plugin settings from the ptp configuration.
+// return value: PtpSettings map[string]string, err.
+func GetPtpConfigProfilePluginE810Settings(
+	ptpConfig *ptpv1.PtpConfig,
+	ptpProfileIndex int) (
+	*ranptpparameters.E810PluginSettings, error) {
+
+	ptpProfile, err := getPtpConfigProfileByIndex(ptpConfig, ptpProfileIndex)
+	if err != nil {
+		return nil, err
+	}
+
+	pluginJSONStr, err := json.Marshal(ptpProfile.Plugins["e810"])
+	if err != nil {
+		return nil, err
+	}
+
+	var plugin map[string]interface{}
+	err = json.Unmarshal(pluginJSONStr, &plugin)
+	if err != nil {
+		return nil, err
+	}
+
+	pluginSettings, okSettingsKey := plugin["settings"]
+	if !okSettingsKey {
+		return nil, fmt.Errorf("'settings' key not found within plugin map: %s", plugin)
+	}
+
+	isettings, okSettingsTypeAssert := pluginSettings.(map[string]interface{})
+	if !okSettingsTypeAssert {
+		return nil, fmt.Errorf("failed asserting pluginSettings to map[string]interface: %v of type %t",
+			pluginSettings, pluginSettings)
+	}
+
+	ilocalHoldoverTimeout, okTimeoutKey := isettings["LocalHoldoverTimeout"]
+	if !okTimeoutKey {
+		return nil, fmt.Errorf("'LocalHoldoverTimeout' key not found within plugin settings map: %s", pluginSettings)
+	}
+
+	localHoldoverTimeout, okTimeoutTypeAssert := ilocalHoldoverTimeout.(float64)
+	if !okTimeoutTypeAssert {
+		return nil, fmt.Errorf("failed asserting 'localHoldoverTimeout' to float64: %v of type %t",
+			ilocalHoldoverTimeout, ilocalHoldoverTimeout)
+	}
+
+	ilocalMaxHoldoverOffset, okHoldoverOffsetKey := isettings["LocalMaxHoldoverOffSet"]
+	if !okHoldoverOffsetKey {
+		return nil, fmt.Errorf("'LocalMaxHoldoverOffSet' key not found within plugin settings map: %s", pluginSettings)
+	}
+
+	localMaxHoldoverOffset, okHoldoverOffsetTypeAssert := ilocalMaxHoldoverOffset.(float64)
+	if !okHoldoverOffsetTypeAssert {
+		return nil, fmt.Errorf("failed asserting 'LocalMaxHoldoverOffset' to float64: %v of type %t",
+			ilocalMaxHoldoverOffset, ilocalMaxHoldoverOffset)
+	}
+
+	imaxInSpecOffset, okInSepcOffset := isettings["MaxInSpecOffset"]
+	if !okInSepcOffset {
+		return nil, fmt.Errorf("'MaxInSpecOffset' key not found within settings map: %s", pluginSettings)
+	}
+
+	maxInSpecOffset, okOffset := imaxInSpecOffset.(float64)
+	if !okOffset {
+		return nil, fmt.Errorf("failed asserting 'LocalMaxHoldoverOffset' to float64: %v of type %t",
+			imaxInSpecOffset, imaxInSpecOffset)
+	}
+
+	settings := &ranptpparameters.E810PluginSettings{}
+	settings.LocalHoldoverTimeout = uint(localHoldoverTimeout)
+	settings.LocalMaxHoldoverOffset = uint(localMaxHoldoverOffset)
+	settings.MaxInSpecOffset = uint(maxInSpecOffset)
+
+	return settings, nil
+}
+
+// SetPtpSettings updates the e810 plugin settings from ptp configuration.
+// return value:  error.
+func SetPtpConfigProfilePluginE810Settings(
+	ptpConfig *ptpv1.PtpConfig, ptpProfileIndex int,
+	newSettings ranptpparameters.E810PluginSettings) error {
+	ptpProfile, err := getPtpConfigProfileByIndex(ptpConfig, ptpProfileIndex)
+	if err != nil {
+		return err
+	}
+
+	pluginJSONStr, err := json.Marshal(ptpProfile.Plugins["e810"])
+	if err != nil {
+		return err
+	}
+
+	var plugin map[string]interface{}
+	err = json.Unmarshal(pluginJSONStr, &plugin)
+	if err != nil {
+		return err
+	}
+
+	settings, ok := plugin["settings"].(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("failed to casting to map[string]interface")
+	}
+
+	settings["LocalHoldoverTimeout"] = newSettings.LocalHoldoverTimeout
+	settings["LocalMaxHoldoverOffSet"] = newSettings.LocalMaxHoldoverOffset
+	settings["MaxInSpecOffset"] = newSettings.MaxInSpecOffset
+
+	raw, err := json.Marshal(plugin)
+	if err != nil {
+		return err
+	}
+
+	apiJSON := apiextv1.JSON{
+		Raw: raw,
+	}
+
+	ptpConfig.Spec.Profile[0].Plugins["e810"] = &apiJSON
+	_, err = helper.Apiclient.PtpConfigs(parameters.PtpOperatorNamespace).Update(context.Background(),
+		ptpConfig, metav1.UpdateOptions{})
+	if err != nil {
+		return err
+	}
 
 	return nil
 }

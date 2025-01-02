@@ -28,6 +28,7 @@ const (
 	ProcessDPLL    = "dpll"
 	ProcessGNSS    = "gnss"
 	ProcessTS2PHC  = "ts2phc"
+	ProcessGM      = "GM"
 
 	Available   = 1
 	Unavailable = 0

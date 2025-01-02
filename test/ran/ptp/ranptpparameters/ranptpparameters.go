@@ -39,6 +39,8 @@ const (
 	EventFreeRun        = "FREERUN"
 	EventLocked         = "LOCKED"
 	EventHoldOver       = "HOLDOVER"
+	EventGnssLost       = "ANTENNA-DISCONNECTED"
+	EventGnssSync       = "SYNCHRONIZED"
 
 	EventTypeClockClassChange   = "event.sync.ptp-status.ptp-clock-class-change"
 	EventTypePtpStateChange     = "event.sync.ptp-status.ptp-state-change"

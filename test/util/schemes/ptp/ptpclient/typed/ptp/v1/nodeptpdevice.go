@@ -6,8 +6,8 @@ import (
 	"context"
 	"time"
 
-	v1 "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/schemes/ptp/ptpv1"
 	scheme "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/schemes/ptp/ptpclient/scheme"
+	v1 "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/schemes/ptp/ptpv1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"

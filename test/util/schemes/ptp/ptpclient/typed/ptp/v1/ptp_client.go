@@ -3,8 +3,8 @@
 package v1
 
 import (
-	v1 "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/schemes/ptp/ptpv1"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/schemes/ptp/ptpclient/scheme"
+	v1 "gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/schemes/ptp/ptpv1"
 	rest "k8s.io/client-go/rest"
 )
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strconv"
 	"strings"
 	"time"
 
@@ -679,8 +680,15 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 		})
 	})
 
-	Context("restart GM", func() {
+	Context("t-gm gnss loss", func() {
+
+		timeout := 5 * time.Minute
+
 		It("should make nmea lost after GPS cold reboot", polarion.ID("70111"), func() {
+			if !ranhelper.IsVersionStringInRange(ranptpparameters.PtpVersion, "", "4.17") {
+				Skip("Test is up to version 4.17")
+			}
+
 			if configCountsRecovery[gmOneCardConfigIndx] == 0 && configCountsRecovery[gmTwoCardConfigIndx] == 0 {
 				Skip("Test requires Grandmaster configuration")
 			}
@@ -743,7 +751,336 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 				ranptpparameters.Available, 1*time.Minute, 10*time.Second)
 			Expect(err).NotTo(HaveOccurred())
 		})
+
+		It("verifies t-gm transition from holdover to locked due to gnss recovery", polarion.ID("78463"), func() {
+			if !ranhelper.IsVersionStringInRange(ranptpparameters.PtpVersion, "4.18", "") {
+				Skip("Test is valid from version 4.18")
+			}
+
+			if configCountsRecovery[gmOneCardConfigIndx] == 0 && configCountsRecovery[gmTwoCardConfigIndx] == 0 {
+				Skip("Test requires Grandmaster configuration")
+			}
+
+			// test case PTP profile settings
+			testCasePluginSettings := ranptpparameters.E810PluginSettings{
+				LocalHoldoverTimeout:   14400,
+				LocalMaxHoldoverOffset: 1500,
+				MaxInSpecOffset:        1000,
+			}
+
+			By("Get daemon PTP pods")
+			ptpDaemonPods, err := helper.Apiclient.Pods(parameters.PtpOperatorNamespace).List(context.Background(),
+				metav1.ListOptions{LabelSelector: parameters.PtpDaemonsetLabelSelector})
+			Expect(err).NotTo(HaveOccurred())
+
+			ptpDaemonPod := &ptpDaemonPods.Items[0]
+
+			// Get initial configuration
+			By("Get PTP configuration")
+			configs, err := helper.Apiclient.PtpConfigs(parameters.PtpOperatorNamespace).List(context.Background(),
+				metav1.ListOptions{})
+			Expect(err).NotTo(HaveOccurred())
+
+			gmConfig, gmProfileIndex, err := ranptphelper.GetGmPtpConfigWithProfileIndex(*configs)
+			Expect(err).NotTo(HaveOccurred())
+
+			gmIface, err := ranptphelper.GetGmInterfaceToGPS(*gmConfig)
+			Expect(err).NotTo(HaveOccurred())
+
+			changePtpConfigPluginE810Settings(ptpDaemonPod, gmConfig, gmProfileIndex, gmIface, testCasePluginSettings, timeout)
+
+			By("GPS cold boot via pod:" + ptpDaemonPod.Name)
+
+			gpsRebootTime := time.Now()
+
+			err = ranptphelper.GpsColdReboot(ptpDaemonPod)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Holdover
+			By("Wait for GNSS ANTENNA-DISCONNECTED event")
+			err = ranptphelper.WaitForEvent(ptpDaemonPod, ranptpparameters.CloudEventContainer,
+				ranptpparameters.EventTypeGnssStateChange, ranptpparameters.EventGnssLost,
+				gmIface, "/master", gpsRebootTime, timeout)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Wait for clock state holdover event")
+			err = ranptphelper.WaitForEvent(ptpDaemonPod, ranptpparameters.CloudEventContainer,
+				ranptpparameters.EventTypePtpStateChange, ranptpparameters.EventHoldOver,
+				gmIface, "/master", gpsRebootTime, timeout)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Wait for clock class 7 event")
+			clockClass := strconv.Itoa(int(ranptpparameters.ClockClassHoldOver))
+			err = ranptphelper.WaitForEvent(ptpDaemonPod, ranptpparameters.CloudEventContainer,
+				ranptpparameters.EventTypeClockClassChange, clockClass,
+				gmIface, "/master", gpsRebootTime, timeout)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Locked
+			By("Wait for GNSS SYNCHRONIZED event")
+			err = ranptphelper.WaitForEvent(ptpDaemonPod, ranptpparameters.CloudEventContainer,
+				ranptpparameters.EventTypeGnssStateChange, ranptpparameters.EventGnssSync,
+				gmIface, "/master", gpsRebootTime, timeout)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Wait for clock state locked event")
+			err = ranptphelper.WaitForEvent(ptpDaemonPod, ranptpparameters.CloudEventContainer,
+				ranptpparameters.EventTypePtpStateChange, ranptpparameters.EventLocked,
+				gmIface, "/master", gpsRebootTime, timeout)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Wait for clock class 6 event")
+			clockClass = strconv.Itoa(int(ranptpparameters.ClockClassLocked))
+			err = ranptphelper.WaitForEvent(ptpDaemonPod, ranptpparameters.CloudEventContainer,
+				ranptpparameters.EventTypeClockClassChange, clockClass,
+				gmIface, "/master", gpsRebootTime, timeout)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Checking the clock state metrics is in available state")
+			err = ranptphelper.WaitForMetricValueStatus(*ptpDaemonPod, ranptpparameters.OpenshiftPtpClockState,
+				ranptpparameters.Available, time.Since(gpsRebootTime), timeout)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("verifies t-gm transition from holdover to freerun due to timeout", polarion.ID("78464"), func() {
+			if !ranhelper.IsVersionStringInRange(ranptpparameters.PtpVersion, "4.18", "") {
+				Skip("Test is from version 4.18")
+			}
+
+			if configCountsRecovery[gmOneCardConfigIndx] == 0 && configCountsRecovery[gmTwoCardConfigIndx] == 0 {
+				Skip("Test requires Grandmaster configuration")
+			}
+
+			// test case PTP profile settings
+			testCasePluginSettings := ranptpparameters.E810PluginSettings{
+				LocalHoldoverTimeout:   3,
+				LocalMaxHoldoverOffset: 300,
+				MaxInSpecOffset:        600,
+			}
+
+			By("Get daemon PTP pods")
+			ptpDaemonPods, err := helper.Apiclient.Pods(parameters.PtpOperatorNamespace).List(context.Background(),
+				metav1.ListOptions{LabelSelector: parameters.PtpDaemonsetLabelSelector})
+			Expect(err).NotTo(HaveOccurred())
+
+			ptpDaemonPod := &ptpDaemonPods.Items[0]
+
+			// Get initial configuration
+			By("Get PTP plugin settings")
+			configs, err := helper.Apiclient.PtpConfigs(parameters.PtpOperatorNamespace).List(context.Background(),
+				metav1.ListOptions{})
+			Expect(err).NotTo(HaveOccurred())
+
+			gmConfig, gmProfileIndex, err := ranptphelper.GetGmPtpConfigWithProfileIndex(*configs)
+			Expect(err).NotTo(HaveOccurred())
+
+			gmIface, err := ranptphelper.GetGmInterfaceToGPS(*gmConfig)
+			Expect(err).NotTo(HaveOccurred())
+
+			changePtpConfigPluginE810Settings(ptpDaemonPod, gmConfig, gmProfileIndex, gmIface, testCasePluginSettings, timeout)
+
+			// Start gps cold reboot loop
+			By(fmt.Sprintf("Start rebooting GPS for %d seconds via pod:%s",
+				testCasePluginSettings.LocalHoldoverTimeout,
+				ptpDaemonPod.Name))
+
+			gpsRebootTime := time.Now()
+
+			for time.Since(gpsRebootTime) < time.Duration(testCasePluginSettings.LocalHoldoverTimeout)*time.Second {
+				err = ranptphelper.GpsColdReboot(ptpDaemonPod)
+				Expect(err).NotTo(HaveOccurred())
+			}
+
+			// Holdover
+			By("Wait for GNSS ANTENNA-DISCONNECTED event")
+			err = ranptphelper.WaitForEvent(ptpDaemonPod, ranptpparameters.CloudEventContainer,
+				ranptpparameters.EventTypeGnssStateChange, ranptpparameters.EventGnssLost,
+				gmIface, "/master", gpsRebootTime, timeout)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Wait for clock state change to holdover")
+			err = ranptphelper.WaitForEvent(ptpDaemonPod, ranptpparameters.CloudEventContainer,
+				ranptpparameters.EventTypePtpStateChange, ranptpparameters.EventHoldOver,
+				gmIface, "/master", gpsRebootTime, timeout)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Wait for clock class change to 7")
+			clockClass := strconv.Itoa(int(ranptpparameters.ClockClassHoldOver))
+			err = ranptphelper.WaitForEvent(ptpDaemonPod, ranptpparameters.CloudEventContainer,
+				ranptpparameters.EventTypeClockClassChange, clockClass,
+				gmIface, "/master", gpsRebootTime, timeout)
+			Expect(err).NotTo(HaveOccurred())
+
+			// wait for timer expired annoucment
+			By("Checking dpll offset out of range in linuxptp-daemon log - 'holdover timer'")
+			err = ranptphelper.WaitForLog(
+				ptpDaemonPod, parameters.PtpContainerName,
+				"holdover timer", gpsRebootTime,
+				timeout)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Freerun
+			By("Wait for clock state freerun event")
+			err = ranptphelper.WaitForEvent(ptpDaemonPod, ranptpparameters.CloudEventContainer,
+				ranptpparameters.EventTypePtpStateChange, ranptpparameters.EventFreeRun,
+				"", "/master", gpsRebootTime, timeout)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Wait for clock class 248 event")
+			clockClass = strconv.Itoa(int(ranptpparameters.ClockClassFreerun))
+			err = ranptphelper.WaitForEvent(ptpDaemonPod, ranptpparameters.CloudEventContainer,
+				ranptpparameters.EventTypeClockClassChange, clockClass,
+				gmIface, "/master", gpsRebootTime, timeout)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Locked
+			By("Wait for GNSS SYNCHRONIZED event")
+			err = ranptphelper.WaitForEvent(ptpDaemonPod, ranptpparameters.CloudEventContainer,
+				ranptpparameters.EventTypeGnssStateChange, ranptpparameters.EventGnssSync,
+				gmIface, "/master", gpsRebootTime, timeout)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Wait for clock state locked event")
+			err = ranptphelper.WaitForEvent(ptpDaemonPod, ranptpparameters.CloudEventContainer,
+				ranptpparameters.EventTypePtpStateChange, ranptpparameters.EventLocked,
+				gmIface, "/master", gpsRebootTime, timeout)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Wait for clock class 6 event")
+			clockClass = strconv.Itoa(int(ranptpparameters.ClockClassLocked))
+			err = ranptphelper.WaitForEvent(ptpDaemonPod, ranptpparameters.CloudEventContainer,
+				ranptpparameters.EventTypeClockClassChange, clockClass,
+				gmIface, "/master", gpsRebootTime, timeout)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Checking the clock state metrics is in available state")
+			err = ranptphelper.WaitForMetricValueStatus(*ptpDaemonPod, ranptpparameters.OpenshiftPtpClockState,
+				ranptpparameters.Available, time.Since(gpsRebootTime), timeout)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("verifies t-gm transition from holdover to freerun due to offset", polarion.ID("78465"), func() {
+			if !ranhelper.IsVersionStringInRange(ranptpparameters.PtpVersion, "4.18", "") {
+				Skip("Test is from version 4.18")
+			}
+
+			if configCountsRecovery[gmOneCardConfigIndx] == 0 && configCountsRecovery[gmTwoCardConfigIndx] == 0 {
+				Skip("Test requires Grandmaster configuration")
+			}
+
+			// test case PTP profile settings
+			testCasePluginSettings := ranptpparameters.E810PluginSettings{
+				LocalHoldoverTimeout:   600,
+				LocalMaxHoldoverOffset: 60000,
+				MaxInSpecOffset:        300,
+			}
+
+			By("Get daemon PTP pods")
+			ptpDaemonPods, err := helper.Apiclient.Pods(parameters.PtpOperatorNamespace).List(context.Background(),
+				metav1.ListOptions{LabelSelector: parameters.PtpDaemonsetLabelSelector})
+			Expect(err).NotTo(HaveOccurred())
+			ptpDaemonPod := &ptpDaemonPods.Items[0]
+
+			// Get initial configuration
+			By("Get PTP plugin settings")
+			configs, err := helper.Apiclient.PtpConfigs(parameters.PtpOperatorNamespace).List(context.Background(),
+				metav1.ListOptions{})
+			Expect(err).NotTo(HaveOccurred())
+
+			gmConfig, gmProfileIndex, err := ranptphelper.GetGmPtpConfigWithProfileIndex(*configs)
+			Expect(err).NotTo(HaveOccurred())
+
+			gmIface, err := ranptphelper.GetGmInterfaceToGPS(*gmConfig)
+			Expect(err).NotTo(HaveOccurred())
+
+			changePtpConfigPluginE810Settings(ptpDaemonPod, gmConfig, gmProfileIndex, gmIface, testCasePluginSettings, timeout)
+
+			// calculation of how long it will take to reach an offset which is out of range
+			timeToReachMaxInSpecOffset :=
+				testCasePluginSettings.MaxInSpecOffset /
+					(testCasePluginSettings.LocalMaxHoldoverOffset / testCasePluginSettings.LocalHoldoverTimeout)
+
+			// Start gps cold reboot loop
+			By(fmt.Sprintf("Start rebooting GPS for %d seconds via pod:%s", timeToReachMaxInSpecOffset, ptpDaemonPod.Name))
+
+			gpsRebootTime := time.Now()
+
+			for time.Since(gpsRebootTime) < time.Duration(timeToReachMaxInSpecOffset)*time.Second {
+				err = ranptphelper.GpsColdReboot(ptpDaemonPod)
+				Expect(err).NotTo(HaveOccurred())
+			}
+
+			// Holdover
+			By("Wait for GNSS ANTENNA-DISCONNECTED event")
+			err = ranptphelper.WaitForEvent(ptpDaemonPod, ranptpparameters.CloudEventContainer,
+				ranptpparameters.EventTypeGnssStateChange, ranptpparameters.EventGnssLost,
+				gmIface, "/master", gpsRebootTime, timeout)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Wait for clock state holdover event")
+			err = ranptphelper.WaitForEvent(ptpDaemonPod, ranptpparameters.CloudEventContainer,
+				ranptpparameters.EventTypePtpStateChange, ranptpparameters.EventHoldOver,
+				gmIface, "/master", gpsRebootTime, timeout)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Wait for clock class 7 event")
+			clockClass := strconv.Itoa(int(ranptpparameters.ClockClassHoldOver))
+			err = ranptphelper.WaitForEvent(
+				ptpDaemonPod, ranptpparameters.CloudEventContainer,
+				ranptpparameters.EventTypeClockClassChange, clockClass,
+				gmIface, "/master", gpsRebootTime, timeout)
+			Expect(err).NotTo(HaveOccurred())
+
+			// wait for offset out of range annoucement
+			By("Checking dpll phase offset in linuxptp-daemon log - 'dpll inspec offset is out of range'")
+			err = ranptphelper.WaitForLog(
+				ptpDaemonPod,
+				parameters.PtpContainerName,
+				"dpll inspec offset is out of range",
+				gpsRebootTime, timeout)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Freerun
+			By("Wait for clock state freerun event")
+			err = ranptphelper.WaitForEvent(ptpDaemonPod, ranptpparameters.CloudEventContainer,
+				ranptpparameters.EventTypePtpStateChange, ranptpparameters.EventFreeRun,
+				"", "/master", gpsRebootTime, timeout)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Wait for clock class 248 event")
+			clockClass = strconv.Itoa(int(ranptpparameters.ClockClassHoldOver))
+			err = ranptphelper.WaitForEvent(ptpDaemonPod, ranptpparameters.CloudEventContainer,
+				ranptpparameters.EventTypeClockClassChange, clockClass,
+				gmIface, "/master", gpsRebootTime, timeout)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Locked
+			By("Wait for GNSS SYNCHRONIZED event")
+			err = ranptphelper.WaitForEvent(ptpDaemonPod, ranptpparameters.CloudEventContainer,
+				ranptpparameters.EventTypeGnssStateChange, ranptpparameters.EventGnssSync,
+				gmIface, "/master", gpsRebootTime, timeout)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Wait for clock state locked event")
+			err = ranptphelper.WaitForEvent(ptpDaemonPod, ranptpparameters.CloudEventContainer,
+				ranptpparameters.EventTypePtpStateChange, ranptpparameters.EventLocked,
+				gmIface, "/master", gpsRebootTime, timeout)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Wait for clock class 6 event")
+			clockClass = strconv.Itoa(int(ranptpparameters.ClockClassLocked))
+			err = ranptphelper.WaitForEvent(ptpDaemonPod, ranptpparameters.CloudEventContainer,
+				ranptpparameters.EventTypeClockClassChange, clockClass,
+				gmIface, "/master", gpsRebootTime, timeout)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Checking the clock state metrics is in available state")
+			err = ranptphelper.WaitForMetricValueStatus(*ptpDaemonPod, ranptpparameters.OpenshiftPtpClockState,
+				ranptpparameters.Available, time.Since(gpsRebootTime), timeout)
+			Expect(err).NotTo(HaveOccurred())
+		})
 	})
+
 	Context("disable SMA connection between the two cards", func() {
 		var (
 			rxInterface  string
@@ -866,4 +1203,54 @@ func verifyConsumerEvents(consumerNode *corev1.Node, consumerPod *corev1.Pod) {
 
 	verifyEventsAndMetricsModifyThresholds(&ptpDaemonPods.Items[0], consumerPod,
 		ranptpparameters.ConsumerContainer, 10*time.Minute, false)
+}
+
+// Changes, verifies & waits new PTP configuration for E810 plugin settings.
+func changePtpConfigPluginE810Settings(
+	ptpDaemonPod *corev1.Pod, ptpConfig *ptpv1.PtpConfig,
+	ptpProfileIndex int, iface string,
+	desiredSettings ranptpparameters.E810PluginSettings,
+	timeout time.Duration) {
+	// Get current currentSettings
+	currentSettings, err := ranptphelper.GetPtpConfigProfilePluginE810Settings(ptpConfig, ptpProfileIndex)
+	Expect(err).NotTo(HaveOccurred())
+
+	log.Printf("Current PTP plugin settings: MaxInSpecOffset: %d, LocalHoldoverTimeout: %d, LocalMaxHoldoverOffset: %d",
+		currentSettings.MaxInSpecOffset, currentSettings.LocalHoldoverTimeout, currentSettings.LocalMaxHoldoverOffset)
+
+	// Set the settings only if the initial settings are different
+	if desiredSettings != *currentSettings {
+		By("Set test case PTP profile settings")
+		err = ranptphelper.SetPtpConfigProfilePluginE810Settings(ptpConfig, ptpProfileIndex, desiredSettings)
+		Expect(err).NotTo(HaveOccurred())
+
+		setSettingsTime := time.Now()
+
+		log.Printf("New PTP plugin settings: MaxInSpecOffset: %d, LocalHoldoverTimeout: %d, LocalMaxHoldoverOffset: %d",
+			desiredSettings.MaxInSpecOffset, desiredSettings.LocalHoldoverTimeout, desiredSettings.LocalMaxHoldoverOffset)
+
+		By("Wait for GNSS SYNCHRONIZED event")
+		err = ranptphelper.WaitForEvent(ptpDaemonPod, ranptpparameters.CloudEventContainer,
+			ranptpparameters.EventTypeGnssStateChange, ranptpparameters.EventGnssSync,
+			iface, "/master", setSettingsTime, timeout)
+		Expect(err).NotTo(HaveOccurred())
+
+		By("Wait for clock state locked event")
+		err = ranptphelper.WaitForEvent(ptpDaemonPod, ranptpparameters.CloudEventContainer,
+			ranptpparameters.EventTypePtpStateChange, ranptpparameters.EventLocked,
+			iface, "/master", setSettingsTime, timeout)
+		Expect(err).NotTo(HaveOccurred())
+
+		By("Wait for clock class 6 event")
+		clockClass := strconv.Itoa(int(ranptpparameters.ClockClassLocked))
+		err = ranptphelper.WaitForEvent(ptpDaemonPod, ranptpparameters.CloudEventContainer,
+			ranptpparameters.EventTypeClockClassChange, clockClass,
+			iface, "/master", setSettingsTime, timeout)
+		Expect(err).NotTo(HaveOccurred())
+
+		By("checking the clock state metrics is in available state")
+		err = ranptphelper.WaitForMetricValueStatus(*ptpDaemonPod, ranptpparameters.OpenshiftPtpClockState,
+			ranptpparameters.Available, time.Since(setSettingsTime), timeout)
+		Expect(err).NotTo(HaveOccurred())
+	}
 }
