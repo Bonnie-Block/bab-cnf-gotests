@@ -62,6 +62,16 @@ var _ = BeforeSuite(func() {
 		Skip("PTP config does not exist")
 	}
 
+	// Collect ptp logs if BeforeSuite fails after this point.
+	// Defer the log collection till BeforeSuite fails - ginkgo throws panic in this case.
+	defer func() {
+		if r := recover(); r != nil {
+			testutils.ReportAlways(CurrentSpecReport(), currentFile, ranptpparameters.ReporterNamespacesToDump,
+				ranptpparameters.ReporterCrds)
+			panic(r)
+		}
+	}()
+
 	for _, ptpconf := range originPtpConfigList.Items {
 		originPtpConfigSpecs[ptpconf.Name] = ptpconf.Spec
 	}

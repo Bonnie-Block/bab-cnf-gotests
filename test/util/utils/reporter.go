@@ -71,24 +71,34 @@ func NewReporter(
 func ReportIfFailed(report types.SpecReport, testSuite string, nSpaces map[string]string, cRDs []k8sreporter.CRData) {
 	if report.State == types.SpecStateAborted || report.State == types.SpecStateFailed ||
 		report.State == types.SpecStateInterrupted {
-		dumpFile := helper.Config.GetDumpFailedTestReportLocation(testSuite)
-		if dumpFile != "" {
-			reporter, err := NewReporter(dumpFile, nSpaces, cRDs)
+		ReportAlways(report, testSuite, nSpaces, cRDs)
+	} else {
+		removeFile(config.PathToPodExecLogs)
+	}
+}
 
-			if err != nil {
-				log.Fatalf("Failed to create log reporter %s", err)
-			}
+func ReportAlways(report types.SpecReport, testSuite string, nSpaces map[string]string, cRDs []k8sreporter.CRData) {
+	dumpFile := helper.Config.GetDumpFailedTestReportLocation(testSuite)
+	if dumpFile != "" {
+		reporter, err := NewReporter(dumpFile, nSpaces, cRDs)
 
-			tcReportFolderName := strings.ReplaceAll(report.FullText(), " ", "_")
-			reporter.Dump(report.RunTime, tcReportFolderName)
+		if err != nil {
+			log.Fatalf("Failed to create log reporter %s", err)
+		}
 
-			_, podExecLogsFName := path.Split(config.PathToPodExecLogs)
-			err = moveFile(
-				config.PathToPodExecLogs, path.Join(reporter.ReportPath, tcReportFolderName, podExecLogsFName))
+		reportName := report.FullText()
+		if reportName == "" {
+			reportName = report.LeafNodeType.String()
+		}
+		tcReportFolderName := strings.ReplaceAll(reportName, " ", "_")
+		reporter.Dump(report.RunTime, tcReportFolderName)
 
-			if err != nil {
-				log.Printf("Failed to move pod exec logs %s to report folder: %s", config.PathToPodExecLogs, err)
-			}
+		_, podExecLogsFName := path.Split(config.PathToPodExecLogs)
+		err = moveFile(
+			config.PathToPodExecLogs, path.Join(reporter.ReportPath, tcReportFolderName, podExecLogsFName))
+
+		if err != nil {
+			log.Printf("Failed to move pod exec logs %s to report folder: %s", config.PathToPodExecLogs, err)
 		}
 	}
 
