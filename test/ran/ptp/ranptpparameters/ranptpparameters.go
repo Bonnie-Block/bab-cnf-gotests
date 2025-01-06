@@ -1,7 +1,6 @@
 package ranptpparameters
 
 import (
-	mcfgv1 "github.com/openshift/machine-config-operator/pkg/apis/machineconfiguration.openshift.io/v1"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/k8sreporter"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/schemes/ptp/ptpv1"
@@ -18,12 +17,11 @@ var (
 	}
 	// ReporterCrds tells to reporter what resources to collect.
 	ReporterCrds = []k8sreporter.CRData{
-		{Cr: &mcfgv1.MachineConfigPoolList{}},
 		{Cr: &ptpv1.PtpConfigList{}},
+		{Cr: &v1.ConfigMapList{}},
 		{Cr: &ptpv1.NodePtpDeviceList{}},
 		{Cr: &ptpv1.PtpOperatorConfigList{}},
 		{Cr: &appsv1.DaemonSetList{}},
-		{Cr: &v1.ConfigMapList{}},
 	}
 
 	PtpVersion   string

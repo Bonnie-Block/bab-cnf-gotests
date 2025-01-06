@@ -2,7 +2,6 @@ package ptp
 
 import (
 	. "github.com/onsi/ginkgo/v2"
-	"github.com/onsi/ginkgo/v2/types"
 	. "github.com/onsi/gomega"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
@@ -134,8 +133,8 @@ var _ = AfterSuite(func() {
 	}
 })
 
-var _ = ReportAfterEach(func(report types.SpecReport) {
-	testutils.ReportIfFailed(report, currentFile, ranptpparameters.ReporterNamespacesToDump,
+var _ = JustAfterEach(func() {
+	testutils.ReportIfFailed(CurrentSpecReport(), currentFile, ranptpparameters.ReporterNamespacesToDump,
 		ranptpparameters.ReporterCrds)
 })
 
