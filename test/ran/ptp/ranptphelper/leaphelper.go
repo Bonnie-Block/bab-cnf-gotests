@@ -22,7 +22,7 @@ import (
 // WaitForLeapCMUpdate waits for new announcement with Today's date in leap-configmap.
 func WaitForLeapCMUpdate(ptpNodeName string) error {
 	interval := 5 * time.Second
-	timeout := 3 * time.Minute
+	timeout := 5 * time.Minute
 
 	return wait.PollImmediate(interval, timeout, func() (bool, error) {
 		todayDate := time.Now().UTC().Format(ranptpparameters.DateFormat)
@@ -32,6 +32,8 @@ func WaitForLeapCMUpdate(ptpNodeName string) error {
 			return false, nil
 		}
 		if strings.Contains(newLeapCM.Data[ptpNodeName], todayDate) {
+			log.Print(newLeapCM.Data[ptpNodeName])
+
 			return true, nil
 		}
 
@@ -85,10 +87,14 @@ func RemoveLastLeapAnnouncement(leapCM *v1.ConfigMap, nodeName string) (*v1.Conf
 	newDataMap := make(map[string]string)
 	newDataMap[nodeName] = newCMData
 
+	log.Printf("current data:\n%s\n", leapCM.Data[nodeName])
+
 	patchedCM, err := patchNewDataCM(newDataMap)
 	if err != nil {
 		return nil, err
 	}
+
+	log.Printf("data after removing last announcement:\n%s\n", patchedCM.Data[nodeName])
 
 	leapCMLastAnnouncement, err := GetLastAnnouncement(leapCM, nodeName)
 	if err != nil {
@@ -120,7 +126,7 @@ func ClearLeapCmData(leapCM *v1.ConfigMap, nodeName string) (*v1.ConfigMap, erro
 	}
 
 	if len(patchedCM.Data) != 0 {
-		return nil, fmt.Errorf("remove last announecemet failed")
+		return nil, fmt.Errorf("remove data failed")
 	}
 
 	return patchedCM, nil
