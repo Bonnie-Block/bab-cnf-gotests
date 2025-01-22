@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"strconv"
 	"strings"
 	"time"
 
@@ -28,6 +27,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 		errBeforeAll         error
 		configCountsRecovery []int
 		originPtpConfigSpecs = map[string]ptpv1.PtpConfigSpec{}
+		gmIface              string
 	)
 	const (
 		configsIndx                = 0
@@ -39,6 +39,12 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 
 	BeforeAll(func() {
 		originPtpConfigSpecs, configCountsRecovery, errBeforeAll = ptpPretestValidations()
+
+		gmPtpConfig, err := ranptphelper.GetGmPtpConfig()
+		Expect(err).NotTo(HaveOccurred())
+
+		gmIface, err = ranptphelper.GetGmInterfaceToGPS(*gmPtpConfig)
+		Expect(err).NotTo(HaveOccurred())
 	})
 
 	BeforeEach(func() {
@@ -293,16 +299,6 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 			nodeToPtpDaemonPod, err := ranptphelper.NodesToPtpDaemonPods()
 			Expect(err).NotTo(HaveOccurred())
 
-			ptpConfigs, err := helper.Apiclient.PtpConfigs(parameters.PtpOperatorNamespace).List(context.Background(),
-				metav1.ListOptions{})
-			Expect(err).NotTo(HaveOccurred())
-
-			ptpConfiguration, err := ranptphelper.GetGmPtpConfig(*ptpConfigs)
-			Expect(err).NotTo(HaveOccurred())
-
-			gmIface, err := ranptphelper.GetGmInterfaceToGPS(*ptpConfiguration)
-			Expect(err).NotTo(HaveOccurred())
-
 			for nodeName, ptpDaemonPod := range nodeToPtpDaemonPod {
 				workerNode, err := ranhelper.GetNodeByName(nodeName)
 				Expect(err).NotTo(HaveOccurred())
@@ -351,6 +347,11 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 					1*time.Minute, 10*time.Second)
 				Expect(err).NotTo(HaveOccurred())
 
+				By("verify clock class value is 6 in metrics")
+				err = ranptphelper.WaitForMetricValueStatus(ptpDaemonPod, ranptpparameters.OpenshiftPtpClockClass,
+					6, 1*time.Minute, 10*time.Second)
+				Expect(err).NotTo(HaveOccurred())
+
 				// test on one node only
 				break
 			}
@@ -389,12 +390,11 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 				err = ranptphelper.WaitForPtpClockStateMetric(ptpDaemonPod, ranptpparameters.LockedState, "", 1*time.Minute,
 					10*time.Second)
 				Expect(err).NotTo(HaveOccurred())
-
 			}
 		})
 
 		// 64777
-		It("should recover gpsd process after killing it on node ", polarion.ID("64777"), func() {
+		It("should recover gpsd process after killing it on node", polarion.ID("64777"), func() {
 			if configCountsRecovery[gmOneCardConfigIndx] == 0 && configCountsRecovery[gmTwoCardConfigIndx] == 0 {
 				Skip("Test requires grand master configuration")
 			}
@@ -410,6 +410,8 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 				pid, err := ranptphelper.GetProcessPID(&ptpDaemonPod, "gpsd")
 				Expect(err).NotTo(HaveOccurred())
 
+				startTime := time.Now()
+
 				By(fmt.Sprintf("Kill a gpsd process on node %s", workerNode.Name))
 				err = ranptphelper.KillProcess(&ptpDaemonPod, pid)
 				Expect(err).NotTo(HaveOccurred())
@@ -419,9 +421,26 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 				err = ranptphelper.WaitForNewProcess(&ptpDaemonPod, "gpsd", pid)
 				Expect(err).NotTo(HaveOccurred())
 
+				By("Verifying clock_class changed to 7 in ptp events")
+				err = ranptphelper.WaitForEvent(&ptpDaemonPod, ranptpparameters.CloudEventContainer,
+					ranptpparameters.EventTypeClockClassChange, "7",
+					gmIface, "/master", startTime, 1*time.Minute)
+				Expect(err).NotTo(HaveOccurred())
+
 				By("validate all ptp clocks are in LOCKED state in ptp metrics")
 				err = ranptphelper.WaitForPtpClockStateMetric(ptpDaemonPod, ranptpparameters.LockedState, "", 1*time.Minute,
 					10*time.Second)
+				Expect(err).NotTo(HaveOccurred())
+
+				By("Verifying clock_class value changed to 6 in ptp events")
+				err = ranptphelper.WaitForEvent(&ptpDaemonPod, ranptpparameters.CloudEventContainer,
+					ranptpparameters.EventTypeClockClassChange, "6",
+					gmIface, "/master", startTime, 1*time.Minute)
+				Expect(err).NotTo(HaveOccurred())
+
+				By("verify clock class value is 6 in metrics")
+				err = ranptphelper.WaitForMetricValueStatus(ptpDaemonPod, ranptpparameters.OpenshiftPtpClockClass,
+					6, 1*time.Minute, 10*time.Second)
 				Expect(err).NotTo(HaveOccurred())
 			}
 		})
@@ -706,17 +725,6 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 				ranptpparameters.Available, 1*time.Minute, 10*time.Second)
 			Expect(err).NotTo(HaveOccurred())
 
-			// Get gm interface
-			ptpConfigs, err := helper.Apiclient.PtpConfigs(parameters.PtpOperatorNamespace).List(context.Background(),
-				metav1.ListOptions{})
-			Expect(err).NotTo(HaveOccurred())
-
-			ptpConfiguration, err := ranptphelper.GetGmPtpConfig(*ptpConfigs)
-			Expect(err).NotTo(HaveOccurred())
-
-			gmIface, err := ranptphelper.GetGmInterfaceToGPS(*ptpConfiguration)
-			Expect(err).NotTo(HaveOccurred())
-
 			// Time to start log monitoring for nmea loss - right before GPS cold reboot
 			startTime := time.Now()
 
@@ -727,6 +735,12 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 			By("Wait for GNSS ANTENNA-DISCONNECTED event")
 			err = ranptphelper.WaitForEvent(ptpDaemonPod, ranptpparameters.CloudEventContainer,
 				ranptpparameters.EventTypeGnssStateChange, "ANTENNA-DISCONNECTED",
+				gmIface, "/master", startTime, 1*time.Minute)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Wait for clock class 7 event")
+			err = ranptphelper.WaitForEvent(ptpDaemonPod, ranptpparameters.CloudEventContainer,
+				ranptpparameters.EventTypeClockClassChange, "7",
 				gmIface, "/master", startTime, 1*time.Minute)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -742,6 +756,12 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 				gmIface, "/master", startTime, 3*time.Minute)
 			Expect(err).NotTo(HaveOccurred())
 
+			By("Wait for clock class 6 event")
+			err = ranptphelper.WaitForEvent(ptpDaemonPod, ranptpparameters.CloudEventContainer,
+				ranptpparameters.EventTypeClockClassChange, "6",
+				gmIface, "/master", startTime, 3*time.Minute)
+			Expect(err).NotTo(HaveOccurred())
+
 			By("Wait for recovery - Clock Lock event")
 			err = ranptphelper.WaitForEvent(ptpDaemonPod, ranptpparameters.CloudEventContainer,
 				"event.sync.ptp-status.ptp-state-change", ranptpparameters.EventLocked,
@@ -751,6 +771,11 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 			By("checking recovery via metrics - openshift_ptp_nmea_status metrics becomes available ")
 			err = ranptphelper.WaitForMetricValueStatus(*ptpDaemonPod, ranptpparameters.OpenshiftPtpNmeaStatus,
 				ranptpparameters.Available, 1*time.Minute, 10*time.Second)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("verify clock class value is 6 in metrics")
+			err = ranptphelper.WaitForMetricValueStatus(*ptpDaemonPod, ranptpparameters.OpenshiftPtpClockClass,
+				6, 1*time.Minute, 10*time.Second)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -786,9 +811,6 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 			gmConfig, gmProfileIndex, err := ranptphelper.GetGmPtpConfigWithProfileIndex(*configs)
 			Expect(err).NotTo(HaveOccurred())
 
-			gmIface, err := ranptphelper.GetGmInterfaceToGPS(*gmConfig)
-			Expect(err).NotTo(HaveOccurred())
-
 			changePtpConfigPluginE810Settings(ptpDaemonPod, gmConfig, gmProfileIndex, gmIface, testCasePluginSettings, timeout)
 
 			By("GPS cold boot via pod:" + ptpDaemonPod.Name)
@@ -812,9 +834,8 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Wait for clock class 7 event")
-			clockClass := strconv.Itoa(int(ranptpparameters.ClockClassHoldOver))
 			err = ranptphelper.WaitForEvent(ptpDaemonPod, ranptpparameters.CloudEventContainer,
-				ranptpparameters.EventTypeClockClassChange, clockClass,
+				ranptpparameters.EventTypeClockClassChange, "7",
 				gmIface, "/master", gpsRebootTime, timeout)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -832,10 +853,14 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Wait for clock class 6 event")
-			clockClass = strconv.Itoa(int(ranptpparameters.ClockClassLocked))
 			err = ranptphelper.WaitForEvent(ptpDaemonPod, ranptpparameters.CloudEventContainer,
-				ranptpparameters.EventTypeClockClassChange, clockClass,
+				ranptpparameters.EventTypeClockClassChange, "6",
 				gmIface, "/master", gpsRebootTime, timeout)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("verify clock class value is 6 in metrics")
+			err = ranptphelper.WaitForMetricValueStatus(*ptpDaemonPod, ranptpparameters.OpenshiftPtpClockClass,
+				6, 1*time.Minute, 10*time.Second)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Checking the clock state metrics is in available state")
@@ -876,9 +901,6 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 			gmConfig, gmProfileIndex, err := ranptphelper.GetGmPtpConfigWithProfileIndex(*configs)
 			Expect(err).NotTo(HaveOccurred())
 
-			gmIface, err := ranptphelper.GetGmInterfaceToGPS(*gmConfig)
-			Expect(err).NotTo(HaveOccurred())
-
 			changePtpConfigPluginE810Settings(ptpDaemonPod, gmConfig, gmProfileIndex, gmIface, testCasePluginSettings, timeout)
 
 			// Start gps cold reboot loop
@@ -907,13 +929,12 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Wait for clock class change to 7")
-			clockClass := strconv.Itoa(int(ranptpparameters.ClockClassHoldOver))
 			err = ranptphelper.WaitForEvent(ptpDaemonPod, ranptpparameters.CloudEventContainer,
-				ranptpparameters.EventTypeClockClassChange, clockClass,
+				ranptpparameters.EventTypeClockClassChange, "7",
 				gmIface, "/master", gpsRebootTime, timeout)
 			Expect(err).NotTo(HaveOccurred())
 
-			// wait for timer expired annoucment
+			// wait for timer expired announcement
 			By("Checking dpll offset out of range in linuxptp-daemon log - 'holdover timer'")
 			err = ranptphelper.WaitForLog(
 				ptpDaemonPod, parameters.PtpContainerName,
@@ -929,9 +950,8 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Wait for clock class 248 event")
-			clockClass = strconv.Itoa(int(ranptpparameters.ClockClassFreerun))
 			err = ranptphelper.WaitForEvent(ptpDaemonPod, ranptpparameters.CloudEventContainer,
-				ranptpparameters.EventTypeClockClassChange, clockClass,
+				ranptpparameters.EventTypeClockClassChange, "248",
 				gmIface, "/master", gpsRebootTime, timeout)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -949,10 +969,14 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Wait for clock class 6 event")
-			clockClass = strconv.Itoa(int(ranptpparameters.ClockClassLocked))
 			err = ranptphelper.WaitForEvent(ptpDaemonPod, ranptpparameters.CloudEventContainer,
-				ranptpparameters.EventTypeClockClassChange, clockClass,
+				ranptpparameters.EventTypeClockClassChange, "6",
 				gmIface, "/master", gpsRebootTime, timeout)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("verify clock class value is 6 in metrics")
+			err = ranptphelper.WaitForMetricValueStatus(*ptpDaemonPod, ranptpparameters.OpenshiftPtpClockClass,
+				6, 1*time.Minute, 10*time.Second)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Checking the clock state metrics is in available state")
@@ -992,9 +1016,6 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 			gmConfig, gmProfileIndex, err := ranptphelper.GetGmPtpConfigWithProfileIndex(*configs)
 			Expect(err).NotTo(HaveOccurred())
 
-			gmIface, err := ranptphelper.GetGmInterfaceToGPS(*gmConfig)
-			Expect(err).NotTo(HaveOccurred())
-
 			changePtpConfigPluginE810Settings(ptpDaemonPod, gmConfig, gmProfileIndex, gmIface, testCasePluginSettings, timeout)
 
 			// calculation of how long it will take to reach an offset which is out of range
@@ -1026,14 +1047,12 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Wait for clock class 7 event")
-			clockClass := strconv.Itoa(int(ranptpparameters.ClockClassHoldOver))
-			err = ranptphelper.WaitForEvent(
-				ptpDaemonPod, ranptpparameters.CloudEventContainer,
-				ranptpparameters.EventTypeClockClassChange, clockClass,
+			err = ranptphelper.WaitForEvent(ptpDaemonPod, ranptpparameters.CloudEventContainer,
+				ranptpparameters.EventTypeClockClassChange, "7",
 				gmIface, "/master", gpsRebootTime, timeout)
 			Expect(err).NotTo(HaveOccurred())
 
-			// wait for offset out of range annoucement
+			// wait for offset out of range announcement
 			By("Checking dpll phase offset in linuxptp-daemon log - 'dpll inspec offset is out of range'")
 			err = ranptphelper.WaitForLog(
 				ptpDaemonPod,
@@ -1050,9 +1069,8 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Wait for clock class 248 event")
-			clockClass = strconv.Itoa(int(ranptpparameters.ClockClassHoldOver))
 			err = ranptphelper.WaitForEvent(ptpDaemonPod, ranptpparameters.CloudEventContainer,
-				ranptpparameters.EventTypeClockClassChange, clockClass,
+				ranptpparameters.EventTypeClockClassChange, "248",
 				gmIface, "/master", gpsRebootTime, timeout)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -1070,10 +1088,14 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Wait for clock class 6 event")
-			clockClass = strconv.Itoa(int(ranptpparameters.ClockClassLocked))
 			err = ranptphelper.WaitForEvent(ptpDaemonPod, ranptpparameters.CloudEventContainer,
-				ranptpparameters.EventTypeClockClassChange, clockClass,
+				ranptpparameters.EventTypeClockClassChange, "6",
 				gmIface, "/master", gpsRebootTime, timeout)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("verify clock class value is 6 in metrics")
+			err = ranptphelper.WaitForMetricValueStatus(*ptpDaemonPod, ranptpparameters.OpenshiftPtpClockClass,
+				6, 1*time.Minute, 10*time.Second)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Checking the clock state metrics is in available state")
@@ -1087,7 +1109,6 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 		var (
 			rxInterface  string
 			ptpDaemonPod *corev1.Pod
-			ptpConfigs   *ptpv1.PtpConfigList
 		)
 
 		BeforeEach(func() {
@@ -1099,11 +1120,8 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 			Expect(err).NotTo(HaveOccurred())
 			ptpDaemonPod = &ptpDaemonPods.Items[0]
 			log.Printf("get ptpconfig")
-			ptpConfigs, err = helper.Apiclient.PtpConfigs(parameters.PtpOperatorNamespace).List(context.Background(),
-				metav1.ListOptions{})
-			Expect(err).NotTo(HaveOccurred())
 
-			gmPtpConfiguration, err := ranptphelper.GetGmPtpConfig(*ptpConfigs)
+			gmPtpConfiguration, err := ranptphelper.GetGmPtpConfig()
 			Expect(err).NotTo(HaveOccurred())
 
 			rxInterface, err = ranptphelper.GetRxIface(*gmPtpConfiguration)
@@ -1127,7 +1145,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 		It("checks FREERUN status are generated for dpll process for RX interface and GM process for TX "+
 			"interface", polarion.ID("70114"), func() {
 
-			gmPtpConfiguration, err := ranptphelper.GetGmPtpConfig(*ptpConfigs)
+			gmPtpConfiguration, err := ranptphelper.GetGmPtpConfig()
 			Expect(err).NotTo(HaveOccurred())
 
 			txInterface, err := ranptphelper.GetTxIface(*gmPtpConfiguration)
@@ -1244,15 +1262,19 @@ func changePtpConfigPluginE810Settings(
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Wait for clock class 6 event")
-		clockClass := strconv.Itoa(int(ranptpparameters.ClockClassLocked))
 		err = ranptphelper.WaitForEvent(ptpDaemonPod, ranptpparameters.CloudEventContainer,
-			ranptpparameters.EventTypeClockClassChange, clockClass,
+			ranptpparameters.EventTypeClockClassChange, "6",
 			iface, "/master", setSettingsTime, timeout)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("checking the clock state metrics is in available state")
 		err = ranptphelper.WaitForMetricValueStatus(*ptpDaemonPod, ranptpparameters.OpenshiftPtpClockState,
 			ranptpparameters.Available, time.Since(setSettingsTime), timeout)
+		Expect(err).NotTo(HaveOccurred())
+
+		By("verify clock class value is 6 in metrics")
+		err = ranptphelper.WaitForMetricValueStatus(*ptpDaemonPod, ranptpparameters.OpenshiftPtpClockClass,
+			6, 1*time.Minute, 10*time.Second)
 		Expect(err).NotTo(HaveOccurred())
 	}
 }

@@ -377,7 +377,13 @@ func IsGmTwoCardProfile(profile ptpv1.PtpProfile) bool {
 }
 
 // GetGmPtpConfig return a GM ptp configuration.
-func GetGmPtpConfig(listPtpConfig ptpv1.PtpConfigList) (*ptpv1.PtpConfig, error) {
+func GetGmPtpConfig() (*ptpv1.PtpConfig, error) {
+	listPtpConfig, err := helper.Apiclient.PtpConfigs(parameters.PtpOperatorNamespace).List(context.Background(),
+		metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+
 	for _, ptpConfig := range listPtpConfig.Items {
 		for _, ptpProfile := range ptpConfig.Spec.Profile {
 			if IsGmOneCardProfile(ptpProfile) || IsGmTwoCardProfile(ptpProfile) {
