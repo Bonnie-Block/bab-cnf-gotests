@@ -1,6 +1,19 @@
 package ranptphelper
 
 import (
+	"bufio"
+	"bytes"
+	"errors"
+	"fmt"
+	"io"
+	"log"
+	"regexp"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/prometheus/common/expfmt"
+	openmetrics "github.com/prometheus/common/model"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ptp/ranptpparameters"
@@ -8,15 +21,206 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
-
-	"bytes"
-	"fmt"
-	"log"
-	"regexp"
-	"strconv"
-	"strings"
-	"time"
 )
+
+// NewPtpClockStateMetricSample is a wrapper for creating a metric sample for PTP Clock State
+// arguments:
+// "clockStateValue":	PTP Clock State
+// "iface": Network interface name to which PTP process is bonded
+// "node": Hostname on which PTP process is running on
+// "process": PTP process name
+// return value: Prometheus OpenMetrics Sample.
+func NewPtpClockStateMetricSample(
+	clockStateValue ranptpparameters.ClockState,
+	iface,
+	node,
+	process string) *openmetrics.Sample {
+	labels := map[string]string{
+		"iface":   iface,
+		"node":    node,
+		"process": process,
+	}
+
+	// ignore keys with empty values
+	for key, value := range labels {
+		if len(value) == 0 {
+			delete(labels, key)
+		}
+	}
+
+	return NewMetricSample(ranptpparameters.OpenshiftPtpClockState, float64(clockStateValue), labels)
+}
+
+// NewMetricSample creates a metric sample.
+// arguments:
+// "metricName": Metric name; title. e.g. temperature_celsius.
+// "metricValue": Metric value. e.g. 25.0 .
+// "metricsLabels": key-value label pairs. e.g. "city":"haifa".
+// return value: Prometheus OpenMetrics Sample.
+func NewMetricSample(
+	metricName string,
+	metricValue float64,
+	metricsLabels map[string]string) *openmetrics.Sample {
+
+	metric := make(openmetrics.Metric, 0)
+
+	metric[openmetrics.MetricNameLabel] = openmetrics.LabelValue(metricName)
+
+	for name, value := range metricsLabels {
+		metric[openmetrics.LabelName(name)] = openmetrics.LabelValue(value)
+	}
+
+	s := &openmetrics.Sample{
+		Value:  openmetrics.SampleValue(metricValue),
+		Metric: metric,
+	}
+
+	return s
+}
+
+// NewMetricVector creates a metric vector. acts as a wrapper to avoid importing openmetrics elsewhere.
+// arguments:
+// "samples": a list of samples.
+// return value: Prometheus OpenMetrics Vector.
+func NewMetricVector(samples ...*openmetrics.Sample) openmetrics.Vector {
+	return openmetrics.Vector(samples)
+}
+
+// FilterMetricsSample checks if the sample matches the filter.
+// arguments:
+// "sample": sample to be filtered.
+// "filter": filter. empty filter fields will be ignored.
+// return value: error on mismatch.
+func FilterMetricsSample(sample, filter *openmetrics.Sample) error {
+	for fLabelName, fLabelValue := range filter.Metric {
+		labelValue, nameOk := sample.Metric[fLabelName]
+		if !nameOk {
+			return fmt.Errorf("metric label name not found in sample keys: %s", fLabelName)
+		}
+
+		if labelValue != fLabelValue {
+			return fmt.Errorf("metric label `%s` value: want %s, got %s", fLabelName, fLabelValue, labelValue)
+		}
+	}
+
+	if sample.Value != filter.Value {
+		return fmt.Errorf("metric value: want %s, got %s", filter.Value, sample.Value)
+	}
+
+	return nil
+}
+
+// FilterMetricsVector checks if the sample matches the filter.
+// arguments:
+// "sample": vector to be filtered.
+// "filter": filter.
+// return value: error on mismatch or unused filter.
+func FilterMetricsVector(vector, filter openmetrics.Vector) error {
+	remainingMetrics := vector
+
+	for _, filterSample := range filter {
+		matchedOnce := false
+
+		for _, metricSample := range remainingMetrics {
+			// skip for non-matching metric names
+			if filterSample.Metric[openmetrics.MetricNameLabel] != metricSample.Metric[openmetrics.MetricNameLabel] {
+				continue
+			}
+
+			if err := FilterMetricsSample(metricSample, filterSample); err != nil {
+				continue
+			}
+
+			matchedOnce = true
+		}
+
+		if !matchedOnce {
+			return fmt.Errorf("exhausted all metrics with no matches: %s", filterSample.String())
+		}
+	}
+
+	return nil
+}
+
+// decodeRawMetrics decodes the metrics output into an OpenMetrics Vector.
+// arguments:
+// "openMetricsBuff": a bytes buffer which holds the output from OpenMetrics API.
+// return value: OpenMetrics Vector. error on decode failer.
+func decodeRawMetrics(openMetricsBuff bytes.Buffer) (openmetrics.Vector, error) {
+
+	if openMetricsBuff.Len() == 0 {
+		return nil, fmt.Errorf("metric buffer is empty, nothing to parse")
+	}
+
+	openMetricsBuff, err := removeRawMetricsComments(openMetricsBuff)
+	if err != nil {
+		return nil, err
+	}
+
+	dec := expfmt.SampleDecoder{
+		Dec: expfmt.NewDecoder(&openMetricsBuff, expfmt.FmtText),
+		Opts: &expfmt.DecodeOptions{
+			Timestamp: openmetrics.Now(),
+		},
+	}
+
+	var vector openmetrics.Vector
+
+	for {
+		var decodedVector openmetrics.Vector
+
+		if err := dec.Decode(&decodedVector); err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+
+			return nil, err
+		}
+
+		vector = append(vector, decodedVector...)
+	}
+
+	return vector, nil
+}
+
+// removeRawMetricsComments remove commented (#) lines from the metrics output.
+// arguments:
+// "openMetricsBuff": bytes buffer which holds the output from OpenMetrics API.
+// return value: cleaned bytes buffer from comments.
+func removeRawMetricsComments(openMetricsBuff bytes.Buffer) (bytes.Buffer, error) {
+	var output bytes.Buffer
+	scanner := bufio.NewScanner(&openMetricsBuff)
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		if !strings.HasPrefix(line, "#") {
+			output.WriteString(line + "\n")
+		}
+	}
+
+	return output, scanner.Err()
+}
+
+// getPtpMetrics gets the PTP metrics & returns them as map constructed of
+// metric name & slice of metric details.
+func getPtpMetrics(ptpPod corev1.Pod) (
+	openmetrics.Vector,
+	error) {
+
+	buff, err := pod.ExecCommand(helper.Apiclient, ptpPod, []string{"bash", "-c", ranptpparameters.PtpMetricsCmd},
+		parameters.PtpContainerName)
+
+	if err != nil {
+		return nil, err
+	}
+
+	metrics, err := decodeRawMetrics(buff)
+	if err != nil {
+		return nil, err
+	}
+
+	return metrics, nil
+}
 
 // GetPTPMetrics gets the metrics and checks if the all the metrics got correctly if not it will try again
 // up to 15 minutes.
@@ -196,7 +400,7 @@ func getValue(metricDetails string) (int64, error) {
 	valueStr := r.FindStringSubmatch(metricDetails)
 
 	if len(valueStr) < 2 {
-		return 0, fmt.Errorf("no match found in metricDetails: %s", metricDetails)
+		return 0, fmt.Errorf("no match found in metricDetails: `%s`", metricDetails)
 	}
 
 	return strconv.ParseInt(valueStr[1], 0, 64)

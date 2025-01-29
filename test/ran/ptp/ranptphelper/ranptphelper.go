@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/prometheus/common/model"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ptp/ranptpparameters"
@@ -20,6 +21,38 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/utils/strings/slices"
 )
+
+// WaitForDesiredMetrics waits for the metrics to match the desired state given.
+func WaitForDesiredMetrics(
+	ptpDaemonPod corev1.Pod,
+	timeout time.Duration,
+	filter model.Vector) error {
+
+	interval := 5 * time.Second
+
+	err := wait.PollImmediate(interval, timeout, func() (bool, error) {
+		metrics, err := getPtpMetrics(ptpDaemonPod)
+		if err != nil {
+			log.Println(err)
+
+			return false, nil
+		}
+
+		if err = FilterMetricsVector(metrics, filter); err != nil {
+			log.Println(err)
+
+			return false, nil
+		}
+
+		return true, nil
+	})
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
 
 // NodesToPtpDaemonPods gets a list of nodes "nodesList" and a list of ptp daemon pods "podsList".
 // and returns a map which the 'key' is a node and the 'value' is the ptp daemon pod of that specific node.
