@@ -688,8 +688,8 @@ func checkContainerTrend(containerCountBreakdown []rancpuparameters.PromMetric, 
 			if err1 == nil && err2 == nil {
 				if currentValue > historicValue {
 					log.Println("[Trend Violated]", namespace, "baseline", historicValue, "current", currentValue)
-					violationsString += fmt.Sprintf("%s _ %s changed container count from %f to %f\n",
-						namespace, pod, historicValue, currentValue)
+					violationsString += fmt.Sprintf("%s _ %s changed container count from %d to %d\n",
+						namespace, pod, int(historicValue), int(currentValue))
 				} else {
 					log.Println("[Trend Observed]", namespace, "baseline", historicValue, "current", currentValue)
 				}
