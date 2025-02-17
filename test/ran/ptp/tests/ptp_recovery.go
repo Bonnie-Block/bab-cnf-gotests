@@ -356,9 +356,9 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 			}
 		})
 
-		// 59863
+		// 59864
 		It("should recover the ptp4l process after the killing a "+
-			"ptp4l process that is related to ts2phc process", polarion.ID("59863"), func() {
+			"ptp4l process that is related to ts2phc process", polarion.ID("59864"), func() {
 			if configCountsRecovery[gmOneCardConfigIndx] == 0 && configCountsRecovery[gmTwoCardConfigIndx] == 0 {
 				Skip("Test requires grand master configuration")
 			}
