@@ -31,7 +31,6 @@ const (
 	InternalClient1IPv4                         = "172.16.0.1"
 	InternalClient2IPv4                         = "172.16.1.1"
 	IPSecondaryInterface1                       = "3.3.3.10"
-	IPSecondaryInterface2                       = "3.3.3.20"
 	PodWaitingTime                time.Duration = 3 * time.Minute
 	Interval                                    = 1 * time.Second
 	Timeout                                     = 3 * time.Minute
@@ -43,7 +42,6 @@ const (
 	UseMetallbResourcesFromFile                 = false
 	MetalLBDeploymentName                       = "controller"
 	MetalLBDaemonsetName                        = "speaker"
-	MetalLBCRName                               = "metallb"
 	MetalLBOperatorNameSpace                    = "metallb-system"
 	MetalLBAddressPool                          = "metallb.universe.tf/address-pool"
 	HelmChartKeyExample                         = "example"
@@ -69,9 +67,6 @@ const (
 	BGPDefaultKeepAliveTimer                    = 30000
 	BGPUpdatedHoldTimer                         = 30000
 	BGPUpdatedKeepAliveTimer                    = 10000
-	MonitoringLabel                             = "openshift.io/cluster-monitoring"
-	BFDStatusUp                                 = "up"
-	BFDStatusDown                               = "down"
 	BFDConfigPrefix                             = "bfd"
 	BGPConfigPrefix                             = "router bgp"
 	AddressPoolS1Name                           = "address-pools1"
@@ -86,13 +81,11 @@ const (
 	ProtocolTCP                                 = "tcp"
 	BGPAdvertisementName                        = "bgpadvertisement"
 	BGPAdvertisement2Name                       = "bgpadvertisement2"
-	L2AdvertisementName                         = "l2advertisement"
 	BREXInterface                               = "br-ex"
 	PrefixLen32                                 = int32(32)
 	PrefixLen28                                 = int32(28)
 	PrefixLen128                                = int32(128)
 	PrefixLen126                                = int32(126)
-	PrefixLen64                                 = int32(64)
 	CommunityNoAdv                              = "65535:65282" // 0xFFFFFF02: NO_ADVERTISE
 	CustomCommunity                             = "500:500"
 	LocalPref100                                = uint32(100)
