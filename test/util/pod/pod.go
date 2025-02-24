@@ -57,7 +57,6 @@ func getDefinition(namespace string, image string) *corev1.Pod {
 			GenerateName: "testpod-",
 			Namespace:    namespace},
 		Spec: corev1.PodSpec{
-			TerminationGracePeriodSeconds: pointer.Int64(0),
 			Containers: []corev1.Container{{Name: parameters.MainContainerName,
 				Image:   image,
 				Command: parameters.SleepCommand}}}}

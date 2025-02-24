@@ -59,7 +59,7 @@ func PullTestImage(cnfNodeLabel string, image string) {
 		}, podWaitingTime, time.Second).Should(Equal(k8sv1.PodSucceeded), "Invalid pulling image")
 	}
 
-	err = namespaces.CleanPods("default", Apiclient)
+	err = namespaces.CleanPodAndWaitUntilItsEmpty(Apiclient, "default")
 	Expect(err).ToNot(HaveOccurred())
 }
 

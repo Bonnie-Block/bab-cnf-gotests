@@ -1,9 +1,7 @@
 package tests
 
 import (
-	"context"
 	"fmt"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -16,8 +14,6 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/execute"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/polarion"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var _ = Describe("CNF SRIOV", func() {
@@ -47,15 +43,8 @@ var _ = Describe("CNF SRIOV", func() {
 		}
 
 		By("Cleaning up resources before test")
-		err = namespaces.CleanPods(netsriovparameters.OperatorTestNamespace, Apiclient)
+		err = namespaces.CleanPodAndWaitUntilItsEmpty(Apiclient, netsriovparameters.OperatorTestNamespace)
 		Expect(err).ToNot(HaveOccurred())
-		Eventually(func() bool {
-			podsList, err := Apiclient.Pods(
-				netsriovparameters.OperatorTestNamespace).List(context.Background(), metav1.ListOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			return len(podsList.Items) == 0
-		}, 3*time.Minute, 10*time.Second).Should(BeTrue())
 	})
 
 	DescribeTable(

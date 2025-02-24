@@ -149,16 +149,10 @@ var _ = Describe("CNF SRIOV", Ordered, func() {
 				By("Wait until SR-IOV cluster is stable ")
 				helper.WaitForSRIOVStable(parameters.SriovOperatorNamespace, netsriovparameters.WaitingTime, snoTimeoutMultiplier)
 
-				By("Disable webhooks")
-				falseValue := false
-				sriovOperatorConfig, err := helper.Apiclient.SriovOperatorConfigs(parameters.SriovOperatorNamespace).
-					Get(context.Background(), "default", metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred(), "Failed to get SriovOperatorConfig")
-				sriovOperatorConfig.Spec.EnableOperatorWebhook = &falseValue
-				sriovOperatorConfig.Spec.EnableInjector = &falseValue
-				_, err = helper.Apiclient.SriovOperatorConfigs(parameters.SriovOperatorNamespace).
-					Update(context.Background(), sriovOperatorConfig, metav1.UpdateOptions{})
-				Expect(err).ToNot(HaveOccurred(), "Failed to update SriovOperatorConfig")
+				By("Remove SR-IOV operator config")
+				err = helper.Apiclient.SriovOperatorConfigs(parameters.SriovOperatorNamespace).
+					Delete(context.Background(), "default", metav1.DeleteOptions{})
+				Expect(err).ToNot(HaveOccurred(), "Failed to remove default SriovOperatorConfig")
 
 				By(fmt.Sprintf("Waiting for MutatingWebhooks removal: %v",
 					netsriovparameters.SriovMutationWebhooks))

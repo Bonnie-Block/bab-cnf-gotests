@@ -75,9 +75,7 @@ func CleanPods(namespace string, cs *testclient.ClientSet) error {
 		return nil
 	}
 
-	err := cs.Pods(namespace).DeleteCollection(context.Background(), metav1.DeleteOptions{
-		GracePeriodSeconds: pointer.Int64(0),
-	}, metav1.ListOptions{})
+	err := cs.Pods(namespace).DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{})
 
 	if err != nil {
 		return fmt.Errorf("failed to delete pods %w", err)
@@ -154,7 +152,7 @@ func waitForSriovNetworkDeletion(operatorNamespace string, cs *testclient.Client
 
 // Clean cleans all dangling objects from the given namespace.
 func Clean(operatorNamespace, namespace string, clientSet *testclient.ClientSet, discoveryEnabled bool) error {
-	err := CleanPods(namespace, clientSet)
+	err := CleanPodAndWaitUntilItsEmpty(clientSet, namespace)
 	if err != nil {
 		return err
 	}

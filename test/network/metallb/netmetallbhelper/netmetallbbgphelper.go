@@ -532,7 +532,7 @@ func RemoveMetallbBGPTestSetup(nadNameList []string, configMapName []string) {
 	Expect(err).ToNot(HaveOccurred())
 	err = DeleteAllBGPPeers()
 	Expect(err).ToNot(HaveOccurred())
-	err = namespaces.CleanPods(netmlbparameters.TestNamespace, helper.Apiclient)
+	err = namespaces.CleanPodAndWaitUntilItsEmpty(helper.Apiclient, netmlbparameters.TestNamespace)
 	Expect(err).ToNot(HaveOccurred())
 	err = nethelper.DeleteAllNADs(netmlbparameters.TestNamespace)
 	Expect(err).ToNot(HaveOccurred())

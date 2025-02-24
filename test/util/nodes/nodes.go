@@ -140,7 +140,7 @@ func GetByRole(cs *client.ClientSet, role string) ([]corev1.Node, error) {
 // GetPhysicalNodeInterfaces return list of interfaces.
 func GetPhysicalNodeInterfaces(clientSet *client.ClientSet, node, namespace string) ([]NodeInterface, error) {
 	defer func() {
-		_ = namespaces.CleanPods(namespace, clientSet)
+		_ = namespaces.CleanPodAndWaitUntilItsEmpty(clientSet, namespace)
 	}()
 
 	cfgData, err := config.NewConfig()

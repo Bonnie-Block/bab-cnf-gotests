@@ -3,7 +3,6 @@ package tests
 import (
 	"context"
 	"fmt"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -45,15 +44,8 @@ var _ = Describe("CNF SRIOV: Bond CNI.", func() {
 
 	AfterEach(func() {
 		By("Cleaning up resources after test")
-		err = namespaces.CleanPods(netsriovparameters.OperatorTestNamespace, Apiclient)
+		err = namespaces.CleanPodAndWaitUntilItsEmpty(Apiclient, netsriovparameters.OperatorTestNamespace)
 		Expect(err).ToNot(HaveOccurred())
-		Eventually(func() bool {
-			podsList, err := Apiclient.Pods(
-				netsriovparameters.OperatorTestNamespace).List(context.Background(), metav1.ListOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			return len(podsList.Items) == 0
-		}, 3*time.Minute, 10*time.Second).Should(BeTrue())
 	})
 
 	Context("Bond-mode:", func() {

@@ -67,7 +67,7 @@ var _ = Describe("CNF VRF", func() {
 		}
 
 		By("Cleaning up resources before test")
-		err := namespaces.CleanPods(netcniparameters.TestNamespace, generalHelper.Apiclient)
+		err := namespaces.CleanPodAndWaitUntilItsEmpty(generalHelper.Apiclient, netcniparameters.TestNamespace)
 		Expect(err).ToNot(HaveOccurred())
 	})
 	// 36306
