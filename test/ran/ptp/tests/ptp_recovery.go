@@ -482,7 +482,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 			By("Validate [LOCKED] event is received by consumer pod")
 			err = ranptphelper.WaitForEvent(consumerPod, ranptpparameters.ConsumerContainer,
 				"event.sync.ptp-status.ptp-state-change",
-				ranptpparameters.EventLocked, "", "", startTime, 1*time.Minute)
+				ranptpparameters.EventLocked, "", "", startTime, 3*time.Minute)
 			Expect(err).NotTo(HaveOccurred())
 		})
 

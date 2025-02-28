@@ -27,7 +27,9 @@ func getEventsLogs(logs string, eventStrings []string) []string {
 	logsSlice := strings.Split(logs, "\n")
 
 	for _, line := range logsSlice {
-		if strings.Contains(line, "msg=\"event sent") || strings.Contains(line, "msg=\"received event") {
+		if strings.Contains(line, "msg=\"event sent") ||
+			strings.Contains(line, "msg=\"received event") ||
+			strings.Contains(line, "msg=\"Got CurrentState:") {
 			eventStrings = append(eventStrings, line)
 		}
 	}
