@@ -231,7 +231,8 @@ var _ = Describe("SNO core reduction", func() {
 				time.Sleep(duration)
 				endTime := time.Now().UTC()
 				steadyEndTime = endTime
-				checkCPUUsage(duration, endTime, mgmtCPULimit, "steadyworkload")
+				// Restricting mgmt cpu usage to less than 3 cores in steadyworkload phase.
+				checkCPUUsage(duration, endTime, 3, "steadyworkload")
 			})
 		})
 
