@@ -43,6 +43,7 @@ const (
 	MetalLBDeploymentName                       = "controller"
 	MetalLBDaemonsetName                        = "speaker"
 	MetalLBOperatorNameSpace                    = "metallb-system"
+	Frrk8sNamespace                             = "openshift-frr-k8s"
 	MetalLBAddressPool                          = "metallb.universe.tf/address-pool"
 	HelmChartKeyExample                         = "example"
 	HelmChartKeyMyClass                         = "myclass"

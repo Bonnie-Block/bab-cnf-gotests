@@ -322,14 +322,17 @@ func TestBGPBlockRouteAdvertisment(ipStack string,
 	}, 2*time.Minute, netmlbparameters.TimeoutBFDBGP).ShouldNot(HaveOccurred())
 
 	By("should validate BGP route is not received on FRRK8S pods")
-
-	frrk8sPods, err := helper.Apiclient.Pods(netmlbparameters.MetalLBOperatorNameSpace).
-		List(context.Background(), metav1.ListOptions{
-			LabelSelector: netmlbparameters.FRRK8SLabelSelector,
-		})
-	Expect(err).ToNot(HaveOccurred())
-
-	acceptedPrefixes, err := parseAddressFamilyInfo(frrk8sPods.Items, netmlbparameters.AcceptedPrefixCounter)
+	frrk8sPodsList := []k8sv1.Pod{}
+	for _, node := range workerNodeList {
+		frrk8sPods, err := helper.Apiclient.Pods("openshift-frr-k8s").
+			List(context.Background(), metav1.ListOptions{
+				FieldSelector: fmt.Sprintf("spec.nodeName=%s", node.Name), LabelSelector: netmlbparameters.FRRK8SLabelSelector,
+			})
+		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("failed to list frr pods with label %s",
+			netmlbparameters.FRRK8SLabelSelector))
+		frrk8sPodsList = append(frrk8sPodsList, frrk8sPods.Items[0])
+	}
+	acceptedPrefixes, err := parseAddressFamilyInfo(frrk8sPodsList, netmlbparameters.AcceptedPrefixCounter)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(acceptedPrefixes).To(Equal(0))
 }
