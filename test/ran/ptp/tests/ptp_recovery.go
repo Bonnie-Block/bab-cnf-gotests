@@ -529,7 +529,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 
 		It("validates the consumer events after ptpoperatorconfig api version is modified", polarion.ID("59996"), func() {
 
-			if ranhelper.IsVersionStringInRange(ranptpparameters.PtpVersion, "4.16", "") {
+			if ranhelper.IsVersionStringInRange(ranptpparameters.PtpVersion, "4.16", "4.18") {
 				// Delete consumer
 				By("Delete the consumer")
 				log.Printf("Delete consumer")
