@@ -529,109 +529,111 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 
 		It("validates the consumer events after ptpoperatorconfig api version is modified", polarion.ID("59996"), func() {
 
-			if ranhelper.IsVersionStringInRange(ranptpparameters.PtpVersion, "4.16", "4.18") {
-				// Delete consumer
-				By("Delete the consumer")
-				log.Printf("Delete consumer")
-				destroyErrors := ranhelper.DestroyConsumers(parameters.CloudEventNamespace)
-				for _, err := range destroyErrors {
-					Expect(err).ShouldNot(HaveOccurred())
-				}
-				log.Printf("Consumer deleted - wait 30 seconds")
-				time.Sleep(30 * time.Second)
-
-				// Modify the ptpoperatorconfig
-				By("Modify the ptpoperatorconfig")
-				eventAPIVersionOriginal, err := ranhelper.GetEventAPIVersion()
-				Expect(err).ShouldNot(HaveOccurred())
-
-				ptpOperatorConfigName, err := ranhelper.GetPtpOperatorConfigName()
-				Expect(err).ShouldNot(HaveOccurred())
-
-				log.Printf("Original EventApiVersion: %v", eventAPIVersionOriginal)
-
-				if eventAPIVersionOriginal == "2.0" {
-					_, err := helper.Apiclient.PtpOperatorConfigs(parameters.PtpOperatorNamespace).Patch(context.TODO(),
-						ptpOperatorConfigName, types.JSONPatchType,
-						[]byte(`[{"op": "replace", "path": "/spec/ptpEventConfig/apiVersion", "value":"1.0"}]`),
-						metav1.PatchOptions{})
-					Expect(err).ShouldNot(HaveOccurred())
-				} else {
-					_, err := helper.Apiclient.PtpOperatorConfigs(parameters.PtpOperatorNamespace).Patch(context.TODO(),
-						ptpOperatorConfigName, types.JSONPatchType,
-						[]byte(`[{"op": "replace", "path": "/spec/ptpEventConfig/apiVersion", "value":"2.0"}]`),
-						metav1.PatchOptions{})
-					Expect(err).ShouldNot(HaveOccurred())
-				}
-
-				eventAPIVersionNew, err := ranhelper.GetEventAPIVersion()
-				Expect(err).ToNot(HaveOccurred())
-				log.Printf("New EventApiVersion: %v", eventAPIVersionNew)
-
-				log.Printf("ptpOperatorConfig modified - wait 2 minutes")
-				time.Sleep(2 * time.Minute)
-
-				// Redeploy consumer and validate the consumer get the events
-				By("Redeploy the consumer")
-				consumersList, err := ranptphelper.DeployPtpConsumer()
-				Expect(err).NotTo(HaveOccurred())
-				log.Println("Redeployed consumer:", consumersList.Items[0].Name)
-				consumerNode, consumerPod = getConsumerNodeAndPod(parameters.CloudEventNamespace)
-
-				By("Verify consumer events again")
-				verifyConsumerEvents(consumerNode, consumerPod)
-
-				By("Restore PTP configs and wait for clock locked")
-				restorePtpConfigs(originPtpConfigSpecs)
-				err = checkPtpLockState(5*time.Minute, 10*time.Second)
-				Expect(err).ToNot(HaveOccurred())
-
-				// Revert ptpoperatorconfig to original settings and redeploy consumer
-				By("Revert the ptpoperatorconfig to original settings and redeploy consumer")
-
-				// Delete consumer
-				log.Printf("Delete consumer")
-				destroyErrors = ranhelper.DestroyConsumers(parameters.CloudEventNamespace)
-				for _, err := range destroyErrors {
-					Expect(err).ShouldNot(HaveOccurred())
-				}
-				log.Printf("Consumer deleted - wait 30 seconds")
-				time.Sleep(30 * time.Second)
-
-				// Modify the ptpoperatorconfig
-				By("Modify the ptpoperatorconfig")
-				log.Printf("Original EventApiVersion: %v", eventAPIVersionOriginal)
-				if eventAPIVersionOriginal == "2.0" {
-					_, err = helper.Apiclient.PtpOperatorConfigs(parameters.PtpOperatorNamespace).Patch(context.TODO(),
-						ptpOperatorConfigName, types.JSONPatchType,
-						[]byte(`[{"op": "replace", "path": "/spec/ptpEventConfig/apiVersion", "value":"2.0"}]`),
-						metav1.PatchOptions{})
-					Expect(err).ShouldNot(HaveOccurred())
-				} else {
-					_, err = helper.Apiclient.PtpOperatorConfigs(parameters.PtpOperatorNamespace).Patch(context.TODO(),
-						ptpOperatorConfigName, types.JSONPatchType,
-						[]byte(`[{"op": "replace", "path": "/spec/ptpEventConfig/apiVersion", "value":"1.0"}]`),
-						metav1.PatchOptions{})
-					Expect(err).ShouldNot(HaveOccurred())
-				}
-				log.Printf("ptpOperatorConfig modified - wait 2 minutes")
-				time.Sleep(2 * time.Minute)
-
-				// Redeploy consumer and validate the consumer get the events
-				By("Redeploy the consumer")
-				consumersList, err = ranptphelper.DeployPtpConsumer()
-				Expect(err).NotTo(HaveOccurred())
-				log.Println("Redeployed consumer:", consumersList.Items[0].Name)
-				consumerNode, consumerPod = getConsumerNodeAndPod(parameters.CloudEventNamespace)
-
-				By("Verify consumer events again")
-				verifyConsumerEvents(consumerNode, consumerPod)
-
-				By("Restore PTP configs and wait for clock locked")
-				restorePtpConfigs(originPtpConfigSpecs)
-				err = checkPtpLockState(5*time.Minute, 10*time.Second)
-				Expect(err).ToNot(HaveOccurred())
+			if !ranhelper.IsVersionStringInRange(ranptpparameters.PtpVersion, "4.16", "4.18") {
+				Skip("Test only applies for ptp 4.16-4.18")
 			}
+
+			// Delete consumer
+			By("Delete the consumer")
+			log.Printf("Delete consumer")
+			destroyErrors := ranhelper.DestroyConsumers(parameters.CloudEventNamespace)
+			for _, err := range destroyErrors {
+				Expect(err).ShouldNot(HaveOccurred())
+			}
+			log.Printf("Consumer deleted - wait 30 seconds")
+			time.Sleep(30 * time.Second)
+
+			// Modify the ptpoperatorconfig
+			By("Modify the ptpoperatorconfig")
+			eventAPIVersionOriginal, err := ranhelper.GetEventAPIVersion()
+			Expect(err).ShouldNot(HaveOccurred())
+
+			ptpOperatorConfigName, err := ranhelper.GetPtpOperatorConfigName()
+			Expect(err).ShouldNot(HaveOccurred())
+
+			log.Printf("Original EventApiVersion: %v", eventAPIVersionOriginal)
+
+			if eventAPIVersionOriginal == "2.0" {
+				_, err := helper.Apiclient.PtpOperatorConfigs(parameters.PtpOperatorNamespace).Patch(context.TODO(),
+					ptpOperatorConfigName, types.JSONPatchType,
+					[]byte(`[{"op": "replace", "path": "/spec/ptpEventConfig/apiVersion", "value":"1.0"}]`),
+					metav1.PatchOptions{})
+				Expect(err).ShouldNot(HaveOccurred())
+			} else {
+				_, err := helper.Apiclient.PtpOperatorConfigs(parameters.PtpOperatorNamespace).Patch(context.TODO(),
+					ptpOperatorConfigName, types.JSONPatchType,
+					[]byte(`[{"op": "replace", "path": "/spec/ptpEventConfig/apiVersion", "value":"2.0"}]`),
+					metav1.PatchOptions{})
+				Expect(err).ShouldNot(HaveOccurred())
+			}
+
+			eventAPIVersionNew, err := ranhelper.GetEventAPIVersion()
+			Expect(err).ToNot(HaveOccurred())
+			log.Printf("New EventApiVersion: %v", eventAPIVersionNew)
+
+			log.Printf("ptpOperatorConfig modified - wait 2 minutes")
+			time.Sleep(2 * time.Minute)
+
+			// Redeploy consumer and validate the consumer get the events
+			By("Redeploy the consumer")
+			consumersList, err := ranptphelper.DeployPtpConsumer()
+			Expect(err).NotTo(HaveOccurred())
+			log.Println("Redeployed consumer:", consumersList.Items[0].Name)
+			consumerNode, consumerPod = getConsumerNodeAndPod(parameters.CloudEventNamespace)
+
+			By("Verify consumer events again")
+			verifyConsumerEvents(consumerNode, consumerPod)
+
+			By("Restore PTP configs and wait for clock locked")
+			restorePtpConfigs(originPtpConfigSpecs)
+			err = checkPtpLockState(5*time.Minute, 10*time.Second)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Revert ptpoperatorconfig to original settings and redeploy consumer
+			By("Revert the ptpoperatorconfig to original settings and redeploy consumer")
+
+			// Delete consumer
+			log.Printf("Delete consumer")
+			destroyErrors = ranhelper.DestroyConsumers(parameters.CloudEventNamespace)
+			for _, err := range destroyErrors {
+				Expect(err).ShouldNot(HaveOccurred())
+			}
+			log.Printf("Consumer deleted - wait 30 seconds")
+			time.Sleep(30 * time.Second)
+
+			// Modify the ptpoperatorconfig
+			By("Modify the ptpoperatorconfig")
+			log.Printf("Original EventApiVersion: %v", eventAPIVersionOriginal)
+			if eventAPIVersionOriginal == "2.0" {
+				_, err = helper.Apiclient.PtpOperatorConfigs(parameters.PtpOperatorNamespace).Patch(context.TODO(),
+					ptpOperatorConfigName, types.JSONPatchType,
+					[]byte(`[{"op": "replace", "path": "/spec/ptpEventConfig/apiVersion", "value":"2.0"}]`),
+					metav1.PatchOptions{})
+				Expect(err).ShouldNot(HaveOccurred())
+			} else {
+				_, err = helper.Apiclient.PtpOperatorConfigs(parameters.PtpOperatorNamespace).Patch(context.TODO(),
+					ptpOperatorConfigName, types.JSONPatchType,
+					[]byte(`[{"op": "replace", "path": "/spec/ptpEventConfig/apiVersion", "value":"1.0"}]`),
+					metav1.PatchOptions{})
+				Expect(err).ShouldNot(HaveOccurred())
+			}
+			log.Printf("ptpOperatorConfig modified - wait 2 minutes")
+			time.Sleep(2 * time.Minute)
+
+			// Redeploy consumer and validate the consumer get the events
+			By("Redeploy the consumer")
+			consumersList, err = ranptphelper.DeployPtpConsumer()
+			Expect(err).NotTo(HaveOccurred())
+			log.Println("Redeployed consumer:", consumersList.Items[0].Name)
+			consumerNode, consumerPod = getConsumerNodeAndPod(parameters.CloudEventNamespace)
+
+			By("Verify consumer events again")
+			verifyConsumerEvents(consumerNode, consumerPod)
+
+			By("Restore PTP configs and wait for clock locked")
+			restorePtpConfigs(originPtpConfigSpecs)
+			err = checkPtpLockState(5*time.Minute, 10*time.Second)
+			Expect(err).ToNot(HaveOccurred())
 		})
 	})
 
