@@ -21,6 +21,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/nodes"
 
 	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/namespaces"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 	k8sv1 "k8s.io/api/core/v1"
@@ -582,9 +583,9 @@ func GitCloneToTemp(repository string, branch string) (string, error) {
 		log.Fatal("Failed to create temporary dir")
 	}
 	_, err = git.PlainClone(temp, false, &git.CloneOptions{
-		URL:        repository,
-		Progress:   os.Stdout,
-		RemoteName: branch,
+		URL:           repository,
+		Progress:      os.Stdout,
+		ReferenceName: plumbing.NewBranchReferenceName(branch),
 	})
 
 	if err != nil {
