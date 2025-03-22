@@ -74,8 +74,9 @@ var _ = Describe("SNO Reboot", Ordered, func() {
 
 	Context("power cycle with workloads running", Ordered, func() {
 		var originTimeStampLatestImage string
-		imageDateCommand := `ls -rot --full-time /var/lib/containers/storage/overlay-images/ |tail -5 |` +
-			`head -1 |awk {'print $6'}`
+		// capture inode as well to detect if pods have being created/deleted for debug
+		imageDateCommand := `stat --format="type=%F inode=%i %w" /var/lib/containers/storage/overlay-images/* | ` +
+			`grep directory | awk '{ print $2, $3, $4 }' | sort -V -k 2,3 | tail -1`
 
 		BeforeAll(func() {
 			if !ranhelper.IsIpmitoolExist() {
@@ -92,6 +93,8 @@ var _ = Describe("SNO Reboot", Ordered, func() {
 				originTimeStampLatestImage, err = helper.ExecCommandOnNodeWithHostBinaries(node,
 					[]string{"bash", "-c", imageDateCommand})
 				Expect(err).ToNot(HaveOccurred())
+
+				log.Printf("originTimeStampLatestImage=%s", originTimeStampLatestImage)
 				Expect(originTimeStampLatestImage).ToNot(BeEmpty())
 
 			}
@@ -121,6 +124,8 @@ var _ = Describe("SNO Reboot", Ordered, func() {
 			postTimeStampLatestImage, err := helper.ExecCommandOnNodeWithHostBinaries(node,
 				[]string{"bash", "-c", imageDateCommand})
 			Expect(err).ToNot(HaveOccurred())
+
+			log.Printf("postTimeStampLatestImage=%s", postTimeStampLatestImage)
 			Expect(originTimeStampLatestImage).To(Equal(postTimeStampLatestImage))
 		})
 	})
