@@ -19,6 +19,7 @@ import (
 	"github.com/pkg/errors"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ptp/ranptpparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/client"
 	corev1 "k8s.io/api/core/v1"
@@ -31,15 +32,18 @@ import (
 // GetEventAPIVersion gets the ptp operator config api version.
 func GetEventAPIVersion() (string, error) {
 	// get the ptp operator config api version.
+
 	ptpOperatorConfigs, err := helper.Apiclient.PtpOperatorConfigs(parameters.PtpOperatorNamespace).
 		List(context.Background(), metav1.ListOptions{})
+
 	if err != nil {
 		return "", fmt.Errorf("failed to ptp operator config due to: %w", err)
 	}
 
 	eventAPIVersion := ptpOperatorConfigs.Items[0].Spec.EventConfig.ApiVersion
 
-	if eventAPIVersion == "2.0" {
+	if IsVersionStringInRange(ranptpparameters.PtpVersion, "4.19", "") ||
+		eventAPIVersion == "2.0" {
 		return ranparameters.EventAPIVersion2, nil
 	}
 
