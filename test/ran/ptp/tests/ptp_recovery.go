@@ -25,22 +25,15 @@ import (
 var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailure, func() {
 	var (
 		errBeforeAll         error
-		configCountsRecovery []int
+		configCountsRecovery ranptpparameters.PtpConfigTypeCounter
 		originPtpConfigSpecs = map[string]ptpv1.PtpConfigSpec{}
 		gmIface              string
-	)
-	const (
-		configsIndx                = 0
-		bcConfigIndx               = 2
-		gmOneCardConfigIndx        = 3
-		gmMultiCardConfigIndx      = 4
-		highAvailabilityConfigIndx = 5
 	)
 
 	BeforeAll(func() {
 		originPtpConfigSpecs, configCountsRecovery, errBeforeAll = ptpPretestValidations()
 
-		if configCountsRecovery[gmOneCardConfigIndx] > 0 || configCountsRecovery[gmMultiCardConfigIndx] > 0 {
+		if configCountsRecovery.GMOneNIC > 0 || configCountsRecovery.GMMultiNIC > 0 {
 			gmPtpConfig, err := ranptphelper.GetGmPtpConfig()
 			Expect(err).NotTo(HaveOccurred())
 
@@ -56,7 +49,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 		}
 
 		// Ensure ptp clocks are locked before starting any test
-		err := checkPtpLockState(5*time.Second, 0)
+		err := ranptphelper.CheckPtpLockState(5*time.Second, 0)
 		if err != nil {
 			Skip("PTP clocks are not in locked states")
 		}
@@ -80,7 +73,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 		log.Println("Restore ptpconfigs to original specs")
 		restorePtpConfigs(originPtpConfigSpecs)
 		log.Println("Check ptp clocks are in sync")
-		err := checkPtpLockState(5*time.Minute, 10*time.Second)
+		err := ranptphelper.CheckPtpLockState(5*time.Minute, 10*time.Second)
 		Expect(err).ToNot(HaveOccurred())
 	})
 
@@ -134,7 +127,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 		// 57197
 		It("should create a new ptp4l process after killing a ptp4l process that is not related to the "+
 			"phc2sy process", polarion.ID("57197"), func() {
-			if configCountsRecovery[configsIndx] < 2 {
+			if configCountsRecovery.Total < 2 {
 				Skip("Test requires at least two PTP configs")
 			}
 
@@ -195,11 +188,11 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 		// 49736
 		It("should restart both ptp4l processes with one related to phc2sys after killing them",
 			polarion.ID("49736"), func() {
-				if configCountsRecovery[configsIndx] < 2 || configCountsRecovery[bcConfigIndx] == 0 {
+				if configCountsRecovery.Total < 2 || configCountsRecovery.BC == 0 {
 					Skip("Test requires at least two PTP configs with BC configuration")
 				}
 
-				if configCountsRecovery[highAvailabilityConfigIndx] > 0 {
+				if configCountsRecovery.HA > 0 {
 					Skip("Test requires the phc2sys and ptp4l to be configured in one profile")
 				}
 
@@ -251,7 +244,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 		// 49737
 		It("should recover the ptp4l process after the killing "+
 			"a ptp4l process that is related to phc2sys process", polarion.ID("49737"), func() {
-			if configCountsRecovery[highAvailabilityConfigIndx] > 0 {
+			if configCountsRecovery.HA > 0 {
 				Skip("Test requires the phc2sys and ptp4l to be configured in one profile")
 			}
 
@@ -294,7 +287,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 		})
 		// 59863
 		It("should recover the ts2phc process after the killing a ts2phc process", polarion.ID("59863"), func() {
-			if configCountsRecovery[gmOneCardConfigIndx] == 0 && configCountsRecovery[gmMultiCardConfigIndx] == 0 {
+			if configCountsRecovery.GMOneNIC == 0 && configCountsRecovery.GMMultiNIC == 0 {
 				Skip("Test requires grand master configuration")
 			}
 
@@ -362,7 +355,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 		// 59864
 		It("should recover the ptp4l process after the killing a "+
 			"ptp4l process that is related to ts2phc process", polarion.ID("59864"), func() {
-			if configCountsRecovery[gmOneCardConfigIndx] == 0 && configCountsRecovery[gmMultiCardConfigIndx] == 0 {
+			if configCountsRecovery.GMOneNIC == 0 && configCountsRecovery.GMMultiNIC == 0 {
 				Skip("Test requires grand master configuration")
 			}
 
@@ -397,7 +390,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 
 		// 64777
 		It("should recover gpsd process after killing it on node ", polarion.ID("64777"), func() {
-			if configCountsRecovery[gmOneCardConfigIndx] == 0 && configCountsRecovery[gmMultiCardConfigIndx] == 0 {
+			if configCountsRecovery.GMOneNIC == 0 && configCountsRecovery.GMMultiNIC == 0 {
 				Skip("Test requires grand master configuration")
 			}
 
@@ -537,7 +530,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 
 			By("Restore PTP configs and wait for clock locked")
 			restorePtpConfigs(originPtpConfigSpecs)
-			err := checkPtpLockState(5*time.Minute, 10*time.Second)
+			err := ranptphelper.CheckPtpLockState(5*time.Minute, 10*time.Second)
 			Expect(err).ToNot(HaveOccurred())
 
 			// Once the configmap is available, the verification of subscriber removal will be re-enabled.
@@ -604,7 +597,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 			time.Sleep(1 * time.Minute)
 
 			By("Verify all ptp clocks are in LOCKED state in ptp metrics")
-			err = checkPtpLockState(5*time.Minute, 1*time.Minute)
+			err = ranptphelper.CheckPtpLockState(5*time.Minute, 1*time.Minute)
 			Expect(err).ToNot(HaveOccurred())
 
 			// Redeploy consumer and validate the consumer get the events
@@ -619,7 +612,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 
 			By("Restore PTP configs and wait for clock locked")
 			restorePtpConfigs(originPtpConfigSpecs)
-			err = checkPtpLockState(5*time.Minute, 10*time.Second)
+			err = ranptphelper.CheckPtpLockState(5*time.Minute, 10*time.Second)
 			Expect(err).ToNot(HaveOccurred())
 
 			// Revert ptpoperatorconfig to original settings and redeploy consumer
@@ -654,7 +647,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 			time.Sleep(1 * time.Minute)
 
 			By("Verify all ptp clocks are in LOCKED state in ptp metrics")
-			err = checkPtpLockState(5*time.Minute, 1*time.Minute)
+			err = ranptphelper.CheckPtpLockState(5*time.Minute, 1*time.Minute)
 			Expect(err).ToNot(HaveOccurred())
 
 			// Redeploy consumer and validate the consumer get the events
@@ -669,7 +662,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 
 			By("Restore PTP configs and wait for clock locked")
 			restorePtpConfigs(originPtpConfigSpecs)
-			err = checkPtpLockState(5*time.Minute, 10*time.Second)
+			err = ranptphelper.CheckPtpLockState(5*time.Minute, 10*time.Second)
 			Expect(err).ToNot(HaveOccurred())
 		})
 	})
@@ -728,7 +721,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 				Skip("Test is up to version 4.17")
 			}
 
-			if configCountsRecovery[gmOneCardConfigIndx] == 0 && configCountsRecovery[gmMultiCardConfigIndx] == 0 {
+			if configCountsRecovery.GMOneNIC == 0 && configCountsRecovery.GMMultiNIC == 0 {
 				Skip("Test requires Grandmaster configuration")
 			}
 
@@ -802,7 +795,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 				Skip("Test is valid from version 4.18")
 			}
 
-			if configCountsRecovery[gmOneCardConfigIndx] == 0 && configCountsRecovery[gmMultiCardConfigIndx] == 0 {
+			if configCountsRecovery.GMOneNIC == 0 && configCountsRecovery.GMMultiNIC == 0 {
 				Skip("Test requires Grandmaster configuration")
 			}
 
@@ -892,7 +885,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 				Skip("Test is from version 4.18")
 			}
 
-			if configCountsRecovery[gmOneCardConfigIndx] == 0 && configCountsRecovery[gmMultiCardConfigIndx] == 0 {
+			if configCountsRecovery.GMOneNIC == 0 && configCountsRecovery.GMMultiNIC == 0 {
 				Skip("Test requires Grandmaster configuration")
 			}
 
@@ -1008,7 +1001,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 				Skip("Test is from version 4.18")
 			}
 
-			if configCountsRecovery[gmOneCardConfigIndx] == 0 && configCountsRecovery[gmMultiCardConfigIndx] == 0 {
+			if configCountsRecovery.GMOneNIC == 0 && configCountsRecovery.GMMultiNIC == 0 {
 				Skip("Test requires Grandmaster configuration")
 			}
 
@@ -1130,8 +1123,8 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 		)
 
 		BeforeEach(func() {
-			if configCountsRecovery[gmMultiCardConfigIndx] == 0 {
-				Skip("Test requires two or more Grandmaster configurations")
+			if configCountsRecovery.GMMultiNIC == 0 {
+				Skip("Test requires two Grandmaster configurations")
 			}
 			ptpDaemonPods, err := helper.Apiclient.Pods(parameters.PtpOperatorNamespace).List(context.Background(),
 				metav1.ListOptions{LabelSelector: parameters.PtpDaemonsetLabelSelector})
@@ -1148,8 +1141,8 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 		})
 
 		AfterEach(func() {
-			if configCountsRecovery[gmMultiCardConfigIndx] == 0 {
-				Skip("Test requires two or more Grandmaster configurations")
+			if configCountsRecovery.GMMultiNIC == 0 {
+				Skip("Test requires two Grandmaster configurations")
 			}
 			// make sure sma connection is up.
 			for _, rxInterface := range rxInterfaces {

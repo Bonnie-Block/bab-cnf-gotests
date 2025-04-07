@@ -80,3 +80,13 @@ type Values struct {
 	ValueTypeORan string `json:"value_type"`
 	Value         string `json:"value"`
 }
+
+type PtpConfigTypeCounter struct {
+	Total      uint
+	OCOnePort  uint
+	OCTwoPort  uint
+	BC         uint
+	HA         uint
+	GMOneNIC   uint
+	GMMultiNIC uint
+}

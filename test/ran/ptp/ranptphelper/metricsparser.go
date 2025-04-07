@@ -23,32 +23,29 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
-// NewPtpClockStateMetricSample is a wrapper for creating a metric sample for PTP Clock State
+// NewMetric creates a metric.
 // arguments:
-// "clockStateValue":	PTP Clock State
-// "iface": Network interface name to which PTP process is bonded
-// "node": Hostname on which PTP process is running on
-// "process": PTP process name
-// return value: Prometheus OpenMetrics Sample.
-func NewPtpClockStateMetricSample(
-	clockStateValue ranptpparameters.ClockState,
-	iface,
-	node,
-	process string) *openmetrics.Sample {
-	labels := map[string]string{
-		"iface":   iface,
-		"node":    node,
-		"process": process,
+// "metricName": Metric name; title. e.g. temperature_celsius.
+// "metricsLabels": key-value label pairs. e.g. "city":"haifa".
+// return value: Prometheus OpenMetrics Metric.
+func NewMetric(metricName string, metricLabels map[string]string) openmetrics.Metric {
+	metric := make(openmetrics.Metric, 0)
+
+	metric[openmetrics.MetricNameLabel] = openmetrics.LabelValue(metricName)
+
+	for name, value := range metricLabels {
+		metric[openmetrics.LabelName(name)] = openmetrics.LabelValue(value)
 	}
 
-	// ignore keys with empty values
-	for key, value := range labels {
-		if len(value) == 0 {
-			delete(labels, key)
-		}
-	}
+	return metric
+}
 
-	return NewMetricSample(ranptpparameters.OpenshiftPtpClockState, float64(clockStateValue), labels)
+// NewMetricVector creates a metrics slice. acts as a wrapper to avoid importing openmetrics elsewhere.
+// arguments:
+// "samples": a list of samples.
+// return value: Prometheus OpenMetrics Vector.
+func NewMetrics(samples ...openmetrics.Metric) []openmetrics.Metric {
+	return samples
 }
 
 // NewMetricSample creates a metric sample.
@@ -59,19 +56,13 @@ func NewPtpClockStateMetricSample(
 // return value: Prometheus OpenMetrics Sample.
 func NewMetricSample(
 	metricName string,
-	metricValue float64,
-	metricsLabels map[string]string) *openmetrics.Sample {
+	metricSampleValue float64,
+	metricLabels map[string]string) *openmetrics.Sample {
 
-	metric := make(openmetrics.Metric, 0)
-
-	metric[openmetrics.MetricNameLabel] = openmetrics.LabelValue(metricName)
-
-	for name, value := range metricsLabels {
-		metric[openmetrics.LabelName(name)] = openmetrics.LabelValue(value)
-	}
+	metric := NewMetric(metricName, metricLabels)
 
 	s := &openmetrics.Sample{
-		Value:  openmetrics.SampleValue(metricValue),
+		Value:  openmetrics.SampleValue(metricSampleValue),
 		Metric: metric,
 	}
 
@@ -86,13 +77,13 @@ func NewMetricVector(samples ...*openmetrics.Sample) openmetrics.Vector {
 	return openmetrics.Vector(samples)
 }
 
-// FilterMetricsSample checks if the sample matches the filter.
+// FilterMetricSampleByMetric checks if the sample matches the metric filter.
 // arguments:
 // "sample": sample to be filtered.
-// "filter": filter. empty filter fields will be ignored.
+// "filter": metric filter. empty filter fields will be ignored.
 // return value: error on mismatch.
-func FilterMetricsSample(sample, filter *openmetrics.Sample) error {
-	for fLabelName, fLabelValue := range filter.Metric {
+func FilterMetricSampleByMetric(sample *openmetrics.Sample, filter openmetrics.Metric) error {
+	for fLabelName, fLabelValue := range filter {
 		labelValue, nameOk := sample.Metric[fLabelName]
 		if !nameOk {
 			return fmt.Errorf("metric label name not found in sample keys: %s", fLabelName)
@@ -103,6 +94,19 @@ func FilterMetricsSample(sample, filter *openmetrics.Sample) error {
 		}
 	}
 
+	return nil
+}
+
+// FilterMetricSampleBySample checks if the sample matches the sample filter.
+// arguments:
+// "sample": sample to be filtered.
+// "filter": sample filter. empty filter fields will be ignored.
+// return value: error on mismatch.
+func FilterMetricSampleBySample(sample, filter *openmetrics.Sample) error {
+	if err := FilterMetricSampleByMetric(sample, filter.Metric); err != nil {
+		return err
+	}
+
 	if sample.Value != filter.Value {
 		return fmt.Errorf("metric value: want %s, got %s", filter.Value, sample.Value)
 	}
@@ -110,36 +114,78 @@ func FilterMetricsSample(sample, filter *openmetrics.Sample) error {
 	return nil
 }
 
-// FilterMetricsVector checks if the sample matches the filter.
+// FilterMetricsVectorByMetrics checks if the sample matches the filter.
 // arguments:
 // "sample": vector to be filtered.
-// "filter": filter.
-// return value: error on mismatch or unused filter.
-func FilterMetricsVector(vector, filter openmetrics.Vector) error {
-	remainingMetrics := vector
+// "filter": metrics filter.
+// return value: vector metrics sample of the matching samples, error on mismatched or unused filter.
+func FilterMetricsVectorByMetrics(vector openmetrics.Vector, filter []openmetrics.Metric) (openmetrics.Vector, error) {
+	matching := make(openmetrics.Vector, 0)
+	remaining := vector
 
 	for _, filterSample := range filter {
-		matchedOnce := false
+		matched := false
 
-		for _, metricSample := range remainingMetrics {
+		for remainingIndex, metricSample := range remaining {
+			// skip for non-matching metric names
+			if filterSample[openmetrics.MetricNameLabel] != metricSample.Metric[openmetrics.MetricNameLabel] {
+				continue
+			}
+
+			if err := FilterMetricSampleByMetric(metricSample, filterSample); err != nil {
+				continue
+			}
+
+			matched = true
+			matching = append(matching, metricSample)
+			remaining = append(remaining[:remainingIndex], remaining[remainingIndex+1:]...)
+
+			break
+		}
+
+		if !matched {
+			return nil, fmt.Errorf("exhausted all metrics with no matches: %s", filterSample.String())
+		}
+	}
+
+	return matching, nil
+}
+
+// FilterMetricsVectorByVector checks if the sample matches the filter.
+// arguments:
+// "sample": vector to be filtered.
+// "filter": vector filter.
+// return value: vector metrics sample of the matching samples, error on mismatched or unused filter.
+func FilterMetricsVectorByVector(vector, filter openmetrics.Vector) (openmetrics.Vector, error) {
+	matching := make(openmetrics.Vector, 0)
+	remaining := vector
+
+	for _, filterSample := range filter {
+		matched := false
+
+		for remainingIndex, metricSample := range remaining {
 			// skip for non-matching metric names
 			if filterSample.Metric[openmetrics.MetricNameLabel] != metricSample.Metric[openmetrics.MetricNameLabel] {
 				continue
 			}
 
-			if err := FilterMetricsSample(metricSample, filterSample); err != nil {
+			if err := FilterMetricSampleBySample(metricSample, filterSample); err != nil {
 				continue
 			}
 
-			matchedOnce = true
+			matched = true
+			matching = append(matching, metricSample)
+			remaining = append(remaining[:remainingIndex], remaining[remainingIndex+1:]...)
+
+			break
 		}
 
-		if !matchedOnce {
-			return fmt.Errorf("exhausted all metrics with no matches: %s", filterSample.String())
+		if !matched {
+			return nil, fmt.Errorf("exhausted all metrics with no matches: %s", filterSample.String())
 		}
 	}
 
-	return nil
+	return matching, nil
 }
 
 // decodeRawMetrics decodes the metrics output into an OpenMetrics Vector.
@@ -201,9 +247,9 @@ func removeRawMetricsComments(openMetricsBuff bytes.Buffer) (bytes.Buffer, error
 	return output, scanner.Err()
 }
 
-// getPtpMetrics gets the PTP metrics & returns them as map constructed of
+// GetPtpMetrics gets the PTP metrics & returns them as map constructed of
 // metric name & slice of metric details.
-func getPtpMetrics(ptpPod corev1.Pod) (
+func GetPtpMetrics(ptpPod corev1.Pod) (
 	openmetrics.Vector,
 	error) {
 
@@ -494,7 +540,7 @@ func getInterfaceRoleValue() error {
 		case int64(4):
 			details.InterfaceRoleValue = ranptpparameters.UnknownRole
 		case int64(5):
-			details.InterfaceRoleValue = ranptpparameters.Listening
+			details.InterfaceRoleValue = ranptpparameters.ListeningRole
 		default:
 			return fmt.Errorf("an unexpected interface role returned, returned value: %d", value)
 		}

@@ -1,15 +1,17 @@
 package ranptphelper
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"log"
+	"regexp"
 	"strings"
 	"time"
 
-	"github.com/prometheus/common/model"
+	openmetrics "github.com/prometheus/common/model"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ptp/ranptpparameters"
@@ -22,23 +24,46 @@ import (
 	"k8s.io/utils/strings/slices"
 )
 
-// WaitForDesiredMetrics waits for the metrics to match the desired state given.
-func WaitForDesiredMetrics(
+func CheckPtpLockState(timeout time.Duration, stableDuration time.Duration) error {
+	// Validate that PTP event container is running1
+	ptpDaemonPods, err := helper.Apiclient.Pods(parameters.PtpOperatorNamespace).List(context.Background(),
+		metav1.ListOptions{LabelSelector: parameters.PtpDaemonsetLabelSelector})
+	if err != nil {
+		log.Println("Failed to get PTP pod list")
+
+		return err
+	}
+
+	for _, ptpDaemonPod := range ptpDaemonPods.Items {
+		helper.WaitForPodsHealthy([]*corev1.Pod{&ptpDaemonPod}, 3*time.Minute)
+		err = WaitForPtpClockStateMetric(ptpDaemonPod, ranptpparameters.LockedState, "",
+			timeout, stableDuration)
+
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// WaitForDesiredMetricVector waits for the metrics to match the desired state given.
+func WaitForDesiredMetricVector(
 	ptpDaemonPod corev1.Pod,
 	timeout time.Duration,
-	filter model.Vector) error {
+	filter openmetrics.Vector) error {
 
 	interval := 5 * time.Second
 
 	err := wait.PollImmediate(interval, timeout, func() (bool, error) {
-		metrics, err := getPtpMetrics(ptpDaemonPod)
+		metrics, err := GetPtpMetrics(ptpDaemonPod)
 		if err != nil {
 			log.Println(err)
 
 			return false, nil
 		}
 
-		if err = FilterMetricsVector(metrics, filter); err != nil {
+		if _, err = FilterMetricsVectorByVector(metrics, filter); err != nil {
 			log.Println(err)
 
 			return false, nil
@@ -336,9 +361,64 @@ func stateMessage(stateMsg string, metricsName string, actualVal ranptpparameter
 	return stateMsg
 }
 
+// getPtpConfigCounts counts ptpconfig types.
+// arguments:		"ptpConfigsList"-	a list of ptpconfigs.
+// return value:	PtpConfigTypeCounter struct.
+func GetPtpConfigCounts(ptpConfigsList ptpv1.PtpConfigList) ranptpparameters.PtpConfigTypeCounter {
+	var counter ranptpparameters.PtpConfigTypeCounter
+
+	for _, ptpconfig := range ptpConfigsList.Items {
+		for _, profile := range ptpconfig.Spec.Profile {
+			counter.Total++
+			switch {
+			case IsOrdinaryClockProfile(profile):
+				counter.OCOnePort++
+			case IsOrdinaryClock2PortProfile(profile):
+				counter.OCTwoPort++
+			case IsBoundaryClockProfile(profile):
+				counter.BC++
+			case IsHaProfile(profile):
+				counter.HA++
+			case IsGmOneCardProfile(profile):
+				counter.GMOneNIC++
+			case IsGmMultiCardProfile(profile):
+				counter.GMMultiNIC++
+			default:
+				log.Println("Warning: unrecognized PTP profile type: ", *profile.Name)
+			}
+		}
+	}
+
+	return counter
+}
+
 // IsOrdinaryClockProfile checks if given profile has slave only config.
 func IsOrdinaryClockProfile(profile ptpv1.PtpProfile) bool {
 	return profile.Interface != nil && profile.Ptp4lOpts != nil && strings.Contains(*profile.Ptp4lOpts, " -s")
+}
+
+// IsOrdinaryClock2PortProfile checks if given profile has slave only config.
+func IsOrdinaryClock2PortProfile(profile ptpv1.PtpProfile) bool {
+	ptp4lconf := *profile.Ptp4lConf
+
+	ifaces := make([]string, 0)
+	ifaceRegex := regexp.MustCompile(`(?i)^\[(en[a-z0-9]+)\]$`)
+	scanner := bufio.NewScanner(strings.NewReader(ptp4lconf))
+	for scanner.Scan() {
+		line := scanner.Text()
+		if match := ifaceRegex.FindString(line); match != "" {
+			iface := strings.Trim(line, "[]")
+			ifaces = append(ifaces, iface)
+		}
+	}
+
+	twoIfaces := profile.Interface == nil &&
+		len(ifaces) == 2
+
+	slaveOnly := strings.Contains(*profile.Ptp4lOpts, " -s") ||
+		strings.Contains(ptp4lconf, "slaveOnly 1")
+
+	return twoIfaces && slaveOnly
 }
 
 func IsHaProfile(profile ptpv1.PtpProfile) bool {
@@ -411,6 +491,28 @@ func GetGmPtpConfigWithProfileIndex(listPtpConfig ptpv1.PtpConfigList) (*ptpv1.P
 	}
 
 	return nil, 0, fmt.Errorf("no GM configuraion found")
+}
+
+// GetOc2PortPtpConfigs returns the PTP configuration which has a OC 2 port profile.
+// of the profile within the configuration. Returns an error if no OC 2 port profile is found.
+func GetOc2PortPtpConfigs(listPtpConfig ptpv1.PtpConfigList) (
+	[]*ptpv1.PtpConfig, error) {
+	configs := make([]*ptpv1.PtpConfig, 0)
+	for _, ptpConfig := range listPtpConfig.Items {
+		for _, ptpProfile := range ptpConfig.Spec.Profile {
+			if IsOrdinaryClock2PortProfile(ptpProfile) {
+				log.Println("found oc 2 port ptp configuration")
+
+				configs = append(configs, &ptpConfig)
+			}
+		}
+	}
+
+	if len(configs) == 0 {
+		return nil, fmt.Errorf("no oc 2 port configuration found")
+	}
+
+	return configs, nil
 }
 
 // IncreaseMaxOffsetThresholdMlx sets OffsetThresholds to 200 for Mellanox NICs to workaround performance issue.
@@ -899,4 +1001,38 @@ func SetPtpConfigProfilePluginE810Settings(
 	}
 
 	return nil
+}
+
+// GetPodInterfaceRoles() return the interface role associated with the pod as reported by the metrics.
+// return value: map of interface names and interface role value, error if failed.
+func GetPodInterfaceRoles(ptpDaemonPod corev1.Pod, ifaces []string) (map[string]ranptpparameters.InterfaceRole, error) {
+	vector, err := GetPtpMetrics(ptpDaemonPod)
+	if err != nil {
+		return nil, err
+	}
+
+	ifaceMetricFilter := NewMetrics()
+	for _, iface := range ifaces {
+		ifaceMetricFilter = append(
+			ifaceMetricFilter,
+			NewMetric(
+				ranptpparameters.OpenshiftPtpInterfaceRole,
+				map[string]string{
+					"iface": iface,
+				}),
+		)
+	}
+
+	ifaceVector, err := FilterMetricsVectorByMetrics(vector, ifaceMetricFilter)
+	if err != nil {
+		return nil, err
+	}
+
+	ifaceRoles := make(map[string]ranptpparameters.InterfaceRole)
+	for _, metric := range ifaceVector {
+		ifaceName := metric.Metric["iface"]
+		ifaceRoles[string(ifaceName)] = ranptpparameters.InterfaceRole(metric.Value)
+	}
+
+	return ifaceRoles, nil
 }

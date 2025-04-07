@@ -22,15 +22,9 @@ import (
 
 var _ = Describe("PTP Events and Metrics - interface down", Ordered, ContinueOnFailure, func() {
 	var (
-		errBeforeAll error
-		// isOcConfigured  bool
+		errBeforeAll         error
 		originPtpConfigSpecs = map[string]ptpv1.PtpConfigSpec{}
-		configCountsIfce     []int
-	)
-
-	const (
-		bcConfigIndx               = 2
-		highAvailabilityConfigIndx = 5
+		configCountsIfce     ranptpparameters.PtpConfigTypeCounter
 	)
 
 	BeforeAll(func() {
@@ -44,7 +38,7 @@ var _ = Describe("PTP Events and Metrics - interface down", Ordered, ContinueOnF
 		}
 
 		// Ensure ptp clocks are locked before starting any test
-		err := checkPtpLockState(5*time.Second, 0)
+		err := ranptphelper.CheckPtpLockState(5*time.Second, 0)
 		if err != nil {
 			Skip("PTP clocks are not in locked states")
 		}
@@ -69,7 +63,7 @@ var _ = Describe("PTP Events and Metrics - interface down", Ordered, ContinueOnF
 
 		// Always restore ptpconfigs to original values after each test
 		log.Println("Check ptp clocks are in sync")
-		err := checkPtpLockState(5*time.Minute, 10*time.Second)
+		err := ranptphelper.CheckPtpLockState(5*time.Minute, 10*time.Second)
 		Expect(err).ToNot(HaveOccurred())
 	})
 
@@ -113,7 +107,7 @@ var _ = Describe("PTP Events and Metrics - interface down", Ordered, ContinueOnF
 
 	// 49734
 	It("should have no effect when Boundary Clock master interface goes down and up", polarion.ID("49734"), func() {
-		if configCountsIfce[bcConfigIndx] == 0 {
+		if configCountsIfce.BC == 0 {
 			Skip("Test requires Boundary Clock configuration")
 		}
 
@@ -182,7 +176,7 @@ var _ = Describe("PTP Events and Metrics - interface down", Ordered, ContinueOnF
 
 	// 73093
 	It("should change high availability active profile when other nic interface is down", polarion.ID("73093"), func() {
-		if configCountsIfce[highAvailabilityConfigIndx] == 0 {
+		if configCountsIfce.HA == 0 {
 			Skip("Test requires High Availability configuration")
 		}
 
@@ -264,7 +258,7 @@ var _ = Describe("PTP Events and Metrics - interface down", Ordered, ContinueOnF
 
 	// 73094
 	It("should move to FREERUN state when active and inactive interfaces are down", polarion.ID("73094"), func() {
-		if configCountsIfce[highAvailabilityConfigIndx] == 0 {
+		if configCountsIfce.HA == 0 {
 			Skip("Test requires High Availability configuration")
 		}
 
@@ -340,7 +334,7 @@ var _ = Describe("PTP Events and Metrics - interface down", Ordered, ContinueOnF
 		)
 
 		BeforeEach(func() {
-			if configCountsIfce[highAvailabilityConfigIndx] == 0 {
+			if configCountsIfce.HA == 0 {
 				Skip("Test requires High Availability configuration")
 			}
 
@@ -350,7 +344,7 @@ var _ = Describe("PTP Events and Metrics - interface down", Ordered, ContinueOnF
 		})
 
 		AfterEach(func() {
-			if configCountsIfce[highAvailabilityConfigIndx] == 0 {
+			if configCountsIfce.HA == 0 {
 				Skip("Test requires High Availability configuration")
 			}
 
@@ -386,8 +380,8 @@ var _ = Describe("PTP Events and Metrics - interface down", Ordered, ContinueOnF
 		// 73095
 		It("should change high availability active profile when active profile is deleted",
 			polarion.ID("73095"), func() {
-				// there is ha ptp configuration.
-				if configCountsIfce[highAvailabilityConfigIndx] == 0 {
+				// there is bc ha ptp configuration.
+				if configCountsIfce.HA == 0 {
 					Skip("Test requires High Availability configuration")
 				}
 
@@ -441,6 +435,254 @@ var _ = Describe("PTP Events and Metrics - interface down", Ordered, ContinueOnF
 						activeIface, 3*time.Minute, 10*time.Second)
 					Expect(err).NotTo(HaveOccurred())
 				}
+			})
+	})
+
+	Context("ordinary clock 2 port failure", func() {
+		var (
+			ptpDaemonPod      *corev1.Pod
+			oc2PortIfaces     []string
+			oc2PortIfaceGroup string
+			oc2PortPreflight  bool
+		)
+
+		BeforeEach(func() {
+			oc2PortPreflight = false
+
+			if !ranhelper.IsVersionStringInRange(ranptpparameters.PtpVersion, "4.19", "") {
+				Skip("Test is valid from version 4.19")
+			}
+
+			if configCountsIfce.OCTwoPort == 0 {
+				Skip("Test requires ordinary clock 2 port configuration")
+			}
+
+			By("Get the Ordinary Clock interfaces as defined by the configuration")
+			configs, err := helper.Apiclient.PtpConfigs(parameters.PtpOperatorNamespace).List(context.Background(),
+				metav1.ListOptions{})
+			Expect(err).NotTo(HaveOccurred())
+
+			oc2PortConfigs, err := ranptphelper.GetOc2PortPtpConfigs(*configs)
+			Expect(err).NotTo(HaveOccurred())
+
+			oc2PortConfig := oc2PortConfigs[0]
+
+			profilesIfacesMap, err := ranptphelper.BuildPtpProfileIfacesMap()
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Get a PTP daemon which matches the OC 2 port profile")
+			nodePtpProfileMap, err := ranptphelper.GetPtpProfilesPerNode(*oc2PortConfig)
+			Expect(err).NotTo(HaveOccurred())
+
+			nodePtpPodMap, err := ranptphelper.NodesToPtpDaemonPods()
+			Expect(err).NotTo(HaveOccurred())
+			for nodeName, ptpProfiles := range nodePtpProfileMap {
+				for _, ptpProfile := range ptpProfiles {
+					if ranptphelper.IsOrdinaryClock2PortProfile(ptpProfile) {
+						pod := nodePtpPodMap[nodeName]
+						ptpDaemonPod = &pod
+
+						oc2PortIfaces = profilesIfacesMap[*ptpProfile.Name]
+						Expect(len(oc2PortIfaces)).To(Equal(2))
+
+						oc2PortIfaceGroup = ranptphelper.GetNic(oc2PortIfaces[0])
+
+						break
+					}
+				}
+
+				if ptpDaemonPod != nil {
+					break
+				}
+			}
+			Expect(ptpDaemonPod).ToNot(BeNil())
+
+			By("Validate the Active interface is SLAVE & Passive interface is LISTENING")
+			validateSortOc2PortIfaces(*ptpDaemonPod, oc2PortIfaces)
+
+			oc2PortPreflight = true
+		})
+
+		AfterEach(func() {
+			if !oc2PortPreflight {
+				Skip("Didn't complete preflight")
+			}
+
+			By("Turn back on the interfaces")
+			restorePtpInterfaces()
+
+			By("Validate the Active interface is SLAVE & Passive interface is LISTENING")
+			validateSortOc2PortIfaces(*ptpDaemonPod, oc2PortIfaces)
+		})
+
+		// 80963
+		It("verifies 2-port oc ha failover when active port goes down",
+			polarion.ID("80963"), func() {
+				By("Bringing down the initial active interface")
+
+				timeIfaceDown := time.Now()
+
+				err := ranptphelper.SetInterfaceStatus(ptpDaemonPod, parameters.PtpContainerName, oc2PortIfaces[0],
+					ranptpparameters.Off, 2)
+				Expect(err).NotTo(HaveOccurred())
+
+				By("Validate after failover: clock state remains LOCKED, iface roles SLAVE & FAULTY")
+				metricsFilter := ranptphelper.NewMetricVector(
+					ranptphelper.NewMetricSample(
+						ranptpparameters.OpenshiftPtpClockState,
+						float64(ranptpparameters.LockedState),
+						map[string]string{
+							"process": ranptpparameters.ProcessPTP4L,
+						},
+					),
+					ranptphelper.NewMetricSample(
+						ranptpparameters.OpenshiftPtpClockState,
+						float64(ranptpparameters.LockedState),
+						map[string]string{
+							"process": ranptpparameters.ProcessPHC2SYS,
+						},
+					),
+					ranptphelper.NewMetricSample(
+						ranptpparameters.OpenshiftPtpInterfaceRole,
+						float64(ranptpparameters.SlaveRole),
+						map[string]string{
+							"iface": oc2PortIfaces[1],
+						},
+					),
+					ranptphelper.NewMetricSample(
+						ranptpparameters.OpenshiftPtpInterfaceRole,
+						float64(ranptpparameters.FaultyRole),
+						map[string]string{
+							"iface": oc2PortIfaces[0],
+						},
+					),
+				)
+				err = ranptphelper.WaitForDesiredMetricVector(*ptpDaemonPod, 1*time.Minute, metricsFilter)
+				Expect(err).NotTo(HaveOccurred())
+
+				By("Validate no clock state FREERUN events")
+				err = ranptphelper.WaitForEvent(
+					ptpDaemonPod, ranptpparameters.CloudEventContainer,
+					ranptpparameters.EventTypePtpStateChange,
+					ranptpparameters.EventFreeRun, oc2PortIfaceGroup, "/master", timeIfaceDown, 30*time.Second)
+				Expect(err).ToNot(BeNil(),
+					"No FREERUN event is received")
+			})
+
+		// 80964
+		It("verifies 2-port oc ha holdover & freerun when both ports go down",
+			polarion.ID("80964"), func() {
+				By("Bringing both interfaces down")
+
+				timeIfaceDown := time.Now()
+
+				for _, iface := range oc2PortIfaces {
+					err := ranptphelper.SetInterfaceStatus(ptpDaemonPod, parameters.PtpContainerName, iface,
+						ranptpparameters.Off, 2)
+					Expect(err).NotTo(HaveOccurred())
+				}
+
+				By("Validate after dual failure: clock state FREERUN, iface roles FAULTY")
+				metricsFilter := ranptphelper.NewMetricVector(
+					ranptphelper.NewMetricSample(
+						ranptpparameters.OpenshiftPtpInterfaceRole,
+						float64(ranptpparameters.FaultyRole),
+						map[string]string{
+							"iface": oc2PortIfaces[0],
+						},
+					),
+					ranptphelper.NewMetricSample(
+						ranptpparameters.OpenshiftPtpInterfaceRole,
+						float64(ranptpparameters.FaultyRole),
+						map[string]string{
+							"iface": oc2PortIfaces[1],
+						},
+					),
+					ranptphelper.NewMetricSample(
+						ranptpparameters.OpenshiftPtpClockState,
+						float64(ranptpparameters.FreeRunState),
+						map[string]string{
+							"process": ranptpparameters.ProcessPTP4L,
+						},
+					),
+					ranptphelper.NewMetricSample(
+						ranptpparameters.OpenshiftPtpClockState,
+						float64(ranptpparameters.FreeRunState),
+						map[string]string{
+							"process": ranptpparameters.ProcessPHC2SYS,
+						},
+					),
+				)
+				err := ranptphelper.WaitForDesiredMetricVector(*ptpDaemonPod, 1*time.Minute, metricsFilter)
+				Expect(err).NotTo(HaveOccurred())
+
+				By("Validate clock state HOLDOVER event")
+				err = ranptphelper.WaitForEvent(
+					ptpDaemonPod, ranptpparameters.CloudEventContainer,
+					ranptpparameters.EventTypePtpStateChange,
+					ranptpparameters.EventHoldOver, oc2PortIfaceGroup, "/master", timeIfaceDown, 30*time.Second)
+				Expect(err).NotTo(HaveOccurred())
+
+				By("Validate clock state FREERUN event")
+				err = ranptphelper.WaitForEvent(
+					ptpDaemonPod, ranptpparameters.CloudEventContainer,
+					ranptpparameters.EventTypePtpStateChange,
+					ranptpparameters.EventFreeRun, oc2PortIfaceGroup, "/master", timeIfaceDown, 30*time.Second)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+		// 82012
+		It("verifies 2-port oc ha passive interface recovery",
+			polarion.ID("82012"), func() {
+				By("Bringing down the passive interface")
+
+				timeIfaceDown := time.Now()
+
+				err := ranptphelper.SetInterfaceStatus(ptpDaemonPod, parameters.PtpContainerName, oc2PortIfaces[1],
+					ranptpparameters.Off, 2)
+				Expect(err).NotTo(HaveOccurred())
+
+				By("Validate after failer: clock state remains LOCKED, iface roles SLAVE & FAULTY")
+				metricsFilter := ranptphelper.NewMetricVector(
+					ranptphelper.NewMetricSample(
+						ranptpparameters.OpenshiftPtpClockState,
+						float64(ranptpparameters.LockedState),
+						map[string]string{
+							"process": ranptpparameters.ProcessPTP4L,
+						},
+					),
+					ranptphelper.NewMetricSample(
+						ranptpparameters.OpenshiftPtpClockState,
+						float64(ranptpparameters.LockedState),
+						map[string]string{
+							"process": ranptpparameters.ProcessPHC2SYS,
+						},
+					),
+					ranptphelper.NewMetricSample(
+						ranptpparameters.OpenshiftPtpInterfaceRole,
+						float64(ranptpparameters.SlaveRole),
+						map[string]string{
+							"iface": oc2PortIfaces[0],
+						},
+					),
+					ranptphelper.NewMetricSample(
+						ranptpparameters.OpenshiftPtpInterfaceRole,
+						float64(ranptpparameters.FaultyRole),
+						map[string]string{
+							"iface": oc2PortIfaces[1],
+						},
+					),
+				)
+				err = ranptphelper.WaitForDesiredMetricVector(*ptpDaemonPod, 1*time.Minute, metricsFilter)
+				Expect(err).NotTo(HaveOccurred())
+
+				By("Validate no clock state HOLDOVER events")
+				err = ranptphelper.WaitForEvent(
+					ptpDaemonPod, ranptpparameters.CloudEventContainer,
+					ranptpparameters.EventTypePtpStateChange,
+					ranptpparameters.EventHoldOver, oc2PortIfaceGroup, "/master", timeIfaceDown, 30*time.Second)
+				Expect(err).ToNot(BeNil(),
+					"No HOLDOVER event is received")
 			})
 	})
 })
@@ -565,5 +807,39 @@ func verifyEventsAndMetricsSlaveInterfaceDownUp(node *corev1.Node, ptpPod *corev
 		err = ranptphelper.WaitForPtpClockStateMetric(*ptpPod, ranptpparameters.LockedState,
 			"", 1*time.Minute, 10*time.Second)
 		Expect(err).NotTo(HaveOccurred())
+	}
+}
+
+// validateSortOc2PortIfaces validates OC 2 port is in active / passive.
+// sorts the slice so the first element is active.
+func validateSortOc2PortIfaces(
+	ptpDaemonPod corev1.Pod,
+	ifaces []string) {
+	GinkgoHelper()
+
+	Expect(len(ifaces)).To(Equal(2))
+
+	ifaceRoles, err := ranptphelper.GetPodInterfaceRoles(ptpDaemonPod, ifaces)
+	Expect(err).NotTo(HaveOccurred())
+
+	// isActivePassive returns true if the iface role value matches an active passive state.
+	isActivePassive := func(
+		roleA, roleB ranptpparameters.InterfaceRole) bool {
+		return roleA == ranptpparameters.SlaveRole &&
+			roleB == ranptpparameters.ListeningRole
+	}
+
+	ifaceXname, ifaceXRole := ifaces[0], ifaceRoles[ifaces[0]]
+	ifaceYname, ifaceYRole := ifaces[1], ifaceRoles[ifaces[1]]
+
+	switch {
+	case isActivePassive(ifaceXRole, ifaceYRole):
+		// do nothing since the ifaces slice already sorted
+	case isActivePassive(ifaceYRole, ifaceXRole):
+		ifaces[0] = ifaceYname
+		ifaces[1] = ifaceXname
+	default:
+		Fail(fmt.Sprintf("couldn't deduce OC active / passive interfaces: %s: %d, %s: %d",
+			ifaceXname, ifaceXRole, ifaceYname, ifaceYRole))
 	}
 }

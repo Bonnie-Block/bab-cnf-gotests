@@ -18,13 +18,8 @@ import (
 )
 
 var _ = Describe("PTP leap testing", Label("ptp-leap"), func() {
-	const (
-		gmOneCardConfigIndx   = 3
-		gmMultiCardConfigIndx = 4
-	)
-
 	var (
-		ptpConfigCounts    []int
+		ptpConfigCounts    ranptpparameters.PtpConfigTypeCounter
 		nodeToPtpDaemonPod map[string]corev1.Pod
 	)
 
@@ -33,12 +28,12 @@ var _ = Describe("PTP leap testing", Label("ptp-leap"), func() {
 			List(context.Background(), metav1.ListOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
-		ptpConfigCounts = getPtpConfigCounts(*originPtpConfigList)
+		ptpConfigCounts = ranptphelper.GetPtpConfigCounts(*originPtpConfigList)
 
-		err = checkPtpLockState(5*time.Second, 0)
+		err = ranptphelper.CheckPtpLockState(5*time.Second, 0)
 		Expect(err).ToNot(HaveOccurred())
 
-		if ptpConfigCounts[gmOneCardConfigIndx] == 0 && ptpConfigCounts[gmMultiCardConfigIndx] == 0 {
+		if ptpConfigCounts.GMOneNIC == 0 && ptpConfigCounts.GMMultiNIC == 0 {
 			Skip("Test requires Grandmaster configurations")
 		}
 
@@ -95,7 +90,7 @@ var _ = Describe("PTP leap testing", Label("ptp-leap"), func() {
 		}
 
 		log.Println("Check ptp clocks are in sync")
-		err = checkPtpLockState(5*time.Minute, 10*time.Second)
+		err = ranptphelper.CheckPtpLockState(5*time.Minute, 10*time.Second)
 		Expect(err).ToNot(HaveOccurred())
 	})
 

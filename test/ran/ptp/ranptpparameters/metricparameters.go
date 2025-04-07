@@ -13,12 +13,12 @@ const (
 	LockedState   ClockState = 1
 	HoldOverState ClockState = 2
 
-	PassiveRole InterfaceRole = 0
-	SlaveRole   InterfaceRole = 1
-	MasterRole  InterfaceRole = 2
-	FaultyRole  InterfaceRole = 3
-	UnknownRole InterfaceRole = 4
-	Listening   InterfaceRole = 5
+	PassiveRole   InterfaceRole = 0
+	SlaveRole     InterfaceRole = 1
+	MasterRole    InterfaceRole = 2
+	FaultyRole    InterfaceRole = 3
+	UnknownRole   InterfaceRole = 4
+	ListeningRole InterfaceRole = 5
 
 	Down ProcessStatus = 0
 	Up   ProcessStatus = 1

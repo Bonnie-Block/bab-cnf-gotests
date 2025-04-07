@@ -1,6 +1,9 @@
 package ranptphelper
 
 import (
+	"bufio"
+	"regexp"
+
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/helper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/parameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ptp/ranptpparameters"
@@ -293,6 +296,25 @@ func getIfaceRoleMap(ptpProfileList []ptpv1.PtpProfile,
 			}
 
 			interfacesRoleMap[*ptpProfile.Interface] = map[string]string{"masterOnly": "0"}
+
+			continue
+		}
+
+		if IsOrdinaryClock2PortProfile(ptpProfile) {
+			ifaces := make([]string, 0)
+			ifaceRegex := regexp.MustCompile(`(?i)^\[(en[a-z0-9]+)\]$`)
+			scanner := bufio.NewScanner(strings.NewReader(*ptpProfile.Ptp4lConf))
+			for scanner.Scan() {
+				line := scanner.Text()
+				if match := ifaceRegex.FindString(line); match != "" {
+					iface := strings.Trim(line, "[]")
+					ifaces = append(ifaces, iface)
+				}
+			}
+
+			for _, iface := range ifaces {
+				interfacesRoleMap[iface] = map[string]string{"masterOnly": "0"}
+			}
 
 			continue
 		}

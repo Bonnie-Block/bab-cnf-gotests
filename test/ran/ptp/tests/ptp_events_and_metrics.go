@@ -38,7 +38,7 @@ var _ = Describe("Basic PTP Configs", Ordered, ContinueOnFailure, func() {
 		}
 
 		// Ensure ptp clocks are locked before starting any test
-		err := checkPtpLockState(5*time.Second, 0)
+		err := ranptphelper.CheckPtpLockState(5*time.Second, 0)
 		if err != nil {
 			Skip("PTP clocks are not in locked states")
 		}
@@ -61,7 +61,7 @@ var _ = Describe("Basic PTP Configs", Ordered, ContinueOnFailure, func() {
 		log.Println("Restore ptpconfigs to original specs")
 		restorePtpConfigs(originPtpConfigSpecs)
 		log.Println("Check ptp clocks are in sync")
-		err := checkPtpLockState(5*time.Minute, 10*time.Second)
+		err := ranptphelper.CheckPtpLockState(5*time.Minute, 10*time.Second)
 		Expect(err).ToNot(HaveOccurred())
 	})
 
@@ -166,93 +166,21 @@ var _ = Describe("Basic PTP Configs", Ordered, ContinueOnFailure, func() {
 	})
 })
 
-// getPtpConfigCounts counts ptpconfig types.
-// arguments:		"ptpConfigsList"-	a list of ptpconfigs.
-// return value:	an array of int index:
-// 0 - total number of configs.
-// 1 - OC configs.
-// 2 - BC configs.
-// 3 - GM configs.
-func getPtpConfigCounts(ptpConfigsList ptpv1.PtpConfigList) []int {
-	configCount, ocCount, bcCount, gmOneCount, gmMultiCount, haCount := 0, 0, 0, 0, 0, 0
-
-	for _, ptpconfig := range ptpConfigsList.Items {
-		for _, profile := range ptpconfig.Spec.Profile {
-			configCount++
-
-			if ranptphelper.IsGmOneCardProfile(profile) {
-				gmOneCount++
-
-				continue
-			}
-
-			if ranptphelper.IsGmMultiCardProfile(profile) {
-				gmMultiCount++
-
-				continue
-			}
-
-			if ranptphelper.IsOrdinaryClockProfile(profile) {
-				ocCount++
-
-				continue
-			}
-
-			if ranptphelper.IsHaProfile(profile) {
-				haCount++
-
-				continue
-			}
-
-			if ranptphelper.IsBoundaryClockProfile(profile) {
-				bcCount++
-			} else {
-				log.Println("Warning: unrecognized PTP profile type: ", *profile.Name)
-			}
-		}
-	}
-
-	return []int{configCount, ocCount, bcCount, gmOneCount, gmMultiCount, haCount}
-}
-
 // restore ptp configs on system to original configs.
 func restorePtpConfigs(originalPtpSpecs map[string]ptpv1.PtpConfigSpec) {
 	err := ranptphelper.UpdatePtpConfigSpecs(originalPtpSpecs)
 	Expect(err).ToNot(HaveOccurred())
 }
 
-func checkPtpLockState(timeout time.Duration, stableDuration time.Duration) error {
-	// Validate that PTP event container is running1
-	ptpDaemonPods, err := helper.Apiclient.Pods(parameters.PtpOperatorNamespace).List(context.Background(),
-		metav1.ListOptions{LabelSelector: parameters.PtpDaemonsetLabelSelector})
-	if err != nil {
-		log.Println("Failed to get PTP pod list")
-
-		return err
-	}
-
-	for _, ptpDaemonPod := range ptpDaemonPods.Items {
-		helper.WaitForPodsHealthy([]*corev1.Pod{&ptpDaemonPod}, 3*time.Minute)
-		err = ranptphelper.WaitForPtpClockStateMetric(ptpDaemonPod, ranptpparameters.LockedState, "",
-			timeout, stableDuration)
-
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 // ptpPretestValidations Validate s ptp is healthy before tests begin.
 // It returns the original ptpconfig specs, boundary clock configuration count, and error if encountered.
-func ptpPretestValidations() (map[string]ptpv1.PtpConfigSpec, []int, error) {
+func ptpPretestValidations() (map[string]ptpv1.PtpConfigSpec, ranptpparameters.PtpConfigTypeCounter, error) {
 	ptpDaemonPods, beforeAllErr := helper.Apiclient.Pods(parameters.PtpOperatorNamespace).List(context.Background(),
 		metav1.ListOptions{
 			LabelSelector: parameters.PtpDaemonsetLabelSelector})
 	Expect(beforeAllErr).NotTo(HaveOccurred())
 
-	beforeAllErr = checkPtpLockState(5*time.Second, 0)
+	beforeAllErr = ranptphelper.CheckPtpLockState(5*time.Second, 0)
 	Expect(beforeAllErr).NotTo(HaveOccurred())
 
 	// Get the metrics details before changes_ptp_events_bc
@@ -270,7 +198,7 @@ func ptpPretestValidations() (map[string]ptpv1.PtpConfigSpec, []int, error) {
 		originPtpConfigSpecs[ptpconf.Name] = ptpconf.Spec
 	}
 
-	configCounts := getPtpConfigCounts(*originPtpConfigList)
+	configCounts := ranptphelper.GetPtpConfigCounts(*originPtpConfigList)
 
 	log.Printf("PTP config counts: %v\n", configCounts)
 
