@@ -505,8 +505,8 @@ func createBGPAdvertisementWithNodeSelector(bgpadvertisementName, ipFamily strin
 	ipAddressPoolName, bgpPeerName []string, label map[string]string) error {
 	err := helper.Apiclient.Create(
 		context.Background(),
-		netmetallbhelper.RedefineBGPAdvertisementWithNodeSelector(bgpadvertisementName, ipFamily,
-			netmlbparameters.CommunityNoAdv, ipAddressPoolName, bgpPeerName, netmlbparameters.PrefixLen32,
+		netmetallbhelper.RedefineBGPAdvertisementWithNodeSelector(bgpadvertisementName, netmlbparameters.CommunityNoAdv,
+			ipFamily, ipAddressPoolName, bgpPeerName, netmlbparameters.PrefixLen32,
 			netmlbparameters.LocalPref100, label))
 
 	return err
