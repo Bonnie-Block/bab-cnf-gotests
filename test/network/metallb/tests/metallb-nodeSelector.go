@@ -48,7 +48,7 @@ var _ = Describe("MetalLB NodeSelector", func() {
 		Expect(len(masterNodeList)).To(BeNumerically(">", 0))
 
 		workerNodesAdresses = nethelper.NodeIPsForFamily(workerNodeList, netparameters.IPV4Family)
-		clusterIPStack := netmetallbhelper.ValidateClusterIPStack()
+		clusterIPStack = netmetallbhelper.ValidateClusterIPStack()
 
 		By(fmt.Sprintf("Running test on %s cluster", clusterIPStack))
 		var ipV6Address string
@@ -131,7 +131,6 @@ var _ = Describe("MetalLB NodeSelector", func() {
 			By("should create external FRR containers")
 
 			var ipv6Address string
-			clusterIPStack := netmetallbhelper.ValidateClusterIPStack()
 
 			if clusterIPStack != netparameters.IPV4Family {
 				ipv6Address = ipv6metalLBIPList[0]
@@ -312,8 +311,6 @@ var _ = Describe("MetalLB NodeSelector", func() {
 			By("should create external FRR containers")
 
 			var ipv6Address string
-
-			clusterIPStack := netmetallbhelper.ValidateClusterIPStack()
 
 			if clusterIPStack != netparameters.IPV4Family {
 				ipv6Address = ipv6metalLBIPList[0]
