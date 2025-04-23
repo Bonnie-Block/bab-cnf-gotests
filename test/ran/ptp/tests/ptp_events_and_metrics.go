@@ -174,7 +174,7 @@ var _ = Describe("Basic PTP Configs", Ordered, ContinueOnFailure, func() {
 // 2 - BC configs.
 // 3 - GM configs.
 func getPtpConfigCounts(ptpConfigsList ptpv1.PtpConfigList) []int {
-	configCount, ocCount, bcCount, gmOneCount, gmTwoCount, haCount := 0, 0, 0, 0, 0, 0
+	configCount, ocCount, bcCount, gmOneCount, gmMultiCount, haCount := 0, 0, 0, 0, 0, 0
 
 	for _, ptpconfig := range ptpConfigsList.Items {
 		for _, profile := range ptpconfig.Spec.Profile {
@@ -186,8 +186,8 @@ func getPtpConfigCounts(ptpConfigsList ptpv1.PtpConfigList) []int {
 				continue
 			}
 
-			if ranptphelper.IsGmTwoCardProfile(profile) {
-				gmTwoCount++
+			if ranptphelper.IsGmMultiCardProfile(profile) {
+				gmMultiCount++
 
 				continue
 			}
@@ -212,7 +212,7 @@ func getPtpConfigCounts(ptpConfigsList ptpv1.PtpConfigList) []int {
 		}
 	}
 
-	return []int{configCount, ocCount, bcCount, gmOneCount, gmTwoCount, haCount}
+	return []int{configCount, ocCount, bcCount, gmOneCount, gmMultiCount, haCount}
 }
 
 // restore ptp configs on system to original configs.
@@ -334,7 +334,7 @@ func verifyEventsAndMetricsModifyThresholds(ptpDaemonPod *corev1.Pod, pod *corev
 func containsGMProfile(ptpConfigList *ptpv1.PtpConfigList) bool {
 	for _, ptpConfig := range ptpConfigList.Items {
 		for _, profile := range ptpConfig.Spec.Profile {
-			if ranptphelper.IsGmOneCardProfile(profile) || ranptphelper.IsGmTwoCardProfile(profile) {
+			if ranptphelper.IsGmOneCardProfile(profile) || ranptphelper.IsGmMultiCardProfile(profile) {
 				return true
 			}
 		}

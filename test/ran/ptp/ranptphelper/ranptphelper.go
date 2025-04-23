@@ -356,7 +356,7 @@ func IsBoundaryClockProfile(profile ptpv1.PtpProfile) bool {
 	return strings.Contains(ptp4lconf, "[en") && strings.Contains(ptp4lconf, "masterOnly 1")
 }
 
-// IsGmOneCardProfile checks if given profile has boundary clock config.
+// IsGmOneCardProfile checks if given profile has grandmaster configuration with one card.
 func IsGmOneCardProfile(profile ptpv1.PtpProfile) bool {
 	if profile.Ts2PhcConf != nil {
 		return strings.Contains(*profile.Ts2PhcConf, "ts2phc.master 1") &&
@@ -366,8 +366,8 @@ func IsGmOneCardProfile(profile ptpv1.PtpProfile) bool {
 	return false
 }
 
-// IsGmTwoCardProfile checks if given profile has boundary clock config.
-func IsGmTwoCardProfile(profile ptpv1.PtpProfile) bool {
+// IsGmMultiCardProfile checks if given profile has multiple WPC cards that configure as GM.
+func IsGmMultiCardProfile(profile ptpv1.PtpProfile) bool {
 	if profile.Ts2PhcConf != nil {
 		return strings.Contains(*profile.Ts2PhcConf, "ts2phc.master 1") &&
 			strings.Contains(*profile.Ts2PhcConf, "ts2phc.master 0")
@@ -386,7 +386,7 @@ func GetGmPtpConfig() (*ptpv1.PtpConfig, error) {
 
 	for _, ptpConfig := range listPtpConfig.Items {
 		for _, ptpProfile := range ptpConfig.Spec.Profile {
-			if IsGmOneCardProfile(ptpProfile) || IsGmTwoCardProfile(ptpProfile) {
+			if IsGmOneCardProfile(ptpProfile) || IsGmMultiCardProfile(ptpProfile) {
 				log.Println("found GM ptp configuration")
 
 				return &ptpConfig, nil
@@ -402,7 +402,7 @@ func GetGmPtpConfig() (*ptpv1.PtpConfig, error) {
 func GetGmPtpConfigWithProfileIndex(listPtpConfig ptpv1.PtpConfigList) (*ptpv1.PtpConfig, int, error) {
 	for _, ptpConfig := range listPtpConfig.Items {
 		for i, ptpProfile := range ptpConfig.Spec.Profile {
-			if IsGmOneCardProfile(ptpProfile) || IsGmTwoCardProfile(ptpProfile) {
+			if IsGmOneCardProfile(ptpProfile) || IsGmMultiCardProfile(ptpProfile) {
 				log.Println("found GM ptp configuration")
 
 				return &ptpConfig, i, nil
@@ -543,48 +543,56 @@ func GetSma(ptpPod *corev1.Pod, iface string) (string, error) {
 	return smaVal.String(), err
 }
 
-func getGmIface(ptpConfig ptpv1.PtpConfig, smaString string) (string, error) {
+func getGmIface(ptpConfig ptpv1.PtpConfig, smaString string) ([]string, error) {
 	ifaces, ifaceJSON, err := getJSONInterface(ptpConfig)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-
+	var wantedIfaces []string
 	for _, iface := range ifaces {
 		ifaceStr, err := json.Marshal(ifaceJSON[iface])
-
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 
 		var sma1Json map[string]interface{}
 		err = json.Unmarshal(ifaceStr, &sma1Json)
-
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 
 		sma1Str, err := json.Marshal(sma1Json["SMA1"])
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 
 		if string(sma1Str) == fmt.Sprintf("\"%s\"", smaString) {
 			log.Printf("found interface %s with value %s", iface, smaString)
-
-			return iface, nil
+			wantedIfaces = append(wantedIfaces, iface)
 		}
 	}
 
-	return "", nil
+	return wantedIfaces, nil
 }
 
 // GetRxIface gets the RX interface.
-func GetRxIface(ptpConfig ptpv1.PtpConfig) (string, error) {
-	return getGmIface(ptpConfig, "1 1")
+func GetRxIface(ptpConfig ptpv1.PtpConfig) ([]string, error) {
+	return getGmIface(ptpConfig, ranptpparameters.RxConfiguration)
 }
 
+// GetTxIface gets the TX interface.
 func GetTxIface(ptpConfig ptpv1.PtpConfig) (string, error) {
-	return getGmIface(ptpConfig, "2 1")
+	txIfaces, err := getGmIface(ptpConfig, ranptpparameters.TxConfiguration)
+	if err != nil {
+		return "", err
+	}
+
+	// only one interface can be as TX.
+	if len(txIfaces) > 1 {
+		return "", fmt.Errorf("found more than 1 interface with value %s", ranptpparameters.TxConfiguration)
+	}
+
+	return txIfaces[0], nil
 }
 
 // GetGmInterfaceToGPS	returns a GM interface that is connected to GPS via GNSS module.

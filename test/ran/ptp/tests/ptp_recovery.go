@@ -33,7 +33,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 		configsIndx                = 0
 		bcConfigIndx               = 2
 		gmOneCardConfigIndx        = 3
-		gmTwoCardConfigIndx        = 4
+		gmMultiCardConfigIndx      = 4
 		highAvailabilityConfigIndx = 5
 	)
 
@@ -292,7 +292,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 		})
 		// 59863
 		It("should recover the ts2phc process after the killing a ts2phc process", polarion.ID("59863"), func() {
-			if configCountsRecovery[gmOneCardConfigIndx] == 0 && configCountsRecovery[gmTwoCardConfigIndx] == 0 {
+			if configCountsRecovery[gmOneCardConfigIndx] == 0 && configCountsRecovery[gmMultiCardConfigIndx] == 0 {
 				Skip("Test requires grand master configuration")
 			}
 
@@ -360,7 +360,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 		// 59864
 		It("should recover the ptp4l process after the killing a "+
 			"ptp4l process that is related to ts2phc process", polarion.ID("59864"), func() {
-			if configCountsRecovery[gmOneCardConfigIndx] == 0 && configCountsRecovery[gmTwoCardConfigIndx] == 0 {
+			if configCountsRecovery[gmOneCardConfigIndx] == 0 && configCountsRecovery[gmMultiCardConfigIndx] == 0 {
 				Skip("Test requires grand master configuration")
 			}
 
@@ -394,8 +394,8 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 		})
 
 		// 64777
-		It("should recover gpsd process after killing it on node", polarion.ID("64777"), func() {
-			if configCountsRecovery[gmOneCardConfigIndx] == 0 && configCountsRecovery[gmTwoCardConfigIndx] == 0 {
+		It("should recover gpsd process after killing it on node ", polarion.ID("64777"), func() {
+			if configCountsRecovery[gmOneCardConfigIndx] == 0 && configCountsRecovery[gmMultiCardConfigIndx] == 0 {
 				Skip("Test requires grand master configuration")
 			}
 
@@ -726,7 +726,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 				Skip("Test is up to version 4.17")
 			}
 
-			if configCountsRecovery[gmOneCardConfigIndx] == 0 && configCountsRecovery[gmTwoCardConfigIndx] == 0 {
+			if configCountsRecovery[gmOneCardConfigIndx] == 0 && configCountsRecovery[gmMultiCardConfigIndx] == 0 {
 				Skip("Test requires Grandmaster configuration")
 			}
 
@@ -800,7 +800,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 				Skip("Test is valid from version 4.18")
 			}
 
-			if configCountsRecovery[gmOneCardConfigIndx] == 0 && configCountsRecovery[gmTwoCardConfigIndx] == 0 {
+			if configCountsRecovery[gmOneCardConfigIndx] == 0 && configCountsRecovery[gmMultiCardConfigIndx] == 0 {
 				Skip("Test requires Grandmaster configuration")
 			}
 
@@ -890,7 +890,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 				Skip("Test is from version 4.18")
 			}
 
-			if configCountsRecovery[gmOneCardConfigIndx] == 0 && configCountsRecovery[gmTwoCardConfigIndx] == 0 {
+			if configCountsRecovery[gmOneCardConfigIndx] == 0 && configCountsRecovery[gmMultiCardConfigIndx] == 0 {
 				Skip("Test requires Grandmaster configuration")
 			}
 
@@ -1006,7 +1006,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 				Skip("Test is from version 4.18")
 			}
 
-			if configCountsRecovery[gmOneCardConfigIndx] == 0 && configCountsRecovery[gmTwoCardConfigIndx] == 0 {
+			if configCountsRecovery[gmOneCardConfigIndx] == 0 && configCountsRecovery[gmMultiCardConfigIndx] == 0 {
 				Skip("Test requires Grandmaster configuration")
 			}
 
@@ -1121,15 +1121,15 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 		})
 	})
 
-	Context("disable SMA connection between the two cards", func() {
+	Context("disable SMA connection between the GM cards", func() {
 		var (
-			rxInterface  string
+			rxInterfaces []string
 			ptpDaemonPod *corev1.Pod
 		)
 
 		BeforeEach(func() {
-			if configCountsRecovery[gmTwoCardConfigIndx] == 0 {
-				Skip("Test requires two Grandmaster configurations")
+			if configCountsRecovery[gmMultiCardConfigIndx] == 0 {
+				Skip("Test requires two or more Grandmaster configurations")
 			}
 			ptpDaemonPods, err := helper.Apiclient.Pods(parameters.PtpOperatorNamespace).List(context.Background(),
 				metav1.ListOptions{LabelSelector: parameters.PtpDaemonsetLabelSelector})
@@ -1140,21 +1140,23 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 			gmPtpConfiguration, err := ranptphelper.GetGmPtpConfig()
 			Expect(err).NotTo(HaveOccurred())
 
-			rxInterface, err = ranptphelper.GetRxIface(*gmPtpConfiguration)
+			rxInterfaces, err = ranptphelper.GetRxIface(*gmPtpConfiguration)
 			Expect(err).NotTo(HaveOccurred())
-			log.Printf("RX interface plugin %s", rxInterface)
+			log.Printf("RX interface plugin %s", rxInterfaces)
 		})
 
 		AfterEach(func() {
-			if configCountsRecovery[gmTwoCardConfigIndx] == 0 {
-				Skip("Test requires two Grandmaster configurations")
+			if configCountsRecovery[gmMultiCardConfigIndx] == 0 {
+				Skip("Test requires two or more Grandmaster configurations")
 			}
 			// make sure sma connection is up.
-			rxSma, err := ranptphelper.GetSma(ptpDaemonPod, rxInterface)
-			Expect(err).NotTo(HaveOccurred())
-			if rxSma != "1 1" {
-				err = ranptphelper.SetSma(ptpDaemonPod, rxInterface, "1 1")
+			for _, rxInterface := range rxInterfaces {
+				rxSma, err := ranptphelper.GetSma(ptpDaemonPod, rxInterface)
 				Expect(err).NotTo(HaveOccurred())
+				if rxSma != ranptpparameters.RxConfiguration {
+					err = ranptphelper.SetSma(ptpDaemonPod, rxInterface, ranptpparameters.RxConfiguration)
+					Expect(err).NotTo(HaveOccurred())
+				}
 			}
 		})
 
@@ -1167,37 +1169,40 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 			txInterface, err := ranptphelper.GetTxIface(*gmPtpConfiguration)
 			Expect(err).NotTo(HaveOccurred())
 
-			By(fmt.Sprintf("modify SMA1 value for interface %s, in pod  %s to 0 1", rxInterface,
-				ptpDaemonPod.Name))
-			err = ranptphelper.SetSma(ptpDaemonPod, rxInterface, "0 1")
-			Expect(err).NotTo(HaveOccurred())
+			for _, rxInterface := range rxInterfaces {
+				By(fmt.Sprintf("modify SMA1 value for interface %s, in pod  %s to 0 1", rxInterface,
+					ptpDaemonPod.Name))
+				err = ranptphelper.SetSma(ptpDaemonPod, rxInterface, "0 1")
+				Expect(err).NotTo(HaveOccurred())
 
-			readSMA, err := ranptphelper.GetSma(ptpDaemonPod, rxInterface)
-			Expect(err).NotTo(HaveOccurred())
-			log.Printf("interface %s has sma1 value of: %s, expected result 0 1", rxInterface, readSMA)
+				readSMA, err := ranptphelper.GetSma(ptpDaemonPod, rxInterface)
+				Expect(err).NotTo(HaveOccurred())
+				log.Printf("interface %s has sma1 value of: %s, expected result 0 1", rxInterface, readSMA)
 
-			By(fmt.Sprintf("Wait for FREERUN states for dpll process for RX interface %s", rxInterface))
-			err = ranptphelper.WaitForPtpClockStateMetric(*ptpDaemonPod, ranptpparameters.FreeRunState, rxInterface,
-				1*time.Minute, 5*time.Second, "ts2phc")
-			Expect(err).NotTo(HaveOccurred())
-			log.Printf("FREERUN state found for RX interface %s in pod %s", rxInterface, ptpDaemonPod.Name)
+				By(fmt.Sprintf("Wait for FREERUN states for dpll process for RX interface %s", rxInterface))
+				err = ranptphelper.WaitForPtpClockStateMetric(*ptpDaemonPod, ranptpparameters.FreeRunState, rxInterface,
+					1*time.Minute, 5*time.Second, "ts2phc")
+				Expect(err).NotTo(HaveOccurred())
+				log.Printf("FREERUN state found for RX interface %s in pod %s", rxInterface, ptpDaemonPod.Name)
 
-			By(fmt.Sprintf("Wait for FREERUN states for GM process for TX interface %s", txInterface))
-			err = ranptphelper.WaitForPtpClockStateMetric(*ptpDaemonPod, ranptpparameters.FreeRunState, txInterface,
-				1*time.Minute, 5*time.Second, "dpll", "gnss", "ts2phc")
-			Expect(err).NotTo(HaveOccurred())
+				By(fmt.Sprintf("Wait for FREERUN states for GM process for TX interface %s", txInterface))
+				err = ranptphelper.WaitForPtpClockStateMetric(*ptpDaemonPod, ranptpparameters.FreeRunState, txInterface,
+					1*time.Minute, 5*time.Second, "dpll", "gnss", "ts2phc")
+				Expect(err).NotTo(HaveOccurred())
 
-			By(fmt.Sprintf("modify SMA1 value for RX interface %s, in pod  %s to 1 1", rxInterface,
-				ptpDaemonPod.Name))
-			err = ranptphelper.SetSma(ptpDaemonPod, rxInterface, "1 1")
-			Expect(err).NotTo(HaveOccurred())
-			readSMA, err = ranptphelper.GetSma(ptpDaemonPod, rxInterface)
-			Expect(err).NotTo(HaveOccurred())
-			log.Printf("interface %s has sma1 value of: %s, expected result 1 1", rxInterface, readSMA)
+				By(fmt.Sprintf("modify SMA1 value for RX interface %s, in pod  %s to %s", rxInterface,
+					ptpDaemonPod.Name, ranptpparameters.RxConfiguration))
+				err = ranptphelper.SetSma(ptpDaemonPod, rxInterface, ranptpparameters.RxConfiguration)
+				Expect(err).NotTo(HaveOccurred())
+				readSMA, err = ranptphelper.GetSma(ptpDaemonPod, rxInterface)
+				Expect(err).NotTo(HaveOccurred())
+				log.Printf("interface %s has sma1 value of: %s, expected result %s", rxInterface, readSMA,
+					ranptpparameters.RxConfiguration)
 
-			err = ranptphelper.WaitForMetricValueStatus(*ptpDaemonPod, ranptpparameters.OpenshiftPtpPpsStatus,
-				ranptpparameters.Available, 1*time.Minute, 10*time.Second)
-			Expect(err).NotTo(HaveOccurred())
+				err = ranptphelper.WaitForMetricValueStatus(*ptpDaemonPod, ranptpparameters.OpenshiftPtpPpsStatus,
+					ranptpparameters.Available, 1*time.Minute, 10*time.Second)
+				Expect(err).NotTo(HaveOccurred())
+			}
 		})
 	})
 })

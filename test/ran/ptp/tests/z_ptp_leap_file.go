@@ -19,8 +19,8 @@ import (
 
 var _ = Describe("PTP leap testing", Label("ptp-leap"), func() {
 	const (
-		gmOneCardConfigIndx = 3
-		gmTwoCardConfigIndx = 4
+		gmOneCardConfigIndx   = 3
+		gmMultiCardConfigIndx = 4
 	)
 
 	var (
@@ -38,7 +38,7 @@ var _ = Describe("PTP leap testing", Label("ptp-leap"), func() {
 		err = checkPtpLockState(5*time.Second, 0)
 		Expect(err).ToNot(HaveOccurred())
 
-		if ptpConfigCounts[gmOneCardConfigIndx] == 0 && ptpConfigCounts[gmTwoCardConfigIndx] == 0 {
+		if ptpConfigCounts[gmOneCardConfigIndx] == 0 && ptpConfigCounts[gmMultiCardConfigIndx] == 0 {
 			Skip("Test requires Grandmaster configurations")
 		}
 

@@ -46,6 +46,9 @@ const (
 	EventTypeOsClockStateChange = "event.sync.sync-status.os-clock-sync-state-change"
 
 	Master = "master"
+
+	RxConfiguration = "1 1"
+	TxConfiguration = "2 1"
 )
 
 type Log struct {
