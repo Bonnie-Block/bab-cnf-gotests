@@ -590,8 +590,12 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 			Expect(err).ToNot(HaveOccurred())
 			log.Printf("New EventApiVersion: %v", eventAPIVersionNew)
 
-			log.Printf("ptpOperatorConfig modified - wait 2 minutes")
-			time.Sleep(2 * time.Minute)
+			log.Printf("ptpOperatorConfig modified - wait 1 minutes")
+			time.Sleep(1 * time.Minute)
+
+			By("Verify all ptp clocks are in LOCKED state in ptp metrics")
+			err = checkPtpLockState(5*time.Minute, 1*time.Minute)
+			Expect(err).ToNot(HaveOccurred())
 
 			// Redeploy consumer and validate the consumer get the events
 			By("Redeploy the consumer")
@@ -636,8 +640,12 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 					metav1.PatchOptions{})
 				Expect(err).ShouldNot(HaveOccurred())
 			}
-			log.Printf("ptpOperatorConfig modified - wait 2 minutes")
-			time.Sleep(2 * time.Minute)
+			log.Printf("ptpOperatorConfig modified - wait 1 minutes")
+			time.Sleep(1 * time.Minute)
+
+			By("Verify all ptp clocks are in LOCKED state in ptp metrics")
+			err = checkPtpLockState(5*time.Minute, 1*time.Minute)
+			Expect(err).ToNot(HaveOccurred())
 
 			// Redeploy consumer and validate the consumer get the events
 			By("Redeploy the consumer")
