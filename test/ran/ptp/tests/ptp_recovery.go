@@ -421,9 +421,17 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 				err = ranptphelper.WaitForNewProcess(&ptpDaemonPod, "gpsd", pid)
 				Expect(err).NotTo(HaveOccurred())
 
-				By("Verifying clock_class changed to 7 in ptp events")
+				// default for 4.18 and above releases.
+				clockClassGpsdRestart := "7"
+
+				// version check for different clock_class expected value.
+				if ranhelper.IsVersionStringInRange(ranptpparameters.PtpVersion, "", "4.17") {
+					clockClassGpsdRestart = "248"
+				}
+
+				By(fmt.Sprintf("Verifying clock_class changed to %s in ptp events", clockClassGpsdRestart))
 				err = ranptphelper.WaitForEvent(&ptpDaemonPod, ranptpparameters.CloudEventContainer,
-					ranptpparameters.EventTypeClockClassChange, "7",
+					ranptpparameters.EventTypeClockClassChange, clockClassGpsdRestart,
 					gmIface, "/master", startTime, 1*time.Minute)
 				Expect(err).NotTo(HaveOccurred())
 
