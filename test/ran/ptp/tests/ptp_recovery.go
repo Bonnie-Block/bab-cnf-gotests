@@ -40,11 +40,13 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 	BeforeAll(func() {
 		originPtpConfigSpecs, configCountsRecovery, errBeforeAll = ptpPretestValidations()
 
-		gmPtpConfig, err := ranptphelper.GetGmPtpConfig()
-		Expect(err).NotTo(HaveOccurred())
+		if configCountsRecovery[gmOneCardConfigIndx] > 0 || configCountsRecovery[gmMultiCardConfigIndx] > 0 {
+			gmPtpConfig, err := ranptphelper.GetGmPtpConfig()
+			Expect(err).NotTo(HaveOccurred())
 
-		gmIface, err = ranptphelper.GetGmInterfaceToGPS(*gmPtpConfig)
-		Expect(err).NotTo(HaveOccurred())
+			gmIface, err = ranptphelper.GetGmInterfaceToGPS(*gmPtpConfig)
+			Expect(err).NotTo(HaveOccurred())
+		}
 	})
 
 	BeforeEach(func() {
