@@ -22,7 +22,7 @@ import (
 // WaitForLeapCMUpdate waits for new announcement with Today's date in leap-configmap.
 func WaitForLeapCMUpdate(ptpNodeName string) error {
 	interval := 5 * time.Second
-	timeout := 5 * time.Minute
+	timeout := 10 * time.Minute
 
 	return wait.PollImmediate(interval, timeout, func() (bool, error) {
 		todayDate := time.Now().UTC().Format(ranptpparameters.DateFormat)
