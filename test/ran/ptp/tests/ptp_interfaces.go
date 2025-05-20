@@ -324,8 +324,8 @@ var _ = Describe("PTP Events and Metrics - interface down", Ordered, ContinueOnF
 				Expect(err).NotTo(HaveOccurred())
 			}
 
-			By("validating CLOCK_REALTIME is still LOCKED")
-			err = ranptphelper.WaitForPtpClockStateMetric(ptpDaemonPod, ranptpparameters.LockedState,
+			By("validating CLOCK_REALTIME changes to FREERUN")
+			err = ranptphelper.WaitForPtpClockStateMetric(ptpDaemonPod, ranptpparameters.FreeRunState,
 				"CLOCK_REALTIME", time.Minute, 10*time.Second)
 			Expect(err).NotTo(HaveOccurred())
 		}
