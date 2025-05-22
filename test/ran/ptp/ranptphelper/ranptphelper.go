@@ -399,6 +399,9 @@ func IsOrdinaryClockProfile(profile ptpv1.PtpProfile) bool {
 
 // IsOrdinaryClock2PortProfile checks if given profile has slave only config.
 func IsOrdinaryClock2PortProfile(profile ptpv1.PtpProfile) bool {
+	if profile.Ptp4lConf == nil {
+		return false
+	}
 	ptp4lconf := *profile.Ptp4lConf
 
 	ifaces := make([]string, 0)
@@ -432,6 +435,9 @@ func IsBoundaryClockProfile(profile ptpv1.PtpProfile) bool {
 		return false
 	}
 
+	if profile.Ptp4lConf == nil {
+		return false
+	}
 	ptp4lconf := *profile.Ptp4lConf
 
 	return strings.Contains(ptp4lconf, "[en") && strings.Contains(ptp4lconf, "masterOnly 1")
