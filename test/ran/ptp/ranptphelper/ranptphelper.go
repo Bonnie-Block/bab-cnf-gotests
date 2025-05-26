@@ -430,14 +430,16 @@ func IsHaProfile(profile ptpv1.PtpProfile) bool {
 
 // IsBoundaryClockProfile checks if given profile has boundary clock config.
 func IsBoundaryClockProfile(profile ptpv1.PtpProfile) bool {
-	if profile.Interface != nil || profile.Ts2PhcConf != nil || (profile.Ptp4lOpts != nil &&
-		strings.Contains(*profile.Ptp4lOpts, " -s")) {
+	iface := profile.Interface != nil
+	ts2PhcConf := profile.Ts2PhcConf != nil
+	ptp4lOpts := (profile.Ptp4lOpts != nil &&
+		strings.Contains(*profile.Ptp4lOpts, " -s"))
+	ptp4lConf := profile.Ptp4lConf != nil
+
+	if iface || ts2PhcConf || ptp4lOpts || !ptp4lConf {
 		return false
 	}
 
-	if profile.Ptp4lConf == nil {
-		return false
-	}
 	ptp4lconf := *profile.Ptp4lConf
 
 	return strings.Contains(ptp4lconf, "[en") && strings.Contains(ptp4lconf, "masterOnly 1")
