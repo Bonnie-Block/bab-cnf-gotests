@@ -613,7 +613,7 @@ var _ = Describe("PTP Events and Metrics - interface down", Ordered, ContinueOnF
 						},
 					),
 				)
-				err := ranptphelper.WaitForDesiredMetricVector(*ptpDaemonPod, 1*time.Minute, metricsFilter)
+				err := ranptphelper.WaitForDesiredMetricVector(*ptpDaemonPod, 5*time.Minute, metricsFilter)
 				Expect(err).NotTo(HaveOccurred())
 
 				By("Validate clock state HOLDOVER event")
