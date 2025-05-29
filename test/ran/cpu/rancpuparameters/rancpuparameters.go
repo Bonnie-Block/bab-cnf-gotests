@@ -56,14 +56,12 @@ type PromQueryResponseRanMetrics struct {
 
 const (
 	// Prom query statistic representation for management cpu overhead.
-	CPUOverheadStat = `namedprocess_namegroup_cpu_rate{groupname!~"conmon"}`
+	CPUOverheadStat = `container_cpu_usage_seconds_total{id=~"/ovs.slice/.+|/system.slice/.+"}`
 	// Prom query statistic representation for infra pods. Assuming only workload pods are running.
-	CPUInfraPodsStat = `pod:container_cpu_usage:sum{pod!~"process-exp.*",pod!~"oslat.*",
-	pod!~"stress.*",pod!~"cnfgotestpriv.*",namespace!~"workload"}`
+	CPUInfraPodsStat = `pod:container_cpu_usage:sum{pod!~"cnfgotestpriv.*",namespace!~"workload"}`
 	// Prom query memory statistic representation for infra pods. Assuming only workload pods are running.
-	MemInfraPodsStat = `container_memory_usage_bytes{pod!~"process-exp.*",pod!~"oslat.*",
-	pod!~"stress.*",pod!~"cnfgotestpriv.*",namespace!~"workload",namespace!~"",pod!~""}`
-	OsTrendQuery = `max without (sw_version)
+	MemInfraPodsStat = `container_memory_usage_bytes{pod!~"cnfgotestpriv.*",namespace!~"workload",namespace!~"",pod!~""}`
+	OsTrendQuery     = `max without (sw_version)
 	(last_over_time(ranmetrics_cpu_os_daemon_steadyworkload_avg{cluster='%s',
 	baseline='true', sw_version=~'%s', duration='%s', formal_test='true'}[%dw]))`
 	PodTrendQuery = `max without (sw_version)
@@ -75,11 +73,10 @@ const (
 	(last_over_time(ranmetrics_apiserver_rate_idle_avg{cluster='%s', baseline='true',
 	sw_version=~'%s', duration='%s', formal_test='true'}[%dw]))`
 	// Prom query statistic representation of running pod count in the system.
-	ContainerCountQuery = `sum(kube_pod_container_info{pod!~"cnfgotestpriv.*", 
-	pod!~"process-exp.*", namespace!~"workload"} * on(namespace, pod) 
+	ContainerCountQuery = `sum(kube_pod_container_info{pod!~"cnfgotestpriv.*", namespace!~"workload"} * on(namespace, pod) 
 	group_left() kube_pod_status_phase{phase="Running"} == 1)`
 	ContainerCountBreakdownQuery = `count by (namespace, pod) (kube_pod_container_info{pod!~"cnfgotestpriv.*", 
-	pod!~"process-exp.*", namespace!~"workload"} * on(namespace, pod) 
+	namespace!~"workload"} * on(namespace, pod) 
 	group_left() kube_pod_status_phase{phase="Running"} == 1)`
 	ContainerCountTrendQuery = `max without (sw_version)
 	(last_over_time(ranmetrics_container_count_idle_total{cluster='%s', baseline='true',

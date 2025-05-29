@@ -3,6 +3,7 @@ package tests
 import (
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"reflect"
 	"regexp"
@@ -276,7 +277,8 @@ func checkCPUUsage(duration time.Duration, endTime time.Time, mgmtCPULimit int, 
 
 	// Ensure it can be converted to string without floating number in seconds
 	duration = time.Duration(int(duration.Seconds())) * time.Second
-	query := fmt.Sprintf("max_over_time((sum(%s)+sum(%s))[%s:30s])", cpuOverheadStat, cpuInfraPodsStat,
+	cpuOverheadStatRate := fmt.Sprintf("rate(%s[%s])", cpuOverheadStat, duration.String())
+	query := fmt.Sprintf("max_over_time((sum(%s)+sum(%s))[%s:30s])", cpuOverheadStatRate, cpuInfraPodsStat,
 		duration.String())
 	totalResult, err := rancpuhelper.ExecPromQuery(query, true)
 
@@ -286,7 +288,7 @@ func checkCPUUsage(duration time.Duration, endTime time.Time, mgmtCPULimit int, 
 	Expect(err).ToNot(HaveOccurred())
 	log.Println("Query max over time cpu usage for OS daemon")
 
-	query = fmt.Sprintf("max_over_time(sum(%s)[%s:30s]%s)", cpuOverheadStat, duration.String(), getOffset(timestamp))
+	query = fmt.Sprintf("max_over_time(sum(%s)[%s:30s]%s)", cpuOverheadStatRate, duration.String(), getOffset(timestamp))
 	nonPodResult, err := rancpuhelper.ExecPromQuery(query, true)
 	Expect(err).ShouldNot(HaveOccurred())
 
@@ -329,7 +331,7 @@ func checkCPUUsage(duration time.Duration, endTime time.Time, mgmtCPULimit int, 
 
 		log.Println("Query avg over time cpu usage for each os daemon")
 
-		query = fmt.Sprintf("avg_over_time(%s[%s:30s]%s)", cpuOverheadStat, duration.String(), getOffset(timestamp))
+		query = fmt.Sprintf("avg_over_time(%s[%s:30s]%s)", cpuOverheadStatRate, duration.String(), getOffset(timestamp))
 		osBreakdown, err := rancpuhelper.ExecPromQuery(query, true)
 		Expect(err).ShouldNot(HaveOccurred())
 		sortAndWriteToReport(rancpuparameters.RanCPUMetricOsDaemon, osBreakdown, "avg", scenario)
@@ -363,6 +365,7 @@ func checkCPUUsage(duration time.Duration, endTime time.Time, mgmtCPULimit int, 
 }
 
 func repeatPromQuery(duration time.Duration) (startTime time.Time, err error) {
+	cpuOverheadStat := fmt.Sprintf("sum(rate(%s[%s]))", rancpuparameters.CPUOverheadStat, duration.String())
 	query := fmt.Sprintf("max_over_time((sum(%s)+sum(%s))[12h:30s])", cpuOverheadStat, cpuInfraPodsStat)
 	log.Printf("Repeatedly run prom query for %s: %s\n", duration.String(), query)
 
@@ -394,7 +397,8 @@ func parseTag(tag map[string]string) (string, string) {
 	for key, value := range tag {
 		// Do not include node name (key=instance) in tag string
 		if key != "instance" {
-			if key == "pod" {
+			switch key {
+			case "pod":
 				// use <namespace>-<fullpodname> as component
 				component = fmt.Sprintf("%s %s", tag["namespace"], value)
 				verb, ok := tag["verb"]
@@ -403,7 +407,9 @@ func parseTag(tag map[string]string) (string, string) {
 					component = fmt.Sprintf("%s %s %s", tag["namespace"], value, verb)
 				}
 				value = getPodName(value)
-			} else if key == "groupname" {
+			// case "groupname":
+			// 	component = value
+			case "id":
 				component = value
 			}
 
@@ -475,6 +481,9 @@ func checkCPUTrend(duration time.Duration, endTime time.Time, workloadDuration s
 			if pod != "daemon" {
 				pod = metric.Metric["pod"]
 				pod = getPodName(pod)
+			} else {
+				// Remove backward slashes from proc names.
+				groupname = strings.ReplaceAll(groupname, "\\", "")
 			}
 
 			if basePod, ok := baseline[groupname][pod]; ok {
@@ -482,7 +491,7 @@ func checkCPUTrend(duration time.Duration, endTime time.Time, workloadDuration s
 				historicValue, _ := strconv.ParseFloat(basePod[1].(string), 64)
 				deviation := ((currentValue - historicValue) / historicValue) * 100
 
-				if deviation > trendThreshold && (currentValue*1000) >= millicoreThreshold {
+				if !math.IsNaN(deviation) && deviation > trendThreshold && (currentValue*1000) >= millicoreThreshold {
 					log.Println("[Trend Violated] cpu mc threshold deviated for ", groupname, "_", pod)
 					log.Printf("%f %% devation for current: %f vs baseline: %f", deviation, currentValue, historicValue)
 					trendString = trendString + groupname + " _ " + pod + "-> current: " +
@@ -493,7 +502,7 @@ func checkCPUTrend(duration time.Duration, endTime time.Time, workloadDuration s
 					log.Printf("%f %% devation for current: %f vs baseline: %f", deviation, currentValue, historicValue)
 				}
 			} else {
-				log.Printf("[Skip] Unknown component %s not in baseline \n", pod)
+				log.Printf("[Skip] Unknown component %s - %s not in baseline \n", groupname, pod)
 			}
 		}
 
@@ -523,19 +532,20 @@ func checkCPUTrend(duration time.Duration, endTime time.Time, workloadDuration s
 			fmt.Sprintf("The following openshift pods with usage more than %dmc violated threshold increase of %d percent",
 				int(millicoreThreshold), int(trendThreshold)))
 	case "cputrendos":
-		query := fmt.Sprintf("avg_over_time(%s[%s:30s]%s)", cpuOverheadStat, duration.String(), getOffset(timestamp))
+		cpuOverheadStatSum := fmt.Sprintf("rate(%s[%s])", cpuOverheadStat, duration.String())
+		query := fmt.Sprintf("avg_over_time(%s[%s:30s]%s)", cpuOverheadStatSum, duration.String(), getOffset(timestamp))
 		osBreakdown, _ := rancpuhelper.ExecPromQuery(query, true)
 
 		log.Println("Os Daemons Trend Test")
 
 		osBaseline, err := rancpuhelper.GetCPUBaseline(rancpuparameters.OsTrendQuery, baselineVersion,
-			workloadDuration, trendTimeframe, "groupname")
+			workloadDuration, trendTimeframe, "id")
 
 		if err != nil {
 			Skip("No baseline found for node in RAN Metrics")
 		}
 
-		var osTrendString = getBreakdown(osBreakdown, osBaseline, "groupname", "daemon")
+		var osTrendString = getBreakdown(osBreakdown, osBaseline, "id", "daemon")
 
 		log.Println("-----------------------------------------------------------------------------")
 		log.Print("Os Daemons Trend Violations current vs baseline deviation\n", osTrendString)

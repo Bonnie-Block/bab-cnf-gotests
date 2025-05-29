@@ -52,7 +52,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 
 	// Deploy process-exporter pod on each node
-	ranhelper.DeployProcessExporter()
+	// ranhelper.DeployProcessExporter()
 
 	log.Println("Checking for kube-burner binary in PATH")
 	_, err = helper.ExecAndLogCommand(true, 1*time.Minute, "kube-burner", "version")

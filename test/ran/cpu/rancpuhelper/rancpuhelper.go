@@ -317,7 +317,7 @@ func GetCPUBaseline(baselinequery string, baselineVersion string, workloadDurati
 					baseline[metric.Metric[podType]][metric.Metric["pod"]] = metric.Value
 				}
 			}
-		case "groupname":
+		case "id":
 			for _, metric := range response.Data.Result {
 				_, ok := baseline[metric.Metric[podType]]
 				if ok {
