@@ -69,8 +69,7 @@ var _ = Describe("Basic PTP Configs", Ordered, ContinueOnFailure, func() {
 		// In the top level BeforeEach, since the  metric map is already updated when checking the ptp clock state,
 		// it does not need to be repeated in here.
 
-		// 66848
-		It("should have [LOCKED] clock state in PTP metrics", polarion.ID("66848"), func() {
+		It("should have [LOCKED] clock state in PTP metrics", polarion.ID("82480"), func() {
 			for _, clockValueState := range ranptpparameters.MetricMap[ranptpparameters.OpenshiftPtpClockState] {
 				if clockValueState.Interface != ranptpparameters.Master {
 					Expect(clockValueState.ClockStateValue).Should(Equal(ranptpparameters.LockedState))
@@ -150,8 +149,7 @@ var _ = Describe("Basic PTP Configs", Ordered, ContinueOnFailure, func() {
 			}
 		})
 
-		// 66848
-		It("should have the 'phc2sys' and 'ptp4l' processes 'UP' after ptp config change", polarion.ID("66848"), func() {
+		It("should have the 'phc2sys' and 'ptp4l' processes 'UP' after ptp config change", polarion.ID("82302"), func() {
 			for _, processState := range ranptpparameters.MetricMap[ranptpparameters.OpenshiftPtpProcessStatus] {
 				if ranptpparameters.ProcessPTP4L == processState.Process {
 					Expect(processState.ProcessStatusValue).Should(Equal(ranptpparameters.Up),

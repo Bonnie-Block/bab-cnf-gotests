@@ -78,8 +78,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 	})
 
 	Context("ptp process restart", func() {
-		// 49850
-		It("should recover the phc2sys process after killing it", polarion.ID("49850"), func() {
+		It("should recover the phc2sys process after killing it", polarion.ID("59862"), func() {
 			nodeToPtpDaemonPod, err := ranptphelper.NodesToPtpDaemonPods()
 			Expect(err).NotTo(HaveOccurred())
 
@@ -389,7 +388,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 		})
 
 		// 64777
-		It("should recover gpsd process after killing it on node ", polarion.ID("64777"), func() {
+		It("should recover gpsd process after killing it on node", polarion.ID("64777"), func() {
 			if configCountsRecovery.GMOneNIC == 0 && configCountsRecovery.GMMultiNIC == 0 {
 				Skip("Test requires grand master configuration")
 			}
@@ -474,8 +473,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 			getConsumerNodeAndPod(parameters.CloudEventNamespace)
 		})
 
-		// 49738
-		It("should recover to stable state after delete PTP daemon pod", polarion.ID("49738"), func() {
+		It("should recover to stable state after delete PTP daemon pod", polarion.ID("64775"), func() {
 			var ptpNode *corev1.Node
 
 			ptpNode, err := ranhelper.GetNodeByName(ptpDaemonPod.Spec.NodeName)
@@ -508,8 +506,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		// 59992
-		It("validates HTTP PTP events via consumer", polarion.ID("59992"), func() {
+		It("validates HTTP PTP events via consumer", polarion.ID("54245"), func() {
 			// Verify communication between publisher to consumer
 			verifyConsumerEvents(consumerNode, consumerPod)
 		})
@@ -549,8 +546,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 			verifyConsumerEvents(consumerNode, consumerPod)
 		})
 
-		It("validates the consumer events after ptpoperatorconfig api version is modified", polarion.ID("59996"), func() {
-
+		It("validates the consumer events after ptpoperatorconfig api version is modified", polarion.ID("82218"), func() {
 			if !ranhelper.IsVersionStringInRange(ranptpparameters.PtpVersion, "4.16", "4.18") {
 				Skip("Test only applies for ptp 4.16-4.18")
 			}
@@ -668,8 +664,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 	})
 
 	Context("ptp node reboot", Ordered, func() {
-		// 49743
-		It("should return to same stable status after ptp node soft reboot", polarion.ID("49743"), func() {
+		It("should return to same stable status after ptp node soft reboot", polarion.ID("59858"), func() {
 
 			ptpDaemonPods, err := helper.Apiclient.Pods(parameters.PtpOperatorNamespace).List(context.Background(),
 				metav1.ListOptions{LabelSelector: parameters.PtpDaemonsetLabelSelector})
@@ -1156,7 +1151,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 		})
 
 		It("checks FREERUN status are generated for dpll process for RX interface and GM process for TX "+
-			"interface", polarion.ID("70114"), func() {
+			"interface", polarion.ID("81205"), func() {
 
 			gmPtpConfiguration, err := ranptphelper.GetGmPtpConfig()
 			Expect(err).NotTo(HaveOccurred())

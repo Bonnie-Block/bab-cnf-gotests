@@ -68,7 +68,7 @@ var _ = Describe("PTP Events and Metrics - interface down", Ordered, ContinueOnF
 	})
 
 	// 49743
-	It("should generate events when slave interface goes down and up", polarion.ID("49743"), func() {
+	It("should generate events when slave interface goes down and up", polarion.ID("49742"), func() {
 		nodeToPtpDaemonPod, err := ranptphelper.NodesToPtpDaemonPods()
 		Expect(err).NotTo(HaveOccurred())
 
