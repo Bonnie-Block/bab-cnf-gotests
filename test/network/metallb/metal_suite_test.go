@@ -64,6 +64,8 @@ var _ = AfterSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 
 	_ = netmetallbhelper.DeleteLabelFromWorkers(netmlbparameters.SpeakerNodeTestLabel)
+
+	netmetallbhelper.RestoreNodeGWMode()
 })
 
 var _ = ReportAfterEach(func(report types.SpecReport) {
