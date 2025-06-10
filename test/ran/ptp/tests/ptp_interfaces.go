@@ -443,12 +443,9 @@ var _ = Describe("PTP Events and Metrics - interface down", Ordered, ContinueOnF
 			ptpDaemonPod      *corev1.Pod
 			oc2PortIfaces     []string
 			oc2PortIfaceGroup string
-			oc2PortPreflight  bool
 		)
 
 		BeforeEach(func() {
-			oc2PortPreflight = false
-
 			if !ranhelper.IsVersionStringInRange(ranptpparameters.PtpVersion, "4.19", "") {
 				Skip("Test is valid from version 4.19")
 			}
@@ -496,20 +493,6 @@ var _ = Describe("PTP Events and Metrics - interface down", Ordered, ContinueOnF
 				}
 			}
 			Expect(ptpDaemonPod).ToNot(BeNil())
-
-			By("Validate the Active interface is SLAVE & Passive interface is LISTENING")
-			validateSortOc2PortIfaces(*ptpDaemonPod, oc2PortIfaces)
-
-			oc2PortPreflight = true
-		})
-
-		AfterEach(func() {
-			if !oc2PortPreflight {
-				Skip("Didn't complete preflight")
-			}
-
-			By("Turn back on the interfaces")
-			restorePtpInterfaces()
 
 			By("Validate the Active interface is SLAVE & Passive interface is LISTENING")
 			validateSortOc2PortIfaces(*ptpDaemonPod, oc2PortIfaces)
@@ -567,6 +550,8 @@ var _ = Describe("PTP Events and Metrics - interface down", Ordered, ContinueOnF
 					ranptpparameters.EventFreeRun, oc2PortIfaceGroup, "/master", timeIfaceDown, 30*time.Second)
 				Expect(err).ToNot(BeNil(),
 					"No FREERUN event is received")
+
+				restoreValidateOc2Port(*ptpDaemonPod, oc2PortIfaces)
 			})
 
 		// 80964
@@ -629,6 +614,8 @@ var _ = Describe("PTP Events and Metrics - interface down", Ordered, ContinueOnF
 					ranptpparameters.EventTypePtpStateChange,
 					ranptpparameters.EventFreeRun, oc2PortIfaceGroup, "/master", timeIfaceDown, 30*time.Second)
 				Expect(err).NotTo(HaveOccurred())
+
+				restoreValidateOc2Port(*ptpDaemonPod, oc2PortIfaces)
 			})
 
 		// 82012
@@ -683,6 +670,8 @@ var _ = Describe("PTP Events and Metrics - interface down", Ordered, ContinueOnF
 					ranptpparameters.EventHoldOver, oc2PortIfaceGroup, "/master", timeIfaceDown, 30*time.Second)
 				Expect(err).ToNot(BeNil(),
 					"No HOLDOVER event is received")
+
+				restoreValidateOc2Port(*ptpDaemonPod, oc2PortIfaces)
 			})
 	})
 })
@@ -808,6 +797,19 @@ func verifyEventsAndMetricsSlaveInterfaceDownUp(node *corev1.Node, ptpPod *corev
 			"", 1*time.Minute, 10*time.Second)
 		Expect(err).NotTo(HaveOccurred())
 	}
+}
+
+// restoreValidateOc2Port restores OC 2 port & validates that it's in in active / passive state.
+func restoreValidateOc2Port(
+	ptpDaemonPod corev1.Pod,
+	ifaces []string) {
+	GinkgoHelper()
+
+	By("Turn back on the interfaces")
+	restorePtpInterfaces()
+
+	By("Validate the Active interface is SLAVE & Passive interface is LISTENING")
+	validateSortOc2PortIfaces(ptpDaemonPod, ifaces)
 }
 
 // validateSortOc2PortIfaces validates OC 2 port is in active / passive.
