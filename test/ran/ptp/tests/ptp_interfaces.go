@@ -446,7 +446,7 @@ var _ = Describe("PTP Events and Metrics - interface down", Ordered, ContinueOnF
 		)
 
 		BeforeEach(func() {
-			if !ranhelper.IsVersionStringInRange(ranptpparameters.PtpVersion, "4.19", "") {
+			if !ranhelper.IsVersionStringInRange(ranptpparameters.PtpVersion, "4.18", "") {
 				Skip("Test is valid from version 4.19")
 			}
 
