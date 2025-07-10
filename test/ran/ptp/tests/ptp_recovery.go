@@ -1486,11 +1486,21 @@ func restartSidecarContainer(podName, containerName string) ([]string, error) {
 		return nil, fmt.Errorf("no cloud-event-proxy processes found")
 	}
 
-	// Kill the processes using kill -9
+	// Kill the processes using kill -9 (first attempt)
 	killCmd := "kill -9 $(ps aux | grep cloud-event-proxy | grep -v grep | awk '{print $2}')"
 	_, err = pod.ExecCommand(helper.Apiclient, *ptpDaemonPod, []string{"sh", "-c", killCmd}, containerName)
 	if err != nil {
-		return nil, fmt.Errorf("failed to kill sidecar processes: %w", err)
+		return nil, fmt.Errorf("failed to kill sidecar processes on first attempt: %w", err)
+	}
+
+	// Wait a brief moment for the first kill to take effect
+	time.Sleep(2 * time.Second)
+
+	// Kill the processes again to ensure they are terminated (second attempt)
+	_, err = pod.ExecCommand(helper.Apiclient, *ptpDaemonPod, []string{"sh", "-c", killCmd}, containerName)
+	// Don't return error on second attempt as processes might already be dead
+	if err != nil {
+		log.Printf("Second kill attempt failed (processes may already be terminated): %v", err)
 	}
 
 	return pids, nil
