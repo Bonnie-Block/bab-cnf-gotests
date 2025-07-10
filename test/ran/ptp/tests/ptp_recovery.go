@@ -1,9 +1,13 @@
 package tests
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"log"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -15,6 +19,7 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ptp/ranptpparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranparameters"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/polarion"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/schemes/ptp/ptpv1"
 	corev1 "k8s.io/api/core/v1"
@@ -1195,6 +1200,90 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 			}
 		})
 	})
+
+	Context("sidecar container recovery", func() {
+		It("should maintain event logging continuity after sidecar container restart", func() {
+			if configCountsRecovery.GMOneNIC == 0 && configCountsRecovery.GMMultiNIC == 0 {
+				Skip("Test requires Grandmaster configuration")
+			}
+
+			// Get the PTP daemon pod for grandmaster configuration
+			ptpDaemonPods, err := helper.Apiclient.Pods(parameters.PtpOperatorNamespace).List(context.Background(),
+				metav1.ListOptions{LabelSelector: parameters.PtpDaemonsetLabelSelector})
+			Expect(err).NotTo(HaveOccurred())
+
+			var ptpDaemonPod *corev1.Pod
+			for _, pod := range ptpDaemonPods.Items {
+				// Check if this pod has the cloud-event-proxy container
+				for _, container := range pod.Spec.Containers {
+					if container.Name == ranptpparameters.CloudEventContainer {
+						ptpDaemonPod = &pod
+						break
+					}
+				}
+				if ptpDaemonPod != nil {
+					break
+				}
+			}
+			Expect(ptpDaemonPod).NotTo(BeNil(), "No PTP daemon pod found with cloud-event-proxy container")
+
+			// Step 1: Record time of last event in sidecar container
+			By("Step 1: Recording time of last event in sidecar container")
+			lastEventTime, err := getLastEventTime(ptpDaemonPod, ranptpparameters.CloudEventContainer)
+			Expect(err).NotTo(HaveOccurred())
+			log.Printf("Last event time in sidecar container: %s", lastEventTime.Format(time.RFC3339))
+
+			// Step 2: Restart sidecar container in linuxptp-daemon
+			By("Step 2: Restarting sidecar container in linuxptp-daemon")
+			terminatedPIDs, err := restartSidecarContainer(ptpDaemonPod, ranptpparameters.CloudEventContainer)
+			Expect(err).NotTo(HaveOccurred())
+			log.Printf("Pod: %s, Container: %s, Terminated PIDs: %v", ptpDaemonPod.Name, ranptpparameters.CloudEventContainer, terminatedPIDs)
+
+			// Step 3: Reboot GNSS to generate events while sidecar is recovering
+			By("Step 3: Rebooting GNSS to generate events while sidecar is recovering")
+			gpsRebootTime := time.Now()
+			err = ranptphelper.GpsColdReboot(ptpDaemonPod)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Step 4: Wait for GNSS and sidecar to recover (60-120s)
+			By("Step 4: Waiting for GNSS and sidecar to recover (60-120s)")
+			err = waitForSidecarRecovery(ptpDaemonPod, ranptpparameters.CloudEventContainer, 2*time.Minute)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Wait for GNSS to recover
+			timeout := 3 * time.Minute
+			err = ranptphelper.WaitForEvent(ptpDaemonPod, ranptpparameters.CloudEventContainer,
+				ranptpparameters.EventTypeGnssStateChange, ranptpparameters.EventGnssSync,
+				gmIface, "/master", gpsRebootTime, timeout)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Step 5: Record time of first event in sidecar container after restart
+			By("Step 5: Recording time of first event in sidecar container after restart")
+			firstEventTime, err := getFirstEventTime(ptpDaemonPod, ranptpparameters.CloudEventContainer)
+			Expect(err).NotTo(HaveOccurred())
+			log.Printf("First event time in sidecar container after restart: %s", firstEventTime.Format(time.RFC3339))
+
+			// Verify first event time is after last event time
+			Expect(firstEventTime).To(BeTemporally(">", lastEventTime), "First event time should be after last event time")
+
+			// Step 6: Check sidecar log with --previous flag
+			By("Step 6: Checking sidecar log with --previous flag")
+			previousLogs, err := getPreviousContainerLogs(ptpDaemonPod, ranptpparameters.CloudEventContainer)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(previousLogs).NotTo(BeEmpty(), "Previous sidecar logs should not be empty")
+
+			// Step 7: Verify previous log shows events from GNSS recovery
+			By("Step 7: Verifying previous log shows events from GNSS recovery with clock state change events")
+			recoveryEvents, err := getEventsFromLogs(previousLogs, gpsRebootTime)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(recoveryEvents).NotTo(BeEmpty(), "Recovery events should be found in previous logs")
+
+			log.Printf("Found %d events from GNSS recovery in previous sidecar logs:", len(recoveryEvents))
+			for i, event := range recoveryEvents {
+				log.Printf("Event %d: %s", i+1, event)
+			}
+		})
+	})
 })
 
 func getConsumerNodeAndPod(namespace string) (*corev1.Node, *corev1.Pod) {
@@ -1288,4 +1377,225 @@ func changePtpConfigPluginE810Settings(
 			6, 1*time.Minute, 10*time.Second)
 		Expect(err).NotTo(HaveOccurred())
 	}
+}
+
+// getLastEventTime retrieves the time of the last event in the sidecar container log
+func getLastEventTime(ptpDaemonPod *corev1.Pod, containerName string) (time.Time, error) {
+	// Get recent logs from the container
+	logs, err := pod.GetLog(helper.Apiclient, ptpDaemonPod, 10*time.Minute, containerName)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("failed to get container logs: %w", err)
+	}
+
+	// Parse logs to find the last event timestamp
+	lines := strings.Split(logs, "\n")
+	for i := len(lines) - 1; i >= 0; i-- {
+		line := strings.TrimSpace(lines[i])
+		if line == "" {
+			continue
+		}
+
+		// Parse timestamp from log line
+		timestamp, err := parseTimestampFromLogLine(line)
+		if err == nil {
+			return timestamp, nil
+		}
+	}
+
+	return time.Time{}, fmt.Errorf("no valid timestamp found in container logs")
+}
+
+// getFirstEventTime retrieves the time of the first event in the current sidecar container log
+func getFirstEventTime(ptpDaemonPod *corev1.Pod, containerName string) (time.Time, error) {
+	// Get recent logs from the container
+	logs, err := pod.GetLog(helper.Apiclient, ptpDaemonPod, 10*time.Minute, containerName)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("failed to get container logs: %w", err)
+	}
+
+	// Parse logs to find the first event timestamp (skip the commit id line)
+	lines := strings.Split(logs, "\n")
+	for i, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		// Skip the first line (commit id)
+		if i == 0 {
+			continue
+		}
+
+		// Parse timestamp from log line
+		timestamp, err := parseTimestampFromLogLine(line)
+		if err == nil {
+			return timestamp, nil
+		}
+	}
+
+	return time.Time{}, fmt.Errorf("no valid timestamp found in container logs")
+}
+
+// restartSidecarContainer restarts the sidecar container using kill -9
+func restartSidecarContainer(ptpDaemonPod *corev1.Pod, containerName string) ([]string, error) {
+	// Get the process IDs of the cloud-event-proxy processes
+	cmd := "ps aux | grep cloud-event-proxy | grep -v grep | awk '{print $2}'"
+	output, err := pod.ExecCommand(helper.Apiclient, *ptpDaemonPod, []string{"sh", "-c", cmd}, containerName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get process IDs: %w", err)
+	}
+
+	pids := strings.Fields(strings.TrimSpace(output.String()))
+	if len(pids) == 0 {
+		return nil, fmt.Errorf("no cloud-event-proxy processes found")
+	}
+
+	// Kill all cloud-event-proxy processes with kill -9
+	for _, pid := range pids {
+		killCmd := fmt.Sprintf("kill -9 %s", pid)
+		_, err := pod.ExecCommand(helper.Apiclient, *ptpDaemonPod, []string{"sh", "-c", killCmd}, containerName)
+		if err != nil {
+			log.Printf("Warning: failed to kill process %s: %v", pid, err)
+		}
+	}
+
+	log.Printf("Successfully terminated processes: %v", pids)
+	return pids, nil
+}
+
+// waitForSidecarRecovery waits for the sidecar container to recover
+func waitForSidecarRecovery(ptpDaemonPod *corev1.Pod, containerName string, timeout time.Duration) error {
+	startTime := time.Now()
+
+	for time.Since(startTime) < timeout {
+		// Check if the container is running and has processes
+		cmd := "ps aux | grep cloud-event-proxy | grep -v grep | wc -l"
+		output, err := pod.ExecCommand(helper.Apiclient, *ptpDaemonPod, []string{"sh", "-c", cmd}, containerName)
+		if err != nil {
+			time.Sleep(5 * time.Second)
+			continue
+		}
+
+		processCount, err := strconv.Atoi(strings.TrimSpace(output.String()))
+		if err != nil {
+			time.Sleep(5 * time.Second)
+			continue
+		}
+
+		// Check if at least one process is running
+		if processCount > 0 {
+			log.Printf("Sidecar container recovered, found %d processes", processCount)
+			return nil
+		}
+
+		time.Sleep(5 * time.Second)
+	}
+
+	return fmt.Errorf("sidecar container did not recover within timeout %v", timeout)
+}
+
+// getPreviousContainerLogs gets the previous container logs using --previous flag
+func getPreviousContainerLogs(ptpDaemonPod *corev1.Pod, containerName string) (string, error) {
+	// Get previous logs using the Kubernetes client
+	req := helper.Apiclient.Pods(ptpDaemonPod.Namespace).GetLogs(ptpDaemonPod.Name, &corev1.PodLogOptions{
+		Container: containerName,
+		Previous:  true,
+	})
+
+	readCloser, err := req.Stream(context.Background())
+	if err != nil {
+		return "", fmt.Errorf("failed to get previous container logs: %w", err)
+	}
+	defer readCloser.Close()
+
+	buf := &bytes.Buffer{}
+	_, err = io.Copy(buf, readCloser)
+	if err != nil {
+		return "", fmt.Errorf("failed to read previous container logs: %w", err)
+	}
+
+	return buf.String(), nil
+}
+
+// getEventsFromLogs extracts events from logs that occurred after a given time
+func getEventsFromLogs(logs string, afterTime time.Time) ([]string, error) {
+	var events []string
+	lines := strings.Split(logs, "\n")
+
+	// Regular expression to match clock state change events
+	clockStateRegex := regexp.MustCompile(`(FREERUN|LOCKED|HOLDOVER|UNLOCKED|SYNCHRONIZED)`)
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		// Parse timestamp from log line
+		timestamp, err := parseTimestampFromLogLine(line)
+		if err != nil {
+			continue
+		}
+
+		// Check if this event occurred after the specified time
+		if timestamp.After(afterTime) {
+			// Check if this line contains a clock state change event
+			if clockStateRegex.MatchString(line) {
+				events = append(events, line)
+			}
+		}
+	}
+
+	return events, nil
+}
+
+// parseTimestampFromLogLine parses timestamp from various log line formats
+func parseTimestampFromLogLine(line string) (time.Time, error) {
+	// Try different timestamp formats commonly used in logs
+	formats := []string{
+		time.RFC3339,
+		time.RFC3339Nano,
+		"2006-01-02T15:04:05.999999999Z07:00",
+		"2006-01-02T15:04:05Z",
+		"2006-01-02 15:04:05",
+	}
+
+	// Look for timestamp patterns in the line
+	// Pattern 1: time="2025-01-10T12:07:31Z"
+	timeRegex := regexp.MustCompile(`time="([^"]+)"`)
+	matches := timeRegex.FindStringSubmatch(line)
+	if len(matches) > 1 {
+		timeStr := matches[1]
+		for _, format := range formats {
+			if t, err := time.Parse(format, timeStr); err == nil {
+				return t, nil
+			}
+		}
+	}
+
+	// Pattern 2: JSON time field
+	jsonTimeRegex := regexp.MustCompile(`"time":\s*"([^"]+)"`)
+	matches = jsonTimeRegex.FindStringSubmatch(line)
+	if len(matches) > 1 {
+		timeStr := matches[1]
+		for _, format := range formats {
+			if t, err := time.Parse(format, timeStr); err == nil {
+				return t, nil
+			}
+		}
+	}
+
+	// Pattern 3: Log timestamp at beginning of line
+	timestampRegex := regexp.MustCompile(`^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})?)`)
+	matches = timestampRegex.FindStringSubmatch(line)
+	if len(matches) > 1 {
+		timeStr := matches[1]
+		for _, format := range formats {
+			if t, err := time.Parse(format, timeStr); err == nil {
+				return t, nil
+			}
+		}
+	}
+
+	return time.Time{}, fmt.Errorf("no valid timestamp found in line: %s", line)
 }
