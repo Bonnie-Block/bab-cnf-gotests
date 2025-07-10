@@ -1,9 +1,12 @@
 package tests
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"log"
+	"regexp"
 	"strings"
 	"time"
 
@@ -15,11 +18,13 @@ import (
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ptp/ranptpparameters"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranhelper"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/ran/ranparameters"
+	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/pod"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/polarion"
 	"gitlab.cee.redhat.com/cnf/cnf-gotests/test/util/schemes/ptp/ptpv1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailure, func() {
@@ -446,6 +451,90 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 				Expect(err).NotTo(HaveOccurred())
 			}
 		})
+	})
+
+	// New test for sidecar recovery
+	It("should maintain event logging continuity after sidecar container restart", polarion.ID("TBD"), func() {
+		if configCountsRecovery.GMOneNIC == 0 && configCountsRecovery.GMMultiNIC == 0 {
+			Skip("Test requires grand master configuration")
+		}
+
+		nodeToPtpDaemonPod, err := ranptphelper.NodesToPtpDaemonPods()
+		Expect(err).NotTo(HaveOccurred())
+
+		for nodeName, ptpDaemonPod := range nodeToPtpDaemonPod {
+			_, err := ranhelper.GetNodeByName(nodeName)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Step 1: Record time of last event in sidecar container
+			By("Get last event time from sidecar container before restart")
+			lastEventTime, err := getLastEventTime(&ptpDaemonPod, ranptpparameters.CloudEventContainer)
+			Expect(err).NotTo(HaveOccurred())
+			log.Printf("Last event time before sidecar restart: %v", lastEventTime)
+
+			// Step 2: Restart sidecar container in linuxptp-daemon
+			By("Restart sidecar container in linuxptp-daemon pod")
+			err = restartSidecarContainer(&ptpDaemonPod, 5*time.Minute)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Step 3: Immediately reboot GNSS to generate events while sidecar is recovering
+			By("Reboot GNSS to generate events during sidecar recovery")
+			gnssRebootTime := time.Now()
+			err = ranptphelper.GpsColdReboot(&ptpDaemonPod)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Step 4: Wait for sidecar and GNSS to recover (60-120s)
+			By("Wait for sidecar container to recover")
+			err = waitForSidecarRecovery(&ptpDaemonPod, 2*time.Minute)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Wait for GNSS to recover")
+			err = ranptphelper.WaitForEvent(&ptpDaemonPod, ranptpparameters.CloudEventContainer,
+				ranptpparameters.EventTypeGnssStateChange, ranptpparameters.EventGnssSync,
+				gmIface, "/master", gnssRebootTime, 2*time.Minute)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Step 5: Record time of first event in sidecar container after restart
+			By("Get first event time from new sidecar container after restart")
+			firstEventTimeAfterRestart, err := getFirstEventTime(&ptpDaemonPod, ranptpparameters.CloudEventContainer)
+			Expect(err).NotTo(HaveOccurred())
+			log.Printf("First event time after sidecar restart: %v", firstEventTimeAfterRestart)
+
+			// Verify that first event time is after last event time before restart
+			Expect(firstEventTimeAfterRestart.After(lastEventTime)).To(BeTrue(),
+				"First event time after restart should be after last event time before restart")
+
+			// Step 6: Check sidecar log with --previous flag
+			By("Check previous sidecar logs for events before restart")
+			previousLogs, err := getPreviousContainerLogs(&ptpDaemonPod, ranptpparameters.CloudEventContainer)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(previousLogs).NotTo(BeEmpty(), "Previous logs should not be empty")
+
+			// Step 7: Verify previous log contains events from GNSS recovery
+			By("Verify previous logs contain clock state change events from GNSS recovery")
+			eventsInPreviousLogs := getEventsFromLogs(previousLogs)
+			Expect(len(eventsInPreviousLogs)).To(BeNumerically(">", 0),
+				"Previous logs should contain events from before sidecar restart")
+
+			// Verify we have clock state change events in previous logs
+			foundStateChangeEvents := false
+			for _, event := range eventsInPreviousLogs {
+				if strings.Contains(event, ranptpparameters.EventTypePtpStateChange) {
+					foundStateChangeEvents = true
+					break
+				}
+			}
+			Expect(foundStateChangeEvents).To(BeTrue(),
+				"Previous logs should contain clock state change events from GNSS recovery")
+
+			By("Verify all ptp clocks are in LOCKED state in ptp metrics")
+			err = ranptphelper.WaitForPtpClockStateMetric(ptpDaemonPod, ranptpparameters.LockedState, "",
+				1*time.Minute, 10*time.Second)
+			Expect(err).NotTo(HaveOccurred())
+
+			// test on one node only
+			break
+		}
 	})
 
 	Context("HTTP events using consumer", Ordered, func() {
@@ -1196,6 +1285,199 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 		})
 	})
 })
+
+// Helper functions for sidecar recovery test
+
+// getLastEventTime extracts the timestamp of the last event from container logs
+func getLastEventTime(ptpPod *corev1.Pod, containerName string) (time.Time, error) {
+	logs, err := pod.GetLog(helper.Apiclient, ptpPod, 10*time.Minute, containerName)
+	if err != nil {
+		return time.Time{}, err
+	}
+
+	events := getEventsFromLogs(logs)
+	if len(events) == 0 {
+		return time.Time{}, fmt.Errorf("no events found in logs")
+	}
+
+	// Parse timestamp from the last event (events are typically ordered by time)
+	lastEvent := events[len(events)-1]
+
+	// Try to extract the event timestamp from the JSON "time" field first (most accurate)
+	eventTimeRegex := regexp.MustCompile(`"time":\s*"([^"]+)"`)
+	matches := eventTimeRegex.FindStringSubmatch(lastEvent)
+	if len(matches) >= 2 {
+		// Parse the event timestamp (which may have nanoseconds)
+		eventTime, err := time.Parse(time.RFC3339Nano, matches[1])
+		if err == nil {
+			return eventTime, nil
+		}
+	}
+
+	// Fall back to log timestamp if event timestamp is not available
+	// Handle both formats: with and without milliseconds/nanoseconds
+	logTimeRegex := regexp.MustCompile(`time="([^"]+)"`)
+	matches = logTimeRegex.FindStringSubmatch(lastEvent)
+	if len(matches) >= 2 {
+		// Try parsing with nanoseconds first, then without
+		if eventTime, err := time.Parse(time.RFC3339Nano, matches[1]); err == nil {
+			return eventTime, nil
+		}
+		if eventTime, err := time.Parse(time.RFC3339, matches[1]); err == nil {
+			return eventTime, nil
+		}
+	}
+
+	return time.Time{}, fmt.Errorf("could not parse timestamp from event: %s", lastEvent)
+}
+
+// getFirstEventTime extracts the timestamp of the first event from container logs
+func getFirstEventTime(ptpPod *corev1.Pod, containerName string) (time.Time, error) {
+	logs, err := pod.GetLog(helper.Apiclient, ptpPod, 2*time.Minute, containerName)
+	if err != nil {
+		return time.Time{}, err
+	}
+
+	events := getEventsFromLogs(logs)
+	if len(events) == 0 {
+		return time.Time{}, fmt.Errorf("no events found in logs")
+	}
+
+	// Parse timestamp from the first event
+	firstEvent := events[0]
+
+	// Try to extract the event timestamp from the JSON "time" field first (most accurate)
+	eventTimeRegex := regexp.MustCompile(`"time":\s*"([^"]+)"`)
+	matches := eventTimeRegex.FindStringSubmatch(firstEvent)
+	if len(matches) >= 2 {
+		// Parse the event timestamp (which may have nanoseconds)
+		eventTime, err := time.Parse(time.RFC3339Nano, matches[1])
+		if err == nil {
+			return eventTime, nil
+		}
+	}
+
+	// Fall back to log timestamp if event timestamp is not available
+	// Handle both formats: with and without milliseconds/nanoseconds
+	logTimeRegex := regexp.MustCompile(`time="([^"]+)"`)
+	matches = logTimeRegex.FindStringSubmatch(firstEvent)
+	if len(matches) >= 2 {
+		// Try parsing with nanoseconds first, then without
+		if eventTime, err := time.Parse(time.RFC3339Nano, matches[1]); err == nil {
+			return eventTime, nil
+		}
+		if eventTime, err := time.Parse(time.RFC3339, matches[1]); err == nil {
+			return eventTime, nil
+		}
+	}
+
+	return time.Time{}, fmt.Errorf("could not parse timestamp from event: %s", firstEvent)
+}
+
+// restartSidecarContainer restarts the sidecar container in the given pod
+func restartSidecarContainer(ptpPod *corev1.Pod, timeout time.Duration) error {
+	var restartCount int32
+
+	// Get current restart count
+	for _, containerStatus := range ptpPod.Status.ContainerStatuses {
+		if ranhelper.IsCloudEventSidecar(containerStatus.Name) {
+			restartCount = containerStatus.RestartCount
+			break
+		}
+	}
+
+	// Kill the sidecar container
+	for _, container := range ptpPod.Spec.Containers {
+		if ranhelper.IsCloudEventSidecar(container.Name) {
+			log.Printf("Killing sidecar container %s in pod %s with PID 1 using SIGKILL", container.Name, ptpPod.Name)
+			_, err := pod.ExecCommand(helper.Apiclient, *ptpPod, []string{"/bin/sh", "-c", "kill -9 1"}, container.Name)
+			if err != nil {
+				log.Printf("Failed to kill PID 1 in container %s of pod %s: %v", container.Name, ptpPod.Name, err)
+				return fmt.Errorf("failed to kill sidecar container %s: %w", container.Name, err)
+			}
+			log.Printf("Successfully sent SIGKILL to PID 1 in container %s of pod %s", container.Name, ptpPod.Name)
+			break
+		}
+	}
+
+	// Wait for container to restart
+	return wait.PollImmediate(5*time.Second, timeout, func() (bool, error) {
+		// Get updated pod status
+		updatedPod, err := helper.Apiclient.Pods(ptpPod.Namespace).Get(context.Background(),
+			ptpPod.Name, metav1.GetOptions{})
+		if err != nil {
+			return false, nil
+		}
+
+		for _, containerStatus := range updatedPod.Status.ContainerStatuses {
+			if ranhelper.IsCloudEventSidecar(containerStatus.Name) {
+				if containerStatus.RestartCount > restartCount && containerStatus.Ready {
+					log.Printf("Sidecar container %v restarted successfully, restart count %v -> %v",
+						containerStatus.Name, restartCount, containerStatus.RestartCount)
+					return true, nil
+				}
+				return false, nil
+			}
+		}
+		return false, nil
+	})
+}
+
+// waitForSidecarRecovery waits for the sidecar container to be ready after restart
+func waitForSidecarRecovery(ptpPod *corev1.Pod, timeout time.Duration) error {
+	return wait.PollImmediate(5*time.Second, timeout, func() (bool, error) {
+		updatedPod, err := helper.Apiclient.Pods(ptpPod.Namespace).Get(context.Background(),
+			ptpPod.Name, metav1.GetOptions{})
+		if err != nil {
+			return false, nil
+		}
+
+		for _, containerStatus := range updatedPod.Status.ContainerStatuses {
+			if ranhelper.IsCloudEventSidecar(containerStatus.Name) && containerStatus.Ready {
+				return true, nil
+			}
+		}
+		return false, nil
+	})
+}
+
+// getPreviousContainerLogs gets the previous logs from a container using --previous flag
+func getPreviousContainerLogs(ptpPod *corev1.Pod, containerName string) (string, error) {
+	req := helper.Apiclient.Pods(ptpPod.Namespace).GetLogs(ptpPod.Name, &corev1.PodLogOptions{
+		Container: containerName,
+		Previous:  true,
+	})
+
+	logStream, err := req.Stream(context.Background())
+	if err != nil {
+		return "", err
+	}
+	defer logStream.Close()
+
+	buf := new(bytes.Buffer)
+	_, err = io.Copy(buf, logStream)
+	if err != nil {
+		return "", err
+	}
+
+	return buf.String(), nil
+}
+
+// getEventsFromLogs extracts event lines from container logs
+func getEventsFromLogs(logs string) []string {
+	var events []string
+	lines := strings.Split(logs, "\n")
+
+	for _, line := range lines {
+		if strings.Contains(line, "msg=\"event sent") ||
+			strings.Contains(line, "msg=\"received event") ||
+			strings.Contains(line, "msg=\"Got CurrentState:") {
+			events = append(events, line)
+		}
+	}
+
+	return events
+}
 
 func getConsumerNodeAndPod(namespace string) (*corev1.Node, *corev1.Pod) {
 	// Ensure the consumer is running.
