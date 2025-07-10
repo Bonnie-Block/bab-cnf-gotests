@@ -453,90 +453,6 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 		})
 	})
 
-	// New test for sidecar recovery
-	It("should maintain event logging continuity after sidecar container restart", polarion.ID("TBD"), func() {
-		if configCountsRecovery.GMOneNIC == 0 && configCountsRecovery.GMMultiNIC == 0 {
-			Skip("Test requires grand master configuration")
-		}
-
-		nodeToPtpDaemonPod, err := ranptphelper.NodesToPtpDaemonPods()
-		Expect(err).NotTo(HaveOccurred())
-
-		for nodeName, ptpDaemonPod := range nodeToPtpDaemonPod {
-			_, err := ranhelper.GetNodeByName(nodeName)
-			Expect(err).NotTo(HaveOccurred())
-
-			// Step 1: Record time of last event in sidecar container
-			By("Get last event time from sidecar container before restart")
-			lastEventTime, err := getLastEventTime(&ptpDaemonPod, ranptpparameters.CloudEventContainer)
-			Expect(err).NotTo(HaveOccurred())
-			log.Printf("Last event time before sidecar restart: %v", lastEventTime)
-
-			// Step 2: Restart sidecar container in linuxptp-daemon
-			By("Restart sidecar container in linuxptp-daemon pod")
-			err = restartSidecarContainer(&ptpDaemonPod, 5*time.Minute)
-			Expect(err).NotTo(HaveOccurred())
-
-			// Step 3: Immediately reboot GNSS to generate events while sidecar is recovering
-			By("Reboot GNSS to generate events during sidecar recovery")
-			gnssRebootTime := time.Now()
-			err = ranptphelper.GpsColdReboot(&ptpDaemonPod)
-			Expect(err).NotTo(HaveOccurred())
-
-			// Step 4: Wait for sidecar and GNSS to recover (60-120s)
-			By("Wait for sidecar container to recover")
-			err = waitForSidecarRecovery(&ptpDaemonPod, 2*time.Minute)
-			Expect(err).NotTo(HaveOccurred())
-
-			By("Wait for GNSS to recover")
-			err = ranptphelper.WaitForEvent(&ptpDaemonPod, ranptpparameters.CloudEventContainer,
-				ranptpparameters.EventTypeGnssStateChange, ranptpparameters.EventGnssSync,
-				gmIface, "/master", gnssRebootTime, 2*time.Minute)
-			Expect(err).NotTo(HaveOccurred())
-
-			// Step 5: Record time of first event in sidecar container after restart
-			By("Get first event time from new sidecar container after restart")
-			firstEventTimeAfterRestart, err := getFirstEventTime(&ptpDaemonPod, ranptpparameters.CloudEventContainer)
-			Expect(err).NotTo(HaveOccurred())
-			log.Printf("First event time after sidecar restart: %v", firstEventTimeAfterRestart)
-
-			// Verify that first event time is after last event time before restart
-			Expect(firstEventTimeAfterRestart.After(lastEventTime)).To(BeTrue(),
-				"First event time after restart should be after last event time before restart")
-
-			// Step 6: Check sidecar log with --previous flag
-			By("Check previous sidecar logs for events before restart")
-			previousLogs, err := getPreviousContainerLogs(&ptpDaemonPod, ranptpparameters.CloudEventContainer)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(previousLogs).NotTo(BeEmpty(), "Previous logs should not be empty")
-
-			// Step 7: Verify previous log contains events from GNSS recovery
-			By("Verify previous logs contain clock state change events from GNSS recovery")
-			eventsInPreviousLogs := getEventsFromLogs(previousLogs)
-			Expect(len(eventsInPreviousLogs)).To(BeNumerically(">", 0),
-				"Previous logs should contain events from before sidecar restart")
-
-			// Verify we have clock state change events in previous logs
-			foundStateChangeEvents := false
-			for _, event := range eventsInPreviousLogs {
-				if strings.Contains(event, ranptpparameters.EventTypePtpStateChange) {
-					foundStateChangeEvents = true
-					break
-				}
-			}
-			Expect(foundStateChangeEvents).To(BeTrue(),
-				"Previous logs should contain clock state change events from GNSS recovery")
-
-			By("Verify all ptp clocks are in LOCKED state in ptp metrics")
-			err = ranptphelper.WaitForPtpClockStateMetric(ptpDaemonPod, ranptpparameters.LockedState, "",
-				1*time.Minute, 10*time.Second)
-			Expect(err).NotTo(HaveOccurred())
-
-			// test on one node only
-			break
-		}
-	})
-
 	Context("HTTP events using consumer", Ordered, func() {
 		var (
 			consumerNode *corev1.Node
@@ -1284,7 +1200,184 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 			}
 		})
 	})
+
+	// New test for sidecar recovery
+	It("should maintain event logging continuity after sidecar container restart", polarion.ID("TBD"), func() {
+		if configCountsRecovery.GMOneNIC == 0 && configCountsRecovery.GMMultiNIC == 0 {
+			Skip("Test requires grand master configuration")
+		}
+
+		nodeToPtpDaemonPod, err := ranptphelper.NodesToPtpDaemonPods()
+		Expect(err).NotTo(HaveOccurred())
+
+		for nodeName, ptpDaemonPod := range nodeToPtpDaemonPod {
+			_, err := ranhelper.GetNodeByName(nodeName)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Step 1: Record time of last event in sidecar container
+			By("Get last event time from sidecar container before restart")
+			lastEventTime, err := getLastEventTime(&ptpDaemonPod, ranptpparameters.CloudEventContainer)
+			Expect(err).NotTo(HaveOccurred())
+			log.Printf("Last event time before sidecar restart: %v", lastEventTime)
+
+			// Step 2: Restart sidecar container in linuxptp-daemon
+			By("Restart sidecar container in linuxptp-daemon pod")
+			err = restartSidecarContainer(&ptpDaemonPod, 2*time.Minute)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Step 3: Immediately reboot GNSS to generate events while sidecar is recovering
+			By("Reboot GNSS to generate events during sidecar recovery")
+			gnssRebootTime := time.Now()
+			err = ranptphelper.GpsColdReboot(&ptpDaemonPod)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Step 4: Wait for sidecar and GNSS to recover (60-120s)
+			By("Wait for sidecar container to recover")
+			err = waitForSidecarRecovery(&ptpDaemonPod, 2*time.Minute)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Wait for GNSS to recover")
+			err = ranptphelper.WaitForEvent(&ptpDaemonPod, ranptpparameters.CloudEventContainer,
+				ranptpparameters.EventTypeGnssStateChange, ranptpparameters.EventGnssSync,
+				gmIface, "/master", gnssRebootTime, 2*time.Minute)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Step 5: Record time of first event in sidecar container after restart
+			By("Get first event time from new sidecar container after restart")
+			firstEventTimeAfterRestart, err := getFirstEventTime(&ptpDaemonPod, ranptpparameters.CloudEventContainer)
+			Expect(err).NotTo(HaveOccurred())
+			log.Printf("First event time after sidecar restart: %v", firstEventTimeAfterRestart)
+
+			// Verify that first event time is after last event time before restart
+			Expect(firstEventTimeAfterRestart.After(lastEventTime)).To(BeTrue(),
+				"First event time after restart should be after last event time before restart")
+
+			// Step 6: Check sidecar log with --previous flag
+			By("Check previous sidecar logs for events before restart")
+			previousLogs, err := getPreviousContainerLogs(&ptpDaemonPod, ranptpparameters.CloudEventContainer)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(previousLogs).NotTo(BeEmpty(), "Previous logs should not be empty")
+
+			// Step 7: Verify previous log contains events from GNSS recovery
+			By("Verify previous logs contain clock state change events from GNSS recovery")
+			eventsInPreviousLogs := getEventsFromLogs(previousLogs)
+			Expect(len(eventsInPreviousLogs)).To(BeNumerically(">", 0),
+				"Previous logs should contain events from before sidecar restart")
+
+			// Verify we have clock state change events in previous logs
+			foundStateChangeEvents := false
+			for _, event := range eventsInPreviousLogs {
+				if strings.Contains(event, ranptpparameters.EventTypePtpStateChange) {
+					foundStateChangeEvents = true
+					break
+				}
+			}
+			Expect(foundStateChangeEvents).To(BeTrue(),
+				"Previous logs should contain clock state change events from GNSS recovery")
+
+			By("Verify all ptp clocks are in LOCKED state in ptp metrics")
+			err = ranptphelper.WaitForPtpClockStateMetric(ptpDaemonPod, ranptpparameters.LockedState, "",
+				1*time.Minute, 10*time.Second)
+			Expect(err).NotTo(HaveOccurred())
+
+			// test on one node only
+			break
+		}
+	})
 })
+
+func getConsumerNodeAndPod(namespace string) (*corev1.Node, *corev1.Pod) {
+	// Ensure the consumer is running.
+	consumersList, err := ranhelper.GetConsumers(namespace)
+	if err != nil {
+		By("Failed to get consumer, redeploy the consumer")
+
+		consumersList, err = ranptphelper.DeployPtpConsumer()
+		Expect(err).NotTo(HaveOccurred())
+	}
+
+	consumerPod := &consumersList.Items[0]
+	// Get the node object where the consumer pod is running.
+	consumerNode, err := ranhelper.GetNodeByName(consumerPod.Spec.NodeName)
+	Expect(err).NotTo(HaveOccurred())
+
+	return consumerNode, consumerPod
+}
+
+// Verify events are being received the cloud-event-consumer.
+func verifyConsumerEvents(consumerNode *corev1.Node, consumerPod *corev1.Pod) {
+	// ptp-event-publisher-service is added in 4.12
+	if ranhelper.IsVersionStringInRange(ranptpparameters.PtpVersion, "4.12", "") {
+		// Validate the ptp-event-publisher-service is running in the required namespace.
+		nodeName := strings.Split(consumerNode.Name, ".")[0]
+		validatePublisherService(nodeName)
+	}
+
+	// Get the ptp daemon pod that runs on the same node as the consumer.
+	ptpDaemonPods, err := getPtpDaemonPods(consumerNode.Name)
+	Expect(err).NotTo(HaveOccurred())
+
+	// Ensure the consumer is ready for events.
+	err = ranptphelper.WaitForConsumerReady(consumerPod)
+	Expect(err).NotTo(HaveOccurred())
+
+	verifyEventsAndMetricsModifyThresholds(&ptpDaemonPods.Items[0], consumerPod,
+		ranptpparameters.ConsumerContainer, 10*time.Minute, false)
+}
+
+// Changes, verifies & waits new PTP configuration for E810 plugin settings.
+func changePtpConfigPluginE810Settings(
+	ptpDaemonPod *corev1.Pod, ptpConfig *ptpv1.PtpConfig,
+	ptpProfileIndex int, iface string,
+	desiredSettings ranptpparameters.E810PluginSettings,
+	timeout time.Duration) {
+	// Get current currentSettings
+	currentSettings, err := ranptphelper.GetPtpConfigProfilePluginE810Settings(ptpConfig, ptpProfileIndex)
+	Expect(err).NotTo(HaveOccurred())
+
+	log.Printf("Current PTP plugin settings: MaxInSpecOffset: %d, LocalHoldoverTimeout: %d, LocalMaxHoldoverOffset: %d",
+		currentSettings.MaxInSpecOffset, currentSettings.LocalHoldoverTimeout, currentSettings.LocalMaxHoldoverOffset)
+
+	// Set the settings only if the initial settings are different
+	if desiredSettings != *currentSettings {
+		By("Set test case PTP profile settings")
+		err = ranptphelper.SetPtpConfigProfilePluginE810Settings(ptpConfig, ptpProfileIndex, desiredSettings)
+		Expect(err).NotTo(HaveOccurred())
+
+		setSettingsTime := time.Now()
+
+		log.Printf("New PTP plugin settings: MaxInSpecOffset: %d, LocalHoldoverTimeout: %d, LocalMaxHoldoverOffset: %d",
+			desiredSettings.MaxInSpecOffset, desiredSettings.LocalHoldoverTimeout, desiredSettings.LocalMaxHoldoverOffset)
+
+		By("Wait for GNSS SYNCHRONIZED event")
+		err = ranptphelper.WaitForEvent(ptpDaemonPod, ranptpparameters.CloudEventContainer,
+			ranptpparameters.EventTypeGnssStateChange, ranptpparameters.EventGnssSync,
+			iface, "/master", setSettingsTime, timeout)
+		Expect(err).NotTo(HaveOccurred())
+
+		By("Wait for clock state locked event")
+		err = ranptphelper.WaitForEvent(ptpDaemonPod, ranptpparameters.CloudEventContainer,
+			ranptpparameters.EventTypePtpStateChange, ranptpparameters.EventLocked,
+			iface, "/master", setSettingsTime, timeout)
+		Expect(err).NotTo(HaveOccurred())
+
+		By("Wait for clock class 6 event")
+		err = ranptphelper.WaitForEvent(ptpDaemonPod, ranptpparameters.CloudEventContainer,
+			ranptpparameters.EventTypeClockClassChange, "6",
+			iface, "/master", setSettingsTime, timeout)
+		Expect(err).NotTo(HaveOccurred())
+
+		By("checking the clock state metrics is in available state")
+		err = ranptphelper.WaitForMetricValueStatus(*ptpDaemonPod, ranptpparameters.OpenshiftPtpClockState,
+			ranptpparameters.Available, time.Since(setSettingsTime), timeout)
+		Expect(err).NotTo(HaveOccurred())
+
+		By("verify clock class value is 6 in metrics")
+		err = ranptphelper.WaitForMetricValueStatus(*ptpDaemonPod, ranptpparameters.OpenshiftPtpClockClass,
+			6, 1*time.Minute, 10*time.Second)
+		Expect(err).NotTo(HaveOccurred())
+	}
+}
 
 // Helper functions for sidecar recovery test
 
@@ -1389,13 +1482,11 @@ func restartSidecarContainer(ptpPod *corev1.Pod, timeout time.Duration) error {
 	// Kill the sidecar container
 	for _, container := range ptpPod.Spec.Containers {
 		if ranhelper.IsCloudEventSidecar(container.Name) {
-			log.Printf("Killing sidecar container %s in pod %s with PID 1 using SIGKILL", container.Name, ptpPod.Name)
-			_, err := pod.ExecCommand(helper.Apiclient, *ptpPod, []string{"/bin/sh", "-c", "kill -9 1"}, container.Name)
+			log.Printf("Killing sidecar container %v ...", container.Name)
+			_, err := pod.ExecCommand(helper.Apiclient, *ptpPod, []string{"/bin/sh", "-c", "kill 1"}, container.Name)
 			if err != nil {
-				log.Printf("Failed to kill PID 1 in container %s of pod %s: %v", container.Name, ptpPod.Name, err)
 				return fmt.Errorf("failed to kill sidecar container %s: %w", container.Name, err)
 			}
-			log.Printf("Successfully sent SIGKILL to PID 1 in container %s of pod %s", container.Name, ptpPod.Name)
 			break
 		}
 	}
@@ -1477,97 +1568,4 @@ func getEventsFromLogs(logs string) []string {
 	}
 
 	return events
-}
-
-func getConsumerNodeAndPod(namespace string) (*corev1.Node, *corev1.Pod) {
-	// Ensure the consumer is running.
-	consumersList, err := ranhelper.GetConsumers(namespace)
-	if err != nil {
-		By("Failed to get consumer, redeploy the consumer")
-
-		consumersList, err = ranptphelper.DeployPtpConsumer()
-		Expect(err).NotTo(HaveOccurred())
-	}
-
-	consumerPod := &consumersList.Items[0]
-	// Get the node object where the consumer pod is running.
-	consumerNode, err := ranhelper.GetNodeByName(consumerPod.Spec.NodeName)
-	Expect(err).NotTo(HaveOccurred())
-
-	return consumerNode, consumerPod
-}
-
-// Verify events are being received the cloud-event-consumer.
-func verifyConsumerEvents(consumerNode *corev1.Node, consumerPod *corev1.Pod) {
-	// ptp-event-publisher-service is added in 4.12
-	if ranhelper.IsVersionStringInRange(ranptpparameters.PtpVersion, "4.12", "") {
-		// Validate the ptp-event-publisher-service is running in the required namespace.
-		nodeName := strings.Split(consumerNode.Name, ".")[0]
-		validatePublisherService(nodeName)
-	}
-
-	// Get the ptp daemon pod that runs on the same node as the consumer.
-	ptpDaemonPods, err := getPtpDaemonPods(consumerNode.Name)
-	Expect(err).NotTo(HaveOccurred())
-
-	// Ensure the consumer is ready for events.
-	err = ranptphelper.WaitForConsumerReady(consumerPod)
-	Expect(err).NotTo(HaveOccurred())
-
-	verifyEventsAndMetricsModifyThresholds(&ptpDaemonPods.Items[0], consumerPod,
-		ranptpparameters.ConsumerContainer, 10*time.Minute, false)
-}
-
-// Changes, verifies & waits new PTP configuration for E810 plugin settings.
-func changePtpConfigPluginE810Settings(
-	ptpDaemonPod *corev1.Pod, ptpConfig *ptpv1.PtpConfig,
-	ptpProfileIndex int, iface string,
-	desiredSettings ranptpparameters.E810PluginSettings,
-	timeout time.Duration) {
-	// Get current currentSettings
-	currentSettings, err := ranptphelper.GetPtpConfigProfilePluginE810Settings(ptpConfig, ptpProfileIndex)
-	Expect(err).NotTo(HaveOccurred())
-
-	log.Printf("Current PTP plugin settings: MaxInSpecOffset: %d, LocalHoldoverTimeout: %d, LocalMaxHoldoverOffset: %d",
-		currentSettings.MaxInSpecOffset, currentSettings.LocalHoldoverTimeout, currentSettings.LocalMaxHoldoverOffset)
-
-	// Set the settings only if the initial settings are different
-	if desiredSettings != *currentSettings {
-		By("Set test case PTP profile settings")
-		err = ranptphelper.SetPtpConfigProfilePluginE810Settings(ptpConfig, ptpProfileIndex, desiredSettings)
-		Expect(err).NotTo(HaveOccurred())
-
-		setSettingsTime := time.Now()
-
-		log.Printf("New PTP plugin settings: MaxInSpecOffset: %d, LocalHoldoverTimeout: %d, LocalMaxHoldoverOffset: %d",
-			desiredSettings.MaxInSpecOffset, desiredSettings.LocalHoldoverTimeout, desiredSettings.LocalMaxHoldoverOffset)
-
-		By("Wait for GNSS SYNCHRONIZED event")
-		err = ranptphelper.WaitForEvent(ptpDaemonPod, ranptpparameters.CloudEventContainer,
-			ranptpparameters.EventTypeGnssStateChange, ranptpparameters.EventGnssSync,
-			iface, "/master", setSettingsTime, timeout)
-		Expect(err).NotTo(HaveOccurred())
-
-		By("Wait for clock state locked event")
-		err = ranptphelper.WaitForEvent(ptpDaemonPod, ranptpparameters.CloudEventContainer,
-			ranptpparameters.EventTypePtpStateChange, ranptpparameters.EventLocked,
-			iface, "/master", setSettingsTime, timeout)
-		Expect(err).NotTo(HaveOccurred())
-
-		By("Wait for clock class 6 event")
-		err = ranptphelper.WaitForEvent(ptpDaemonPod, ranptpparameters.CloudEventContainer,
-			ranptpparameters.EventTypeClockClassChange, "6",
-			iface, "/master", setSettingsTime, timeout)
-		Expect(err).NotTo(HaveOccurred())
-
-		By("checking the clock state metrics is in available state")
-		err = ranptphelper.WaitForMetricValueStatus(*ptpDaemonPod, ranptpparameters.OpenshiftPtpClockState,
-			ranptpparameters.Available, time.Since(setSettingsTime), timeout)
-		Expect(err).NotTo(HaveOccurred())
-
-		By("verify clock class value is 6 in metrics")
-		err = ranptphelper.WaitForMetricValueStatus(*ptpDaemonPod, ranptpparameters.OpenshiftPtpClockClass,
-			6, 1*time.Minute, 10*time.Second)
-		Expect(err).NotTo(HaveOccurred())
-	}
 }
