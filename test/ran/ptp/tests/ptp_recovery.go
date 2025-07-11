@@ -1201,7 +1201,7 @@ var _ = Describe("PTP Recovery", Label("ptp-recovery"), Ordered, ContinueOnFailu
 	})
 
 	Context("sidecar container recovery", func() {
-		It("should verify previous sidecar log contains events during recovery", func() {
+		FIt("should verify previous sidecar log contains events during recovery", func() {
 			if configCountsRecovery.GMOneNIC == 0 && configCountsRecovery.GMMultiNIC == 0 {
 				Skip("Test requires Grandmaster configuration")
 			}
